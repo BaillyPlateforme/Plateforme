@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { checkBrevo, sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
 import { getSettings } from "@/lib/settings";
-import type { Channel } from "@/lib/messaging";
+import type { Channel, RuleKind } from "@/lib/messaging";
 
 export interface AlertInput {
   name: string;
+  kind: RuleKind;
   event: string;
   montant_min: number | null;
   channel: Channel;
@@ -36,7 +37,7 @@ export async function testBrevo() {
 }
 
 // Envoi de test manuel (email ou SMS) vers une adresse/numéro.
-export async function sendTest(channel: Channel, to: string, message: string) {
+export async function sendTest(channel: Channel, to: string, message: string, subject?: string) {
   const settings = await getSettings();
   try {
     if (channel === "sms") {
@@ -44,7 +45,7 @@ export async function sendTest(channel: Channel, to: string, message: string) {
     } else {
       await sendBrevoEmail({
         to,
-        subject: "Test — Bailly Déménagement",
+        subject: subject || "Test — Bailly Déménagement",
         html: (message || "Ceci est un email de test.").replace(/\n/g, "<br>"),
         senderName: settings.entreprise_nom,
         senderEmail: settings.entreprise_email,

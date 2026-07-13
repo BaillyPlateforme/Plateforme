@@ -19,7 +19,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "Outils",
     items: [
-      { href: "/dashboard/emails", label: "Emails", icon: <IconMail /> },
+      { href: "/dashboard/messagerie", label: "Messagerie", icon: <IconMail /> },
       { href: "/dashboard/playground", label: "Playground", icon: <IconSparkle /> },
     ],
   },

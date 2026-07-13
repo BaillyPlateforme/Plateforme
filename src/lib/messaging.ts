@@ -14,9 +14,12 @@ export interface MessageTemplate {
   updated_at: string;
 }
 
+export type RuleKind = "workflow" | "alerte";
+
 export interface AlertRow {
   id: string;
   name: string;
+  kind: RuleKind;
   event: string;
   montant_min: number | null;
   channel: Channel;
