@@ -1,0 +1,95 @@
+{
+  "name": "Bailly — Mails entrants → Demandes",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "format": "resolved",
+        "options": {}
+      },
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Email Trigger (IMAP)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const email = $input.item.json;\n\n// Expéditeur (le format varie selon la version : on couvre les cas courants)\nconst from = email.from || {};\nconst address =\n  (from.value && from.value[0] && from.value[0].address) ||\n  from.address ||\n  (typeof from === \"string\" ? from : \"\") ||\n  email.fromEmail ||\n  \"\";\nconst name =\n  (from.value && from.value[0] && from.value[0].name) ||\n  from.name ||\n  \"\";\n\n// Corps du message (texte brut de préférence)\nconst corps =\n  email.textPlain ||\n  email.text ||\n  (email.textHtml ? String(email.textHtml).replace(/<[^>]+>/g, \" \") : \"\") ||\n  \"\";\nconst sujet = email.subject || \"\";\n\n// Extraction naïve du volume s'il est mentionné (ex : \"25 m3\", \"25m³\")\nconst vmatch = corps.match(/(\\d+[.,]?\\d*)\\s?(m3|m³|metres? cubes?|mètres? cubes?)/i);\nconst volume_m3 = vmatch ? parseFloat(vmatch[1].replace(\",\", \".\")) : null;\n\nreturn {\n  json: {\n    client_email: address || undefined,\n    client_nom: name || undefined,\n    sujet: sujet,\n    corps: corps,\n    volume_m3: volume_m3,\n  },\n};"
+      },
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Préparer le payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://REMPLACER-PAR-URL-RAILWAY/api/emails-entrants",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": "Envoyer à la plateforme",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Préparer le payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Préparer le payload": {
+      "main": [
+        [
+          {
+            "node": "Envoyer à la plateforme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "bailly-plateforme"
+  }
+}

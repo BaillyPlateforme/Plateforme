@@ -10,6 +10,22 @@ Flux : **Email (IMAP) → Code (préparer le payload) → HTTP Request (POST ver
 
 ---
 
+## Raccourci : importer le workflow tout fait
+
+Un workflow prêt à importer est fourni : **[`docs/n8n-bailly-workflow.json`](./n8n-bailly-workflow.json)**.
+
+1. Dans n8n : **⋮ (menu haut-droite) → Import from File** → choisir ce fichier
+   (ou **Import from URL/Clipboard** en collant son contenu).
+2. Ouvrir le node **« Email Trigger (IMAP) »** → créer/associer la **credential IMAP**.
+3. Ouvrir le node **« Envoyer à la plateforme »** → remplacer dans l'URL
+   `REMPLACER-PAR-URL-RAILWAY` par le domaine réel.
+4. **Save** puis **Active**.
+
+Les sections ci-dessous détaillent chaque node (utile si tu préfères le construire à la main
+ou vérifier les réglages après import).
+
+---
+
 ## 0. Prérequis
 
 - Un accès à l'instance **n8n**.
