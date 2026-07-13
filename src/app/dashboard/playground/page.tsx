@@ -1,6 +1,6 @@
 import { listGrids } from "@/lib/grids";
 import { listLibraryPhotos } from "@/lib/library";
-import PlaygroundClient from "./PlaygroundClient";
+import PlaygroundShell from "./PlaygroundShell";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +12,13 @@ export default async function PlaygroundPage() {
   return (
     <div className="px-6 py-8 md:px-10">
       <header className="mb-8">
-        <h1 className="font-serif text-3xl">Playground</h1>
+        <div className="eyebrow text-ink-soft">Outils</div>
+        <h1 className="mt-1 font-serif text-4xl">Playground &amp; Lab</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Sélectionnez des photos dans la base, l&apos;IA les analyse et génère un devis de test.
+          Testez l&apos;analyse d&apos;image et la chaîne complète (mails → demandes) de bout en bout.
         </p>
       </header>
-      <PlaygroundClient grids={grids} library={library} />
+      <PlaygroundShell grids={grids} library={library} />
     </div>
   );
 }
