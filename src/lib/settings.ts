@@ -11,6 +11,7 @@ const DEFAULTS: SettingsRow = {
   siret: null,
   signature_email: null,
   n8n_webhook_url: null,
+  sms_sender: "Bailly",
   devis_validite_jours: 30,
   updated_at: new Date().toISOString(),
 };

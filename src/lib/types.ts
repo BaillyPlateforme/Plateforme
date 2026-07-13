@@ -176,6 +176,7 @@ export interface SettingsRow {
   siret: string | null;
   signature_email: string | null;
   n8n_webhook_url: string | null;
+  sms_sender: string | null;
   devis_validite_jours: number;
   updated_at: string;
 }

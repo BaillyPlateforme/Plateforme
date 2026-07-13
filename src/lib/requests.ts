@@ -1,5 +1,6 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
+import { fireEvent } from "@/lib/alerts";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
 
@@ -113,6 +114,16 @@ export async function createRequest(
     request_id: created.id,
     type: "created",
     payload: { source },
+  });
+
+  await fireEvent("demande_recue", {
+    client_nom: created.client_nom,
+    client_email: created.client_email,
+    client_tel: created.client_tel,
+    ville_depart: created.depart_ville,
+    ville_arrivee: created.arrivee_ville,
+    volume: created.volume_m3,
+    date: created.date_souhaitee,
   });
 
   return created;

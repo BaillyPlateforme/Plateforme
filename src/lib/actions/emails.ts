@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
+import { sendBrevoEmail } from "@/lib/brevo";
 
 export interface EmailInput {
   destinataire: string;
@@ -11,8 +12,7 @@ export interface EmailInput {
   template?: string | null;
 }
 
-// Envoie un email. Si un webhook n8n est configuré, il est appelé pour la
-// livraison réelle ; sinon l'email est journalisé (statut "envoye").
+// Envoie un email via Brevo et le journalise.
 export async function sendEmail(input: EmailInput) {
   const supabase = createServiceClient();
   const settings = await getSettings();
@@ -20,27 +20,17 @@ export async function sendEmail(input: EmailInput) {
   let status: "envoye" | "echec" = "envoye";
   let erreur: string | null = null;
 
-  if (settings.n8n_webhook_url) {
-    try {
-      const res = await fetch(settings.n8n_webhook_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: input.destinataire,
-          subject: input.sujet,
-          body: input.corps,
-          from_name: settings.entreprise_nom,
-          from_email: settings.entreprise_email,
-        }),
-      });
-      if (!res.ok) {
-        status = "echec";
-        erreur = `Webhook n8n : HTTP ${res.status}`;
-      }
-    } catch (e) {
-      status = "echec";
-      erreur = e instanceof Error ? e.message : "Échec d'appel du webhook";
-    }
+  try {
+    await sendBrevoEmail({
+      to: input.destinataire,
+      subject: input.sujet,
+      html: input.corps.replace(/\n/g, "<br>"),
+      senderName: settings.entreprise_nom,
+      senderEmail: settings.entreprise_email,
+    });
+  } catch (e) {
+    status = "echec";
+    erreur = e instanceof Error ? e.message : "Échec d'envoi";
   }
 
   await supabase.from("emails").insert({
