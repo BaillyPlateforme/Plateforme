@@ -12,6 +12,9 @@ export const adresseSchema = z.object({
   etage: z.number().int().min(0).optional(),
   ascenseur: z.boolean().optional(),
   type_logement: z.string().optional(),
+  surface: z.number().min(0).optional(),
+  stationnement: z.boolean().optional(),
+  acces_difficile: z.boolean().optional(),
 });
 
 export const servicesSchema = z.object({
@@ -69,6 +72,16 @@ export const createRequestSchema = z.object({
   distance_km: z.number().min(0).optional(),
   services: servicesSchema.optional(),
   volume: volumeSchema.optional(),
+
+  // Champs enrichis (stockés dans raw_payload)
+  type_client: z.enum(["particulier", "entreprise"]).optional(),
+  societe: z.string().optional(),
+  mutation_pro: z.boolean().optional(),
+  valeur_mobilier: z.string().optional(),
+  assurance: z.enum(["standard", "luxe"]).optional(),
+  articles_lourds: z.boolean().optional(),
+  commentaire: z.string().optional(),
+  prestations: z.record(z.string(), z.string()).optional(),
 });
 
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;
