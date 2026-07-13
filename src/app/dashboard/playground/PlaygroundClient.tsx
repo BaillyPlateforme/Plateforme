@@ -23,11 +23,51 @@ const SERVICE_KEYS: { key: keyof RequestRow["services"]; label: string }[] = [
   { key: "garde_meuble", label: "Garde-meuble" },
 ];
 
-export default function PlaygroundClient({ grids }: { grids: PricingGridRow[] }) {
+type LibraryPhoto = { path: string; url: string };
+
+export default function PlaygroundClient({
+  grids,
+  library,
+}: {
+  grids: PricingGridRow[];
+  library: LibraryPhoto[];
+}) {
   const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggleSelect(path: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  async function analyzeSelection() {
+    const paths = library.filter((p) => selected.has(p.path));
+    if (paths.length === 0) return;
+    setAnalyzing(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/analyze-volume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paths: paths.map((p) => p.path) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
+      setPhotos((prev) => [...prev, ...data.photos]);
+      setSelected(new Set());
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Erreur");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   // Paramètres du chantier fictif
   const [gridId, setGridId] = useState(grids.find((g) => g.is_default)?.id ?? grids[0]?.id);
@@ -101,10 +141,61 @@ export default function PlaygroundClient({ grids }: { grids: PricingGridRow[] })
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* Colonne gauche : photos */}
       <div className="space-y-5">
-        <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-8 text-center transition hover:border-ink">
+        {/* Galerie : base de ~30 photos, sélectionnables */}
+        {library.length > 0 && (
+          <div className="rounded-xl border border-line bg-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+                Base de photos · {library.length}
+              </h3>
+              <div className="flex items-center gap-2">
+                {selected.size > 0 && (
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="text-xs text-ink-soft transition hover:text-ink"
+                  >
+                    Désélectionner
+                  </button>
+                )}
+                <button
+                  onClick={analyzeSelection}
+                  disabled={selected.size === 0 || analyzing}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
+                >
+                  {analyzing ? "Analyse…" : `Analyser la sélection (${selected.size})`}
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+              {library.map((p) => {
+                const on = selected.has(p.path);
+                return (
+                  <button
+                    key={p.path}
+                    onClick={() => toggleSelect(p.path)}
+                    className={`group relative aspect-square overflow-hidden rounded-lg border-2 transition ${
+                      on ? "border-ink" : "border-transparent hover:border-line-strong"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt="" className="h-full w-full object-cover" />
+                    <span
+                      className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs transition ${
+                        on ? "bg-ink text-white" : "bg-white/70 text-transparent group-hover:text-ink-soft"
+                      }`}
+                    >
+                      ✓
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-6 text-center transition hover:border-ink">
           <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-          <div className="font-serif text-lg">Base de photos</div>
-          <div className="mt-1 text-sm text-ink-soft">Ajoutez plusieurs pièces à analyser.</div>
+          <div className="text-sm font-medium">…ou importez vos propres photos</div>
         </label>
 
         {previews.length > 0 && (

@@ -19,4 +19,5 @@ export const env = {
   geminiApiKey: () => required("GEMINI_API_KEY"),
   geminiModel: () => process.env.GEMINI_MODEL ?? "gemini-3.1-pro-preview",
   storageBucket: () => process.env.SUPABASE_STORAGE_BUCKET ?? "request-photos",
+  libraryBucket: () => process.env.SUPABASE_LIBRARY_BUCKET ?? "playground-photos",
 };

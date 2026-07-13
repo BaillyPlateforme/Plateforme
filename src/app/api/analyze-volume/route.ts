@@ -11,10 +11,56 @@ export const maxDuration = 120;
 const MAX_PHOTOS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
 
-// POST /api/analyze-volume  (multipart/form-data, champ "photos")
-// Upload chaque photo dans le Storage + analyse IA, en parallèle.
-// Retourne les photos analysées (à réinjecter dans le submit final du form).
+type ResultPhoto = AnalyzedPhotoInput & { previewUrl?: string };
+
+// POST /api/analyze-volume
+// - multipart/form-data (champ "photos") : upload + analyse (formulaire)
+// - application/json { paths: string[] } : analyse depuis la base playground
 export async function POST(req: Request) {
+  const ct = req.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return analyzeLibrary(req);
+  return analyzeUpload(req);
+}
+
+// Analyse des photos de la bibliothèque (bucket playground-photos), par chemin.
+async function analyzeLibrary(req: Request) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
+  }
+  const paths =
+    body && typeof body === "object" && Array.isArray((body as { paths?: unknown }).paths)
+      ? ((body as { paths: unknown[] }).paths.filter((p) => typeof p === "string") as string[])
+      : [];
+
+  if (paths.length === 0) {
+    return NextResponse.json({ error: "Aucune photo sélectionnée" }, { status: 422 });
+  }
+  if (paths.length > MAX_PHOTOS) {
+    return NextResponse.json({ error: `Maximum ${MAX_PHOTOS} photos` }, { status: 422 });
+  }
+
+  const supabase = createServiceClient();
+  const bucket = env.libraryBucket();
+
+  const results = await Promise.allSettled(
+    paths.map(async (path): Promise<ResultPhoto> => {
+      const { data, error } = await supabase.storage.from(bucket).download(path);
+      if (error || !data) throw new Error(`Téléchargement échoué : ${path}`);
+      const bytes = Buffer.from(await data.arrayBuffer());
+      const analysis = await analyzePhoto(bytes.toString("base64"), data.type || "image/jpeg");
+      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
+      return { ...analysis, storage_path: path, previewUrl: pub.publicUrl };
+    }),
+  );
+
+  return collect(results);
+}
+
+// Analyse d'un upload multipart (formulaire client).
+async function analyzeUpload(req: Request) {
   let form: FormData;
   try {
     form = await req.formData();
@@ -38,7 +84,7 @@ export async function POST(req: Request) {
   const sessionId = randomUUID(); // dossier de staging, relié à la demande au submit
 
   const results = await Promise.allSettled(
-    files.map(async (file, i): Promise<AnalyzedPhotoInput> => {
+    files.map(async (file, i): Promise<ResultPhoto> => {
       if (file.size > MAX_BYTES) throw new Error(`${file.name} dépasse 15 Mo`);
 
       const bytes = Buffer.from(await file.arrayBuffer());
@@ -58,7 +104,12 @@ export async function POST(req: Request) {
     }),
   );
 
-  const photos: AnalyzedPhotoInput[] = [];
+  return collect(results);
+}
+
+// Agrège les résultats d'analyse (fulfilled/rejected) en réponse JSON.
+function collect(results: PromiseSettledResult<ResultPhoto>[]) {
+  const photos: ResultPhoto[] = [];
   const errors: string[] = [];
   results.forEach((r) => {
     if (r.status === "fulfilled") photos.push(r.value);
@@ -66,10 +117,7 @@ export async function POST(req: Request) {
   });
 
   if (photos.length === 0) {
-    return NextResponse.json(
-      { error: "Analyse impossible", details: errors },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: "Analyse impossible", details: errors }, { status: 502 });
   }
 
   const total_volume_m3 =
