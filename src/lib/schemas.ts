@@ -82,6 +82,7 @@ export const createRequestSchema = z.object({
   articles_lourds: z.boolean().optional(),
   commentaire: z.string().optional(),
   prestations: z.record(z.string(), z.string()).optional(),
+  details: z.record(z.string(), z.any()).optional(),
 });
 
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;

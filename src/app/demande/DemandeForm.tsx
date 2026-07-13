@@ -2,106 +2,130 @@
 
 import { useMemo, useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
-import { Field, TextInput, Toggle } from "./ui";
+import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import ModeSwitch from "@/components/ModeSwitch";
 
 /* ============================ Types ============================ */
 
-type Formule = "eco" | "standard" | "luxe";
-type Presta = "moi" | "bailly";
+type YN = "oui" | "non" | "";
+type Presta = "moi" | "bailly" | "";
+type Demontage = "possible" | "imperatif" | "";
 type VolumeMode = "explicit" | "list" | "ai";
 type ListItem = { label: string; quantite: number; volume_unitaire_m3: number };
 
 type Address = {
-  type_logement: string;
   adresse: string;
-  code_postal: string;
+  complement: string;
   ville: string;
+  region: string;
+  code_postal: string;
+  pays: string;
   etage: string;
-  ascenseur: boolean;
+  duplex: YN;
+  ascenseur: YN;
+  taille_ascenseur: string;
+  passage_ascenseur: YN;
+  passage_escalier: YN;
   surface: string;
-  stationnement: boolean;
-  acces_difficile: boolean;
+  difficulte_acces: YN;
+  type_difficulte: string;
+  stationnement: YN;
 };
 
 type FormState = {
+  // Étape 1
   type_client: "particulier" | "entreprise";
   prenom: string;
   nom: string;
-  email: string;
   tel: string;
+  email: string;
+  valeur_mobilier: string;
+  assurance: "standard" | "luxe" | "";
+  mutation_pro: YN;
   societe: string;
-  mutation_pro: boolean;
+  demenagement: "complet" | "partiel" | "";
+  articles_lourds: YN;
+  periode: string;
+  // Étapes 2/3
   depart: Address;
   arrivee: Address;
-  prestations: { emballageFragile: Presta; emballageNonFragile: Presta; demontage: Presta; transportSeul: Presta };
-  formule: Formule;
+  // Étape 4
+  prestations: { fragile: Presta; embNonFragile: Presta; debNonFragile: Presta; demontage: Presta; transport: Presta };
+  // Étape 5
+  emballage: {
+    ikea: Demontage; ikeaPrecision: string;
+    anciens: Demontage; anciensPrecision: string;
+    specifiques: Demontage; specifiquesPrecision: string;
+  };
+  // Étape 6
   volumeMode: VolumeMode;
   explicitVolume: string;
   items: ListItem[];
   photos: AnalyzedPhoto[];
-  date_souhaitee: string;
-  flexibilite: string;
-  valeur_mobilier: string;
-  assurance: "standard" | "luxe";
-  articles_lourds: boolean;
+  // Étape 7
   commentaire: string;
 };
 
 /* ============================ Constantes ============================ */
 
-const STEPS = ["Vous", "Départ", "Arrivée", "Prestations", "Volume", "Détails", "Récapitulatif"] as const;
+const STEPS = ["Vous", "Départ", "Arrivée", "Prestations", "Emballage", "Inventaire", "Commentaires"] as const;
 
 const HEADERS: { eyebrow: string; title: string; sub: string }[] = [
-  { eyebrow: "Faisons connaissance", title: "Parlez-nous de vous", sub: "Pour vous accompagner et vous recontacter." },
-  { eyebrow: "Point de départ", title: "D'où partez-vous ?", sub: "L'adresse et les conditions d'accès actuelles." },
-  { eyebrow: "Destination", title: "Où allez-vous ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
+  { eyebrow: "Informations personnelles", title: "Parlez-nous de vous", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
+  { eyebrow: "Adresse de départ", title: "D'où partez-vous ?", sub: "L'adresse et les conditions d'accès actuelles." },
+  { eyebrow: "Adresse d'arrivée", title: "Où allez-vous ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
   { eyebrow: "Prestations", title: "Que devons-nous prendre en charge ?", sub: "Vous choisissez, nous nous occupons du reste." },
-  { eyebrow: "Volume", title: "Quel volume à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
-  { eyebrow: "Derniers détails", title: "Affinons votre projet", sub: "Date, valeur, assurance et précisions." },
-  { eyebrow: "Presque terminé", title: "Vérifiez et envoyez", sub: "Un dernier coup d'œil avant l'envoi à nos experts." },
+  { eyebrow: "Prestation d'emballage", title: "Vos meubles à démonter", sub: "Pour préparer au mieux le démontage et le remontage." },
+  { eyebrow: "Inventaire", title: "Quel volume à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
+  { eyebrow: "Commentaires", title: "Un dernier mot ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
 ];
 
 const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
-
-const FORMULES: { key: Formule; titre: string; desc: string }[] = [
-  { key: "eco", titre: "Éco", desc: "Vous emballez, on transporte." },
-  { key: "standard", titre: "Standard", desc: "Fragile emballé + transport." },
-  { key: "luxe", titre: "Confort", desc: "Tout pris en charge, clé en main." },
-];
-
-const PRESTATIONS: { key: keyof FormState["prestations"]; label: string; hint: string }[] = [
-  { key: "emballageFragile", label: "Emballage des objets fragiles", hint: "Vaisselle, verrerie, décorations…" },
-  { key: "emballageNonFragile", label: "Emballage non fragile", hint: "Livres, linge, vêtements…" },
-  { key: "demontage", label: "Démontage / remontage du mobilier", hint: "Lits, armoires, meubles en kit…" },
-  { key: "transportSeul", label: "Transport des meubles uniquement", hint: "Vous gérez tout le reste." },
-];
-
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
+const ASSURANCES: [string, string][] = [
+  ["standard", "Garantie STANDARD — avec franchise, à valeur de vétusté"],
+  ["luxe", "Garantie LUXE — sans franchise, à valeur de remplacement"],
+];
+const PRESTATIONS: { key: keyof FormState["prestations"]; label: string }[] = [
+  { key: "fragile", label: "Emballage et déballage du fragile" },
+  { key: "embNonFragile", label: "Emballage du non fragile" },
+  { key: "debNonFragile", label: "Déballage du non fragile" },
+  { key: "demontage", label: "Démontage et remontage du mobilier" },
+  { key: "transport", label: "Transport de meubles uniquement" },
+];
+const PAYS = [
+  "France", "Belgique", "Suisse", "Luxembourg", "Allemagne", "Espagne", "Italie", "Portugal",
+  "Royaume-Uni", "Pays-Bas", "Irlande", "Autriche", "Danemark", "Suède", "Norvège", "Pologne",
+  "Maroc", "Tunisie", "Algérie", "États-Unis", "Canada", "Australie", "Autre",
+];
 
 const emptyAddress: Address = {
-  type_logement: "", adresse: "", code_postal: "", ville: "", etage: "",
-  ascenseur: false, surface: "", stationnement: false, acces_difficile: false,
+  adresse: "", complement: "", ville: "", region: "", code_postal: "", pays: "France",
+  etage: "", duplex: "", ascenseur: "", taille_ascenseur: "", passage_ascenseur: "",
+  passage_escalier: "", surface: "", difficulte_acces: "", type_difficulte: "", stationnement: "",
 };
 
 const initial: FormState = {
-  type_client: "particulier", prenom: "", nom: "", email: "", tel: "", societe: "", mutation_pro: false,
+  type_client: "particulier", prenom: "", nom: "", tel: "", email: "",
+  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", periode: "",
   depart: { ...emptyAddress }, arrivee: { ...emptyAddress },
-  prestations: { emballageFragile: "bailly", emballageNonFragile: "moi", demontage: "bailly", transportSeul: "moi" },
-  formule: "standard",
+  prestations: { fragile: "", embNonFragile: "", debNonFragile: "", demontage: "", transport: "" },
+  emballage: { ikea: "", ikeaPrecision: "", anciens: "", anciensPrecision: "", specifiques: "", specifiquesPrecision: "" },
   volumeMode: "explicit", explicitVolume: "", items: [], photos: [],
-  date_souhaitee: "", flexibilite: "", valeur_mobilier: "", assurance: "standard", articles_lourds: false, commentaire: "",
+  commentaire: "",
 };
 
 const DEMO: FormState = {
   ...initial,
-  prenom: "Camille", nom: "Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78",
-  depart: { ...emptyAddress, type_logement: "T3", adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65" },
-  arrivee: { ...emptyAddress, type_logement: "T3", adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", ascenseur: true, surface: "70" },
-  formule: "standard", volumeMode: "explicit", explicitVolume: "30",
-  date_souhaitee: "", flexibilite: "± 1 semaine", valeur_mobilier: "10 000 – 30 000 €", assurance: "standard",
+  prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
+  valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
+  articles_lourds: "non", periode: "",
+  depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui" },
+  arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
+  prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
+  volumeMode: "explicit", explicitVolume: "30",
 };
 
 /* ============================ Composant principal ============================ */
@@ -116,14 +140,8 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
   const totalVolume = useMemo(() => computeVolume(form), [form]);
   const heroUrl = library[0]?.url;
 
-  function patch(p: Partial<FormState>) {
-    setForm((f) => ({ ...f, ...p }));
-  }
-  function fillDemo() {
-    setForm(DEMO);
-    setStep(STEPS.length - 1);
-  }
-
+  const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
+  function fillDemo() { setForm(DEMO); setStep(STEPS.length - 1); }
   const canNext = validateStep(step, form);
 
   async function submit() {
@@ -131,61 +149,48 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
     setError(null);
     try {
       const res = await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload(form)),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload(form)),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
       setDone(data.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   }
 
   if (done) return <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} />;
-
   const progress = ((step + 1) / STEPS.length) * 100;
 
   return (
     <>
       <ModeSwitch current="form" />
-      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(360px,440px)_1fr]">
-        {/* ---------- Panneau visuel ---------- */}
+      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
+        {/* Panneau visuel */}
         <aside className="relative hidden overflow-hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between bg-ink text-paper">
           {heroUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/60 to-ink/90" />
-
-          <div className="relative z-10 p-10">
+          <div className="relative z-10 p-9">
             <div className="font-serif text-3xl font-semibold">Bailly</div>
             <div className="eyebrow mt-1 text-paper/60">Déménagement</div>
-            <p className="mt-8 max-w-xs font-serif text-2xl leading-snug text-paper/95">
+            <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-paper/95">
               Une question, un projet ? Nous vous accompagnons à chaque étape.
             </p>
           </div>
-
-          <div className="relative z-10 px-10">
-            <ol className="space-y-1">
+          <div className="relative z-10 px-9">
+            <ol className="space-y-0.5">
               {STEPS.map((label, i) => {
                 const state = i === step ? "active" : i < step ? "done" : "todo";
                 return (
                   <li key={label}>
-                    <button
-                      type="button"
-                      onClick={() => i < step && setStep(i)}
-                      disabled={i > step}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
-                        state === "active" ? "bg-paper/10 font-medium text-paper" : state === "done" ? "text-paper/80 hover:bg-paper/5" : "text-paper/40"
-                      }`}
-                    >
+                    <button type="button" onClick={() => i < step && setStep(i)} disabled={i > step}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${
+                        state === "active" ? "bg-paper/10 font-medium text-paper" : state === "done" ? "text-paper/80 hover:bg-paper/5" : "text-paper/40"}`}>
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
-                        state === "active" ? "bg-paper text-ink" : state === "done" ? "bg-paper/20 text-paper" : "border border-paper/25 text-paper/40"
-                      }`}>
+                        state === "active" ? "bg-paper text-ink" : state === "done" ? "bg-paper/20 text-paper" : "border border-paper/25 text-paper/40"}`}>
                         {state === "done" ? "✓" : i + 1}
                       </span>
                       {label}
@@ -195,45 +200,31 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
               })}
             </ol>
           </div>
-
-          <div className="relative z-10 p-10">
-            <div className="flex items-end justify-between border-t border-paper/15 pt-6">
-              <p className="max-w-[14rem] text-sm text-paper/70">
-                Échangez avec nos experts pour un accompagnement sur mesure.
-              </p>
+          <div className="relative z-10 p-9">
+            <div className="flex items-end justify-between border-t border-paper/15 pt-5">
+              <p className="max-w-[13rem] text-sm text-paper/70">Échangez avec nos experts pour un accompagnement sur mesure.</p>
               <div className="text-right">
                 <div className="eyebrow text-paper/50">Volume estimé</div>
-                <div className="font-serif text-3xl">
-                  {totalVolume ?? "—"}
-                  <span className="ml-1 text-base text-paper/60">m³</span>
-                </div>
+                <div className="font-serif text-3xl">{totalVolume ?? "—"}<span className="ml-1 text-base text-paper/60">m³</span></div>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* ---------- Contenu ---------- */}
+        {/* Contenu */}
         <main className="flex min-h-screen flex-col">
-          {/* barre de progression fine */}
           <div className="sticky top-0 z-20 h-1 w-full bg-line">
             <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
-
-          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-16">
-            {/* header mobile + express */}
+          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
             <div className="mb-8 flex items-start justify-between">
               <div>
-                <div className="eyebrow text-accent">
-                  Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}
-                </div>
+                <div className="eyebrow text-accent">Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}</div>
                 <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">{HEADERS[step].title}</h1>
                 <p className="mt-2 text-ink-soft">{HEADERS[step].sub}</p>
               </div>
-              <button
-                type="button"
-                onClick={fillDemo}
-                className="ml-4 hidden shrink-0 rounded-full border border-line-strong bg-card px-3.5 py-2 text-xs font-medium transition hover:border-ink sm:block"
-              >
+              <button type="button" onClick={fillDemo}
+                className="ml-4 hidden shrink-0 rounded-full border border-line-strong bg-card px-3.5 py-2 text-xs font-medium transition hover:border-ink sm:block">
                 ⚡ Devis express
               </button>
             </div>
@@ -243,44 +234,22 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
               {step === 1 && <AddressStep which="depart" form={form} patch={patch} />}
               {step === 2 && <AddressStep which="arrivee" form={form} patch={patch} />}
               {step === 3 && <PrestationsStep form={form} patch={patch} />}
-              {step === 4 && <VolumeStep form={form} patch={patch} library={library} />}
-              {step === 5 && <DetailsStep form={form} patch={patch} />}
-              {step === 6 && <RecapStep form={form} volume={totalVolume} />}
+              {step === 4 && <EmballageStep form={form} patch={patch} />}
+              {step === 5 && <VolumeStep form={form} patch={patch} library={library} />}
+              {step === 6 && <CommentairesStep form={form} patch={patch} volume={totalVolume} />}
             </div>
 
-            {error && (
-              <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">
-                {error}
-              </div>
-            )}
+            {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
 
             <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
-              <button
-                type="button"
-                onClick={() => setStep((s) => Math.max(0, s - 1))}
-                disabled={step === 0 || submitting}
-                className="rounded-lg px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink disabled:opacity-40"
-              >
-                ← Retour
-              </button>
+              <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || submitting}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink disabled:opacity-40">← Retour</button>
               {step < STEPS.length - 1 ? (
-                <button
-                  type="button"
-                  onClick={() => setStep((s) => s + 1)}
-                  disabled={!canNext}
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Enregistrer et continuer
-                </button>
+                <button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canNext}
+                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
               ) : (
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={submitting}
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
-                >
-                  {submitting ? "Envoi…" : "Envoyer ma demande"}
-                </button>
+                <button type="button" onClick={submit} disabled={submitting}
+                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
               )}
             </div>
           </div>
@@ -297,33 +266,43 @@ type StepProps = { form: FormState; patch: (p: Partial<FormState>) => void };
 function VousStep({ form, patch }: StepProps) {
   return (
     <div className="space-y-6">
-      <Segmented
-        options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]}
-        value={form.type_client}
-        onChange={(v) => patch({ type_client: v as FormState["type_client"] })}
-      />
+      <Field label="Vous êtes *">
+        <Choice options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
+      </Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Prénom">
-          <TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" />
-        </Field>
-        <Field label="Nom">
-          <TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" />
-        </Field>
+        <Field label="Prénom"><TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" /></Field>
+        <Field label="Nom"><TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" /></Field>
       </div>
-      <Field label="Email">
-        <TextInput type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="camille.durand@email.fr" />
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Téléphone *"><TextInput value={form.tel} onChange={(e) => patch({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
+        <Field label="E-mail *"><TextInput type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="camille.durand@email.fr" /></Field>
+      </div>
+      <Field label="Estimation de la valeur du mobilier" hint="facultatif">
+        <div className="flex flex-wrap gap-2">
+          {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
+        </div>
       </Field>
-      <Field label="Téléphone" hint="pour être rappelé(e)">
-        <TextInput value={form.tel} onChange={(e) => patch({ tel: e.target.value })} placeholder="06 12 34 56 78" />
+      <Field label="Assurance souhaitée *">
+        <div className="space-y-2">
+          {ASSURANCES.map(([v, l]) => (
+            <button key={v} type="button" onClick={() => patch({ assurance: v as FormState["assurance"] })}
+              className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}>{l}</button>
+          ))}
+        </div>
       </Field>
-      {form.type_client === "entreprise" && (
-        <Field label="Société">
-          <TextInput value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" />
-        </Field>
+      <Field label="S'agit-il d'une mutation professionnelle ? *">
+        <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
+      </Field>
+      {(form.type_client === "entreprise" || form.mutation_pro === "oui") && (
+        <Field label="De quelle société s'agit-il ?"><TextInput value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" /></Field>
       )}
-      <div className="pt-1">
-        <Toggle checked={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} label="Déménagement dans le cadre d'une mutation professionnelle" />
-      </div>
+      <Field label="Déménagement complet ou partiel ?">
+        <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
+      </Field>
+      <Field label="Avez-vous des articles de plus de 80 kg ?">
+        <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
+      </Field>
+      <Field label="Période souhaitée *"><TextInput type="date" value={form.periode} onChange={(e) => patch({ periode: e.target.value })} /></Field>
     </div>
   );
 }
@@ -333,45 +312,53 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
   return (
     <div className="space-y-6">
-      <Field label="Type de logement">
-        <div className="flex flex-wrap gap-2">
-          {TYPES_LOGEMENT.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => set({ type_logement: t })}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
-                a.type_logement === t ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card hover:border-accent"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Adresse">
+      <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`}>
         <TextInput value={a.adresse} onChange={(e) => set({ adresse: e.target.value })} placeholder="12 rue de la République" />
       </Field>
+      <Field label="Complément d'adresse" hint="facultatif">
+        <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />
+      </Field>
       <div className="grid grid-cols-[1fr_2fr] gap-4">
-        <Field label="Code postal">
-          <TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" />
-        </Field>
-        <Field label="Ville">
-          <TextInput value={a.ville} onChange={(e) => set({ ville: e.target.value })} placeholder="Paris" />
-        </Field>
+        <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" /></Field>
+        <Field label="Ville"><TextInput value={a.ville} onChange={(e) => set({ ville: e.target.value })} placeholder="Paris" /></Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Étage" hint="0 = RDC">
-          <TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" />
-        </Field>
-        <Field label="Surface" hint="m²">
-          <TextInput type="number" min={0} value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" />
+        <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
+        <Field label="Pays">
+          <select value={a.pays} onChange={(e) => set({ pays: e.target.value })} className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent">
+            {PAYS.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
         </Field>
       </div>
-      <div className="space-y-3 rounded-xl border border-line bg-card p-4">
-        <Toggle checked={a.ascenseur} onChange={(v) => set({ ascenseur: v })} label="Ascenseur" />
-        <Toggle checked={a.stationnement} onChange={(v) => set({ stationnement: v })} label="Stationnement possible devant le logement" />
-        <Toggle checked={a.acces_difficile} onChange={(v) => set({ acces_difficile: v })} label="Accès difficile pour un camion" />
+
+      <div className="rounded-xl border border-line bg-card p-4">
+        <div className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Accès au logement</div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Étage" hint="0 = RDC"><TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" /></Field>
+          <Field label="Surface habitable" hint="m²"><TextInput type="number" min={0} value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
+        </div>
+        <div className="mt-3 space-y-3">
+          <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
+          <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
+          {a.ascenseur === "oui" && (
+            <div className="grid grid-cols-1 gap-3 pl-1">
+              <Field label="Taille de l'ascenseur (nb de personnes)"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
+              <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
+            </div>
+          )}
+          <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-line bg-card p-4">
+        <div className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Accès camion</div>
+        <div className="space-y-3">
+          <FieldRow label="Difficultés d'accès en camion poids lourd ?"><YesNo value={a.difficulte_acces} onChange={(v) => set({ difficulte_acces: v })} /></FieldRow>
+          {a.difficulte_acces === "oui" && (
+            <Field label="Type de difficulté d'accès"><TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" /></Field>
+          )}
+          <FieldRow label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></FieldRow>
+        </div>
       </div>
     </div>
   );
@@ -379,92 +366,47 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
 
 function PrestationsStep({ form, patch }: StepProps) {
   return (
-    <div className="space-y-8">
-      <div>
-        <div className="mb-3 text-sm font-medium">Formule</div>
-        <div className="grid grid-cols-3 gap-2">
-          {FORMULES.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => patch({ formule: f.key })}
-              className={`rounded-xl border px-3 py-4 text-left transition ${
-                form.formule === f.key ? "border-accent bg-accent-soft/50 shadow-sm" : "border-line bg-card hover:border-line-strong"
-              }`}
-            >
-              <div className="font-serif text-lg leading-tight">{f.titre}</div>
-              <div className="mt-1 text-xs text-ink-soft">{f.desc}</div>
-            </button>
-          ))}
+    <div className="space-y-2.5">
+      {PRESTATIONS.map((p) => (
+        <div key={p.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
+          <div className="text-sm font-medium">{p.label}</div>
+          <Choice small options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]} value={form.prestations[p.key]} onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })} />
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="mb-1 text-sm font-medium">Qui s&apos;occupe de quoi ?</div>
-        {PRESTATIONS.map((p) => (
-          <div key={p.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
-            <div>
-              <div className="text-sm font-medium">{p.label}</div>
-              <div className="text-xs text-ink-soft">{p.hint}</div>
-            </div>
-            <Segmented
-              small
-              options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]}
-              value={form.prestations[p.key]}
-              onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })}
-            />
-          </div>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }
 
-function DetailsStep({ form, patch }: StepProps) {
+function EmballageStep({ form, patch }: StepProps) {
+  const e = form.emballage;
+  const rows: { key: keyof FormState["emballage"]; precKey: keyof FormState["emballage"]; label: string }[] = [
+    { key: "ikea", precKey: "ikeaPrecision", label: "Meubles type IKEA / CONFORAMA…" },
+    { key: "anciens", precKey: "anciensPrecision", label: "Meubles anciens" },
+    { key: "specifiques", precKey: "specifiquesPrecision", label: "Meubles spécifiques" },
+  ];
+  return (
+    <div className="space-y-4">
+      {rows.map((r) => (
+        <div key={r.key} className="rounded-xl border border-line bg-card p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-medium">{r.label}</div>
+            <Choice small options={[["possible", "Démontage possible"], ["imperatif", "Démontage impératif"]]} value={e[r.key] as string} onChange={(v) => patch({ emballage: { ...e, [r.key]: v as Demontage } })} />
+          </div>
+          <TextInput value={e[r.precKey] as string} onChange={(ev) => patch({ emballage: { ...e, [r.precKey]: ev.target.value } })} placeholder="Précisez (facultatif)" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CommentairesStep({ form, patch, volume }: StepProps & { volume: number | null }) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Période souhaitée">
-          <TextInput type="date" value={form.date_souhaitee} onChange={(e) => patch({ date_souhaitee: e.target.value })} />
-        </Field>
-        <Field label="Flexibilité" hint="facultatif">
-          <TextInput value={form.flexibilite} onChange={(e) => patch({ flexibilite: e.target.value })} placeholder="± 1 semaine" />
-        </Field>
-      </div>
-      <Field label="Valeur estimée du mobilier">
-        <div className="flex flex-wrap gap-2">
-          {VALEURS.map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => patch({ valeur_mobilier: v })}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
-                form.valeur_mobilier === v ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card hover:border-accent"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Assurance">
-        <Segmented
-          options={[["standard", "Standard (avec franchise)"], ["luxe", "Luxe (sans franchise)"]]}
-          value={form.assurance}
-          onChange={(v) => patch({ assurance: v as FormState["assurance"] })}
-        />
-      </Field>
-      <div className="rounded-xl border border-line bg-card p-4">
-        <Toggle checked={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} label="Objets lourds de plus de 80 kg (piano, coffre-fort…)" />
-      </div>
-      <Field label="Commentaire" hint="facultatif">
-        <textarea
-          value={form.commentaire}
-          onChange={(e) => patch({ commentaire: e.target.value })}
-          rows={4}
+      <RecapCard form={form} volume={volume} />
+      <Field label="Message" hint="facultatif">
+        <textarea value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
           className="w-full resize-none rounded-lg border border-line bg-card px-3.5 py-2.5 text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-          placeholder="Précisions, contraintes, objets particuliers…"
-        />
+          placeholder="Précisions, contraintes, objets particuliers…" />
       </Field>
     </div>
   );
@@ -478,14 +420,8 @@ function VolumeStep({ form, patch, library }: StepProps & { library: LibraryPhot
     <div>
       <div className="mb-6 grid grid-cols-3 gap-2">
         {([["explicit", "Je connais", "mon volume"], ["list", "Je liste", "mes meubles"], ["ai", "J'envoie", "des photos"]] as const).map(([m, a, b]) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => patch({ volumeMode: m })}
-            className={`rounded-xl border px-3 py-4 text-left transition ${
-              mode === m ? "border-accent bg-accent-soft/50 shadow-sm" : "border-line bg-card hover:border-line-strong"
-            }`}
-          >
+          <button key={m} type="button" onClick={() => patch({ volumeMode: m })}
+            className={`rounded-xl border px-3 py-4 text-left transition ${mode === m ? "border-accent bg-accent-soft/50 shadow-sm" : "border-line bg-card hover:border-line-strong"}`}>
             <div className="font-serif text-lg leading-tight">{a}</div>
             <div className="text-sm text-ink-soft">{b}</div>
           </button>
@@ -501,22 +437,11 @@ function VolumeStep({ form, patch, library }: StepProps & { library: LibraryPhot
 function ExplicitMode({ form, patch }: StepProps) {
   return (
     <div className="space-y-5">
-      <Field label="Volume estimé" hint="en m³">
-        <TextInput type="number" min={0} step="0.5" value={form.explicitVolume} onChange={(e) => patch({ explicitVolume: e.target.value })} placeholder="25" />
-      </Field>
+      <Field label="Volume estimé" hint="en m³"><TextInput type="number" min={0} step="0.5" value={form.explicitVolume} onChange={(e) => patch({ explicitVolume: e.target.value })} placeholder="25" /></Field>
       <div>
         <div className="mb-2 text-xs uppercase tracking-wide text-ink-soft">Repères par logement</div>
         <div className="flex flex-wrap gap-2">
-          {LOGEMENT_HINTS.map((h) => (
-            <button
-              key={h.label}
-              type="button"
-              onClick={() => patch({ explicitVolume: String(h.volume) })}
-              className="rounded-full border border-line bg-card px-3 py-1.5 text-sm transition hover:border-accent hover:text-accent"
-            >
-              {h.label} · ~{h.volume} m³
-            </button>
-          ))}
+          {LOGEMENT_HINTS.map((h) => <Pill key={h.label} active={false} onClick={() => patch({ explicitVolume: String(h.volume) })}>{h.label} · ~{h.volume} m³</Pill>)}
         </div>
       </div>
     </div>
@@ -527,90 +452,64 @@ function ListMode({ form, patch }: StepProps) {
   const items = form.items;
   const total = items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0);
   function addFromCatalog(label: string) {
-    const preset = CATALOG.find((c) => c.label === label);
-    if (!preset) return;
+    const preset = CATALOG.find((c) => c.label === label); if (!preset) return;
     const existing = items.findIndex((it) => it.label === label);
-    if (existing >= 0) {
-      const copy = [...items];
-      copy[existing] = { ...copy[existing], quantite: copy[existing].quantite + 1 };
-      patch({ items: copy });
-    } else {
-      patch({ items: [...items, { label, quantite: 1, volume_unitaire_m3: preset.volume }] });
-    }
+    if (existing >= 0) { const copy = [...items]; copy[existing] = { ...copy[existing], quantite: copy[existing].quantite + 1 }; patch({ items: copy }); }
+    else patch({ items: [...items, { label, quantite: 1, volume_unitaire_m3: preset.volume }] });
   }
-  function setQty(i: number, q: number) {
-    if (q <= 0) return patch({ items: items.filter((_, idx) => idx !== i) });
-    const copy = [...items];
-    copy[i] = { ...copy[i], quantite: q };
-    patch({ items: copy });
-  }
+  function setQty(i: number, q: number) { if (q <= 0) return patch({ items: items.filter((_, idx) => idx !== i) }); const copy = [...items]; copy[i] = { ...copy[i], quantite: q }; patch({ items: copy }); }
   const groupes = [...new Set(CATALOG.map((c) => c.groupe))];
   return (
     <div className="space-y-6">
-      <div>
-        <div className="mb-2 text-xs uppercase tracking-wide text-ink-soft">Ajouter un objet</div>
-        <div className="space-y-3">
-          {groupes.map((g) => (
-            <div key={g}>
-              <div className="mb-1.5 text-sm font-medium text-ink-soft">{g}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {CATALOG.filter((c) => c.groupe === g).map((c) => (
-                  <button key={c.label} type="button" onClick={() => addFromCatalog(c.label)} className="rounded-full border border-line bg-card px-2.5 py-1 text-xs transition hover:border-accent hover:text-accent">
-                    + {c.label}
-                  </button>
-                ))}
-              </div>
+      <div className="space-y-3">
+        {groupes.map((g) => (
+          <div key={g}>
+            <div className="mb-1.5 text-sm font-medium text-ink-soft">{g}</div>
+            <div className="flex flex-wrap gap-1.5">
+              {CATALOG.filter((c) => c.groupe === g).map((c) => (
+                <button key={c.label} type="button" onClick={() => addFromCatalog(c.label)} className="rounded-full border border-line bg-card px-2.5 py-1 text-xs transition hover:border-accent hover:text-accent">+ {c.label}</button>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
       {items.length > 0 && (
         <div className="rounded-xl border border-line bg-card">
           {items.map((it, i) => (
             <div key={it.label} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 last:border-0">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm text-ink">{it.label}</div>
-                <div className="text-xs text-ink-soft">{it.volume_unitaire_m3} m³/u</div>
-              </div>
+              <div className="min-w-0 flex-1"><div className="truncate text-sm">{it.label}</div><div className="text-xs text-ink-soft">{it.volume_unitaire_m3} m³/u</div></div>
               <div className="flex items-center gap-1.5">
-                <button type="button" onClick={() => setQty(i, it.quantite - 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent hover:text-accent">−</button>
+                <button type="button" onClick={() => setQty(i, it.quantite - 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent">−</button>
                 <span className="w-8 text-center text-sm tabular-nums">{it.quantite}</span>
-                <button type="button" onClick={() => setQty(i, it.quantite + 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent hover:text-accent">+</button>
+                <button type="button" onClick={() => setQty(i, it.quantite + 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent">+</button>
               </div>
-              <div className="w-16 text-right text-sm tabular-nums text-ink">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>
+              <div className="w-16 text-right text-sm tabular-nums">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>
             </div>
           ))}
-          <div className="flex items-center justify-between px-4 py-3 font-medium">
-            <span>Total</span>
-            <span className="tabular-nums">{total.toFixed(1)} m³</span>
-          </div>
+          <div className="flex items-center justify-between px-4 py-3 font-medium"><span>Total</span><span className="tabular-nums">{total.toFixed(1)} m³</span></div>
         </div>
       )}
     </div>
   );
 }
 
-/* ---------- Récapitulatif ---------- */
+/* ---------- Récap + succès ---------- */
 
-function RecapStep({ form, volume }: { form: FormState; volume: number | null }) {
-  const prestaTxt = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
+function RecapCard({ form, volume }: { form: FormState; volume: number | null }) {
+  const presta = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
   const rows: [string, string][] = [
     ["Client", `${[form.prenom, form.nom].filter(Boolean).join(" ")} · ${form.email}${form.tel ? " · " + form.tel : ""}`],
-    ["Type", form.type_client === "entreprise" ? `Entreprise${form.societe ? " · " + form.societe : ""}` : "Particulier"],
-    ["Départ", `${form.depart.adresse}, ${form.depart.code_postal} ${form.depart.ville} — étage ${form.depart.etage || "0"}${form.depart.ascenseur ? ", ascenseur" : ""}`],
-    ["Arrivée", `${form.arrivee.adresse}, ${form.arrivee.code_postal} ${form.arrivee.ville} — étage ${form.arrivee.etage || "0"}${form.arrivee.ascenseur ? ", ascenseur" : ""}`],
-    ["Formule", form.formule],
-    ["Pris en charge par Bailly", prestaTxt],
-    ["Date", form.date_souhaitee || "à définir"],
-    ["Assurance", form.assurance === "luxe" ? "Luxe (sans franchise)" : "Standard"],
-    ["Volume", volume != null ? `${volume} m³ (${labelMode(form.volumeMode)})` : "non renseigné"],
+    ["Départ", `${form.depart.adresse}, ${form.depart.code_postal} ${form.depart.ville}`],
+    ["Arrivée", `${form.arrivee.adresse}, ${form.arrivee.code_postal} ${form.arrivee.ville}`],
+    ["Prise en charge Bailly", presta],
+    ["Période", form.periode || "à définir"],
+    ["Volume", volume != null ? `${volume} m³` : "non renseigné"],
   ];
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-card">
       {rows.map(([k, v]) => (
-        <div key={k} className="grid grid-cols-[150px_1fr] gap-4 border-b border-line px-4 py-3 text-sm last:border-0">
-          <span className="text-ink-soft">{k}</span>
-          <span className="text-ink">{v}</span>
+        <div key={k} className="grid grid-cols-[150px_1fr] gap-4 border-b border-line px-4 py-2.5 text-sm last:border-0">
+          <span className="text-ink-soft">{k}</span><span className="truncate text-ink">{v}</span>
         </div>
       ))}
     </div>
@@ -629,12 +528,8 @@ function SuccessScreen({ id, volume, heroUrl }: { id: string; volume: number | n
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-5xl">Demande envoyée</h1>
-          <p className="mt-3 text-ink-soft">
-            Merci ! Nos experts analysent votre projet{volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.
-          </p>
-          <div className="mt-6 inline-block rounded-lg border border-line bg-card px-4 py-2 text-sm text-ink-soft">
-            Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span>
-          </div>
+          <p className="mt-3 text-ink-soft">Merci ! Nos experts analysent votre projet{volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.</p>
+          <div className="mt-6 inline-block rounded-lg border border-line bg-card px-4 py-2 text-sm text-ink-soft">Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span></div>
         </div>
       </div>
     </div>
@@ -643,77 +538,71 @@ function SuccessScreen({ id, volume, heroUrl }: { id: string; volume: number | n
 
 /* ============================ UI ============================ */
 
-function Segmented({
-  options, value, onChange, small,
-}: {
-  options: [string, string][];
-  value: string;
-  onChange: (v: string) => void;
-  small?: boolean;
-}) {
+function Choice({ options, value, onChange, small }: { options: [string, string][]; value: string; onChange: (v: string) => void; small?: boolean }) {
   return (
-    <div className={`inline-flex rounded-lg border border-line bg-subtle p-0.5 ${small ? "" : "w-full"}`}>
+    <div className={`inline-flex rounded-lg border border-line bg-subtle p-0.5 ${small ? "" : "flex"}`}>
       {options.map(([val, label]) => (
-        <button
-          key={val}
-          type="button"
-          onClick={() => onChange(val)}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${small ? "" : "flex-1"} ${
-            value === val ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"
-          }`}
-        >
-          {label}
+        <button key={val} type="button" onClick={() => onChange(val)}
+          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${small ? "" : "flex-1"} ${value === val ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+function YesNo({ value, onChange }: { value: YN; onChange: (v: YN) => void }) {
+  return (
+    <div className="inline-flex gap-2">
+      {(["oui", "non"] as const).map((v) => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition ${value === v ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card text-ink-soft hover:border-accent"}`}>
+          {v === "oui" ? "Oui" : "Non"}
         </button>
       ))}
     </div>
   );
 }
 
-/* ============================ Helpers ============================ */
-
-function labelMode(m: VolumeMode) {
-  return m === "explicit" ? "déclaré" : m === "list" ? "liste" : "photos IA";
+function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${active ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card hover:border-accent hover:text-accent"}`}>{children}</button>
+  );
 }
 
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <span className="text-sm text-ink">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/* ============================ Helpers ============================ */
+
 function computeVolume(form: FormState): number | null {
-  if (form.volumeMode === "explicit") {
-    const v = parseFloat(form.explicitVolume);
-    return isNaN(v) ? null : Math.round(v * 100) / 100;
-  }
-  if (form.volumeMode === "list") {
-    if (form.items.length === 0) return null;
-    return Math.round(form.items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100;
-  }
+  if (form.volumeMode === "explicit") { const v = parseFloat(form.explicitVolume); return isNaN(v) ? null : Math.round(v * 100) / 100; }
+  if (form.volumeMode === "list") { if (form.items.length === 0) return null; return Math.round(form.items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100; }
   if (form.photos.length === 0) return null;
   return Math.round(form.photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100;
 }
 
 function validateStep(step: number, form: FormState): boolean {
   switch (step) {
-    case 0:
-      return (form.prenom.trim().length > 0 || form.nom.trim().length > 0) && /.+@.+\..+/.test(form.email);
-    case 1:
-      return form.depart.ville.trim().length > 0;
-    case 2:
-      return form.arrivee.ville.trim().length > 0;
-    case 4:
-      return computeVolume(form) != null;
-    default:
-      return true;
+    case 0: return (form.prenom.trim() || form.nom.trim()).length > 0 && /.+@.+\..+/.test(form.email) && form.tel.trim().length > 0;
+    case 1: return form.depart.adresse.trim().length > 0 || form.depart.ville.trim().length > 0;
+    case 2: return form.arrivee.adresse.trim().length > 0 || form.arrivee.ville.trim().length > 0;
+    case 5: return computeVolume(form) != null;
+    default: return true;
   }
 }
 
 function buildPayload(form: FormState) {
+  const yn = (v: YN) => (v === "oui" ? true : v === "non" ? false : undefined);
   const toAddr = (a: Address) => ({
-    adresse: a.adresse || undefined,
-    code_postal: a.code_postal || undefined,
-    ville: a.ville || undefined,
-    etage: a.etage ? parseInt(a.etage, 10) : undefined,
-    ascenseur: a.ascenseur,
-    type_logement: a.type_logement || undefined,
-    surface: a.surface ? parseFloat(a.surface) : undefined,
-    stationnement: a.stationnement,
-    acces_difficile: a.acces_difficile,
+    adresse: a.adresse || undefined, code_postal: a.code_postal || undefined, ville: a.ville || undefined,
+    etage: a.etage ? parseInt(a.etage, 10) : undefined, ascenseur: yn(a.ascenseur),
+    surface: a.surface ? parseFloat(a.surface) : undefined, stationnement: yn(a.stationnement),
+    acces_difficile: yn(a.difficulte_acces),
   });
 
   let volume;
@@ -722,33 +611,28 @@ function buildPayload(form: FormState) {
   else if (form.photos.length > 0) volume = { method: "ai" as const, photos: form.photos };
 
   const services = {
-    emballage: form.prestations.emballageFragile === "bailly" || form.prestations.emballageNonFragile === "bailly",
+    emballage: form.prestations.fragile === "bailly" || form.prestations.embNonFragile === "bailly",
     demontage: form.prestations.demontage === "bailly",
     montage: form.prestations.demontage === "bailly",
-    monte_meuble: false,
-    garde_meuble: false,
+    monte_meuble: false, garde_meuble: false,
   };
+  const bailly = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").length;
+  const formule = bailly >= 4 ? "luxe" : bailly >= 2 ? "standard" : "eco";
 
   return {
-    client: {
-      nom: [form.prenom, form.nom].filter(Boolean).join(" ") || form.email,
-      email: form.email,
-      tel: form.tel || undefined,
-    },
-    depart: toAddr(form.depart),
-    arrivee: toAddr(form.arrivee),
-    date_souhaitee: form.date_souhaitee || undefined,
-    flexibilite: form.flexibilite || undefined,
-    formule: form.formule,
-    services,
-    volume,
+    client: { nom: [form.prenom, form.nom].filter(Boolean).join(" ") || form.email, email: form.email, tel: form.tel || undefined },
+    depart: toAddr(form.depart), arrivee: toAddr(form.arrivee),
+    date_souhaitee: form.periode || undefined,
+    formule, services, volume,
     type_client: form.type_client,
+    assurance: form.assurance || undefined,
     societe: form.societe || undefined,
-    mutation_pro: form.mutation_pro,
+    mutation_pro: form.mutation_pro === "oui",
     valeur_mobilier: form.valeur_mobilier || undefined,
-    assurance: form.assurance,
-    articles_lourds: form.articles_lourds,
+    articles_lourds: form.articles_lourds === "oui",
     commentaire: form.commentaire || undefined,
     prestations: form.prestations as unknown as Record<string, string>,
+    // tout le détail brut (adresses complètes, emballage, etc.) conservé
+    details: { depart: form.depart, arrivee: form.arrivee, emballage: form.emballage, demenagement: form.demenagement } as unknown as Record<string, unknown>,
   };
 }
