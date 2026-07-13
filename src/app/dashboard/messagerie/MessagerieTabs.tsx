@@ -6,12 +6,11 @@ import TemplatesManager from "./TemplatesManager";
 import RulesManager from "./RulesManager";
 import SimulationClient from "./SimulationClient";
 
-const TABS = ["Templates", "Workflow", "Alertes", "Simulation"] as const;
+const TABS = ["Templates", "Alertes", "Simulation"] as const;
 type Tab = (typeof TABS)[number];
 
 const INTRO: Record<Tab, string> = {
   Templates: "Vos modèles d'emails et de SMS, avec variables dynamiques.",
-  Workflow: "Reliez une action (envoi de devis, demande reçue…) à un template envoyé automatiquement au client.",
   Alertes: "Soyez notifié·e selon des conditions (ex. devis envoyé au-delà d'un montant).",
   Simulation: "Testez le rendu et l'envoi réel d'un email ou d'un SMS.",
 };
@@ -39,11 +38,6 @@ export default function MessagerieTabs({
       <p className="mb-6 text-sm text-ink-soft">{INTRO[tab]}</p>
 
       {tab === "Templates" && <TemplatesManager templates={templates} />}
-      {tab === "Workflow" && (
-        <RulesManager kind="workflow" rules={rules} templates={templates}
-          showCondition={false} defaultDest="client" addLabel="Nouveau workflow"
-          emptyHint="Aucun workflow. Reliez une action à un template." />
-      )}
       {tab === "Alertes" && (
         <RulesManager kind="alerte" rules={rules} templates={templates}
           showCondition defaultDest="custom" addLabel="Nouvelle alerte"
