@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { LAB_TEMPLATES, type LabTemplate } from "@/lib/lab-emails";
-import { sendLabEmail, sendLabBatch, type LabMode } from "@/lib/actions/lab";
+import { sendLabEmail, sendLabBatch, type LabMode, type ForceContact } from "@/lib/actions/lab";
 
 type Log = { name: string; ok: boolean; message: string; at: string };
 type Pool = "devis" | "tous";
@@ -21,6 +21,13 @@ export default function LabClient() {
   const [pending, start] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
 
+  // Forçage des coordonnées (données de test)
+  const [force, setForce] = useState(false);
+  const [fName, setFName] = useState("David Manscour");
+  const [fEmail, setFEmail] = useState("dmanscour70@gmail.com");
+  const [fTel, setFTel] = useState("0667699490");
+  const forceData = (): ForceContact | null => (force ? { nom: fName, email: fEmail, tel: fTel } : null);
+
   // Composer libre
   const [cFrom, setCFrom] = useState("");
   const [cSubject, setCSubject] = useState("");
@@ -34,8 +41,8 @@ export default function LabClient() {
 
   function sendOne(t: LabTemplate) {
     start(async () => {
-      const r = await sendLabEmail({ from: t.from, subject: t.subject, text: t.text }, mode);
-      log(t.name, r);
+      const r = await sendLabEmail({ from: t.from, subject: t.subject, text: t.text }, mode, forceData());
+      log(force ? `${t.name} → ${fName}` : t.name, r);
     });
   }
 
@@ -43,9 +50,9 @@ export default function LabClient() {
     start(async () => {
       const pick: LabTemplate[] = [];
       for (let i = 0; i < n; i++) pick.push(filtered[Math.floor(Math.random() * filtered.length)]);
-      const res = await sendLabBatch(pick.map((t) => ({ from: t.from, subject: t.subject, text: t.text })), mode);
+      const res = await sendLabBatch(pick.map((t) => ({ from: t.from, subject: t.subject, text: t.text })), mode, forceData());
       setLogs((prev) => [
-        { name: `${n} mail(s) aléatoire(s) — ${pool === "devis" ? "devis" : "mixte"}`, ok: res.ok === res.total, message: `${res.ok}/${res.total} envoyés`, at: new Date().toLocaleTimeString("fr-FR") },
+        { name: `${n} mail(s) aléatoire(s) — ${pool === "devis" ? "devis" : "mixte"}${force ? ` → ${fName}` : ""}`, ok: res.ok === res.total, message: `${res.ok}/${res.total} envoyés`, at: new Date().toLocaleTimeString("fr-FR") },
         ...prev,
       ].slice(0, 30));
     });
@@ -54,7 +61,7 @@ export default function LabClient() {
   function sendCustom() {
     if (!cText.trim()) return;
     start(async () => {
-      const r = await sendLabEmail({ from: cFrom || "test@lab.fr", subject: cSubject || "(sans sujet)", text: cText }, mode);
+      const r = await sendLabEmail({ from: cFrom || "test@lab.fr", subject: cSubject || "(sans sujet)", text: cText }, mode, forceData());
       log("Mail personnalisé", r);
     });
   }
@@ -77,6 +84,36 @@ export default function LabClient() {
             ? "Mode Dev (webhook de test n8n) : ne fonctionne que pour UN envoi après avoir cliqué « Execute workflow » dans l'éditeur n8n."
             : "Mode Prod : webhook du workflow n8n actif (fonctionne en continu)."}
         </div>
+      </div>
+
+      {/* Forçage des coordonnées (données de test) */}
+      <div className={`rounded-2xl border p-5 transition ${force ? "border-accent/50 bg-accent-soft/20" : "border-line bg-card"}`}>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]" />
+          <div className="flex-1">
+            <div className="text-sm font-medium">Forçage des coordonnées (données de test)</div>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              Remplace l&apos;expéditeur et injecte ces coordonnées dans le mail, pour que toute la chaîne
+              (accusés, SMS, lien de complétion…) arrive sur un contact de test réel que vous maîtrisez.
+            </p>
+          </div>
+        </label>
+        {force && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 block text-xs text-ink-soft">Nom</span>
+              <input value={fName} onChange={(e) => setFName(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-ink-soft">Email</span>
+              <input value={fEmail} onChange={(e) => setFEmail(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-ink-soft">Téléphone</span>
+              <input value={fTel} onChange={(e) => setFTel(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Générateur aléatoire */}
