@@ -16,6 +16,7 @@ export const env = {
 
   // Serveur uniquement
   supabaseServiceRoleKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
-  anthropicApiKey: () => required("ANTHROPIC_API_KEY"),
+  geminiApiKey: () => required("GEMINI_API_KEY"),
+  geminiModel: () => process.env.GEMINI_MODEL ?? "gemini-2.5-pro",
   storageBucket: () => process.env.SUPABASE_STORAGE_BUCKET ?? "request-photos",
 };

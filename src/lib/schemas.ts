@@ -33,11 +33,16 @@ export const photoAnalysisSchema = z.object({
   volume_m3: z.number().min(0),
 });
 
+// Une photo analysée = son analyse + son emplacement dans le Storage.
+export const analyzedPhotoSchema = photoAnalysisSchema.extend({
+  storage_path: z.string(),
+});
+
 // Bloc Volume : 3 méthodes possibles
 export const volumeSchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("explicit"), volume_m3: z.number().min(0) }),
   z.object({ method: z.literal("list"), items: z.array(itemSchema).min(1) }),
-  z.object({ method: z.literal("ai"), photo_paths: z.array(z.string()).min(1) }),
+  z.object({ method: z.literal("ai"), photos: z.array(analyzedPhotoSchema).min(1) }),
 ]);
 
 // Payload complet de création d'une demande (formulaire)
@@ -56,5 +61,6 @@ export const createRequestSchema = z.object({
 
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;
 export type PhotoAnalysisInput = z.infer<typeof photoAnalysisSchema>;
+export type AnalyzedPhotoInput = z.infer<typeof analyzedPhotoSchema>;
 export type VolumeInput = z.infer<typeof volumeSchema>;
 export type ItemInput = z.infer<typeof itemSchema>;

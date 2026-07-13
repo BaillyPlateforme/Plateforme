@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Palette éditoriale chaleureuse — Bailly Déménagement */
+  --color-paper: #faf6ef; /* crème, fond principal */
+  --color-card: #fffdf9; /* cartes, légèrement plus clair */
+  --color-ink: #201b16; /* encre profonde, texte */
+  --color-ink-soft: #6b5f52; /* brun-gris, texte secondaire */
+  --color-line: #e6dccb; /* bordures chaudes */
+  --color-line-strong: #d6c8b2;
+  --color-accent: #bc4b23; /* terracotta */
+  --color-accent-dark: #9c3c1a;
+  --color-accent-soft: #f3e2d5; /* teinte accent pour fonds */
+  --color-good: #4a6a3f; /* vert olive pour validations */
+
+  --font-sans: var(--font-hanken);
+  --font-serif: var(--font-fraunces);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Grain subtil en overlay pour la profondeur */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Réglages fins de la display serif */
+.font-serif {
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-step-in {
+  animation: step-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

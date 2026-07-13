@@ -1,24 +1,36 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
-import type { CreateRequestInput } from "@/lib/schemas";
+import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
 
+type ResolvedVolume = {
+  volume_m3: number | null;
+  volume_method: "explicit" | "list" | "ai" | null;
+  items: ItemInput[];
+  photos: AnalyzedPhotoInput[];
+};
+
 // Convertit un volume (3 méthodes) en (volume_m3, method) prêts à stocker.
-function resolveVolume(volume: CreateRequestInput["volume"]) {
-  if (!volume) return { volume_m3: null, volume_method: null, items: [] as const };
+function resolveVolume(volume: CreateRequestInput["volume"]): ResolvedVolume {
+  if (!volume) return { volume_m3: null, volume_method: null, items: [], photos: [] };
 
   if (volume.method === "explicit") {
-    return { volume_m3: volume.volume_m3, volume_method: "explicit" as const, items: [] };
+    return { volume_m3: volume.volume_m3, volume_method: "explicit", items: [], photos: [] };
   }
   if (volume.method === "list") {
     const total = volume.items.reduce(
       (sum, it) => sum + it.quantite * it.volume_unitaire_m3,
       0,
     );
-    return { volume_m3: total, volume_method: "list" as const, items: volume.items };
+    return { volume_m3: round2(total), volume_method: "list", items: volume.items, photos: [] };
   }
-  // 'ai' : le volume sera calculé après analyse des photos (endpoint dédié).
-  return { volume_m3: null, volume_method: "ai" as const, items: [] };
+  // 'ai' : volume = somme des volumes estimés par photo (déjà analysées).
+  const total = volume.photos.reduce((sum, p) => sum + p.volume_m3, 0);
+  return { volume_m3: round2(total), volume_method: "ai", items: [], photos: volume.photos };
+}
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
 }
 
 // Crée une demande. Chemin unique pour le formulaire ET pour n8n (mail).
@@ -27,7 +39,7 @@ export async function createRequest(
   source: RequestSource,
 ): Promise<RequestRow> {
   const supabase = createServiceClient();
-  const { volume_m3, volume_method, items } = resolveVolume(input.volume);
+  const { volume_m3, volume_method, items, photos } = resolveVolume(input.volume);
 
   const insert: Partial<RequestRow> & Pick<RequestRow, "source"> = {
     source,
@@ -77,6 +89,19 @@ export async function createRequest(
       })),
     );
     if (itemsError) throw new Error(`Insertion des items échouée : ${itemsError.message}`);
+  }
+
+  if (photos.length > 0) {
+    const { error: photosError } = await supabase.from("request_photos").insert(
+      photos.map((p) => ({
+        request_id: created.id,
+        storage_path: p.storage_path,
+        piece: p.piece,
+        ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 },
+        volume_m3: p.volume_m3,
+      })),
+    );
+    if (photosError) throw new Error(`Insertion des photos échouée : ${photosError.message}`);
   }
 
   await supabase.from("request_events").insert({
