@@ -22,7 +22,13 @@ export async function sendLabEmail(email: LabEmail) {
         receivedAt: "lab",
       }),
     });
-    if (!res.ok) return { ok: false, message: `Webhook n8n : HTTP ${res.status}` };
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      if (/not registered for POST/i.test(body)) {
+        return { ok: false, message: "Le node Webhook n8n est en GET — passez-le en méthode POST." };
+      }
+      return { ok: false, message: `Webhook n8n : HTTP ${res.status} ${body.slice(0, 120)}` };
+    }
     return { ok: true, message: "Envoyé au webhook ✓" };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Erreur d'appel du webhook" };
