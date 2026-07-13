@@ -80,6 +80,13 @@ export default function CompletionForm({
       </h1>
       <p className="mt-2 text-ink-soft">Il ne manque que quelques informations pour finaliser votre estimation.</p>
 
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-ink-soft">À compléter :</span>
+        {manque.volume && <MissingChip label="Volume à déménager" />}
+        {manque.depart && <MissingChip label="Adresse de départ" />}
+        {manque.arrivee && <MissingChip label="Adresse d'arrivée" />}
+      </div>
+
       <div className="mt-8 space-y-8">
         {(manque.depart || manque.arrivee) && (
           <section>
@@ -142,6 +149,15 @@ export default function CompletionForm({
         </button>
       </div>
     </div>
+  );
+}
+
+function MissingChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+      {label}
+    </span>
   );
 }
 

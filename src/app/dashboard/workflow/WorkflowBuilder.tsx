@@ -19,9 +19,7 @@ type StageDef = {
 const S = {
   form: { id: "form", event: "demande_complete", source: "form", title: "Formulaire", icon: "📝", desc: "Demande complète", tone: "neutral" } as StageDef,
   mailOk: { id: "mailOk", event: "demande_complete", source: "email", title: "Mail complet", icon: "📬", desc: "Toutes les infos présentes", tone: "good" } as StageDef,
-  mailKoVol: { id: "mailKoVol", event: "demande_incomplete", champ: "volume", title: "Volume manquant", icon: "📦", desc: "Relance : préciser le volume", tone: "amber" } as StageDef,
-  mailKoDep: { id: "mailKoDep", event: "demande_incomplete", champ: "depart", title: "Départ manquant", icon: "📍", desc: "Relance : adresse de départ", tone: "amber" } as StageDef,
-  mailKoArr: { id: "mailKoArr", event: "demande_incomplete", champ: "arrivee", title: "Arrivée manquante", icon: "🏁", desc: "Relance : adresse d'arrivée", tone: "amber" } as StageDef,
+  mailKo: { id: "mailKo", event: "demande_incomplete", title: "Mail incomplet", icon: "⚠️", desc: "Lien de complétion (met en avant ce qui manque)", tone: "amber" } as StageDef,
   devisCree: { id: "devisCree", event: "devis_cree", title: "Devis créé", icon: "📄", desc: "Estimation générée", tone: "neutral" } as StageDef,
   devisEnvoye: { id: "devisEnvoye", event: "devis_envoye", title: "Devis envoyé", icon: "✉️", desc: "Transmis au client", tone: "neutral", hasMontant: true } as StageDef,
   accepte: { id: "accepte", event: "devis_accepte", title: "Accepté → Chantier", icon: "✅", desc: "Devis signé", tone: "good", hasMontant: true } as StageDef,
@@ -38,10 +36,7 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
   const workflows = rules.filter((r) => r.kind === "workflow");
   const rulesFor = (s: StageDef) =>
     workflows.filter(
-      (r) =>
-        r.event === s.event &&
-        (r.condition_source ?? null) === (s.source ?? null) &&
-        (r.condition_champ ?? null) === (s.champ ?? null),
+      (r) => r.event === s.event && (r.condition_source ?? null) === (s.source ?? null),
     );
   const templateName = (id: string | null) => templates.find((t) => t.id === id)?.name ?? "template ?";
   const stage = ALL.find((s) => s.id === selectedId)!;
@@ -68,14 +63,7 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
               <span className="pt-6 text-lg text-ink-soft/50">→</span>
               <div className="flex flex-col gap-2">
                 {node(S.mailOk, true)}
-                <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-2">
-                  <div className="mb-1.5 px-1 text-[11px] font-medium text-amber-800">Si incomplet — selon le champ manquant :</div>
-                  <div className="flex gap-2">
-                    {node(S.mailKoVol, true)}
-                    {node(S.mailKoDep, true)}
-                    {node(S.mailKoArr, true)}
-                  </div>
-                </div>
+                {node(S.mailKo, true)}
               </div>
             </div>
           </div>
@@ -231,11 +219,11 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
             <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={channel === "sms" ? "0612…" : "equipe@bailly.fr"} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
           </label>
         )}
-        {stage.champ && (
+        {stage.event === "demande_incomplete" && (
           <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Se déclenche uniquement quand{" "}
-            <strong>{stage.champ === "volume" ? "le volume" : stage.champ === "depart" ? "l'adresse de départ" : "l'adresse d'arrivée"}</strong>{" "}
-            manque. Pensez à insérer <code className="rounded bg-amber-100 px-1 font-mono">{"{{lien_completion}}"}</code> dans le template.
+            Envoyé dès qu&apos;une info manque (volume, départ ou arrivée). Insérez{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono">{"{{lien_completion}}"}</code> dans le template : le lien
+            met automatiquement en avant les champs à compléter.
           </div>
         )}
         {stage.hasMontant && (
