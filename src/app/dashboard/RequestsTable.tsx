@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { RequestRow, RequestStatus } from "@/lib/types";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete } from "./status";
 
 type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
 
 export default function RequestsTable({ requests }: { requests: RequestRow[] }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<RequestStatus | "all">("all");
   const [sort, setSort] = useState<SortKey>("date");
@@ -95,11 +96,15 @@ export default function RequestsTable({ requests }: { requests: RequestRow[] }) 
               {rows.map((r) => {
                 const meta = STATUS_META[r.status];
                 return (
-                  <tr key={r.id} className="group transition hover:bg-accent-soft/20">
+                  <tr
+                    key={r.id}
+                    onClick={() => router.push(`/dashboard/${r.id}`)}
+                    className="group cursor-pointer transition hover:bg-accent-soft/20"
+                  >
                     <td className="px-4 py-3">
-                      <Link href={`/dashboard/${r.id}`} className="font-medium group-hover:text-accent">
+                      <span className="font-medium group-hover:text-accent">
                         {r.client_nom ?? "—"}
-                      </Link>
+                      </span>
                       <div className="text-xs text-ink-soft">{r.client_email}</div>
                       <div className="mt-1 flex flex-wrap gap-1">
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
