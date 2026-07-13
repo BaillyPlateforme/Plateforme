@@ -3,9 +3,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { env } from "@/lib/env";
 import { photoAnalysisSchema, type PhotoAnalysisInput } from "@/lib/schemas";
 
-// Modèle vision, configurable via GEMINI_MODEL (défaut : Pro).
-// Note : gemini-2.5-pro requiert un projet Google avec facturation activée.
-// gemini-2.5-flash fonctionne en tier gratuit.
+// Modèle vision, configurable via GEMINI_MODEL (défaut : gemini-3.1-pro-preview).
+// Les modèles Gemini 2.5 ne sont plus accessibles aux nouveaux projets.
 
 const SYSTEM = `Tu es un métreur expert pour une entreprise de déménagement française.
 À partir d'UNE photo d'une pièce, tu identifies le mobilier et les objets volumineux
