@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { RequestRow } from "@/lib/types";
 import { moveRequestStage } from "@/lib/actions/requests";
+import { sourceLabel, sourceClass, isIncomplete } from "./status";
 
 type Stage = "incomplete" | "qualifier" | "devis" | "chantier" | "perdu";
 
@@ -86,15 +87,20 @@ function Card({ r, onDragStart, onDragEnd }: { r: RequestRow; onDragStart: () =>
       onDragEnd={onDragEnd}
       className="group cursor-grab rounded-xl border border-line bg-card p-3 shadow-sm transition hover:border-accent active:cursor-grabbing"
     >
-      <div className="flex items-start justify-between gap-2">
-        <Link href={`/dashboard/${r.id}`} className="text-sm font-medium hover:text-accent">
-          {r.client_nom ?? r.client_email ?? "—"}
-        </Link>
-        <span className="shrink-0 rounded-full bg-subtle px-1.5 py-0.5 text-[10px] text-ink-soft">
-          {r.source === "email" ? "Mail" : "Form"}
+      <Link href={`/dashboard/${r.id}`} className="text-sm font-medium hover:text-accent">
+        {r.client_nom ?? r.client_email ?? "—"}
+      </Link>
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
+          {sourceLabel(r.source)}
         </span>
+        {isIncomplete(r) ? (
+          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Incomplète</span>
+        ) : (
+          <span className="rounded-full bg-good/15 px-1.5 py-0.5 text-[10px] font-medium text-good">Complète</span>
+        )}
       </div>
-      <div className="mt-1 text-xs text-ink-soft">
+      <div className="mt-1.5 text-xs text-ink-soft">
         {r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}
       </div>
       <div className="mt-2 flex items-center justify-between text-xs">

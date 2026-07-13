@@ -26,3 +26,21 @@ export function scoreColor(v: number | null): string {
   if (v >= 40) return "text-amber-600";
   return "text-accent";
 }
+
+// Source d'arrivée de la demande.
+export function sourceLabel(source: string): string {
+  return source === "email" ? "Mail" : "Formulaire";
+}
+export const sourceClass = (source: string) =>
+  source === "email" ? "bg-blue-100 text-blue-800" : "bg-accent-soft text-accent-dark";
+
+// Une demande est incomplète si un jeton de complétion est en attente,
+// ou s'il lui manque le volume ou une adresse.
+export function isIncomplete(r: {
+  completion_token?: string | null;
+  volume_m3: number | null;
+  depart_ville: string | null;
+  arrivee_ville: string | null;
+}): boolean {
+  return !!r.completion_token || r.volume_m3 == null || !r.depart_ville || !r.arrivee_ville;
+}

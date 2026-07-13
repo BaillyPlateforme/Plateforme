@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { RequestRow, RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor } from "./status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete } from "./status";
 
 type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
 
@@ -101,6 +101,16 @@ export default function RequestsTable({ requests }: { requests: RequestRow[] }) 
                         {r.client_nom ?? "—"}
                       </Link>
                       <div className="text-xs text-ink-soft">{r.client_email}</div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
+                          {sourceLabel(r.source)}
+                        </span>
+                        {isIncomplete(r) ? (
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Incomplète</span>
+                        ) : (
+                          <span className="rounded-full bg-good/15 px-1.5 py-0.5 text-[10px] font-medium text-good">Complète</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-ink-soft">
                       {r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}

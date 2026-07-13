@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { PricingGridRow, RequestStatus } from "@/lib/types";
 import { estimateQuote } from "@/lib/quote";
-import { STATUS_META, STATUS_ORDER, scoreColor } from "../status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete } from "../status";
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
 import { createDevisFromRequest } from "@/lib/actions/devis";
 
@@ -34,9 +34,14 @@ export default function RequestDetail({
             <span>{r.client_email}</span>
             {r.client_tel && <span>· {r.client_tel}</span>}
             <span>· reçue le {new Date(r.created_at).toLocaleDateString("fr-FR")}</span>
-            <span className="rounded-full bg-paper px-2 py-0.5 text-xs">
-              {r.source === "email" ? "Mail" : "Formulaire"}
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceClass(r.source)}`}>
+              {sourceLabel(r.source)}
             </span>
+            {isIncomplete(r) ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Incomplète</span>
+            ) : (
+              <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-good">Complète</span>
+            )}
           </div>
         </div>
         <StatusPicker
