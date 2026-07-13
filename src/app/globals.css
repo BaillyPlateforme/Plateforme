@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  /* Palette éditoriale chaleureuse — Bailly Déménagement */
-  --color-paper: #faf6ef; /* crème, fond principal */
-  --color-card: #fffdf9; /* cartes, légèrement plus clair */
-  --color-ink: #201b16; /* encre profonde, texte */
-  --color-ink-soft: #6b5f52; /* brun-gris, texte secondaire */
-  --color-line: #e6dccb; /* bordures chaudes */
-  --color-line-strong: #d6c8b2;
-  --color-accent: #bc4b23; /* terracotta */
-  --color-accent-dark: #9c3c1a;
-  --color-accent-soft: #f3e2d5; /* teinte accent pour fonds */
-  --color-good: #4a6a3f; /* vert olive pour validations */
+  /* ---- Système premium neutre — Bailly ---- */
+  --color-paper: #fbfbfb;        /* fond général */
+  --color-card: #ffffff;         /* surfaces / cartes */
+  --color-subtle: #f5f5f6;       /* surfaces secondaires */
+  --color-ink: #17171a;          /* texte principal (quasi noir) */
+  --color-ink-soft: #74747c;     /* texte secondaire */
+  --color-line: #ececee;         /* filets fins */
+  --color-line-strong: #dedee1;
+  --color-accent: #17171a;       /* action primaire (monochrome premium) */
+  --color-accent-dark: #000000;  /* hover */
+  --color-accent-soft: #f2f2f4;  /* surface sélectionnée / active */
+  --color-good: #157f52;         /* positif (scores, validations) */
+  --color-warn: #b45309;
 
-  --font-sans: var(--font-hanken);
-  --font-serif: var(--font-fraunces);
+  --font-sans: var(--font-sans-ui);
+  --font-serif: var(--font-display);
+
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -22,52 +26,44 @@
     background: var(--color-paper);
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Grain subtil en overlay pour la profondeur */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.4;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+  ::selection {
+    background: var(--color-ink);
+    color: #fff;
+  }
+
+  h1, h2, h3 {
+    letter-spacing: -0.02em;
   }
 }
 
-/* Réglages fins de la display serif */
+/* Titres display */
 .font-serif {
-  font-optical-sizing: auto;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+
+/* Scrollbar discrète */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
 }
 
 @keyframes step-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 .animate-step-in {
-  animation: step-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: step-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fade-up {
-  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

@@ -10,7 +10,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="relative z-10 flex min-h-screen">
-      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-card/60 backdrop-blur md:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-card md:block">
         <Nav email={user?.email ?? ""} />
       </aside>
       <div className="flex-1 md:ml-60">{children}</div>

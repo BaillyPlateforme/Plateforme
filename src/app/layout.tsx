@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 
-// Display : serif à caractère, optical sizing pour les grands titres.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+// Display : grotesque contemporaine à caractère, pour les titres.
+const display = Bricolage_Grotesque({
+  variable: "--font-display",
   subsets: ["latin"],
-  axes: ["opsz", "SOFT", "WONK"],
+  weight: ["400", "500", "600", "700"],
 });
 
-// Corps : grotesque nette et lisible.
-const hanken = Hanken_Grotesk({
-  variable: "--font-hanken",
+// UI / corps : grotesque neutre et précise.
+const sans = Hanken_Grotesk({
+  variable: "--font-sans-ui",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: "Bailly Déménagement",
-  description: "Demande de devis — déménagement sur mesure.",
+  description: "Devis et pilotage — déménagement sur mesure.",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${fraunces.variable} ${hanken.variable} h-full antialiased`}
+      className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
         {children}

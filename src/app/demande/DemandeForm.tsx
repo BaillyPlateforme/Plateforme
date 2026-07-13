@@ -12,6 +12,7 @@ type AnalyzedPhoto = {
   piece: string;
   objets: { label: string; quantite: number; volume_m3: number }[];
   volume_m3: number;
+  previewUrl?: string; // aperçu local (non envoyé, dépouillé par le schéma serveur)
 };
 
 type Formule = "eco" | "standard" | "luxe";
@@ -78,6 +79,41 @@ const initial: FormState = {
 
 const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
 
+// Jeu de données d'exemple pour un devis ultra-rapide.
+const DEMO: FormState = {
+  client: { nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78" },
+  depart: {
+    adresse: "24 rue des Lilas",
+    code_postal: "69003",
+    ville: "Lyon",
+    etage: "3",
+    ascenseur: false,
+    type_logement: "T3",
+  },
+  arrivee: {
+    adresse: "8 avenue Jean Jaurès",
+    code_postal: "31000",
+    ville: "Toulouse",
+    etage: "1",
+    ascenseur: true,
+    type_logement: "T3",
+  },
+  date_souhaitee: "",
+  flexibilite: "± 1 semaine",
+  formule: "standard",
+  services: {
+    emballage: true,
+    demontage: true,
+    montage: true,
+    monte_meuble: false,
+    garde_meuble: false,
+  },
+  volumeMode: "explicit",
+  explicitVolume: "30",
+  items: [],
+  photos: [],
+};
+
 export default function DemandeForm() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
@@ -89,6 +125,11 @@ export default function DemandeForm() {
 
   function patch(p: Partial<FormState>) {
     setForm((f) => ({ ...f, ...p }));
+  }
+
+  function fillDemo() {
+    setForm(DEMO);
+    setStep(STEPS.length - 1); // saute au récapitulatif
   }
 
   const canNext = validateStep(step, form);
@@ -122,7 +163,15 @@ export default function DemandeForm() {
           <div className="mb-1 font-serif text-2xl font-semibold tracking-tight">
             Bailly
           </div>
-          <div className="mb-10 text-sm text-ink-soft">Déménagement sur mesure</div>
+          <div className="mb-6 text-sm text-ink-soft">Déménagement sur mesure</div>
+
+          <button
+            type="button"
+            onClick={fillDemo}
+            className="mb-8 flex w-full items-center justify-center gap-2 rounded-lg border border-line-strong bg-card px-3 py-2 text-sm font-medium transition hover:border-ink"
+          >
+            ⚡ Devis express
+          </button>
 
           <ol className="space-y-1">
             {STEPS.map((label, i) => {
@@ -177,9 +226,16 @@ export default function DemandeForm() {
         <div className="mb-8 md:hidden">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-serif text-xl">Bailly</span>
-            <span className="text-ink-soft">
-              Étape {step + 1}/{STEPS.length}
-            </span>
+            <button
+              type="button"
+              onClick={fillDemo}
+              className="rounded-lg border border-line-strong bg-card px-3 py-1.5 text-xs font-medium"
+            >
+              ⚡ Devis express
+            </button>
+          </div>
+          <div className="mb-2 text-right text-xs text-ink-soft">
+            Étape {step + 1}/{STEPS.length}
           </div>
           <div className="h-1 w-full overflow-hidden rounded-full bg-line">
             <div
@@ -657,7 +713,11 @@ function AiMode({ form, patch }: StepProps) {
       const res = await fetch("/api/analyze-volume", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      patch({ photos: [...form.photos, ...data.photos] });
+      const enriched: AnalyzedPhoto[] = data.photos.map((p: AnalyzedPhoto, i: number) => ({
+        ...p,
+        previewUrl: previews[i]?.url,
+      }));
+      patch({ photos: [...form.photos, ...enriched] });
       setPreviews([]);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erreur");
@@ -666,11 +726,20 @@ function AiMode({ form, patch }: StepProps) {
     }
   }
 
-  const total = form.photos.reduce((s, p) => s + p.volume_m3, 0);
+  // Édition d'une photo analysée
+  function updatePhoto(idx: number, next: AnalyzedPhoto) {
+    next.volume_m3 = round2(next.objets.reduce((s, o) => s + o.volume_m3, 0));
+    patch({ photos: form.photos.map((p, i) => (i === idx ? next : p)) });
+  }
+  function removePhoto(idx: number) {
+    patch({ photos: form.photos.filter((_, i) => i !== idx) });
+  }
+
+  const total = round2(form.photos.reduce((s, p) => s + p.volume_m3, 0));
 
   return (
     <div className="space-y-5">
-      <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-10 text-center transition hover:border-accent">
+      <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-10 text-center transition hover:border-ink">
         <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
         <div className="font-serif text-lg">Déposez vos photos</div>
         <div className="mt-1 text-sm text-ink-soft">
@@ -705,25 +774,138 @@ function AiMode({ form, patch }: StepProps) {
 
       {err && <div className="text-sm text-accent-dark">{err}</div>}
 
+      {/* Résultats éditables : image à gauche, détail modifiable à droite */}
+      {form.photos.map((p, i) => (
+        <PhotoResultCard
+          key={i}
+          photo={p}
+          onChange={(next) => updatePhoto(i, next)}
+          onRemove={() => removePhoto(i)}
+        />
+      ))}
+
       {form.photos.length > 0 && (
-        <div className="rounded-xl border border-line bg-card">
-          {form.photos.map((p, i) => (
-            <div key={i} className="border-b border-line px-4 py-3 last:border-0">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{p.piece}</span>
-                <span className="tabular-nums text-ink">{p.volume_m3.toFixed(1)} m³</span>
-              </div>
-              <div className="mt-1 text-xs text-ink-soft">
-                {p.objets.map((o) => `${o.quantite}× ${o.label}`).join(" · ")}
-              </div>
-            </div>
-          ))}
-          <div className="flex items-center justify-between px-4 py-3 font-medium">
-            <span>Total estimé par l&apos;IA</span>
-            <span className="tabular-nums">{total.toFixed(1)} m³</span>
-          </div>
+        <div className="flex items-center justify-between rounded-xl border border-line bg-subtle px-4 py-3 font-medium">
+          <span>Volume total estimé</span>
+          <span className="tabular-nums">{total.toFixed(1)} m³</span>
         </div>
       )}
+    </div>
+  );
+}
+
+// Carte résultat photo : aperçu + édition des objets détectés.
+function PhotoResultCard({
+  photo,
+  onChange,
+  onRemove,
+}: {
+  photo: AnalyzedPhoto;
+  onChange: (p: AnalyzedPhoto) => void;
+  onRemove: () => void;
+}) {
+  const setObjet = (idx: number, field: "label" | "quantite" | "volume_m3", value: string) => {
+    const objets = photo.objets.map((o, i) =>
+      i === idx
+        ? {
+            ...o,
+            [field]: field === "label" ? value : Number(value) || 0,
+          }
+        : o,
+    );
+    onChange({ ...photo, objets });
+  };
+  const removeObjet = (idx: number) =>
+    onChange({ ...photo, objets: photo.objets.filter((_, i) => i !== idx) });
+  const addObjet = () =>
+    onChange({ ...photo, objets: [...photo.objets, { label: "", quantite: 1, volume_m3: 0 }] });
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-card">
+      <div className="grid md:grid-cols-[200px_1fr]">
+        {/* Image */}
+        <div className="relative aspect-square md:aspect-auto">
+          {photo.previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo.previewUrl} alt={photo.piece} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-subtle text-sm text-ink-soft">
+              Photo envoyée
+            </div>
+          )}
+        </div>
+
+        {/* Détail éditable */}
+        <div className="p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              value={photo.piece}
+              onChange={(e) => onChange({ ...photo, piece: e.target.value })}
+              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none transition hover:border-line focus:border-ink"
+            />
+            <span className="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-sm font-medium tabular-nums">
+              {photo.volume_m3.toFixed(1)} m³
+            </span>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="shrink-0 rounded-md px-2 py-1 text-sm text-ink-soft transition hover:text-accent"
+              title="Retirer la photo"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {photo.objets.map((o, idx) => (
+              <div key={idx} className="flex items-center gap-1.5">
+                <input
+                  value={o.label}
+                  onChange={(e) => setObjet(idx, "label", e.target.value)}
+                  placeholder="Objet"
+                  className="min-w-0 flex-1 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-ink"
+                />
+                <div className="flex items-center rounded-md border border-line bg-paper">
+                  <span className="pl-2 text-xs text-ink-soft">×</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={o.quantite}
+                    onChange={(e) => setObjet(idx, "quantite", e.target.value)}
+                    className="w-12 bg-transparent px-1 py-1 text-sm outline-none"
+                  />
+                </div>
+                <div className="flex items-center rounded-md border border-line bg-paper">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min={0}
+                    value={o.volume_m3}
+                    onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
+                    className="w-16 bg-transparent px-2 py-1 text-right text-sm outline-none"
+                  />
+                  <span className="pr-2 text-xs text-ink-soft">m³</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeObjet(idx)}
+                  className="rounded-md px-1.5 py-1 text-sm text-ink-soft transition hover:text-accent"
+                >
+                  −
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addObjet}
+            className="mt-2 text-sm text-ink-soft transition hover:text-ink"
+          >
+            + Ajouter un objet
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -784,6 +966,10 @@ type StepProps = { form: FormState; patch: (p: Partial<FormState>) => void };
 
 function labelMode(m: VolumeMode) {
   return m === "explicit" ? "déclaré" : m === "list" ? "liste" : "photos IA";
+}
+
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
 }
 
 function computeVolume(form: FormState): number | null {
