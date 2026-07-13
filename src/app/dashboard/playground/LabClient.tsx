@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { LAB_TEMPLATES, type LabTemplate } from "@/lib/lab-emails";
-import { sendLabEmail, sendLabBatch } from "@/lib/actions/lab";
+import { sendLabEmail, sendLabBatch, type LabMode } from "@/lib/actions/lab";
 
 type Log = { name: string; ok: boolean; message: string; at: string };
 type Pool = "devis" | "tous";
@@ -16,6 +16,7 @@ const TAG_STYLE: Record<string, string> = {
 
 export default function LabClient() {
   const [pool, setPool] = useState<Pool>("devis");
+  const [mode, setMode] = useState<LabMode>("prod");
   const [logs, setLogs] = useState<Log[]>([]);
   const [pending, start] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function LabClient() {
 
   function sendOne(t: LabTemplate) {
     start(async () => {
-      const r = await sendLabEmail({ from: t.from, subject: t.subject, text: t.text });
+      const r = await sendLabEmail({ from: t.from, subject: t.subject, text: t.text }, mode);
       log(t.name, r);
     });
   }
@@ -42,7 +43,7 @@ export default function LabClient() {
     start(async () => {
       const pick: LabTemplate[] = [];
       for (let i = 0; i < n; i++) pick.push(filtered[Math.floor(Math.random() * filtered.length)]);
-      const res = await sendLabBatch(pick.map((t) => ({ from: t.from, subject: t.subject, text: t.text })));
+      const res = await sendLabBatch(pick.map((t) => ({ from: t.from, subject: t.subject, text: t.text })), mode);
       setLogs((prev) => [
         { name: `${n} mail(s) aléatoire(s) — ${pool === "devis" ? "devis" : "mixte"}`, ok: res.ok === res.total, message: `${res.ok}/${res.total} envoyés`, at: new Date().toLocaleTimeString("fr-FR") },
         ...prev,
@@ -53,7 +54,7 @@ export default function LabClient() {
   function sendCustom() {
     if (!cText.trim()) return;
     start(async () => {
-      const r = await sendLabEmail({ from: cFrom || "test@lab.fr", subject: cSubject || "(sans sujet)", text: cText });
+      const r = await sendLabEmail({ from: cFrom || "test@lab.fr", subject: cSubject || "(sans sujet)", text: cText }, mode);
       log("Mail personnalisé", r);
     });
   }
@@ -61,11 +62,21 @@ export default function LabClient() {
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-line bg-card p-5">
-        <p className="text-sm text-ink-soft">
-          Ce Lab envoie des emails de test au <span className="font-medium text-ink">webhook n8n</span>, comme s&apos;ils
-          arrivaient dans la boîte mail. Le workflow n8n les qualifie et crée (ou non) une demande. Idéal pour
-          tester la chaîne <span className="font-medium text-ink">de bout en bout</span> sans envoyer de vrais mails.
-        </p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="max-w-xl text-sm text-ink-soft">
+            Ce Lab envoie des emails de test au <span className="font-medium text-ink">webhook n8n</span>, comme s&apos;ils
+            arrivaient dans la boîte mail — pour tester la chaîne <span className="font-medium text-ink">de bout en bout</span>.
+          </p>
+          <div className="inline-flex shrink-0 rounded-lg border border-line bg-subtle p-0.5 text-sm">
+            <button onClick={() => setMode("prod")} className={`rounded-md px-3 py-1.5 font-medium transition ${mode === "prod" ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}>Prod</button>
+            <button onClick={() => setMode("dev")} className={`rounded-md px-3 py-1.5 font-medium transition ${mode === "dev" ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}>Dev</button>
+          </div>
+        </div>
+        <div className={`rounded-lg px-3 py-2 text-xs ${mode === "dev" ? "bg-amber-50 text-amber-800" : "bg-subtle text-ink-soft"}`}>
+          {mode === "dev"
+            ? "Mode Dev (webhook de test n8n) : ne fonctionne que pour UN envoi après avoir cliqué « Execute workflow » dans l'éditeur n8n."
+            : "Mode Prod : webhook du workflow n8n actif (fonctionne en continu)."}
+        </div>
       </div>
 
       {/* Générateur aléatoire */}

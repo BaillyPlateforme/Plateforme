@@ -21,6 +21,9 @@ export const env = {
   labWebhookUrl: () =>
     process.env.LAB_WEBHOOK_URL ??
     "https://n8n.srv905564.hstgr.cloud/webhook/689f1c29-b034-4cbc-bbe6-124026db24bb",
+  labWebhookDevUrl: () =>
+    process.env.LAB_WEBHOOK_DEV_URL ??
+    "https://n8n.srv905564.hstgr.cloud/webhook-test/689f1c29-b034-4cbc-bbe6-124026db24bb",
   geminiModel: () => process.env.GEMINI_MODEL ?? "gemini-3.1-pro-preview",
   storageBucket: () => process.env.SUPABASE_STORAGE_BUCKET ?? "request-photos",
   libraryBucket: () => process.env.SUPABASE_LIBRARY_BUCKET ?? "playground-photos",
