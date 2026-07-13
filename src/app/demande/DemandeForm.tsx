@@ -128,9 +128,202 @@ const DEMO: FormState = {
   volumeMode: "explicit", explicitVolume: "30",
 };
 
-/* ============================ Composant principal ============================ */
+/* ============================ Sélecteur de devis ============================ */
 
 export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
+  const [mode, setMode] = useState<null | "express" | "complet">(null);
+  if (mode === null) return <ModeChooser heroUrl={library[0]?.url} onSelect={setMode} />;
+  if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} />;
+  return <CompleteForm library={library} onBack={() => setMode(null)} />;
+}
+
+function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
+  return (
+    <aside className="relative hidden overflow-hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between bg-ink text-paper">
+      {heroUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/60 to-ink/90" />
+      <div className="relative z-10 p-9">
+        <div className="font-serif text-3xl font-semibold">Bailly</div>
+        <div className="eyebrow mt-1 text-paper/60">Déménagement</div>
+        <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-paper/95">
+          Une question, un projet ? Nous vous accompagnons à chaque étape.
+        </p>
+      </div>
+      <div className="relative z-10 p-9">
+        <div className="border-t border-paper/15 pt-5 text-sm text-paper/70">
+          {children ?? "Échangez avec nos experts pour un accompagnement sur mesure."}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function ChooserCard({ onClick, icon, badge, title, desc }: { onClick: () => void; icon: string; badge: string; title: string; desc: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-h-[220px] flex-col rounded-2xl border border-line bg-card p-6 text-left transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl"
+    >
+      <div className="flex items-center justify-between">
+        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-2xl">{icon}</span>
+        <span className="rounded-full bg-subtle px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-ink-soft">{badge}</span>
+      </div>
+      <h2 className="mt-5 font-serif text-2xl">{title}</h2>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{desc}</p>
+      <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent transition-all group-hover:gap-2">Commencer →</span>
+    </button>
+  );
+}
+
+function ModeChooser({ heroUrl, onSelect }: { heroUrl?: string; onSelect: (m: "express" | "complet") => void }) {
+  return (
+    <>
+      <ModeSwitch current="form" />
+      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
+        <BrandPanel heroUrl={heroUrl} />
+        <main className="flex min-h-screen items-center px-5 py-14 md:px-12">
+          <div className="animate-fade-up mx-auto w-full max-w-2xl">
+            <div className="eyebrow text-accent">Demande de devis</div>
+            <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Comment souhaitez-vous procéder ?</h1>
+            <p className="mt-2 text-ink-soft">Deux formules — à vous de choisir.</p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <ChooserCard
+                onClick={() => onSelect("express")}
+                icon="⚡"
+                badge="~ 2 min"
+                title="Devis express"
+                desc="Une estimation rapide. L'essentiel : vos coordonnées, le trajet et le volume — c'est tout."
+              />
+              <ChooserCard
+                onClick={() => onSelect("complet")}
+                icon="◆"
+                badge="sur mesure"
+                title="Devis complet"
+                desc="Toutes les options : conditions d'accès, prestations, emballage, assurance, inventaire détaillé…"
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+    </>
+  );
+}
+
+/* ============================ Devis express ============================ */
+
+function ExpressForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () => void }) {
+  const [f, setF] = useState({
+    nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "",
+    volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
+
+  const volume = f.volMode === "explicit"
+    ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
+    : (f.photos.length ? Math.round(f.photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100 : null);
+
+  const canSubmit = f.nom.trim() && /.+@.+\..+/.test(f.email) && f.departVille.trim() && f.arriveeVille.trim() && volume != null;
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const volumePayload = f.volMode === "explicit"
+        ? { method: "explicit" as const, volume_m3: parseFloat(f.explicitVolume) }
+        : { method: "ai" as const, photos: f.photos };
+      const res = await fetch("/api/requests", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client: { nom: f.nom, email: f.email, tel: f.tel || undefined },
+          depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
+          arrivee: { ville: f.arriveeVille || undefined },
+          date_souhaitee: f.date || undefined,
+          volume: volumePayload,
+          type_client: "particulier",
+          details: { express: true } as unknown as Record<string, unknown>,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+      setDone(data.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally { setSubmitting(false); }
+  }
+
+  if (done) return <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} />;
+
+  return (
+    <>
+      <ModeSwitch current="form" />
+      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
+        <BrandPanel heroUrl={library[0]?.url} />
+        <main className="flex min-h-screen flex-col">
+          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
+            <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
+              ← Changer de type de devis
+            </button>
+            <div className="eyebrow text-accent">Devis express</div>
+            <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Estimation rapide</h1>
+            <p className="mt-2 text-ink-soft">L&apos;essentiel pour un premier chiffrage — en deux minutes.</p>
+
+            <div className="mt-8 space-y-6">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Nom *"><TextInput value={f.nom} onChange={(e) => set({ nom: e.target.value })} placeholder="Camille Durand" /></Field>
+                <Field label="E-mail *"><TextInput type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille@email.fr" /></Field>
+                <Field label="Téléphone"><TextInput value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr]">
+                <Field label="Ville de départ *"><TextInput value={f.departVille} onChange={(e) => set({ departVille: e.target.value })} placeholder="Lyon" /></Field>
+                <Field label="Code postal départ"><TextInput value={f.departCP} onChange={(e) => set({ departCP: e.target.value })} placeholder="69003" /></Field>
+                <Field label="Ville d'arrivée *"><TextInput value={f.arriveeVille} onChange={(e) => set({ arriveeVille: e.target.value })} placeholder="Toulouse" /></Field>
+              </div>
+              <Field label="Date souhaitée" hint="facultatif"><TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
+
+              <div>
+                <div className="mb-2 text-sm font-medium">Volume à déménager *</div>
+                <div className="mb-4 w-full sm:w-80">
+                  <Choice options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
+                </div>
+                {f.volMode === "explicit" ? (
+                  <div className="space-y-3">
+                    <TextInput type="number" min={0} step="0.5" value={f.explicitVolume} onChange={(e) => set({ explicitVolume: e.target.value })} placeholder="Volume estimé en m³" />
+                    <div className="flex flex-wrap gap-2">
+                      {LOGEMENT_HINTS.map((h) => <Pill key={h.label} active={false} onClick={() => set({ explicitVolume: String(h.volume) })}>{h.label} · ~{h.volume} m³</Pill>)}
+                    </div>
+                  </div>
+                ) : (
+                  <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} />
+                )}
+              </div>
+            </div>
+
+            {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
+
+            <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
+              <span className="text-sm text-ink-soft">{volume != null ? `Volume estimé : ${volume} m³` : "Renseignez le volume"}</span>
+              <button type="button" onClick={submit} disabled={!canSubmit || submitting}
+                className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
+                {submitting ? "Envoi…" : "Obtenir mon estimation"}
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </>
+  );
+}
+
+/* ============================ Formulaire complet ============================ */
+
+function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () => void }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -217,6 +410,9 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
             <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
+            <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
+              ← Changer de type de devis
+            </button>
             <div className="mb-8 flex items-start justify-between">
               <div>
                 <div className="eyebrow text-accent">Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}</div>
