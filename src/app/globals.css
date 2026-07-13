@@ -1,24 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  /* ---- Système premium neutre — Bailly ---- */
-  --color-paper: #fbfbfb;        /* fond général */
-  --color-card: #ffffff;         /* surfaces / cartes */
-  --color-subtle: #f5f5f6;       /* surfaces secondaires */
-  --color-ink: #17171a;          /* texte principal (quasi noir) */
-  --color-ink-soft: #74747c;     /* texte secondaire */
-  --color-line: #ececee;         /* filets fins */
-  --color-line-strong: #dedee1;
-  --color-accent: #17171a;       /* action primaire (monochrome premium) */
-  --color-accent-dark: #000000;  /* hover */
-  --color-accent-soft: #f2f2f4;  /* surface sélectionnée / active */
-  --color-good: #157f52;         /* positif (scores, validations) */
-  --color-warn: #b45309;
+  /* ---- Palette Magnolia : crème, encre chaude, sauge ---- */
+  --color-paper: #f5f1ea;        /* fond crème */
+  --color-card: #fdfcf9;         /* surfaces / cartes (blanc chaud) */
+  --color-subtle: #eee9e0;       /* surfaces secondaires */
+  --color-ink: #211f1b;          /* encre chaude quasi noire */
+  --color-ink-soft: #7d7566;     /* taupe */
+  --color-line: #e6dfd2;         /* filets chauds */
+  --color-line-strong: #d6ccba;
+  --color-accent: #4a5541;       /* sauge profond (action) */
+  --color-accent-dark: #363f30;  /* hover */
+  --color-accent-soft: #e7e6d9;  /* surface active / sélection */
+  --color-good: #4a5541;
+  --color-warn: #a8712e;
+
+  /* Rampe séquentielle sauge (donuts ordonnés) — clair → foncé */
+  --chart-1: #cdd4bd;
+  --chart-2: #b3bd9c;
+  --chart-3: #97a67c;
+  --chart-4: #7c8d62;
+  --chart-5: #61734a;
+  --chart-6: #495838;
+  --chart-7: #333f27;
 
   --font-sans: var(--font-sans-ui);
   --font-serif: var(--font-display);
 
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 }
 
 @layer base {
@@ -30,23 +39,31 @@
   }
 
   ::selection {
-    background: var(--color-ink);
+    background: var(--color-accent);
     color: #fff;
   }
-
-  h1, h2, h3 {
-    letter-spacing: -0.02em;
-  }
 }
 
-/* Titres display */
+/* Titres display — serif élégante */
 .font-serif {
   font-family: var(--font-display);
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
   font-weight: 600;
 }
+h1.font-serif,
+h2.font-serif {
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
 
-/* Scrollbar discrète */
+/* Petites capitales étirées (esprit éditorial premium) */
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-line-strong) transparent;
@@ -56,14 +73,10 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-step-in {
-  animation: step-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.animate-step-in { animation: step-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.animate-fade-up {
-  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
+.animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }

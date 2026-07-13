@@ -1,0 +1,18 @@
+import { listGrids } from "@/lib/grids";
+import { listLibraryPhotos } from "@/lib/library";
+import ConfigClient from "./ConfigClient";
+
+export const dynamic = "force-dynamic";
+
+export default async function ConfigurationPage() {
+  const [grids, library] = await Promise.all([listGrids(), listLibraryPhotos()]);
+  return (
+    <div className="px-6 py-8 md:px-10">
+      <header className="mb-8">
+        <div className="eyebrow text-ink-soft">Réglages</div>
+        <h1 className="mt-1 font-serif text-4xl">Configuration</h1>
+      </header>
+      <ConfigClient library={library} grids={grids} />
+    </div>
+  );
+}
