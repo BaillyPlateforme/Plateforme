@@ -14,31 +14,69 @@ type AnalyzedPhoto = {
   volume_m3: number;
 };
 
+type Formule = "eco" | "standard" | "luxe";
+type Services = {
+  emballage: boolean;
+  demontage: boolean;
+  montage: boolean;
+  monte_meuble: boolean;
+  garde_meuble: boolean;
+};
+type Address = {
+  adresse: string;
+  code_postal: string;
+  ville: string;
+  etage: string;
+  ascenseur: boolean;
+  type_logement: string;
+};
+
 type FormState = {
   client: { nom: string; email: string; tel: string };
-  depart: { adresse: string; code_postal: string; ville: string; etage: string; ascenseur: boolean };
-  arrivee: { adresse: string; code_postal: string; ville: string; etage: string; ascenseur: boolean };
+  depart: Address;
+  arrivee: Address;
   date_souhaitee: string;
   flexibilite: string;
+  formule: Formule;
+  services: Services;
   volumeMode: VolumeMode;
   explicitVolume: string;
   items: ListItem[];
   photos: AnalyzedPhoto[];
 };
 
-const STEPS = ["Coordonnées", "Départ", "Arrivée", "Planning", "Volume", "Récapitulatif"] as const;
+const STEPS = ["Coordonnées", "Départ", "Arrivée", "Planning", "Prestation", "Volume", "Récapitulatif"] as const;
+
+const emptyAddress: Address = {
+  adresse: "",
+  code_postal: "",
+  ville: "",
+  etage: "",
+  ascenseur: false,
+  type_logement: "",
+};
 
 const initial: FormState = {
   client: { nom: "", email: "", tel: "" },
-  depart: { adresse: "", code_postal: "", ville: "", etage: "", ascenseur: false },
-  arrivee: { adresse: "", code_postal: "", ville: "", etage: "", ascenseur: false },
+  depart: { ...emptyAddress },
+  arrivee: { ...emptyAddress },
   date_souhaitee: "",
   flexibilite: "",
+  formule: "standard",
+  services: {
+    emballage: false,
+    demontage: false,
+    montage: false,
+    monte_meuble: false,
+    garde_meuble: false,
+  },
   volumeMode: "explicit",
   explicitVolume: "",
   items: [],
   photos: [],
 };
+
+const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
 
 export default function DemandeForm() {
   const [step, setStep] = useState(0);
@@ -162,8 +200,9 @@ export default function DemandeForm() {
               <AddressStep which="arrivee" form={form} patch={patch} />
             )}
             {step === 3 && <PlanningStep form={form} patch={patch} />}
-            {step === 4 && <VolumeStep form={form} patch={patch} />}
-            {step === 5 && <RecapStep form={form} volume={totalVolume} />}
+            {step === 4 && <PrestationStep form={form} patch={patch} />}
+            {step === 5 && <VolumeStep form={form} patch={patch} />}
+            {step === 6 && <RecapStep form={form} volume={totalVolume} />}
           </div>
         </div>
 
@@ -206,6 +245,7 @@ const HEADERS: { title: string; sub: string }[] = [
   { title: "D'où partez-vous ?", sub: "L'adresse et l'accès du logement de départ." },
   { title: "Où allez-vous ?", sub: "L'adresse et l'accès du logement d'arrivée." },
   { title: "Quand souhaitez-vous partir ?", sub: "Une date, même approximative, nous aide." },
+  { title: "Quelle prestation ?", sub: "Choisissez votre formule et vos options." },
   { title: "Quel volume à déménager ?", sub: "Trois façons de l'estimer — à vous de choisir." },
   { title: "Un dernier coup d'œil", sub: "Vérifiez vos informations avant l'envoi." },
 ];
@@ -263,9 +303,27 @@ function AddressStep({
   patch,
 }: StepProps & { which: "depart" | "arrivee" }) {
   const a = form[which];
-  const set = (p: Partial<FormState["depart"]>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
+  const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
   return (
     <div className="space-y-5">
+      <Field label="Type de logement">
+        <div className="flex flex-wrap gap-2">
+          {TYPES_LOGEMENT.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => set({ type_logement: t })}
+              className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                a.type_logement === t
+                  ? "border-accent bg-accent-soft/60 text-accent-dark"
+                  : "border-line bg-card hover:border-accent"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </Field>
       <Field label="Adresse">
         <TextInput
           value={a.adresse}
@@ -328,6 +386,77 @@ function PlanningStep({ form, patch }: StepProps) {
           placeholder="± 1 semaine, plutôt en semaine…"
         />
       </Field>
+    </div>
+  );
+}
+
+/* ---------- Étape Prestation ---------- */
+
+const FORMULES: { key: Formule; titre: string; desc: string }[] = [
+  { key: "eco", titre: "Éco", desc: "Vous emballez, on transporte." },
+  { key: "standard", titre: "Standard", desc: "Emballage fragile + transport." },
+  { key: "luxe", titre: "Confort", desc: "Tout pris en charge, clé en main." },
+];
+
+const SERVICES: { key: keyof Services; label: string }[] = [
+  { key: "emballage", label: "Emballage complet" },
+  { key: "demontage", label: "Démontage des meubles" },
+  { key: "montage", label: "Remontage à l'arrivée" },
+  { key: "monte_meuble", label: "Monte-meuble" },
+  { key: "garde_meuble", label: "Garde-meuble temporaire" },
+];
+
+function PrestationStep({ form, patch }: StepProps) {
+  return (
+    <div className="space-y-8">
+      <div>
+        <div className="mb-3 text-sm font-medium">Formule</div>
+        <div className="grid grid-cols-3 gap-2">
+          {FORMULES.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => patch({ formule: f.key })}
+              className={`rounded-xl border px-3 py-4 text-left transition ${
+                form.formule === f.key
+                  ? "border-accent bg-accent-soft/50 shadow-sm"
+                  : "border-line bg-card hover:border-line-strong"
+              }`}
+            >
+              <div className="font-serif text-lg leading-tight">{f.titre}</div>
+              <div className="mt-1 text-xs text-ink-soft">{f.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-3 text-sm font-medium">Options</div>
+        <div className="space-y-2">
+          {SERVICES.map((s) => {
+            const on = form.services[s.key];
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => patch({ services: { ...form.services, [s.key]: !on } })}
+                className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm transition ${
+                  on ? "border-accent bg-accent-soft/40" : "border-line bg-card hover:border-line-strong"
+                }`}
+              >
+                <span>{s.label}</span>
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-md border text-xs ${
+                    on ? "border-accent bg-accent text-white" : "border-line-strong"
+                  }`}
+                >
+                  {on ? "✓" : ""}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -607,6 +736,14 @@ function RecapStep({ form, volume }: { form: FormState; volume: number | null })
     ["Départ", `${form.depart.adresse}, ${form.depart.code_postal} ${form.depart.ville} — étage ${form.depart.etage || "0"}${form.depart.ascenseur ? ", ascenseur" : ""}`],
     ["Arrivée", `${form.arrivee.adresse}, ${form.arrivee.code_postal} ${form.arrivee.ville} — étage ${form.arrivee.etage || "0"}${form.arrivee.ascenseur ? ", ascenseur" : ""}`],
     ["Date", form.date_souhaitee || "à définir"],
+    ["Formule", form.formule],
+    [
+      "Options",
+      Object.entries(form.services)
+        .filter(([, v]) => v)
+        .map(([k]) => k.replace("_", "-"))
+        .join(", ") || "aucune",
+    ],
     ["Volume", volume != null ? `${volume} m³ (${labelMode(form.volumeMode)})` : "non renseigné"],
   ];
   return (
@@ -670,7 +807,7 @@ function validateStep(step: number, form: FormState): boolean {
       return form.depart.ville.trim().length > 0;
     case 2:
       return form.arrivee.ville.trim().length > 0;
-    case 4:
+    case 5:
       return computeVolume(form) != null;
     default:
       return true;
@@ -678,12 +815,13 @@ function validateStep(step: number, form: FormState): boolean {
 }
 
 function buildPayload(form: FormState) {
-  const toAddr = (a: FormState["depart"]) => ({
+  const toAddr = (a: Address) => ({
     adresse: a.adresse || undefined,
     code_postal: a.code_postal || undefined,
     ville: a.ville || undefined,
     etage: a.etage ? parseInt(a.etage, 10) : undefined,
     ascenseur: a.ascenseur,
+    type_logement: a.type_logement || undefined,
   });
 
   let volume;
@@ -705,6 +843,8 @@ function buildPayload(form: FormState) {
     arrivee: toAddr(form.arrivee),
     date_souhaitee: form.date_souhaitee || undefined,
     flexibilite: form.flexibilite || undefined,
+    formule: form.formule,
+    services: form.services,
     volume,
   };
 }

@@ -41,12 +41,48 @@ export interface RequestRow {
   volume_m3: number | null;
   volume_method: VolumeMethod | null;
 
+  type_logement_depart: string | null;
+  type_logement_arrivee: string | null;
+  distance_km: number | null;
+  formule: string | null;
+  services: RequestServices;
+  estimation_prix: number | null;
+  grid_id: string | null;
+
   score_potentiel: number | null;
   score_difficulte: number | null;
   score_notes: string | null;
 
   raw_payload: Record<string, unknown>;
 
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RequestServices {
+  emballage?: boolean;
+  demontage?: boolean;
+  montage?: boolean;
+  monte_meuble?: boolean;
+  garde_meuble?: boolean;
+}
+
+export interface PricingGridRow {
+  id: string;
+  name: string;
+  is_active: boolean;
+  is_default: boolean;
+  base_price: number;
+  price_per_m3: number;
+  price_per_km: number;
+  floor_surcharge: number;
+  long_carry_surcharge: number;
+  packing_price_per_m3: number;
+  furniture_lift_price: number;
+  min_price: number;
+  vat_rate: number;
+  tiers: Array<{ min_m3: number; max_m3: number; price_per_m3: number }>;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }

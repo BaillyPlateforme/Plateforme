@@ -11,6 +11,15 @@ export const adresseSchema = z.object({
   ville: z.string().optional(),
   etage: z.number().int().min(0).optional(),
   ascenseur: z.boolean().optional(),
+  type_logement: z.string().optional(),
+});
+
+export const servicesSchema = z.object({
+  emballage: z.boolean().optional(),
+  demontage: z.boolean().optional(),
+  montage: z.boolean().optional(),
+  monte_meuble: z.boolean().optional(),
+  garde_meuble: z.boolean().optional(),
 });
 
 // Un objet dans la liste (étape Volume par liste)
@@ -56,6 +65,9 @@ export const createRequestSchema = z.object({
   arrivee: adresseSchema,
   date_souhaitee: z.string().optional(), // ISO date
   flexibilite: z.string().optional(),
+  formule: z.enum(["eco", "standard", "luxe"]).optional(),
+  distance_km: z.number().min(0).optional(),
+  services: servicesSchema.optional(),
   volume: volumeSchema.optional(),
 });
 
