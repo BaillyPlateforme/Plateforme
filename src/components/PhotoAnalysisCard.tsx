@@ -44,107 +44,66 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
     emit({ objets: [...photo.objets, o] });
     setAdding(false);
   };
+  const setQty = (idx: number, q: number) =>
+    emit({ objets: photo.objets.map((o, i) => (i === idx ? { ...o, quantite: Math.max(1, q) } : o)) });
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-card">
-      <div className="grid md:grid-cols-[300px_1fr] md:items-start">
+      {/* En-tête : vignette (cliquable pour agrandir) + pièce + total */}
+      <div className="flex items-center gap-3 border-b border-line p-3">
         {photo.previewUrl ? (
-          <a
-            href={photo.previewUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="group relative block aspect-[4/3] overflow-hidden bg-subtle"
-            title="Agrandir la photo"
-          >
+          <a href={photo.previewUrl} target="_blank" rel="noreferrer" title="Agrandir la photo"
+            className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-subtle">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photo.previewUrl}
-              alt={photo.piece}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-            />
-            <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
-              Agrandir ↗
-            </span>
+            <img src={photo.previewUrl} alt={photo.piece} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+            <span className="absolute inset-0 flex items-center justify-center bg-ink/40 text-lg text-white opacity-0 transition group-hover:opacity-100">⤢</span>
           </a>
         ) : (
-          <div className="flex aspect-[4/3] items-center justify-center bg-subtle text-sm text-ink-soft">
-            Photo
-          </div>
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-subtle text-[10px] text-ink-soft">Photo</div>
         )}
+        <input value={photo.piece} onChange={(e) => onChange({ ...photo, piece: e.target.value })}
+          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none transition hover:border-line focus:border-accent" />
+        <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-medium tabular-nums text-accent-dark">{photo.volume_m3.toFixed(1)} m³</span>
+        <button type="button" onClick={onRemove} title="Retirer la photo"
+          className="shrink-0 rounded-md p-1.5 text-ink-soft transition hover:bg-subtle hover:text-accent">✕</button>
+      </div>
 
-        <div className="p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <input
-              value={photo.piece}
-              onChange={(e) => onChange({ ...photo, piece: e.target.value })}
-              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none transition hover:border-line focus:border-accent"
-            />
-            <span className="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-sm font-medium tabular-nums">
-              {photo.volume_m3.toFixed(1)} m³
-            </span>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="shrink-0 rounded-md px-2 py-1 text-sm text-ink-soft transition hover:text-accent"
-              title="Retirer la photo"
-            >
-              ✕
-            </button>
+      {/* Lignes d'objets — pleine largeur */}
+      <div className="divide-y divide-line/60">
+        {photo.objets.map((o, idx) => (
+          <div key={idx} className="flex items-center gap-2 px-3 py-1.5">
+            <input value={o.label} onChange={(e) => setObjet(idx, "label", e.target.value)} placeholder="Objet"
+              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none transition hover:border-line focus:border-accent" />
+            <div className="flex shrink-0 items-center gap-1">
+              <button type="button" onClick={() => setQty(idx, o.quantite - 1)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-line text-ink-soft transition hover:border-accent hover:text-accent">−</button>
+              <span className="w-5 text-center text-sm tabular-nums">{o.quantite}</span>
+              <button type="button" onClick={() => setQty(idx, o.quantite + 1)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-line text-ink-soft transition hover:border-accent hover:text-accent">+</button>
+            </div>
+            <div className="flex w-[84px] shrink-0 items-center justify-end gap-1 rounded-md border border-line bg-paper px-2 py-1">
+              <input type="number" step="0.1" min={0} value={o.volume_m3} onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
+                className="w-11 bg-transparent text-right text-sm outline-none" />
+              <span className="text-[11px] text-ink-soft">m³</span>
+            </div>
+            <button type="button" onClick={() => removeObjet(idx)} title="Retirer"
+              className="shrink-0 rounded-md p-1 text-ink-soft transition hover:text-accent">✕</button>
           </div>
+        ))}
+        {photo.objets.length === 0 && (
+          <div className="px-3 py-4 text-center text-sm text-ink-soft">Aucun objet détecté — ajoutez-en ci-dessous.</div>
+        )}
+      </div>
 
-          <div className="space-y-1.5">
-            {photo.objets.map((o, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
-                <input
-                  value={o.label}
-                  onChange={(e) => setObjet(idx, "label", e.target.value)}
-                  placeholder="Objet"
-                  className="min-w-0 flex-1 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-accent"
-                />
-                <div className="flex items-center rounded-md border border-line bg-paper">
-                  <span className="pl-2 text-xs text-ink-soft">×</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={o.quantite}
-                    onChange={(e) => setObjet(idx, "quantite", e.target.value)}
-                    className="w-12 bg-transparent px-1 py-1 text-sm outline-none"
-                  />
-                </div>
-                <div className="flex items-center rounded-md border border-line bg-paper">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    value={o.volume_m3}
-                    onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
-                    className="w-16 bg-transparent px-2 py-1 text-right text-sm outline-none"
-                  />
-                  <span className="pr-2 text-xs text-ink-soft">m³</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeObjet(idx)}
-                  className="rounded-md px-1.5 py-1 text-sm text-ink-soft transition hover:text-accent"
-                >
-                  −
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {adding ? (
-            <AddObjetPicker onAdd={addObjet} onCancel={() => setAdding(false)} />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="mt-2 text-sm text-ink-soft transition hover:text-ink"
-            >
-              + Ajouter un objet
-            </button>
-          )}
-        </div>
+      {/* Ajout */}
+      <div className="border-t border-line p-3">
+        {adding ? (
+          <AddObjetPicker onAdd={addObjet} onCancel={() => setAdding(false)} />
+        ) : (
+          <button type="button" onClick={() => setAdding(true)} className="text-sm font-medium text-accent transition hover:text-accent-dark">
+            + Ajouter un objet
+          </button>
+        )}
       </div>
     </div>
   );
