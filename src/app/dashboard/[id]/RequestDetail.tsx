@@ -6,6 +6,7 @@ import type { PricingGridRow, RequestStatus } from "@/lib/types";
 import { estimateQuote } from "@/lib/quote";
 import { STATUS_META, STATUS_ORDER, scoreColor } from "../status";
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
+import { createDevisFromRequest } from "@/lib/actions/devis";
 
 const TABS = ["Infos", "Volume & photos", "Devis", "Historique"] as const;
 type Tab = (typeof TABS)[number];
@@ -244,6 +245,7 @@ function DevisTab({ detail, grids }: { detail: Detail; grids: PricingGridRow[] }
   const [gridId, setGridId] = useState<string | undefined>(initial);
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
+  const [generated, setGenerated] = useState(false);
 
   const grid = grids.find((g) => g.id === gridId);
   const quote = grid ? estimateQuote(r, grid) : null;
@@ -318,13 +320,26 @@ function DevisTab({ detail, grids }: { detail: Detail; grids: PricingGridRow[] }
               })
             }
             disabled={pending || !quote}
-            className="mt-3 w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+            className="mt-3 w-full rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-accent-soft/40 disabled:opacity-50"
           >
             {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer l'estimation"}
           </button>
+          <button
+            onClick={() =>
+              start(async () => {
+                await createDevisFromRequest(r.id, gridId);
+                setGenerated(true);
+                setTimeout(() => setGenerated(false), 2000);
+              })
+            }
+            disabled={pending || !quote}
+            className="mt-2 w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          >
+            {generated ? "Devis créé ✓" : "Générer le devis"}
+          </button>
           {r.estimation_prix != null && (
             <p className="mt-3 text-xs text-ink-soft">
-              Estimation enregistrée : {Math.round(r.estimation_prix)} € TTC
+              Dernière estimation : {Math.round(r.estimation_prix)} € TTC
             </p>
           )}
         </Card>

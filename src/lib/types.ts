@@ -114,6 +114,72 @@ export interface RequestEventRow {
   created_at: string;
 }
 
+export type DevisStatus = "brouillon" | "envoye" | "accepte" | "refuse" | "expire";
+
+export interface DevisRow {
+  id: string;
+  reference: string;
+  request_id: string | null;
+  client_nom: string | null;
+  client_email: string | null;
+  montant_ht: number;
+  montant_tva: number;
+  montant_ttc: number;
+  grid_id: string | null;
+  lignes: Array<{ label: string; amount: number }>;
+  status: DevisStatus;
+  valid_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientProfileRow {
+  email: string;
+  nom: string | null;
+  telephone: string | null;
+  societe: string | null;
+  notes: string | null;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type EmailStatus = "envoye" | "echec" | "brouillon";
+
+export interface EmailRow {
+  id: string;
+  destinataire: string;
+  client_email: string | null;
+  sujet: string;
+  corps: string;
+  template: string | null;
+  status: EmailStatus;
+  erreur: string | null;
+  created_at: string;
+}
+
+export interface TeamMemberRow {
+  id: string;
+  email: string;
+  nom: string | null;
+  role: string;
+  actif: boolean;
+  created_at: string;
+}
+
+export interface SettingsRow {
+  id: boolean;
+  entreprise_nom: string;
+  entreprise_email: string | null;
+  entreprise_tel: string | null;
+  entreprise_adresse: string | null;
+  siret: string | null;
+  signature_email: string | null;
+  n8n_webhook_url: string | null;
+  devis_validite_jours: number;
+  updated_at: string;
+}
+
 // Résultat structuré de l'analyse d'une photo par l'IA
 export interface PhotoAnalysis {
   piece: string;
