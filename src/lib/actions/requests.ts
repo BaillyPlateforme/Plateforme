@@ -61,6 +61,22 @@ export async function applyEstimation(id: string, gridId?: string) {
   revalidatePath(`/dashboard/${id}`);
 }
 
+// Déplacement dans le Kanban (change le statut selon la colonne cible).
+export async function moveRequestStage(id: string, stage: string) {
+  const supabase = createServiceClient();
+  const map: Record<string, RequestRow["status"]> = {
+    qualifier: "qualified",
+    devis: "quoted",
+    chantier: "won",
+    perdu: "lost",
+  };
+  const status = map[stage];
+  if (!status) return;
+  await supabase.from("requests").update({ status, completion_token: null }).eq("id", id);
+  await supabase.from("request_events").insert({ request_id: id, type: "status_changed", payload: { stage, status } });
+  revalidatePath("/dashboard");
+}
+
 export async function updateRequestFields(
   id: string,
   fields: Partial<Pick<RequestRow, "distance_km" | "formule">>,

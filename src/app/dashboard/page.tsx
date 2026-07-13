@@ -1,5 +1,5 @@
 import { listRequests } from "@/lib/requests";
-import RequestsTable from "./RequestsTable";
+import DemandesView from "./DemandesView";
 import type { RequestRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function DemandesPage() {
           {error}
         </div>
       ) : (
-        <RequestsTable requests={requests} />
+        <DemandesView requests={requests} />
       )}
     </div>
   );
