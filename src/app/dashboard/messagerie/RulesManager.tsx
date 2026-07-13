@@ -62,8 +62,9 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
 }) {
   const [f, setF] = useState(rule ? {
     name: rule.name, event: rule.event, montant_min: rule.montant_min?.toString() ?? "", channel: rule.channel,
-    destinataire: rule.destinataire, destinataire_custom: rule.destinataire_custom ?? "", template_id: rule.template_id ?? "", active: rule.active,
-  } : { name: kind === "workflow" ? "Nouveau workflow" : "Nouvelle alerte", event: "devis_envoye", montant_min: "", channel: "email" as Channel, destinataire: defaultDest, destinataire_custom: "", template_id: "", active: true });
+    destinataire: rule.destinataire, destinataire_custom: rule.destinataire_custom ?? "", template_id: rule.template_id ?? "",
+    condition_champ: rule.condition_champ ?? "", active: rule.active,
+  } : { name: kind === "workflow" ? "Nouveau workflow" : "Nouvelle alerte", event: kind === "workflow" ? "demande_incomplete" : "devis_envoye", montant_min: "", channel: "email" as Channel, destinataire: defaultDest, destinataire_custom: "", template_id: "", condition_champ: "volume", active: true });
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
   const set = (k: keyof typeof f, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
@@ -85,6 +86,21 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
             {MESSAGE_EVENTS.filter((e) => e.key !== "manual").map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
           </select>
         </div>
+
+        {f.event === "demande_incomplete" && (
+          <div className="rounded-lg border border-accent/20 bg-accent-soft/30 p-3">
+            <label className="mb-1 block text-sm font-medium">Se déclenche quand ce champ manque :</label>
+            <select value={f.condition_champ} onChange={(e) => set("condition_champ", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+              <option value="volume">Le volume est manquant</option>
+              <option value="depart">L&apos;adresse de départ manque</option>
+              <option value="arrivee">L&apos;adresse d&apos;arrivée manque</option>
+            </select>
+            <p className="mt-2 text-xs text-ink-soft">
+              Insérez la variable <code className="rounded bg-card px-1 font-mono">{"{{lien_completion}}"}</code> dans le template :
+              le client recevra un lien pour compléter sa demande (volume + 3 options, adresses).
+            </p>
+          </div>
+        )}
 
         {showCondition && (
           <div>
@@ -134,7 +150,9 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
           await saveAlert(rule?.id ?? null, {
             name: f.name, kind, event: f.event, montant_min: f.montant_min ? Number(f.montant_min) : null,
             channel: f.channel, destinataire: f.destinataire, destinataire_custom: f.destinataire === "custom" ? f.destinataire_custom || null : null,
-            template_id: f.template_id || null, active: f.active,
+            template_id: f.template_id || null,
+            condition_champ: f.event === "demande_incomplete" ? f.condition_champ || null : null,
+            active: f.active,
           });
           if (isNew) onDone(null);
           setSaved(true); setTimeout(() => setSaved(false), 1500);

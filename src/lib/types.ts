@@ -53,6 +53,8 @@ export interface RequestRow {
   score_difficulte: number | null;
   score_notes: string | null;
 
+  completion_token: string | null;
+
   raw_payload: Record<string, unknown>;
 
   created_at: string;
@@ -177,6 +179,7 @@ export interface SettingsRow {
   signature_email: string | null;
   n8n_webhook_url: string | null;
   sms_sender: string | null;
+  base_url: string | null;
   devis_validite_jours: number;
   updated_at: string;
 }

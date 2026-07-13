@@ -27,6 +27,8 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
 
     for (const a of alerts as (AlertRow & { template: MessageTemplate | null })[]) {
       if (a.montant_min != null && Number(ctx.montant_ttc ?? 0) < Number(a.montant_min)) continue;
+      // Condition "champ manquant" : ne déclenche que si le champ est absent.
+      if (a.condition_champ && !ctx[`manque_${a.condition_champ}`]) continue;
       const tpl = a.template;
       if (!tpl) continue;
 

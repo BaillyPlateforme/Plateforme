@@ -15,6 +15,7 @@ export interface AlertInput {
   destinataire: "client" | "custom";
   destinataire_custom: string | null;
   template_id: string | null;
+  condition_champ: string | null;
   active: boolean;
 }
 

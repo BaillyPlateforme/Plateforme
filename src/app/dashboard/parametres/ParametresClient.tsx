@@ -21,6 +21,7 @@ export default function ParametresClient({
     signature_email: settings.signature_email ?? "",
     n8n_webhook_url: settings.n8n_webhook_url ?? "",
     sms_sender: settings.sms_sender ?? "Bailly",
+    base_url: settings.base_url ?? "",
     devis_validite_jours: settings.devis_validite_jours ?? 30,
   });
   const [pending, start] = useTransition();
@@ -45,6 +46,7 @@ export default function ParametresClient({
         signature_email: f.signature_email || null,
         n8n_webhook_url: f.n8n_webhook_url || null,
         sms_sender: f.sms_sender || "Bailly",
+        base_url: f.base_url || null,
         devis_validite_jours: Number(f.devis_validite_jours) || 30,
       });
       setSaved(true);
@@ -113,6 +115,7 @@ export default function ParametresClient({
             <textarea value={f.signature_email} onChange={(e) => set("signature_email", e.target.value)} rows={2}
               className="w-full resize-none rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="L'équipe Bailly Déménagement" />
           </div>
+          <F label="URL publique du site (liens de complétion)" value={f.base_url} onChange={(v) => set("base_url", v)} placeholder="https://plateforme.up.railway.app" />
           <F label="Webhook n8n (optionnel)" value={f.n8n_webhook_url} onChange={(v) => set("n8n_webhook_url", v)} placeholder="https://…" />
         </Card>
       </div>

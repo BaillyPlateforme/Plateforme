@@ -26,6 +26,7 @@ export interface AlertRow {
   destinataire: "client" | "custom";
   destinataire_custom: string | null;
   template_id: string | null;
+  condition_champ: string | null; // 'volume' | 'depart' | 'arrivee'
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -34,6 +35,7 @@ export interface AlertRow {
 // Événements déclencheurs disponibles.
 export const MESSAGE_EVENTS: { key: string; label: string }[] = [
   { key: "demande_recue", label: "Nouvelle demande reçue" },
+  { key: "demande_incomplete", label: "Demande incomplète (à compléter)" },
   { key: "devis_cree", label: "Devis créé" },
   { key: "devis_envoye", label: "Devis envoyé" },
   { key: "devis_accepte", label: "Devis accepté" },
@@ -58,9 +60,10 @@ export const TEMPLATE_VARIABLES: { token: string; label: string }[] = [
   { token: "{{volume}}", label: "Volume (m³)" },
   { token: "{{date}}", label: "Date souhaitée" },
   { token: "{{entreprise_nom}}", label: "Nom de l'entreprise" },
+  { token: "{{lien_completion}}", label: "Lien pour compléter la demande" },
 ];
 
-export type MessageContext = Record<string, string | number | null | undefined>;
+export type MessageContext = Record<string, string | number | boolean | null | undefined>;
 
 // Remplace {{variable}} par les valeurs du contexte.
 export function renderTemplate(text: string, ctx: MessageContext): string {
