@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { PricingGridRow, RequestRow } from "@/lib/types";
 import { estimateQuote } from "@/lib/quote";
+import { PhotoAnalysisCard } from "@/components/PhotoAnalysisCard";
 
 type Objet = { label: string; quantite: number; volume_m3: number };
 type Photo = {
@@ -221,7 +222,7 @@ export default function PlaygroundClient({
         {err && <div className="text-sm text-accent-dark">{err}</div>}
 
         {photos.map((p, i) => (
-          <PhotoCard key={i} photo={p} onChange={(next) => updatePhoto(i, next)} onRemove={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))} />
+          <PhotoAnalysisCard key={i} photo={p} onChange={(next) => updatePhoto(i, next)} onRemove={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))} />
         ))}
       </div>
 
@@ -310,77 +311,6 @@ export default function PlaygroundClient({
           ) : (
             <p className="text-sm text-ink-soft">Analysez des photos pour générer un devis.</p>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PhotoCard({ photo, onChange, onRemove }: { photo: Photo; onChange: (p: Photo) => void; onRemove: () => void }) {
-  const setObjet = (idx: number, field: keyof Objet, value: string) => {
-    const objets = photo.objets.map((o, i) =>
-      i === idx ? { ...o, [field]: field === "label" ? value : Number(value) || 0 } : o,
-    );
-    onChange({ ...photo, objets });
-  };
-  return (
-    <div className="overflow-hidden rounded-xl border border-line bg-card">
-      <div className="grid md:grid-cols-[160px_1fr]">
-        <div className="aspect-square md:aspect-auto">
-          {photo.previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.previewUrl} alt={photo.piece} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-subtle text-xs text-ink-soft">Photo</div>
-          )}
-        </div>
-        <div className="p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <input
-              value={photo.piece}
-              onChange={(e) => onChange({ ...photo, piece: e.target.value })}
-              className="min-w-0 flex-1 rounded-md border border-transparent px-1 py-0.5 font-medium outline-none hover:border-line focus:border-ink"
-            />
-            <span className="rounded-full bg-subtle px-2 py-0.5 text-sm tabular-nums">{photo.volume_m3.toFixed(1)} m³</span>
-            <button onClick={onRemove} className="text-ink-soft transition hover:text-accent">✕</button>
-          </div>
-          <div className="space-y-1.5">
-            {photo.objets.map((o, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
-                <input
-                  value={o.label}
-                  onChange={(e) => setObjet(idx, "label", e.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-ink"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={o.quantite}
-                  onChange={(e) => setObjet(idx, "quantite", e.target.value)}
-                  className="w-12 rounded-md border border-line bg-paper px-1 py-1 text-sm outline-none focus:border-ink"
-                />
-                <input
-                  type="number"
-                  step="0.1"
-                  value={o.volume_m3}
-                  onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
-                  className="w-16 rounded-md border border-line bg-paper px-2 py-1 text-right text-sm outline-none focus:border-ink"
-                />
-                <button
-                  onClick={() => onChange({ ...photo, objets: photo.objets.filter((_, i) => i !== idx) })}
-                  className="text-ink-soft transition hover:text-accent"
-                >
-                  −
-                </button>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => onChange({ ...photo, objets: [...photo.objets, { label: "", quantite: 1, volume_m3: 0 }] })}
-            className="mt-2 text-sm text-ink-soft transition hover:text-ink"
-          >
-            + Ajouter un objet
-          </button>
         </div>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "./catalog";
 import { Field, TextInput, Toggle, PrimaryButton, GhostButton } from "./ui";
+import { PhotoAnalysisCard, PhotoDropzone } from "@/components/PhotoAnalysisCard";
 
 type VolumeMode = "explicit" | "list" | "ai";
 
@@ -739,13 +740,7 @@ function AiMode({ form, patch }: StepProps) {
 
   return (
     <div className="space-y-5">
-      <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-10 text-center transition hover:border-ink">
-        <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-        <div className="font-serif text-lg">Déposez vos photos</div>
-        <div className="mt-1 text-sm text-ink-soft">
-          Une photo par pièce, idéalement large. JPG/PNG.
-        </div>
-      </label>
+      <PhotoDropzone onPick={onPick} />
 
       {previews.length > 0 && (
         <div>
@@ -774,9 +769,9 @@ function AiMode({ form, patch }: StepProps) {
 
       {err && <div className="text-sm text-accent-dark">{err}</div>}
 
-      {/* Résultats éditables : image à gauche, détail modifiable à droite */}
+      {/* Résultats éditables : composant partagé avec le Playground */}
       {form.photos.map((p, i) => (
-        <PhotoResultCard
+        <PhotoAnalysisCard
           key={i}
           photo={p}
           onChange={(next) => updatePhoto(i, next)}
@@ -790,122 +785,6 @@ function AiMode({ form, patch }: StepProps) {
           <span className="tabular-nums">{total.toFixed(1)} m³</span>
         </div>
       )}
-    </div>
-  );
-}
-
-// Carte résultat photo : aperçu + édition des objets détectés.
-function PhotoResultCard({
-  photo,
-  onChange,
-  onRemove,
-}: {
-  photo: AnalyzedPhoto;
-  onChange: (p: AnalyzedPhoto) => void;
-  onRemove: () => void;
-}) {
-  const setObjet = (idx: number, field: "label" | "quantite" | "volume_m3", value: string) => {
-    const objets = photo.objets.map((o, i) =>
-      i === idx
-        ? {
-            ...o,
-            [field]: field === "label" ? value : Number(value) || 0,
-          }
-        : o,
-    );
-    onChange({ ...photo, objets });
-  };
-  const removeObjet = (idx: number) =>
-    onChange({ ...photo, objets: photo.objets.filter((_, i) => i !== idx) });
-  const addObjet = () =>
-    onChange({ ...photo, objets: [...photo.objets, { label: "", quantite: 1, volume_m3: 0 }] });
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-line bg-card">
-      <div className="grid md:grid-cols-[200px_1fr]">
-        {/* Image */}
-        <div className="relative aspect-square md:aspect-auto">
-          {photo.previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.previewUrl} alt={photo.piece} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-subtle text-sm text-ink-soft">
-              Photo envoyée
-            </div>
-          )}
-        </div>
-
-        {/* Détail éditable */}
-        <div className="p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <input
-              value={photo.piece}
-              onChange={(e) => onChange({ ...photo, piece: e.target.value })}
-              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none transition hover:border-line focus:border-ink"
-            />
-            <span className="shrink-0 rounded-full bg-subtle px-2.5 py-1 text-sm font-medium tabular-nums">
-              {photo.volume_m3.toFixed(1)} m³
-            </span>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="shrink-0 rounded-md px-2 py-1 text-sm text-ink-soft transition hover:text-accent"
-              title="Retirer la photo"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            {photo.objets.map((o, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
-                <input
-                  value={o.label}
-                  onChange={(e) => setObjet(idx, "label", e.target.value)}
-                  placeholder="Objet"
-                  className="min-w-0 flex-1 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-ink"
-                />
-                <div className="flex items-center rounded-md border border-line bg-paper">
-                  <span className="pl-2 text-xs text-ink-soft">×</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={o.quantite}
-                    onChange={(e) => setObjet(idx, "quantite", e.target.value)}
-                    className="w-12 bg-transparent px-1 py-1 text-sm outline-none"
-                  />
-                </div>
-                <div className="flex items-center rounded-md border border-line bg-paper">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min={0}
-                    value={o.volume_m3}
-                    onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
-                    className="w-16 bg-transparent px-2 py-1 text-right text-sm outline-none"
-                  />
-                  <span className="pr-2 text-xs text-ink-soft">m³</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeObjet(idx)}
-                  className="rounded-md px-1.5 py-1 text-sm text-ink-soft transition hover:text-accent"
-                >
-                  −
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addObjet}
-            className="mt-2 text-sm text-ink-soft transition hover:text-ink"
-          >
-            + Ajouter un objet
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
