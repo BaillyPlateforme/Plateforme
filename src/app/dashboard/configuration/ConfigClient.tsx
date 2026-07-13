@@ -3,20 +3,24 @@
 import { useState } from "react";
 import type { LibraryPhoto } from "@/lib/library";
 import type { PricingGridRow } from "@/lib/types";
+import type { AiConfig } from "@/lib/ai-config";
 import ImagesManager from "./ImagesManager";
 import GridsManager from "../grilles/GridsManager";
+import AiConfigEditor from "./AiConfigEditor";
 
-const SUBTABS = ["Data"] as const;
+const SUBTABS = ["Photos", "Analyse d'image", "Tarification"] as const;
 type SubTab = (typeof SUBTABS)[number];
 
 export default function ConfigClient({
   library,
   grids,
+  aiConfig,
 }: {
   library: LibraryPhoto[];
   grids: PricingGridRow[];
+  aiConfig: AiConfig;
 }) {
-  const [tab, setTab] = useState<SubTab>("Data");
+  const [tab, setTab] = useState<SubTab>("Photos");
 
   return (
     <div>
@@ -35,16 +39,29 @@ export default function ConfigClient({
         ))}
       </div>
 
-      {tab === "Data" && (
-        <div className="space-y-10">
-          <ImagesManager library={library} />
-          <div>
-            <div className="mb-5">
-              <h3 className="font-serif text-xl">Grilles tarifaires</h3>
-              <p className="text-sm text-ink-soft">Paramètres de chiffrage des devis.</p>
-            </div>
-            <GridsManager grids={grids} />
+      {tab === "Photos" && <ImagesManager library={library} />}
+
+      {tab === "Analyse d'image" && (
+        <div>
+          <div className="mb-5">
+            <h3 className="font-serif text-xl">Analyse d&apos;image (IA)</h3>
+            <p className="text-sm text-ink-soft">
+              Prompt, volumes de référence, modèle et température de l&apos;estimation par photo.
+            </p>
           </div>
+          <AiConfigEditor config={aiConfig} />
+        </div>
+      )}
+
+      {tab === "Tarification" && (
+        <div>
+          <div className="mb-5">
+            <h3 className="font-serif text-xl">Grilles tarifaires</h3>
+            <p className="text-sm text-ink-soft">
+              Forfaits, prix au m³ et au km, majorations (étage sans ascenseur, monte-meuble…), TVA.
+            </p>
+          </div>
+          <GridsManager grids={grids} />
         </div>
       )}
     </div>

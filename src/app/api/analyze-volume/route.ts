@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { analyzePhoto } from "@/lib/volume-ai";
+import { getAiConfig } from "@/lib/ai-config";
 import { env } from "@/lib/env";
 import type { AnalyzedPhotoInput } from "@/lib/schemas";
 
@@ -44,13 +45,14 @@ async function analyzeLibrary(req: Request) {
 
   const supabase = createServiceClient();
   const bucket = env.libraryBucket();
+  const cfg = await getAiConfig();
 
   const results = await Promise.allSettled(
     paths.map(async (path): Promise<ResultPhoto> => {
       const { data, error } = await supabase.storage.from(bucket).download(path);
       if (error || !data) throw new Error(`Téléchargement échoué : ${path}`);
       const bytes = Buffer.from(await data.arrayBuffer());
-      const analysis = await analyzePhoto(bytes.toString("base64"), data.type || "image/jpeg");
+      const analysis = await analyzePhoto(bytes.toString("base64"), data.type || "image/jpeg", cfg);
       const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
       return { ...analysis, storage_path: path, previewUrl: pub.publicUrl };
     }),
@@ -82,6 +84,7 @@ async function analyzeUpload(req: Request) {
   const supabase = createServiceClient();
   const bucket = env.storageBucket();
   const sessionId = randomUUID(); // dossier de staging, relié à la demande au submit
+  const cfg = await getAiConfig();
 
   const results = await Promise.allSettled(
     files.map(async (file, i): Promise<ResultPhoto> => {
@@ -99,7 +102,7 @@ async function analyzeUpload(req: Request) {
         });
       if (upErr) throw new Error(`Upload échoué (${file.name}) : ${upErr.message}`);
 
-      const analysis = await analyzePhoto(bytes.toString("base64"), file.type || "image/jpeg");
+      const analysis = await analyzePhoto(bytes.toString("base64"), file.type || "image/jpeg", cfg);
       return { ...analysis, storage_path: storagePath };
     }),
   );
