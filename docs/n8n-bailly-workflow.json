@@ -1,5 +1,5 @@
 {
-  "name": "Bailly — Mails entrants → Demandes",
+  "name": "Bailly — Mails entrants → Demandes (extraction IA)",
   "nodes": [
     {
       "parameters": {
@@ -13,23 +13,96 @@
       "type": "n8n-nodes-base.emailReadImap",
       "typeVersion": 2,
       "position": [
-        260,
-        300
+        220,
+        320
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        460,
+        520
+      ],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.textPlain || $json.text || $json.subject }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "client_nom",
+              "type": "string",
+              "description": "Nom et prénom du client (personne qui déménage)",
+              "required": false
+            },
+            {
+              "name": "client_tel",
+              "type": "string",
+              "description": "Numéro de téléphone du client",
+              "required": false
+            },
+            {
+              "name": "ville_depart",
+              "type": "string",
+              "description": "Ville du logement de départ",
+              "required": false
+            },
+            {
+              "name": "ville_arrivee",
+              "type": "string",
+              "description": "Ville du logement d'arrivée",
+              "required": false
+            },
+            {
+              "name": "volume_m3",
+              "type": "number",
+              "description": "Volume à déménager en mètres cubes (nombre). Laisser vide si non mentionné.",
+              "required": false
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "Tu extrais les informations d'un email de demande de déménagement, en français. Ne déduis rien qui ne soit pas écrit : si une information est absente, laisse le champ vide. Le volume est un nombre en m³."
+        }
+      },
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Extraire les infos (IA)",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.1,
+      "position": [
+        560,
+        320
       ],
       "credentials": {}
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const email = $input.item.json;\n\n// Expéditeur (le format varie selon la version : on couvre les cas courants)\nconst from = email.from || {};\nconst address =\n  (from.value && from.value[0] && from.value[0].address) ||\n  from.address ||\n  (typeof from === \"string\" ? from : \"\") ||\n  email.fromEmail ||\n  \"\";\nconst name =\n  (from.value && from.value[0] && from.value[0].name) ||\n  from.name ||\n  \"\";\n\n// Corps du message (texte brut de préférence)\nconst corps =\n  email.textPlain ||\n  email.text ||\n  (email.textHtml ? String(email.textHtml).replace(/<[^>]+>/g, \" \") : \"\") ||\n  \"\";\nconst sujet = email.subject || \"\";\n\n// Extraction naïve du volume s'il est mentionné (ex : \"25 m3\", \"25m³\")\nconst vmatch = corps.match(/(\\d+[.,]?\\d*)\\s?(m3|m³|metres? cubes?|mètres? cubes?)/i);\nconst volume_m3 = vmatch ? parseFloat(vmatch[1].replace(\",\", \".\")) : null;\n\nreturn {\n  json: {\n    client_email: address || undefined,\n    client_nom: name || undefined,\n    sujet: sujet,\n    corps: corps,\n    volume_m3: volume_m3,\n  },\n};"
+        "jsCode": "// Fusionne les infos extraites par l'IA avec les métadonnées de l'email\nconst ex = $json.output || $json || {};\nconst email = $('Email Trigger (IMAP)').item.json;\n\nconst from = email.from || {};\nconst address =\n  (from.value && from.value[0] && from.value[0].address) ||\n  from.address ||\n  (typeof from === \"string\" ? from : \"\") ||\n  email.fromEmail ||\n  \"\";\n\nconst corps =\n  email.textPlain ||\n  email.text ||\n  (email.textHtml ? String(email.textHtml).replace(/<[^>]+>/g, \" \") : \"\") ||\n  \"\";\nconst sujet = email.subject || \"\";\n\nconst num = (v) => {\n  if (v === undefined || v === null || v === \"\") return null;\n  const n = parseFloat(String(v).replace(\",\", \".\"));\n  return isNaN(n) ? null : n;\n};\nconst clean = (v) => (v === undefined || v === null || v === \"\" ? undefined : v);\n\nreturn {\n  json: {\n    client_nom: clean(ex.client_nom) || (from.value && from.value[0] && from.value[0].name) || from.name || undefined,\n    client_email: address || undefined,\n    client_tel: clean(ex.client_tel),\n    ville_depart: clean(ex.ville_depart),\n    ville_arrivee: clean(ex.ville_arrivee),\n    volume_m3: num(ex.volume_m3),\n    sujet: sujet,\n    corps: corps,\n  },\n};"
       },
-      "id": "22222222-2222-4222-8222-222222222222",
+      "id": "55555555-5555-4555-8555-555555555555",
       "name": "Préparer le payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        520,
-        300
+        820,
+        320
       ]
     },
     {
@@ -55,13 +128,35 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        780,
-        300
+        1060,
+        320
       ]
     }
   ],
   "connections": {
     "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Extraire les infos (IA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extraire les infos (IA)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraire les infos (IA)": {
       "main": [
         [
           {
