@@ -12,14 +12,16 @@ type StageDef = {
   icon: string;
   desc: string;
   tone: "neutral" | "amber" | "good" | "grey";
-  hasCondition?: boolean;
+  champ?: "volume" | "depart" | "arrivee";
   hasMontant?: boolean;
 };
 
 const S = {
   form: { id: "form", event: "demande_complete", source: "form", title: "Formulaire", icon: "📝", desc: "Demande complète", tone: "neutral" } as StageDef,
   mailOk: { id: "mailOk", event: "demande_complete", source: "email", title: "Mail complet", icon: "📬", desc: "Toutes les infos présentes", tone: "good" } as StageDef,
-  mailKo: { id: "mailKo", event: "demande_incomplete", title: "Mail incomplet", icon: "⚠️", desc: "Relance de complétion", tone: "amber", hasCondition: true } as StageDef,
+  mailKoVol: { id: "mailKoVol", event: "demande_incomplete", champ: "volume", title: "Volume manquant", icon: "📦", desc: "Relance : préciser le volume", tone: "amber" } as StageDef,
+  mailKoDep: { id: "mailKoDep", event: "demande_incomplete", champ: "depart", title: "Départ manquant", icon: "📍", desc: "Relance : adresse de départ", tone: "amber" } as StageDef,
+  mailKoArr: { id: "mailKoArr", event: "demande_incomplete", champ: "arrivee", title: "Arrivée manquante", icon: "🏁", desc: "Relance : adresse d'arrivée", tone: "amber" } as StageDef,
   devisCree: { id: "devisCree", event: "devis_cree", title: "Devis créé", icon: "📄", desc: "Estimation générée", tone: "neutral" } as StageDef,
   devisEnvoye: { id: "devisEnvoye", event: "devis_envoye", title: "Devis envoyé", icon: "✉️", desc: "Transmis au client", tone: "neutral", hasMontant: true } as StageDef,
   accepte: { id: "accepte", event: "devis_accepte", title: "Accepté → Chantier", icon: "✅", desc: "Devis signé", tone: "good", hasMontant: true } as StageDef,
@@ -35,7 +37,12 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
   const [selectedId, setSelectedId] = useState<string>("form");
   const workflows = rules.filter((r) => r.kind === "workflow");
   const rulesFor = (s: StageDef) =>
-    workflows.filter((r) => r.event === s.event && (r.condition_source ?? null) === (s.source ?? null));
+    workflows.filter(
+      (r) =>
+        r.event === s.event &&
+        (r.condition_source ?? null) === (s.source ?? null) &&
+        (r.condition_champ ?? null) === (s.champ ?? null),
+    );
   const templateName = (id: string | null) => templates.find((t) => t.id === id)?.name ?? "template ?";
   const stage = ALL.find((s) => s.id === selectedId)!;
 
@@ -45,41 +52,49 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
 
   return (
     <div className="space-y-8">
-      {/* Diagramme */}
-      <div className="space-y-6 overflow-x-auto rounded-2xl border border-line bg-card p-6">
-        {/* Arrivée */}
-        <div>
-          <div className="eyebrow mb-3 text-ink-soft">Arrivée de la demande</div>
-          <div className="flex min-w-max flex-col gap-4">
-            {/* Formulaire */}
+      {/* Diagramme — tout sur une seule ligne : arrivée → traitement */}
+      <div className="overflow-x-auto rounded-2xl border border-line bg-card p-6">
+        <div className="flex min-w-max items-stretch gap-5">
+          {/* Arrivée */}
+          <div className="flex flex-col justify-center gap-3">
+            <div className="eyebrow text-ink-soft">Arrivée</div>
             <div className="flex items-center gap-2">
               <SourceChip icon="📝" label="Formulaire" />
               <Arrow />
-              {node(S.form)}
+              {node(S.form, true)}
             </div>
-            {/* Mail → complet / incomplet */}
             <div className="flex items-start gap-2">
               <SourceChip icon="📬" label="Mail reçu" />
               <span className="pt-6 text-lg text-ink-soft/50">→</span>
               <div className="flex flex-col gap-2">
                 {node(S.mailOk, true)}
-                {node(S.mailKo, true)}
+                <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-2">
+                  <div className="mb-1.5 px-1 text-[11px] font-medium text-amber-800">Si incomplet — selon le champ manquant :</div>
+                  <div className="flex gap-2">
+                    {node(S.mailKoVol, true)}
+                    {node(S.mailKoDep, true)}
+                    {node(S.mailKoArr, true)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Traitement */}
-        <div className="border-t border-line pt-6">
-          <div className="eyebrow mb-3 text-ink-soft">Traitement (demande complète)</div>
-          <div className="flex min-w-max items-stretch gap-2">
-            {node(S.devisCree)}
-            <Arrow />
-            {node(S.devisEnvoye)}
-            <Arrow />
-            <div className="flex flex-col justify-center gap-2">
-              {node(S.accepte, true)}
-              {node(S.refuse, true)}
+          {/* Jonction arrivée complète → traitement */}
+          <div className="flex items-center px-1 text-2xl text-ink-soft/40">→</div>
+
+          {/* Traitement */}
+          <div className="flex flex-col justify-center gap-3">
+            <div className="eyebrow text-ink-soft">Traitement (demande complète)</div>
+            <div className="flex items-center gap-2">
+              {node(S.devisCree, true)}
+              <Arrow />
+              {node(S.devisEnvoye, true)}
+              <Arrow />
+              <div className="flex flex-col gap-2">
+                {node(S.accepte, true)}
+                {node(S.refuse, true)}
+              </div>
             </div>
           </div>
         </div>
@@ -128,7 +143,7 @@ function StageNode({ stage, count, active, onClick, small }: { stage: StageDef; 
   return (
     <button
       onClick={onClick}
-      className={`rounded-2xl border-2 bg-card p-4 text-left transition ${small ? "w-52" : "w-52"} ${
+      className={`rounded-2xl border-2 bg-card p-4 text-left transition ${small ? "w-44" : "w-52"} ${
         active ? "border-accent shadow-md" : toneRing[stage.tone] + " hover:border-accent/50"
       }`}
     >
@@ -175,7 +190,6 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
   const [templateId, setTemplateId] = useState("");
   const [dest, setDest] = useState<"client" | "custom">("client");
   const [custom, setCustom] = useState("");
-  const [champ, setChamp] = useState("volume");
   const [montant, setMontant] = useState("");
   const [pending, start] = useTransition();
   const compatible = templates.filter((t) => t.channel === channel);
@@ -217,15 +231,12 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
             <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={channel === "sms" ? "0612…" : "equipe@bailly.fr"} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
           </label>
         )}
-        {stage.hasCondition && (
-          <label className="block">
-            <span className="mb-1 block text-sm text-ink-soft">Se déclenche si ce champ manque</span>
-            <select value={champ} onChange={(e) => setChamp(e.target.value)} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
-              <option value="volume">Volume</option>
-              <option value="depart">Adresse de départ</option>
-              <option value="arrivee">Adresse d&apos;arrivée</option>
-            </select>
-          </label>
+        {stage.champ && (
+          <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Se déclenche uniquement quand{" "}
+            <strong>{stage.champ === "volume" ? "le volume" : stage.champ === "depart" ? "l'adresse de départ" : "l'adresse d'arrivée"}</strong>{" "}
+            manque. Pensez à insérer <code className="rounded bg-amber-100 px-1 font-mono">{"{{lien_completion}}"}</code> dans le template.
+          </div>
         )}
         {stage.hasMontant && (
           <label className="block">
@@ -242,7 +253,7 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
               montant_min: stage.hasMontant && montant ? Number(montant) : null,
               channel, destinataire: dest, destinataire_custom: dest === "custom" ? custom || null : null,
               template_id: templateId || null,
-              condition_champ: stage.hasCondition ? champ : null,
+              condition_champ: stage.champ ?? null,
               condition_source: stage.source ?? null,
               active: true,
             });
