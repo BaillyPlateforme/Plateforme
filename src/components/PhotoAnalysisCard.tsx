@@ -47,17 +47,30 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-line bg-card">
-      <div className="grid md:grid-cols-[200px_1fr]">
-        <div className="relative aspect-square md:aspect-auto">
-          {photo.previewUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.previewUrl} alt={photo.piece} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-subtle text-sm text-ink-soft">
-              Photo
-            </div>
-          )}
-        </div>
+      <div className="grid md:grid-cols-[300px_1fr] md:items-start">
+        {photo.previewUrl ? (
+          <a
+            href={photo.previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="group relative block aspect-[4/3] overflow-hidden bg-subtle"
+            title="Agrandir la photo"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo.previewUrl}
+              alt={photo.piece}
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+            />
+            <span className="absolute bottom-2 right-2 rounded-full bg-ink/70 px-2.5 py-1 text-xs text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+              Agrandir ↗
+            </span>
+          </a>
+        ) : (
+          <div className="flex aspect-[4/3] items-center justify-center bg-subtle text-sm text-ink-soft">
+            Photo
+          </div>
+        )}
 
         <div className="p-4">
           <div className="mb-3 flex items-center gap-2">

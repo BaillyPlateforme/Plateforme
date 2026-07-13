@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput, Toggle, PrimaryButton, GhostButton } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
+import ModeSwitch from "@/components/ModeSwitch";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 
 type VolumeMode = "explicit" | "list" | "ai";
@@ -152,6 +153,8 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
   if (done) return <SuccessScreen id={done} volume={totalVolume} />;
 
   return (
+    <>
+    <ModeSwitch current="form" />
     <div className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 gap-0 px-5 md:grid-cols-[300px_1fr] md:gap-12 md:px-8">
       {/* Rail latéral */}
       <aside className="hidden py-14 md:block">
@@ -287,6 +290,7 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
         </div>
       </main>
     </div>
+    </>
   );
 }
 

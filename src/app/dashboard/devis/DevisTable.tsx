@@ -96,13 +96,21 @@ export default function DevisTable({ devis }: { devis: DevisRow[] }) {
                   </select>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => start(() => deleteDevis(d.id))}
-                    disabled={pending}
-                    className="text-xs text-ink-soft transition hover:text-accent"
-                  >
-                    Supprimer
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    <a
+                      href={`/api/devis/${d.id}/pdf`}
+                      className="text-xs font-medium text-accent transition hover:text-accent-dark"
+                    >
+                      Télécharger PDF
+                    </a>
+                    <button
+                      onClick={() => start(() => deleteDevis(d.id))}
+                      disabled={pending}
+                      className="text-xs text-ink-soft transition hover:text-accent"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
