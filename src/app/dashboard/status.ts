@@ -44,3 +44,19 @@ export function isIncomplete(r: {
 }): boolean {
   return !!r.completion_token || r.volume_m3 == null || !r.depart_ville || !r.arrivee_ville;
 }
+
+// Liste des informations manquantes (pour l'afficher sur la demande).
+export function missingFields(r: {
+  volume_m3: number | null;
+  depart_ville: string | null;
+  arrivee_ville: string | null;
+}): string[] {
+  const out: string[] = [];
+  if (r.volume_m3 == null) out.push("Volume à déménager");
+  if (!r.depart_ville) out.push("Adresse de départ");
+  if (!r.arrivee_ville) out.push("Adresse d'arrivée");
+  return out;
+}
+
+// Étapes principales du parcours (l'avancée d'une demande).
+export const PIPELINE: RequestStatus[] = ["new", "analyzing", "qualified", "quoted", "won"];

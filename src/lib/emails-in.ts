@@ -20,7 +20,13 @@ export interface IncomingEmail {
 // les workflows — dont le workflow de complétion si des champs manquent.
 export async function ingestEmail(body: IncomingEmail) {
   const supabase = createServiceClient();
-  const token = randomUUID();
+
+  const manque_volume = body.volume_m3 == null;
+  const manque_depart = !body.ville_depart;
+  const manque_arrivee = !body.ville_arrivee;
+  const incomplet = manque_volume || manque_depart || manque_arrivee;
+  // Un jeton de complétion n'est créé que si la demande est incomplète.
+  const token = incomplet ? randomUUID() : null;
 
   const { data: req } = await supabase
     .from("requests")
@@ -57,15 +63,10 @@ export async function ingestEmail(body: IncomingEmail) {
     await supabase.from("request_events").insert({ request_id: req.id, type: "created", payload: { source: "email" } });
   }
 
-  const manque_volume = body.volume_m3 == null;
-  const manque_depart = !body.ville_depart;
-  const manque_arrivee = !body.ville_arrivee;
-
   const settings = await getSettings();
   const base = (settings.base_url || "").replace(/\/$/, "");
-  const lien = base ? `${base}/completer/${token}` : `/completer/${token}`;
+  const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
 
-  const incomplet = manque_volume || manque_depart || manque_arrivee;
   const ctx = {
     source: "email",
     client_nom: body.client_nom ?? null,
@@ -84,5 +85,5 @@ export async function ingestEmail(body: IncomingEmail) {
   if (incomplet) await fireEvent("demande_incomplete", ctx);
   else await fireEvent("demande_complete", ctx);
 
-  return { id: req?.id, completion_token: token, incomplet: manque_volume || manque_depart || manque_arrivee };
+  return { id: req?.id, completion_token: token, incomplet };
 }

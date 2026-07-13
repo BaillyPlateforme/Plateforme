@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { PricingGridRow, RequestStatus } from "@/lib/types";
 import { estimateQuote } from "@/lib/quote";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete } from "../status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
 import { createDevisFromRequest } from "@/lib/actions/devis";
 
@@ -23,6 +23,7 @@ export default function RequestDetail({
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
   const [pending, start] = useTransition();
+  const missing = missingFields(r);
 
   return (
     <div className="mt-4">
@@ -33,7 +34,7 @@ export default function RequestDetail({
           <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-ink-soft">
             <span>{r.client_email}</span>
             {r.client_tel && <span>· {r.client_tel}</span>}
-            <span>· reçue le {new Date(r.created_at).toLocaleDateString("fr-FR")}</span>
+            <span>· reçue le {new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à {new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</span>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceClass(r.source)}`}>
               {sourceLabel(r.source)}
             </span>
@@ -50,6 +51,12 @@ export default function RequestDetail({
           disabled={pending}
         />
       </div>
+
+      {/* Avancée */}
+      <ProgressStepper status={r.status} />
+
+      {/* Ce qui manque */}
+      {missing.length > 0 && <MissingBanner missing={missing} token={r.completion_token} />}
 
       {/* Onglets */}
       <div className="mt-6 flex gap-1 border-b border-line">
@@ -353,6 +360,82 @@ function DevisTab({ detail, grids }: { detail: Detail; grids: PricingGridRow[] }
   );
 }
 
+/* ---------- Avancée & informations manquantes ---------- */
+
+function ProgressStepper({ status }: { status: RequestStatus }) {
+  const lost = status === "lost";
+  const archived = status === "archived";
+  const idx = PIPELINE.indexOf(status);
+  return (
+    <div className="mt-6">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Avancée</div>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {PIPELINE.map((s, i) => {
+          const done = !lost && !archived && idx > i;
+          const current = !lost && !archived && idx === i;
+          return (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  current
+                    ? "border-accent bg-accent text-white"
+                    : done
+                      ? "border-accent/40 bg-accent-soft/60 text-accent-dark"
+                      : "border-line bg-card text-ink-soft/50"
+                }`}
+              >
+                <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${current ? "bg-white/25" : done ? "bg-accent/20" : "bg-subtle"}`}>
+                  {done ? "✓" : i + 1}
+                </span>
+                {STATUS_META[s].label}
+              </div>
+              {i < PIPELINE.length - 1 && <span className="text-ink-soft/30">—</span>}
+            </div>
+          );
+        })}
+        {lost && (
+          <>
+            <span className="text-ink-soft/30">—</span>
+            <div className="whitespace-nowrap rounded-full border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-600">✕ Perdue</div>
+          </>
+        )}
+        {archived && (
+          <>
+            <span className="text-ink-soft/30">—</span>
+            <div className="whitespace-nowrap rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-500">Archivée</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MissingBanner({ missing, token }: { missing: string[]; token: string | null }) {
+  return (
+    <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50/70 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="text-sm font-medium text-amber-900">Informations manquantes :</span>
+        {missing.map((m) => (
+          <span key={m} className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            {m}
+          </span>
+        ))}
+        {token && (
+          <a
+            href={`/completer/${token}`}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:bg-amber-100"
+          >
+            Ouvrir le lien de complétion ↗
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Onglet Historique ---------- */
 
 function TimelineTab({ detail }: { detail: Detail }) {
@@ -367,7 +450,7 @@ function TimelineTab({ detail }: { detail: Detail }) {
           <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-accent bg-card" />
           <div className="text-sm font-medium">{eventLabel(e.type)}</div>
           <div className="text-xs text-ink-soft">
-            {new Date(e.created_at).toLocaleString("fr-FR")}
+            {new Date(e.created_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" })}
           </div>
         </div>
       ))}

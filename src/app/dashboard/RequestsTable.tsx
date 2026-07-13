@@ -133,7 +133,10 @@ export default function RequestsTable({ requests }: { requests: RequestRow[] }) 
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-xs text-ink-soft">
-                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                      <div>{new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}</div>
+                      <div className="text-[11px] text-ink-soft/70">
+                        {new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}
+                      </div>
                     </td>
                   </tr>
                 );

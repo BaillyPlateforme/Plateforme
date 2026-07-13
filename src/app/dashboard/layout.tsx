@@ -1,6 +1,7 @@
 import { getUser } from "@/lib/supabase/auth";
 import Nav from "./Nav";
 import ModeSwitch from "@/components/ModeSwitch";
+import RefreshButton from "@/components/RefreshButton";
 
 export default async function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default async function DashboardLayout({
   return (
     <div className="relative z-10 flex min-h-screen">
       <ModeSwitch current="dashboard" />
+      <RefreshButton />
       <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-card md:block">
         <Nav email={user?.email ?? ""} />
       </aside>
