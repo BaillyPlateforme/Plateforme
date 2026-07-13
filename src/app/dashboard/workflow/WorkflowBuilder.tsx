@@ -5,7 +5,9 @@ import type { AlertRow, MessageTemplate, Channel } from "@/lib/messaging";
 import { saveAlert, deleteAlert } from "@/lib/actions/alerts";
 
 type StageDef = {
+  id: string;
   event: string;
+  source?: "form" | "email";
   title: string;
   icon: string;
   desc: string;
@@ -14,77 +16,95 @@ type StageDef = {
   hasMontant?: boolean;
 };
 
-const MAIN: StageDef[] = [
-  { event: "demande_recue", title: "Réception", icon: "📥", desc: "Formulaire ou mail reçu", tone: "neutral" },
-  { event: "devis_cree", title: "Devis créé", icon: "📄", desc: "Estimation générée", tone: "neutral" },
-  { event: "devis_envoye", title: "Devis envoyé", icon: "✉️", desc: "Transmis au client", tone: "neutral", hasMontant: true },
-];
-const ACCEPTE: StageDef = { event: "devis_accepte", title: "Accepté → Chantier", icon: "✅", desc: "Devis signé", tone: "good", hasMontant: true };
-const REFUSE: StageDef = { event: "devis_refuse", title: "Refusé → Perdu", icon: "❌", desc: "Devis décliné", tone: "grey" };
-const INCOMPLETE: StageDef = { event: "demande_incomplete", title: "Incomplète", icon: "⚠️", desc: "Relance de complétion", tone: "amber", hasCondition: true };
-
-const ALL_STAGES = [...MAIN, ACCEPTE, REFUSE, INCOMPLETE];
+const S = {
+  form: { id: "form", event: "demande_complete", source: "form", title: "Formulaire", icon: "📝", desc: "Demande complète", tone: "neutral" } as StageDef,
+  mailOk: { id: "mailOk", event: "demande_complete", source: "email", title: "Mail complet", icon: "📬", desc: "Toutes les infos présentes", tone: "good" } as StageDef,
+  mailKo: { id: "mailKo", event: "demande_incomplete", title: "Mail incomplet", icon: "⚠️", desc: "Relance de complétion", tone: "amber", hasCondition: true } as StageDef,
+  devisCree: { id: "devisCree", event: "devis_cree", title: "Devis créé", icon: "📄", desc: "Estimation générée", tone: "neutral" } as StageDef,
+  devisEnvoye: { id: "devisEnvoye", event: "devis_envoye", title: "Devis envoyé", icon: "✉️", desc: "Transmis au client", tone: "neutral", hasMontant: true } as StageDef,
+  accepte: { id: "accepte", event: "devis_accepte", title: "Accepté → Chantier", icon: "✅", desc: "Devis signé", tone: "good", hasMontant: true } as StageDef,
+  refuse: { id: "refuse", event: "devis_refuse", title: "Refusé → Perdu", icon: "❌", desc: "Devis décliné", tone: "grey" } as StageDef,
+};
+const ALL = Object.values(S);
 const CHANNEL_ICON: Record<string, string> = { email: "✉️", sms: "💬" };
-
 const toneRing: Record<StageDef["tone"], string> = {
-  neutral: "border-line",
-  amber: "border-amber-300",
-  good: "border-good/40",
-  grey: "border-line-strong",
+  neutral: "border-line", amber: "border-amber-300", good: "border-good/40", grey: "border-line-strong",
 };
 
 export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[]; templates: MessageTemplate[] }) {
-  const [selected, setSelected] = useState<string>("demande_recue");
+  const [selectedId, setSelectedId] = useState<string>("form");
   const workflows = rules.filter((r) => r.kind === "workflow");
-  const forEvent = (ev: string) => workflows.filter((r) => r.event === ev);
+  const rulesFor = (s: StageDef) =>
+    workflows.filter((r) => r.event === s.event && (r.condition_source ?? null) === (s.source ?? null));
   const templateName = (id: string | null) => templates.find((t) => t.id === id)?.name ?? "template ?";
+  const stage = ALL.find((s) => s.id === selectedId)!;
 
-  const stage = ALL_STAGES.find((s) => s.event === selected)!;
+  const node = (s: StageDef, small?: boolean) => (
+    <StageNode stage={s} count={rulesFor(s).length} active={selectedId === s.id} onClick={() => setSelectedId(s.id)} small={small} />
+  );
 
   return (
     <div className="space-y-8">
       {/* Diagramme */}
-      <div className="overflow-x-auto rounded-2xl border border-line bg-card p-6">
-        <div className="flex min-w-max items-stretch gap-2">
-          {MAIN.map((s, i) => (
-            <div key={s.event} className="flex items-center gap-2">
-              <StageNode stage={s} count={forEvent(s.event).length} active={selected === s.event} onClick={() => setSelected(s.event)} />
-              {i < MAIN.length - 1 && <Arrow />}
+      <div className="space-y-6 overflow-x-auto rounded-2xl border border-line bg-card p-6">
+        {/* Arrivée */}
+        <div>
+          <div className="eyebrow mb-3 text-ink-soft">Arrivée de la demande</div>
+          <div className="flex min-w-max flex-col gap-4">
+            {/* Formulaire */}
+            <div className="flex items-center gap-2">
+              <SourceChip icon="📝" label="Formulaire" />
+              <Arrow />
+              {node(S.form)}
             </div>
-          ))}
-          <Arrow />
-          <div className="flex flex-col justify-center gap-2">
-            <StageNode stage={ACCEPTE} count={forEvent(ACCEPTE.event).length} active={selected === ACCEPTE.event} onClick={() => setSelected(ACCEPTE.event)} small />
-            <StageNode stage={REFUSE} count={forEvent(REFUSE.event).length} active={selected === REFUSE.event} onClick={() => setSelected(REFUSE.event)} small />
+            {/* Mail → complet / incomplet */}
+            <div className="flex items-start gap-2">
+              <SourceChip icon="📬" label="Mail reçu" />
+              <span className="pt-6 text-lg text-ink-soft/50">→</span>
+              <div className="flex flex-col gap-2">
+                {node(S.mailOk, true)}
+                {node(S.mailKo, true)}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Embranchement : demande incomplète */}
-        <div className="mt-5 flex items-center gap-2 pl-2">
-          <span className="text-sm text-ink-soft">↳ si la demande est incomplète</span>
-          <Arrow />
-          <StageNode stage={INCOMPLETE} count={forEvent(INCOMPLETE.event).length} active={selected === INCOMPLETE.event} onClick={() => setSelected(INCOMPLETE.event)} />
+        {/* Traitement */}
+        <div className="border-t border-line pt-6">
+          <div className="eyebrow mb-3 text-ink-soft">Traitement (demande complète)</div>
+          <div className="flex min-w-max items-stretch gap-2">
+            {node(S.devisCree)}
+            <Arrow />
+            {node(S.devisEnvoye)}
+            <Arrow />
+            <div className="flex flex-col justify-center gap-2">
+              {node(S.accepte, true)}
+              {node(S.refuse, true)}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Éditeur de l'étape sélectionnée */}
+      {/* Éditeur */}
       <div className={`rounded-2xl border-2 bg-card p-6 ${toneRing[stage.tone]}`}>
         <div className="mb-1 flex items-center gap-2">
           <span className="text-xl">{stage.icon}</span>
           <h3 className="font-serif text-2xl">{stage.title}</h3>
+          {stage.source && (
+            <span className="rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+              {stage.source === "form" ? "Formulaire" : "Mail"}
+            </span>
+          )}
         </div>
-        <p className="mb-5 text-sm text-ink-soft">
-          Actions déclenchées automatiquement à cette étape. {stage.desc}.
-        </p>
+        <p className="mb-5 text-sm text-ink-soft">Actions automatiques à cette étape. {stage.desc}.</p>
 
-        {/* Actions existantes */}
         <div className="mb-5 space-y-2">
-          {forEvent(stage.event).length === 0 && (
+          {rulesFor(stage).length === 0 && (
             <div className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-ink-soft">
-              Aucune action à cette étape — ajoutez-en une ci-dessous.
+              Aucune action — ajoutez-en une ci-dessous.
             </div>
           )}
-          {forEvent(stage.event).map((r) => (
+          {rulesFor(stage).map((r) => (
             <ActionRow key={r.id} rule={r} templateName={templateName(r.template_id)} />
           ))}
         </div>
@@ -95,11 +115,20 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
   );
 }
 
+function SourceChip({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="flex w-32 shrink-0 items-center gap-2 rounded-xl bg-subtle px-3 py-4 font-medium">
+      <span className="text-lg">{icon}</span>
+      {label}
+    </div>
+  );
+}
+
 function StageNode({ stage, count, active, onClick, small }: { stage: StageDef; count: number; active: boolean; onClick: () => void; small?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-2xl border-2 bg-card p-4 text-left transition ${small ? "w-56" : "w-56"} ${
+      className={`rounded-2xl border-2 bg-card p-4 text-left transition ${small ? "w-52" : "w-52"} ${
         active ? "border-accent shadow-md" : toneRing[stage.tone] + " hover:border-accent/50"
       }`}
     >
@@ -116,7 +145,7 @@ function StageNode({ stage, count, active, onClick, small }: { stage: StageDef; 
 }
 
 function Arrow() {
-  return <span className="shrink-0 text-lg text-ink-soft/50">→</span>;
+  return <span className="flex shrink-0 items-center text-lg text-ink-soft/50">→</span>;
 }
 
 function ActionRow({ rule, templateName }: { rule: AlertRow; templateName: string }) {
@@ -149,7 +178,6 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
   const [champ, setChamp] = useState("volume");
   const [montant, setMontant] = useState("");
   const [pending, start] = useTransition();
-
   const compatible = templates.filter((t) => t.channel === channel);
 
   if (!open) {
@@ -159,7 +187,6 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
       </button>
     );
   }
-
   return (
     <div className="rounded-xl border border-line bg-paper p-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -207,7 +234,6 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
           </label>
         )}
       </div>
-
       <div className="mt-4 flex items-center gap-3">
         <button
           onClick={() => start(async () => {
@@ -217,6 +243,7 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
               channel, destinataire: dest, destinataire_custom: dest === "custom" ? custom || null : null,
               template_id: templateId || null,
               condition_champ: stage.hasCondition ? champ : null,
+              condition_source: stage.source ?? null,
               active: true,
             });
             setOpen(false); setTemplateId(""); setCustom(""); setMontant("");

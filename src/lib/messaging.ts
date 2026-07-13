@@ -27,6 +27,7 @@ export interface AlertRow {
   destinataire_custom: string | null;
   template_id: string | null;
   condition_champ: string | null; // 'volume' | 'depart' | 'arrivee'
+  condition_source: string | null; // 'form' | 'email'
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -35,6 +36,7 @@ export interface AlertRow {
 // Événements déclencheurs disponibles.
 export const MESSAGE_EVENTS: { key: string; label: string }[] = [
   { key: "demande_recue", label: "Nouvelle demande reçue" },
+  { key: "demande_complete", label: "Demande complète" },
   { key: "demande_incomplete", label: "Demande incomplète (à compléter)" },
   { key: "devis_cree", label: "Devis créé" },
   { key: "devis_envoye", label: "Devis envoyé" },

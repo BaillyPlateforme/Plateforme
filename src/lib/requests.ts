@@ -116,7 +116,8 @@ export async function createRequest(
     payload: { source },
   });
 
-  await fireEvent("demande_recue", {
+  const ctx = {
+    source: created.source,
     client_nom: created.client_nom,
     client_email: created.client_email,
     client_tel: created.client_tel,
@@ -124,7 +125,11 @@ export async function createRequest(
     ville_arrivee: created.arrivee_ville,
     volume: created.volume_m3,
     date: created.date_souhaitee,
-  });
+  };
+  await fireEvent("demande_recue", ctx);
+
+  const complete = created.volume_m3 != null && !!created.depart_ville && !!created.arrivee_ville;
+  if (complete) await fireEvent("demande_complete", ctx);
 
   return created;
 }

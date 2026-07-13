@@ -152,6 +152,7 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
             channel: f.channel, destinataire: f.destinataire, destinataire_custom: f.destinataire === "custom" ? f.destinataire_custom || null : null,
             template_id: f.template_id || null,
             condition_champ: f.event === "demande_incomplete" ? f.condition_champ || null : null,
+            condition_source: null,
             active: f.active,
           });
           if (isNew) onDone(null);

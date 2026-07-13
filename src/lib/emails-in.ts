@@ -65,7 +65,9 @@ export async function ingestEmail(body: IncomingEmail) {
   const base = (settings.base_url || "").replace(/\/$/, "");
   const lien = base ? `${base}/completer/${token}` : `/completer/${token}`;
 
+  const incomplet = manque_volume || manque_depart || manque_arrivee;
   const ctx = {
+    source: "email",
     client_nom: body.client_nom ?? null,
     client_email: body.client_email ?? null,
     client_tel: body.client_tel ?? null,
@@ -79,9 +81,8 @@ export async function ingestEmail(body: IncomingEmail) {
   };
 
   await fireEvent("demande_recue", ctx);
-  if (manque_volume || manque_depart || manque_arrivee) {
-    await fireEvent("demande_incomplete", ctx);
-  }
+  if (incomplet) await fireEvent("demande_incomplete", ctx);
+  else await fireEvent("demande_complete", ctx);
 
   return { id: req?.id, completion_token: token, incomplet: manque_volume || manque_depart || manque_arrivee };
 }
