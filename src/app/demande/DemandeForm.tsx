@@ -1,20 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CATALOG, LOGEMENT_HINTS } from "./catalog";
+import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput, Toggle, PrimaryButton, GhostButton } from "./ui";
-import { PhotoAnalysisCard, PhotoDropzone } from "@/components/PhotoAnalysisCard";
+import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
+import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 
 type VolumeMode = "explicit" | "list" | "ai";
 
 type ListItem = { label: string; quantite: number; volume_unitaire_m3: number };
-type AnalyzedPhoto = {
-  storage_path: string;
-  piece: string;
-  objets: { label: string; quantite: number; volume_m3: number }[];
-  volume_m3: number;
-  previewUrl?: string; // aperçu local (non envoyé, dépouillé par le schéma serveur)
-};
+// AnalyzedPhoto est importé depuis le composant partagé.
 
 type Formule = "eco" | "standard" | "luxe";
 type Services = {
@@ -115,7 +110,7 @@ const DEMO: FormState = {
   photos: [],
 };
 
-export default function DemandeForm() {
+export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -258,7 +253,7 @@ export default function DemandeForm() {
             )}
             {step === 3 && <PlanningStep form={form} patch={patch} />}
             {step === 4 && <PrestationStep form={form} patch={patch} />}
-            {step === 5 && <VolumeStep form={form} patch={patch} />}
+            {step === 5 && <VolumeStep form={form} patch={patch} library={library} />}
             {step === 6 && <RecapStep form={form} volume={totalVolume} />}
           </div>
         </div>
@@ -520,7 +515,7 @@ function PrestationStep({ form, patch }: StepProps) {
 
 /* ---------- Étape Volume (3 modes) ---------- */
 
-function VolumeStep({ form, patch }: StepProps) {
+function VolumeStep({ form, patch, library }: StepProps & { library: LibraryPhoto[] }) {
   const mode = form.volumeMode;
   return (
     <div>
@@ -550,7 +545,7 @@ function VolumeStep({ form, patch }: StepProps) {
 
       {mode === "explicit" && <ExplicitMode form={form} patch={patch} />}
       {mode === "list" && <ListMode form={form} patch={patch} />}
-      {mode === "ai" && <AiMode form={form} patch={patch} />}
+      {mode === "ai" && <AiMode form={form} patch={patch} library={library} />}
     </div>
   );
 }
@@ -690,102 +685,13 @@ function ListMode({ form, patch }: StepProps) {
   );
 }
 
-function AiMode({ form, patch }: StepProps) {
-  const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    setPreviews((p) => [...p, ...files.map((f) => ({ url: URL.createObjectURL(f), file: f }))]);
-    setErr(null);
-  }
-  function removePreview(i: number) {
-    setPreviews((p) => p.filter((_, idx) => idx !== i));
-  }
-
-  async function analyze() {
-    if (previews.length === 0) return;
-    setAnalyzing(true);
-    setErr(null);
-    try {
-      const fd = new FormData();
-      previews.forEach((p) => fd.append("photos", p.file));
-      const res = await fetch("/api/analyze-volume", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      const enriched: AnalyzedPhoto[] = data.photos.map((p: AnalyzedPhoto, i: number) => ({
-        ...p,
-        previewUrl: previews[i]?.url,
-      }));
-      patch({ photos: [...form.photos, ...enriched] });
-      setPreviews([]);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  // Édition d'une photo analysée
-  function updatePhoto(idx: number, next: AnalyzedPhoto) {
-    next.volume_m3 = round2(next.objets.reduce((s, o) => s + o.volume_m3, 0));
-    patch({ photos: form.photos.map((p, i) => (i === idx ? next : p)) });
-  }
-  function removePhoto(idx: number) {
-    patch({ photos: form.photos.filter((_, i) => i !== idx) });
-  }
-
-  const total = round2(form.photos.reduce((s, p) => s + p.volume_m3, 0));
-
+function AiMode({ form, patch, library }: StepProps & { library: LibraryPhoto[] }) {
   return (
-    <div className="space-y-5">
-      <PhotoDropzone onPick={onPick} />
-
-      {previews.length > 0 && (
-        <div>
-          <div className="grid grid-cols-4 gap-2">
-            {previews.map((p, i) => (
-              <div key={p.url} className="group relative aspect-square overflow-hidden rounded-lg border border-line">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removePreview(i)}
-                  className="absolute right-1 top-1 h-6 w-6 rounded-full bg-ink/70 text-xs text-white opacity-0 transition group-hover:opacity-100"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-          <PrimaryButton onClick={analyze} disabled={analyzing} className="mt-3 w-full">
-            {analyzing
-              ? "Analyse en cours…"
-              : `Analyser ${previews.length} photo${previews.length > 1 ? "s" : ""}`}
-          </PrimaryButton>
-        </div>
-      )}
-
-      {err && <div className="text-sm text-accent-dark">{err}</div>}
-
-      {/* Résultats éditables : composant partagé avec le Playground */}
-      {form.photos.map((p, i) => (
-        <PhotoAnalysisCard
-          key={i}
-          photo={p}
-          onChange={(next) => updatePhoto(i, next)}
-          onRemove={() => removePhoto(i)}
-        />
-      ))}
-
-      {form.photos.length > 0 && (
-        <div className="flex items-center justify-between rounded-xl border border-line bg-subtle px-4 py-3 font-medium">
-          <span>Volume total estimé</span>
-          <span className="tabular-nums">{total.toFixed(1)} m³</span>
-        </div>
-      )}
-    </div>
+    <PhotoAnalyzer
+      library={library}
+      photos={form.photos}
+      onChange={(photos) => patch({ photos })}
+    />
   );
 }
 

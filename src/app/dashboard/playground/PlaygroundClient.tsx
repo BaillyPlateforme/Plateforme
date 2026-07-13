@@ -3,16 +3,8 @@
 import { useMemo, useState } from "react";
 import type { PricingGridRow, RequestRow } from "@/lib/types";
 import { estimateQuote } from "@/lib/quote";
-import { PhotoAnalysisCard } from "@/components/PhotoAnalysisCard";
-
-type Objet = { label: string; quantite: number; volume_m3: number };
-type Photo = {
-  storage_path: string;
-  piece: string;
-  objets: Objet[];
-  volume_m3: number;
-  previewUrl?: string;
-};
+import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
+import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -24,8 +16,6 @@ const SERVICE_KEYS: { key: keyof RequestRow["services"]; label: string }[] = [
   { key: "garde_meuble", label: "Garde-meuble" },
 ];
 
-type LibraryPhoto = { path: string; url: string };
-
 export default function PlaygroundClient({
   grids,
   library,
@@ -33,44 +23,8 @@ export default function PlaygroundClient({
   grids: PricingGridRow[];
   library: LibraryPhoto[];
 }) {
-  const [previews, setPreviews] = useState<{ url: string; file: File }[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
 
-  function toggleSelect(path: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }
-
-  async function analyzeSelection() {
-    const paths = library.filter((p) => selected.has(p.path));
-    if (paths.length === 0) return;
-    setAnalyzing(true);
-    setErr(null);
-    try {
-      const res = await fetch("/api/analyze-volume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paths: paths.map((p) => p.path) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      setPhotos((prev) => [...prev, ...data.photos]);
-      setSelected(new Set());
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  // Paramètres du chantier fictif
   const [gridId, setGridId] = useState(grids.find((g) => g.is_default)?.id ?? grids[0]?.id);
   const [distance, setDistance] = useState("250");
   const [departEtage, setDepartEtage] = useState("2");
@@ -78,40 +32,6 @@ export default function PlaygroundClient({
   const [arriveeEtage, setArriveeEtage] = useState("0");
   const [arriveeAsc, setArriveeAsc] = useState(true);
   const [services, setServices] = useState<Record<string, boolean>>({ emballage: true });
-
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    setPreviews((p) => [...p, ...files.map((f) => ({ url: URL.createObjectURL(f), file: f }))]);
-    setErr(null);
-  }
-
-  async function analyze() {
-    if (previews.length === 0) return;
-    setAnalyzing(true);
-    setErr(null);
-    try {
-      const fd = new FormData();
-      previews.forEach((p) => fd.append("photos", p.file));
-      const res = await fetch("/api/analyze-volume", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      const enriched: Photo[] = data.photos.map((p: Photo, i: number) => ({
-        ...p,
-        previewUrl: previews[i]?.url,
-      }));
-      setPhotos((prev) => [...prev, ...enriched]);
-      setPreviews([]);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Erreur");
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  function updatePhoto(idx: number, next: Photo) {
-    next.volume_m3 = round2(next.objets.reduce((s, o) => s + o.volume_m3, 0));
-    setPhotos((prev) => prev.map((p, i) => (i === idx ? next : p)));
-  }
 
   const totalVolume = round2(photos.reduce((s, p) => s + p.volume_m3, 0));
   const grid = grids.find((g) => g.id === gridId);
@@ -133,104 +53,21 @@ export default function PlaygroundClient({
   if (grids.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-line p-12 text-center text-ink-soft">
-        Aucune grille active. Créez-en une dans « Grilles tarifaires ».
+        Aucune grille active. Créez-en une dans « Configuration ».
       </div>
     );
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      {/* Colonne gauche : photos */}
-      <div className="space-y-5">
-        {/* Galerie : base de ~30 photos, sélectionnables */}
-        {library.length > 0 && (
-          <div className="rounded-xl border border-line bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-                Base de photos · {library.length}
-              </h3>
-              <div className="flex items-center gap-2">
-                {selected.size > 0 && (
-                  <button
-                    onClick={() => setSelected(new Set())}
-                    className="text-xs text-ink-soft transition hover:text-ink"
-                  >
-                    Désélectionner
-                  </button>
-                )}
-                <button
-                  onClick={analyzeSelection}
-                  disabled={selected.size === 0 || analyzing}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
-                >
-                  {analyzing ? "Analyse…" : `Analyser la sélection (${selected.size})`}
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {library.map((p) => {
-                const on = selected.has(p.path);
-                return (
-                  <button
-                    key={p.path}
-                    onClick={() => toggleSelect(p.path)}
-                    className={`group relative aspect-square overflow-hidden rounded-lg border-2 transition ${
-                      on ? "border-ink" : "border-transparent hover:border-line-strong"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt="" className="h-full w-full object-cover" />
-                    <span
-                      className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs transition ${
-                        on ? "bg-ink text-white" : "bg-white/70 text-transparent group-hover:text-ink-soft"
-                      }`}
-                    >
-                      ✓
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      {/* Bloc photo partagé (identique au formulaire) */}
+      <PhotoAnalyzer library={library} photos={photos} onChange={setPhotos} showTotal={false} />
 
-        <label className="block cursor-pointer rounded-xl border-2 border-dashed border-line-strong bg-card px-6 py-6 text-center transition hover:border-ink">
-          <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-          <div className="text-sm font-medium">…ou importez vos propres photos</div>
-        </label>
-
-        {previews.length > 0 && (
-          <div>
-            <div className="grid grid-cols-6 gap-2">
-              {previews.map((p) => (
-                <div key={p.url} className="aspect-square overflow-hidden rounded-lg border border-line">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt="" className="h-full w-full object-cover" />
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={analyze}
-              disabled={analyzing}
-              className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
-            >
-              {analyzing ? "Analyse en cours…" : `Analyser ${previews.length} photo(s)`}
-            </button>
-          </div>
-        )}
-
-        {err && <div className="text-sm text-accent-dark">{err}</div>}
-
-        {photos.map((p, i) => (
-          <PhotoAnalysisCard key={i} photo={p} onChange={(next) => updatePhoto(i, next)} onRemove={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))} />
-        ))}
-      </div>
-
-      {/* Colonne droite : paramètres + devis */}
+      {/* Paramètres + devis */}
       <div className="space-y-4">
-        <div className="rounded-xl border border-line bg-card p-5">
+        <div className="rounded-2xl border border-line bg-card p-5">
           <div className="mb-4 flex items-baseline justify-between">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">Chantier</h3>
+            <h3 className="eyebrow text-ink-soft">Chantier</h3>
             <span className="font-serif text-2xl">{totalVolume.toFixed(1)} m³</span>
           </div>
 
@@ -239,7 +76,7 @@ export default function PlaygroundClient({
             <select
               value={gridId}
               onChange={(e) => setGridId(e.target.value)}
-              className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-ink"
+              className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
             >
               {grids.map((g) => (
                 <option key={g.id} value={g.id}>
@@ -269,7 +106,7 @@ export default function PlaygroundClient({
                     key={s.key as string}
                     onClick={() => setServices((prev) => ({ ...prev, [s.key as string]: !on }))}
                     className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      on ? "border-ink bg-accent-soft" : "border-line text-ink-soft hover:border-ink"
+                      on ? "border-accent bg-accent-soft" : "border-line text-ink-soft hover:border-accent"
                     }`}
                   >
                     {s.label}
@@ -280,9 +117,8 @@ export default function PlaygroundClient({
           </div>
         </div>
 
-        {/* Devis */}
-        <div className="rounded-xl border border-line bg-card p-5">
-          <h3 className="mb-4 text-xs font-medium uppercase tracking-wide text-ink-soft">Devis estimé</h3>
+        <div className="rounded-2xl border border-line bg-card p-5">
+          <h3 className="eyebrow mb-4 text-ink-soft">Devis estimé</h3>
           {quote ? (
             <table className="w-full text-sm">
               <tbody className="divide-y divide-line/70">
@@ -325,7 +161,7 @@ function NumRow({ label, value, onChange }: { label: string; value: string; onCh
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-ink"
+        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
       />
     </label>
   );

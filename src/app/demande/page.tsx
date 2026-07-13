@@ -1,9 +1,13 @@
 import DemandeForm from "./DemandeForm";
+import { listLibraryPhotos } from "@/lib/library";
 
 export const metadata = {
   title: "Demande de devis — Bailly Déménagement",
 };
 
-export default function DemandePage() {
-  return <DemandeForm />;
+export const dynamic = "force-dynamic";
+
+export default async function DemandePage() {
+  const library = await listLibraryPhotos();
+  return <DemandeForm library={library} />;
 }
