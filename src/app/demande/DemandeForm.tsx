@@ -132,7 +132,7 @@ const DEMO: FormState = {
 
 export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
   const [mode, setMode] = useState<null | "express" | "complet">(null);
-  if (mode === null) return <ModeChooser heroUrl={library[0]?.url} onSelect={setMode} />;
+  if (mode === null) return <ModeChooser heroUrls={library.map((l) => l.url)} onSelect={setMode} />;
   if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} />;
   return <CompleteForm library={library} onBack={() => setMode(null)} />;
 }
@@ -161,53 +161,97 @@ function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.
   );
 }
 
-function ChooserCard({ onClick, icon, badge, title, desc }: { onClick: () => void; icon: string; badge: string; title: string; desc: string }) {
+function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
+  onClick: () => void; img?: string; icon: string; badge: string; title: string; desc: string; points: string[]; delay: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[220px] flex-col rounded-2xl border border-line bg-card p-6 text-left transition hover:-translate-y-0.5 hover:border-accent hover:shadow-xl"
+      style={{ animationDelay: delay }}
+      className="group animate-fade-up relative flex min-h-[58vh] flex-col justify-end overflow-hidden rounded-[28px] border border-white/10 text-left shadow-2xl ring-1 ring-white/5 transition duration-500 hover:border-white/40 md:min-h-0"
     >
-      <div className="flex items-center justify-between">
-        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-soft text-2xl">{icon}</span>
-        <span className="rounded-full bg-subtle px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-ink-soft">{badge}</span>
+      {img ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-[1.06]" />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-accent/40 to-ink" />
+      )}
+
+      {/* Voiles dégradés (jeu de transparence) */}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/45 to-ink/5 transition duration-500 group-hover:from-ink/95 group-hover:via-ink/30 group-hover:to-transparent" />
+      <div className="absolute inset-0 bg-accent/0 mix-blend-soft-light transition duration-500 group-hover:bg-accent/25" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/10 to-transparent opacity-60" />
+
+      {/* Badges en verre dépoli */}
+      <div className="absolute left-6 top-6 z-10 flex items-center gap-2.5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-xl backdrop-blur-md">{icon}</span>
+        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-white/90 backdrop-blur-md">{badge}</span>
       </div>
-      <h2 className="mt-5 font-serif text-2xl">{title}</h2>
-      <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">{desc}</p>
-      <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent transition-all group-hover:gap-2">Commencer →</span>
+
+      {/* Contenu bas */}
+      <div className="relative z-10 p-7 md:p-8">
+        <h2 className="font-serif text-3xl text-white md:text-4xl">{title}</h2>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">{desc}</p>
+        <ul className="mt-4 space-y-1.5">
+          {points.map((p) => (
+            <li key={p} className="flex items-center gap-2 text-sm text-white/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/60" />{p}
+            </li>
+          ))}
+        </ul>
+        <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-5 py-2.5 text-sm font-medium text-white backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:bg-white group-hover:text-ink">
+          Commencer <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+        </span>
+      </div>
     </button>
   );
 }
 
-function ModeChooser({ heroUrl, onSelect }: { heroUrl?: string; onSelect: (m: "express" | "complet") => void }) {
+function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[]; onSelect: (m: "express" | "complet") => void }) {
+  const bg = heroUrls[2] ?? heroUrls[0];
   return (
     <>
       <ModeSwitch current="form" />
-      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
-        <BrandPanel heroUrl={heroUrl} />
-        <main className="flex min-h-screen items-center px-5 py-14 md:px-12">
-          <div className="animate-fade-up mx-auto w-full max-w-2xl">
-            <div className="eyebrow text-accent">Demande de devis</div>
-            <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Comment souhaitez-vous procéder ?</h1>
-            <p className="mt-2 text-ink-soft">Deux formules — à vous de choisir.</p>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <ChooserCard
-                onClick={() => onSelect("express")}
-                icon="⚡"
-                badge="~ 2 min"
-                title="Devis express"
-                desc="Une estimation rapide. L'essentiel : vos coordonnées, le trajet et le volume — c'est tout."
-              />
-              <ChooserCard
-                onClick={() => onSelect("complet")}
-                icon="◆"
-                badge="sur mesure"
-                title="Devis complet"
-                desc="Toutes les options : conditions d'accès, prestations, emballage, assurance, inventaire détaillé…"
-              />
-            </div>
+      <div className="relative min-h-screen overflow-hidden bg-ink text-paper">
+        {/* Ambiance de fond floutée */}
+        {bg && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bg} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+        )}
+        <div className="absolute inset-0 bg-ink/85" />
+
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12 md:py-16">
+          <header className="animate-fade-up">
+            <div className="font-serif text-2xl font-semibold">Bailly</div>
+            <div className="eyebrow mt-4 text-accent">Demande de devis</div>
+            <h1 className="mt-2 max-w-2xl font-serif text-4xl leading-[1.05] md:text-6xl">Comment souhaitez-vous procéder ?</h1>
+            <p className="mt-3 text-paper/60">Deux formules — à vous de choisir.</p>
+          </header>
+
+          <div className="mt-9 grid flex-1 gap-5 md:grid-cols-2">
+            <BigCard
+              onClick={() => onSelect("express")}
+              img={heroUrls[0]}
+              icon="⚡"
+              badge="≈ 2 minutes"
+              title="Devis express"
+              desc="Une estimation rapide, sans détour. Idéal pour obtenir un premier chiffrage."
+              points={["Vos coordonnées", "Trajet départ → arrivée", "Volume : saisie ou photos IA"]}
+              delay="80ms"
+            />
+            <BigCard
+              onClick={() => onSelect("complet")}
+              img={heroUrls[1] ?? heroUrls[0]}
+              icon="◆"
+              badge="Sur mesure"
+              title="Devis complet"
+              desc="Le dossier détaillé pour un devis au plus juste, adapté à votre situation."
+              points={["Conditions d'accès complètes", "Prestations & emballage", "Assurance & inventaire"]}
+              delay="160ms"
+            />
           </div>
-        </main>
+        </div>
       </div>
     </>
   );
