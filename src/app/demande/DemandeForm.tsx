@@ -251,6 +251,7 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
 
 function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
   const [compare, setCompare] = useState(false);
+  const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState({
     nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "",
     volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
@@ -295,15 +296,22 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
 
   if (done) {
     return instant ? (
-      <InstantResult reference={done} volume={volume} input={{ volume_m3: volume ?? 0 }} />
+      <InstantResult reference={done} volume={volume} count={doneCount} />
     ) : (
-      <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} />
+      <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} count={doneCount} />
     );
   }
 
   return (
     <>
-      {compare && <Comparateur initial={{ volume: f.explicitVolume }} onClose={() => setCompare(false)} />}
+      {compare && (
+        <Comparateur
+          base={{ nom: f.nom, email: f.email, tel: f.tel, departVille: f.departVille, departCP: f.departCP, arriveeVille: f.arriveeVille, date: f.date }}
+          initialVolume={f.explicitVolume}
+          onClose={() => setCompare(false)}
+          onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
+        />
+      )}
       <ModeSwitch current="form" />
       <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         <BrandPanel heroUrl={library[0]?.url} />
@@ -376,6 +384,8 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [doneCount, setDoneCount] = useState(1);
+  const [compare, setCompare] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const totalVolume = useMemo(() => computeVolume(form), [form]);
@@ -402,20 +412,23 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
 
   if (done) {
     return instant ? (
-      <InstantResult reference={done} volume={totalVolume} input={{
-        volume_m3: totalVolume ?? 0,
-        depart_etage: Number(form.depart.etage) || 0,
-        depart_ascenseur: form.depart.ascenseur === "oui",
-        services: { emballage: form.prestations.embNonFragile === "bailly", monte_meuble: form.depart.passage_ascenseur === "non" },
-      }} />
+      <InstantResult reference={done} volume={totalVolume} count={doneCount} />
     ) : (
-      <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} />
+      <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} count={doneCount} />
     );
   }
   const progress = ((step + 1) / STEPS.length) * 100;
 
   return (
     <>
+      {compare && (
+        <Comparateur
+          base={{ nom: `${form.prenom} ${form.nom}`.trim(), email: form.email, tel: form.tel, departVille: form.depart.ville, departCP: form.depart.code_postal, arriveeVille: form.arrivee.ville, date: form.periode }}
+          initialVolume={String(totalVolume ?? "")}
+          onClose={() => setCompare(false)}
+          onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
+        />
+      )}
       <ModeSwitch current="form" />
       <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         {/* Panneau visuel */}
@@ -498,8 +511,12 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                 <button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canNext}
                   className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
               ) : (
-                <button type="button" onClick={submit} disabled={submitting}
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setCompare(true)}
+                    className="rounded-lg border border-line-strong px-5 py-3 text-sm font-medium transition hover:bg-subtle">Comparer</button>
+                  <button type="button" onClick={submit} disabled={submitting}
+                    className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
+                </div>
               )}
             </div>
           </div>
@@ -766,7 +783,7 @@ function RecapCard({ form, volume }: { form: FormState; volume: number | null })
   );
 }
 
-function SuccessScreen({ id, volume, heroUrl }: { id: string; volume: number | null; heroUrl?: string }) {
+function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume: number | null; heroUrl?: string; count?: number }) {
   return (
     <div className="relative min-h-screen">
       {heroUrl && (
@@ -777,8 +794,12 @@ function SuccessScreen({ id, volume, heroUrl }: { id: string; volume: number | n
       <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <h1 className="font-serif text-5xl">Demande envoyée</h1>
-          <p className="mt-3 text-ink-soft">Merci ! Nos experts analysent votre projet{volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.</p>
+          <h1 className="font-serif text-5xl">{count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}</h1>
+          <p className="mt-3 text-ink-soft">
+            {count > 1
+              ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
+              : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`}
+          </p>
           <div className="mt-6 inline-block rounded-lg border border-line bg-card px-4 py-2 text-sm text-ink-soft">Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span></div>
         </div>
       </div>
