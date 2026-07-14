@@ -181,11 +181,13 @@ const LOGE = ["", "Studio", "T1", "T2", "T3", "T4", "T5+", "Maison"];
 export function Comparateur({
   base,
   initial,
+  simple = false,
   onClose,
   onDone,
 }: {
   base: CompareBase;
   initial?: Partial<Variant>;
+  simple?: boolean;
   onClose: () => void;
   onDone: (count: number, firstId: string) => void;
 }) {
@@ -240,7 +242,7 @@ export function Comparateur({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm md:p-8">
-      <div className="w-full max-w-6xl rounded-2xl border border-line bg-paper p-6 shadow-[var(--shadow-md)]">
+      <div className={`w-full ${simple ? "max-w-3xl" : "max-w-6xl"} rounded-2xl border border-line bg-paper p-6 shadow-[var(--shadow-md)]`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-serif text-2xl">Comparer plusieurs scénarios</h2>
@@ -265,31 +267,35 @@ export function Comparateur({
                   <NumF label="Distance (km)" value={c.distance} onChange={(v) => patch(i, { distance: v })} />
                 </div>
 
-                <Group title="Départ">
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumF label="Étage" value={c.departEtage} onChange={(v) => patch(i, { departEtage: v })} />
-                    <SelF label="Logement" value={c.departType} options={LOGE} onChange={(v) => patch(i, { departType: v })} />
-                  </div>
-                  <Toggle label="Ascenseur" checked={c.departAsc} onChange={(v) => patch(i, { departAsc: v })} />
-                </Group>
+                {!simple && (
+                  <>
+                    <Group title="Départ">
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumF label="Étage" value={c.departEtage} onChange={(v) => patch(i, { departEtage: v })} />
+                        <SelF label="Logement" value={c.departType} options={LOGE} onChange={(v) => patch(i, { departType: v })} />
+                      </div>
+                      <Toggle label="Ascenseur" checked={c.departAsc} onChange={(v) => patch(i, { departAsc: v })} />
+                    </Group>
 
-                <Group title="Arrivée">
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumF label="Étage" value={c.arriveeEtage} onChange={(v) => patch(i, { arriveeEtage: v })} />
-                    <SelF label="Logement" value={c.arriveeType} options={LOGE} onChange={(v) => patch(i, { arriveeType: v })} />
-                  </div>
-                  <Toggle label="Ascenseur" checked={c.arriveeAsc} onChange={(v) => patch(i, { arriveeAsc: v })} />
-                </Group>
+                    <Group title="Arrivée">
+                      <div className="grid grid-cols-2 gap-2">
+                        <NumF label="Étage" value={c.arriveeEtage} onChange={(v) => patch(i, { arriveeEtage: v })} />
+                        <SelF label="Logement" value={c.arriveeType} options={LOGE} onChange={(v) => patch(i, { arriveeType: v })} />
+                      </div>
+                      <Toggle label="Ascenseur" checked={c.arriveeAsc} onChange={(v) => patch(i, { arriveeAsc: v })} />
+                    </Group>
 
-                <Group title="Prestations">
-                  <Toggle label="Emballage" checked={c.emballage} onChange={(v) => patch(i, { emballage: v })} />
-                  <Toggle label="Démontage" checked={c.demontage} onChange={(v) => patch(i, { demontage: v })} />
-                  <Toggle label="Remontage" checked={c.montage} onChange={(v) => patch(i, { montage: v })} />
-                  <Toggle label="Monte-meuble" checked={c.monteMeuble} onChange={(v) => patch(i, { monteMeuble: v })} />
-                  <Toggle label="Garde-meuble" checked={c.gardeMeuble} onChange={(v) => patch(i, { gardeMeuble: v })} />
-                </Group>
+                    <Group title="Prestations">
+                      <Toggle label="Emballage" checked={c.emballage} onChange={(v) => patch(i, { emballage: v })} />
+                      <Toggle label="Démontage" checked={c.demontage} onChange={(v) => patch(i, { demontage: v })} />
+                      <Toggle label="Remontage" checked={c.montage} onChange={(v) => patch(i, { montage: v })} />
+                      <Toggle label="Monte-meuble" checked={c.monteMeuble} onChange={(v) => patch(i, { monteMeuble: v })} />
+                      <Toggle label="Garde-meuble" checked={c.gardeMeuble} onChange={(v) => patch(i, { gardeMeuble: v })} />
+                    </Group>
 
-                <SelF label="Formule" value={c.formule} options={["", "eco", "standard", "luxe"]} labels={{ "": "— au choix —", eco: "Éco", standard: "Standard", luxe: "Confort" }} onChange={(v) => patch(i, { formule: v as Variant["formule"] })} />
+                    <SelF label="Formule" value={c.formule} options={["", "eco", "standard", "luxe"]} labels={{ "": "— au choix —", eco: "Éco", standard: "Standard", luxe: "Confort" }} onChange={(v) => patch(i, { formule: v as Variant["formule"] })} />
+                  </>
+                )}
               </div>
 
               <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-paper px-3 py-2 text-sm">
@@ -299,7 +305,7 @@ export function Comparateur({
             </div>
           ))}
           {cols.length < 3 && (
-            <button onClick={addCol} className="flex min-h-[300px] items-center justify-center rounded-2xl border-2 border-dashed border-line text-sm text-ink-soft transition hover:border-accent hover:text-accent">
+            <button onClick={addCol} className={`flex ${simple ? "min-h-[140px]" : "min-h-[300px]"} items-center justify-center rounded-2xl border-2 border-dashed border-line text-sm text-ink-soft transition hover:border-accent hover:text-accent`}>
               + Ajouter une variante
             </button>
           )}

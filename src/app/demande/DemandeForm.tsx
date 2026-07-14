@@ -320,6 +320,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
     <>
       {compare && (
         <Comparateur
+          simple
           base={{ nom: f.nom, email: f.email, tel: f.tel, departVille: f.departVille, departCP: f.departCP, arriveeVille: f.arriveeVille, date: f.date }}
           initial={{ volume: f.explicitVolume, distance: distanceKm != null ? String(distanceKm) : "" }}
           onClose={() => setCompare(false)}
