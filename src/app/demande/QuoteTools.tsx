@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TrajetMap from "@/components/TrajetMap";
 
 /* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
 
@@ -125,6 +126,13 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
                 </tfoot>
               </table>
             </div>
+
+            {/* Carte du trajet */}
+            {(devis.ville_depart || devis.ville_arrivee) && (
+              <div className="mt-6">
+                <TrajetMap departVille={devis.ville_depart} arriveeVille={devis.ville_arrivee} height={280} />
+              </div>
+            )}
 
             {/* PDF complet */}
             <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">

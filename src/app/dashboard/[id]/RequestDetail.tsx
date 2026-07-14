@@ -5,8 +5,9 @@ import type { RequestDetail as Detail } from "@/lib/requests";
 import type { RequestStatus } from "@/lib/types";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
+import TrajetMap from "@/components/TrajetMap";
 
-const TABS = ["Infos", "Analyse", "Volume & photos", "Devis", "Messages", "Historique"] as const;
+const TABS = ["Infos", "Analyse", "Trajet", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function RequestDetail({
@@ -75,6 +76,15 @@ export default function RequestDetail({
       <div className="py-6">
         {tab === "Infos" && <InfosTab detail={detail} />}
         {tab === "Analyse" && <AnalyseTab detail={detail} />}
+        {tab === "Trajet" && (
+          <div>
+            <div className="mb-4">
+              <h3 className="font-serif text-xl">Trajet</h3>
+              <p className="text-sm text-ink-soft">{r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}{r.distance_km != null ? ` · ${r.distance_km} km` : ""}</p>
+            </div>
+            <TrajetMap departVille={r.depart_ville} arriveeVille={r.arrivee_ville} distanceKm={r.distance_km} height={480} />
+          </div>
+        )}
         {tab === "Volume & photos" && <VolumeTab detail={detail} photoUrls={photoUrls} />}
         {tab === "Devis" && <DevisTab detail={detail} />}
         {tab === "Messages" && <MessagesTab detail={detail} />}
