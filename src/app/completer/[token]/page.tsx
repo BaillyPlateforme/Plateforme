@@ -16,13 +16,27 @@ export default async function CompleterPage({ params }: { params: Promise<{ toke
     <CompletionForm
       token={token}
       library={library}
-      client={req.client_nom}
-      manque={{
-        volume: req.volume_m3 == null,
-        depart: !req.depart_ville,
-        arrivee: !req.arrivee_ville,
+      data={{
+        client_nom: req.client_nom,
+        client_email: req.client_email,
+        client_tel: req.client_tel,
+        date_souhaitee: req.date_souhaitee,
+        volume_m3: req.volume_m3,
+        depart: {
+          adresse: req.depart_adresse,
+          code_postal: req.depart_code_postal,
+          ville: req.depart_ville,
+          etage: req.depart_etage,
+          ascenseur: req.depart_ascenseur,
+        },
+        arrivee: {
+          adresse: req.arrivee_adresse,
+          code_postal: req.arrivee_code_postal,
+          ville: req.arrivee_ville,
+          etage: req.arrivee_etage,
+          ascenseur: req.arrivee_ascenseur,
+        },
       }}
-      villes={{ depart: req.depart_ville, arrivee: req.arrivee_ville }}
     />
   );
 }

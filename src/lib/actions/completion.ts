@@ -3,13 +3,23 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
 
+interface AddrInput {
+  ville?: string;
+  adresse?: string;
+  code_postal?: string;
+  etage?: number | null;
+  ascenseur?: boolean;
+}
+
 export interface CompletionInput {
   volume_m3?: number | null;
   volume_method?: "explicit" | "list" | "ai" | null;
   photos?: AnalyzedPhotoInput[];
   items?: ItemInput[];
-  depart?: { ville?: string; adresse?: string; code_postal?: string };
-  arrivee?: { ville?: string; adresse?: string; code_postal?: string };
+  client?: { nom?: string; tel?: string };
+  depart?: AddrInput;
+  arrivee?: AddrInput;
+  date_souhaitee?: string;
 }
 
 export async function completeRequest(token: string, input: CompletionInput) {
@@ -22,16 +32,13 @@ export async function completeRequest(token: string, input: CompletionInput) {
     update.volume_m3 = input.volume_m3;
     update.volume_method = input.volume_method ?? null;
   }
-  if (input.depart) {
-    if (input.depart.ville) update.depart_ville = input.depart.ville;
-    if (input.depart.adresse) update.depart_adresse = input.depart.adresse;
-    if (input.depart.code_postal) update.depart_code_postal = input.depart.code_postal;
+  if (input.client) {
+    if (input.client.nom != null) update.client_nom = input.client.nom || null;
+    if (input.client.tel != null) update.client_tel = input.client.tel || null;
   }
-  if (input.arrivee) {
-    if (input.arrivee.ville) update.arrivee_ville = input.arrivee.ville;
-    if (input.arrivee.adresse) update.arrivee_adresse = input.arrivee.adresse;
-    if (input.arrivee.code_postal) update.arrivee_code_postal = input.arrivee.code_postal;
-  }
+  if (input.date_souhaitee != null) update.date_souhaitee = input.date_souhaitee || null;
+  applyAddr(update, "depart", input.depart);
+  applyAddr(update, "arrivee", input.arrivee);
 
   await supabase.from("requests").update(update).eq("id", req.id);
 
@@ -51,4 +58,14 @@ export async function completeRequest(token: string, input: CompletionInput) {
 
   await supabase.from("request_events").insert({ request_id: req.id, type: "note", payload: { completion: true } });
   return { ok: true };
+}
+
+// Applique les champs d'une adresse (ne touche qu'aux valeurs renseignées).
+function applyAddr(update: Record<string, unknown>, prefix: "depart" | "arrivee", addr?: AddrInput) {
+  if (!addr) return;
+  if (addr.ville) update[`${prefix}_ville`] = addr.ville;
+  if (addr.adresse) update[`${prefix}_adresse`] = addr.adresse;
+  if (addr.code_postal) update[`${prefix}_code_postal`] = addr.code_postal;
+  if (addr.etage != null) update[`${prefix}_etage`] = addr.etage;
+  if (addr.ascenseur != null) update[`${prefix}_ascenseur`] = addr.ascenseur;
 }
