@@ -4,21 +4,25 @@ import { useState } from "react";
 import type { LibraryPhoto } from "@/lib/library";
 import type { PricingGridRow } from "@/lib/types";
 import type { AiConfig } from "@/lib/ai-config";
+import type { CriterionConfig } from "@/lib/qualification";
 import ImagesManager from "./ImagesManager";
 import GridsManager from "../grilles/GridsManager";
 import AiConfigEditor from "./AiConfigEditor";
+import QualificationEditor from "./QualificationEditor";
 
-const SUBTABS = ["Photos", "Analyse d'image", "Tarification"] as const;
+const SUBTABS = ["Photos", "Analyse d'image", "Tarification", "Qualification"] as const;
 type SubTab = (typeof SUBTABS)[number];
 
 export default function ConfigClient({
   library,
   grids,
   aiConfig,
+  qualifConfig,
 }: {
   library: LibraryPhoto[];
   grids: PricingGridRow[];
   aiConfig: AiConfig;
+  qualifConfig: CriterionConfig[];
 }) {
   const [tab, setTab] = useState<SubTab>("Photos");
 
@@ -62,6 +66,18 @@ export default function ConfigClient({
             </p>
           </div>
           <GridsManager grids={grids} />
+        </div>
+      )}
+
+      {tab === "Qualification" && (
+        <div>
+          <div className="mb-5">
+            <h3 className="font-serif text-xl">Qualification des demandes</h3>
+            <p className="text-sm text-ink-soft">
+              Critères, pondérations et seuils de la note /100 attribuée automatiquement à chaque demande complète.
+            </p>
+          </div>
+          <QualificationEditor criteria={qualifConfig} />
         </div>
       )}
     </div>

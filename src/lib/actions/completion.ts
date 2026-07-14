@@ -3,6 +3,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { qualifyRequest } from "@/lib/qualification";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
 import type { RequestRow } from "@/lib/types";
 
@@ -82,6 +83,13 @@ export async function completeRequest(token: string, input: CompletionInput) {
     volume: (update.volume_m3 as number) ?? before.volume_m3,
     entreprise_nom: settings.entreprise_nom,
   });
+
+  // Désormais complète → qualification (devis + analyse notée).
+  const nowComplete =
+    (update.volume_m3 ?? before.volume_m3) != null &&
+    (update.depart_ville ?? before.depart_ville) &&
+    (update.arrivee_ville ?? before.arrivee_ville);
+  if (nowComplete) await qualifyRequest(before.id);
 
   return { ok: true };
 }

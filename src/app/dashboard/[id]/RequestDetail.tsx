@@ -7,8 +7,9 @@ import { estimateQuote } from "@/lib/quote";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
 import { createDevisFromRequest } from "@/lib/actions/devis";
+import { requalify } from "@/lib/actions/qualification";
 
-const TABS = ["Infos", "Volume & photos", "Devis", "Messages", "Historique"] as const;
+const TABS = ["Infos", "Analyse", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function RequestDetail({
@@ -78,6 +79,7 @@ export default function RequestDetail({
 
       <div className="py-6">
         {tab === "Infos" && <InfosTab detail={detail} />}
+        {tab === "Analyse" && <AnalyseTab detail={detail} />}
         {tab === "Volume & photos" && <VolumeTab detail={detail} photoUrls={photoUrls} />}
         {tab === "Devis" && <DevisTab detail={detail} grids={grids} />}
         {tab === "Messages" && <MessagesTab detail={detail} />}
@@ -412,6 +414,98 @@ function ProgressStepper({ status }: { status: RequestStatus }) {
 }
 
 type MsgPayload = { channel?: string; template?: string; rule?: string; to?: string; status?: string; erreur?: string | null };
+
+/* ---------- Onglet Analyse (qualification notée) ---------- */
+
+type QualifLine = { key: string; label: string; note: number; poids: number; contribution: number; detail: string };
+type QualifPayload = { score: number; difficulte: number; lines: QualifLine[] };
+
+function AnalyseTab({ detail }: { detail: Detail }) {
+  const r = detail.request;
+  const evt = detail.events.find((e) => e.type === "analysis");
+  const [pending, start] = useTransition();
+  const complete = r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville;
+
+  if (!evt) {
+    return (
+      <div className="rounded-xl border border-dashed border-line p-10 text-center">
+        <p className="text-sm text-ink-soft">
+          {complete
+            ? "Cette demande n'a pas encore été qualifiée."
+            : "Complétez la demande (volume + adresses) pour lancer la qualification."}
+        </p>
+        {complete && (
+          <button
+            onClick={() => start(() => requalify(r.id).then(() => {}))}
+            disabled={pending}
+            className="mt-4 rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          >
+            {pending ? "Analyse…" : "Lancer la qualification"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const p = (evt.payload ?? {}) as QualifPayload;
+  return (
+    <div className="space-y-6">
+      <div className="grid items-center gap-5 rounded-2xl border border-line bg-card p-6 sm:grid-cols-[auto_1fr]">
+        <ScoreRing score={p.score} />
+        <div>
+          <div className="font-serif text-2xl">Note de qualification</div>
+          <p className="mt-1 text-sm text-ink-soft">
+            Score global pondéré sur {p.lines?.length ?? 0} critères. Difficulté estimée : <span className="font-medium text-ink">{p.difficulte}/100</span>.
+          </p>
+          <button
+            onClick={() => start(() => requalify(r.id).then(() => {}))}
+            disabled={pending}
+            className="mt-3 rounded-lg border border-line-strong px-4 py-1.5 text-xs font-medium transition hover:bg-subtle disabled:opacity-50"
+          >
+            {pending ? "…" : "Recalculer"}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        {(p.lines ?? []).map((l) => (
+          <div key={l.key} className="rounded-xl border border-line bg-card p-4">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <span className="font-medium">{l.label}</span>
+              <span className="text-xs text-ink-soft">{l.detail}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-subtle">
+                <div className="h-full rounded-full bg-accent" style={{ width: `${l.note}%` }} />
+              </div>
+              <span className={`w-9 text-right text-sm font-medium tabular-nums ${scoreColor(l.note)}`}>{l.note}</span>
+              <span className="w-16 text-right text-[11px] text-ink-soft">poids {l.poids}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const R = 34;
+  const C = 2 * Math.PI * R;
+  const off = C * (1 - Math.max(0, Math.min(100, score)) / 100);
+  const col = score >= 70 ? "var(--color-good)" : score >= 40 ? "#d97706" : "var(--color-accent)";
+  return (
+    <div className="relative h-24 w-24 shrink-0">
+      <svg viewBox="0 0 80 80" className="h-24 w-24 -rotate-90">
+        <circle cx="40" cy="40" r={R} fill="none" stroke="var(--color-line)" strokeWidth="7" />
+        <circle cx="40" cy="40" r={R} fill="none" stroke={col} strokeWidth="7" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={off} />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="font-serif text-3xl leading-none">{score}</span>
+        <span className="text-[10px] text-ink-soft">/ 100</span>
+      </div>
+    </div>
+  );
+}
 
 /* ---------- Onglet Messages (emails / SMS envoyés) ---------- */
 

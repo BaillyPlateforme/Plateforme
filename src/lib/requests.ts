@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { qualifyRequest } from "@/lib/qualification";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
 
@@ -159,8 +160,13 @@ export async function createRequest(
   };
 
   await fireEvent("demande_recue", ctx);
-  if (incomplet) await fireEvent("demande_incomplete", ctx);
-  else await fireEvent("demande_complete", ctx);
+  if (incomplet) {
+    await fireEvent("demande_incomplete", ctx);
+  } else {
+    await fireEvent("demande_complete", ctx);
+    // Demande complète → qualification (devis + analyse notée).
+    await qualifyRequest(created.id);
+  }
 
   return created;
 }

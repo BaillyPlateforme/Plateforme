@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { qualifyRequest } from "@/lib/qualification";
 
 export interface IncomingEmail {
   expediteur?: string;
@@ -90,8 +91,12 @@ export async function ingestEmail(body: IncomingEmail) {
   };
 
   await fireEvent("demande_recue", ctx);
-  if (incomplet) await fireEvent("demande_incomplete", ctx);
-  else await fireEvent("demande_complete", ctx);
+  if (incomplet) {
+    await fireEvent("demande_incomplete", ctx);
+  } else {
+    await fireEvent("demande_complete", ctx);
+    if (req) await qualifyRequest(req.id);
+  }
 
   return { id: req?.id, completion_token: token, incomplet };
 }
