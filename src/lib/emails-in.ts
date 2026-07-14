@@ -61,6 +61,13 @@ export async function ingestEmail(body: IncomingEmail) {
 
   if (req) {
     await supabase.from("request_events").insert({ request_id: req.id, type: "created", payload: { source: "email" } });
+    if (incomplet) {
+      const manque: string[] = [];
+      if (manque_volume) manque.push("Volume");
+      if (manque_depart) manque.push("Adresse de départ");
+      if (manque_arrivee) manque.push("Adresse d'arrivée");
+      await supabase.from("request_events").insert({ request_id: req.id, type: "incomplete", payload: { manque } });
+    }
   }
 
   const settings = await getSettings();

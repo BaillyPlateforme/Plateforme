@@ -1,7 +1,10 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/server";
+import { getSettings } from "@/lib/settings";
+import { fireEvent } from "@/lib/alerts";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
+import type { RequestRow } from "@/lib/types";
 
 interface AddrInput {
   ville?: string;
@@ -24,8 +27,10 @@ export interface CompletionInput {
 
 export async function completeRequest(token: string, input: CompletionInput) {
   const supabase = createServiceClient();
-  const { data: req } = await supabase.from("requests").select("id").eq("completion_token", token).maybeSingle();
-  if (!req) return { ok: false, error: "Lien invalide ou déjà utilisé." };
+  // On récupère l'état AVANT complétion pour savoir ce qui manquait réellement.
+  const { data } = await supabase.from("requests").select("*").eq("completion_token", token).maybeSingle();
+  if (!data) return { ok: false, error: "Lien invalide ou déjà utilisé." };
+  const before = data as RequestRow;
 
   const update: Record<string, unknown> = { completion_token: null };
   if (input.volume_m3 != null) {
@@ -40,23 +45,44 @@ export async function completeRequest(token: string, input: CompletionInput) {
   applyAddr(update, "depart", input.depart);
   applyAddr(update, "arrivee", input.arrivee);
 
-  await supabase.from("requests").update(update).eq("id", req.id);
+  await supabase.from("requests").update(update).eq("id", before.id);
 
   if (input.items?.length) {
     await supabase.from("request_items").insert(
-      input.items.map((it) => ({ request_id: req.id, label: it.label, quantite: it.quantite, volume_unitaire_m3: it.volume_unitaire_m3 })),
+      input.items.map((it) => ({ request_id: before.id, label: it.label, quantite: it.quantite, volume_unitaire_m3: it.volume_unitaire_m3 })),
     );
   }
   if (input.photos?.length) {
     await supabase.from("request_photos").insert(
       input.photos.map((p) => ({
-        request_id: req.id, storage_path: p.storage_path, piece: p.piece,
+        request_id: before.id, storage_path: p.storage_path, piece: p.piece,
         ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 }, volume_m3: p.volume_m3,
       })),
     );
   }
 
-  await supabase.from("request_events").insert({ request_id: req.id, type: "note", payload: { completion: true } });
+  // Détaille CE QUI a été complété (uniquement les champs qui manquaient).
+  const rempli: { champ: string; valeur: string }[] = [];
+  if (before.volume_m3 == null && input.volume_m3 != null) rempli.push({ champ: "Volume", valeur: `${input.volume_m3} m³` });
+  if (!before.depart_ville && input.depart?.ville) rempli.push({ champ: "Adresse de départ", valeur: input.depart.ville });
+  if (!before.arrivee_ville && input.arrivee?.ville) rempli.push({ champ: "Adresse d'arrivée", valeur: input.arrivee.ville });
+
+  await supabase.from("request_events").insert({ request_id: before.id, type: "completed", payload: { rempli } });
+
+  // Déclenche les workflows liés à la complétion (mails/SMS configurables).
+  const settings = await getSettings();
+  await fireEvent("demande_completee", {
+    request_id: before.id,
+    source: before.source,
+    client_nom: (update.client_nom as string) ?? before.client_nom,
+    client_email: before.client_email,
+    client_tel: (update.client_tel as string) ?? before.client_tel,
+    ville_depart: (update.depart_ville as string) ?? before.depart_ville,
+    ville_arrivee: (update.arrivee_ville as string) ?? before.arrivee_ville,
+    volume: (update.volume_m3 as number) ?? before.volume_m3,
+    entreprise_nom: settings.entreprise_nom,
+  });
+
   return { ok: true };
 }
 

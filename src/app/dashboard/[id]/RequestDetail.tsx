@@ -8,7 +8,7 @@ import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isInco
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
 import { createDevisFromRequest } from "@/lib/actions/devis";
 
-const TABS = ["Infos", "Volume & photos", "Devis", "Historique"] as const;
+const TABS = ["Infos", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function RequestDetail({
@@ -58,9 +58,6 @@ export default function RequestDetail({
       {/* Ce qui manque */}
       {missing.length > 0 && <MissingBanner missing={missing} token={r.completion_token} />}
 
-      {/* Éléments déclenchés (emails / SMS automatiques) */}
-      <TriggeredMessages detail={detail} />
-
       {/* Onglets */}
       <div className="mt-6 flex gap-1 border-b border-line">
         {TABS.map((t) => (
@@ -83,6 +80,7 @@ export default function RequestDetail({
         {tab === "Infos" && <InfosTab detail={detail} />}
         {tab === "Volume & photos" && <VolumeTab detail={detail} photoUrls={photoUrls} />}
         {tab === "Devis" && <DevisTab detail={detail} grids={grids} />}
+        {tab === "Messages" && <MessagesTab detail={detail} />}
         {tab === "Historique" && <TimelineTab detail={detail} />}
       </div>
     </div>
@@ -415,34 +413,44 @@ function ProgressStepper({ status }: { status: RequestStatus }) {
 
 type MsgPayload = { channel?: string; template?: string; rule?: string; to?: string; status?: string; erreur?: string | null };
 
-function TriggeredMessages({ detail }: { detail: Detail }) {
+/* ---------- Onglet Messages (emails / SMS envoyés) ---------- */
+
+function MessagesTab({ detail }: { detail: Detail }) {
   const msgs = detail.events.filter((e) => e.type === "message");
+  if (msgs.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-line p-10 text-center text-sm text-ink-soft">
+        Aucun email ni SMS envoyé pour cette demande.
+      </div>
+    );
+  }
   return (
-    <div className="mt-5">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Éléments déclenchés</div>
-      {msgs.length === 0 ? (
-        <p className="text-sm text-ink-soft">Aucune action automatique (email / SMS) déclenchée pour l&apos;instant.</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {msgs.map((e) => {
-            const p = (e.payload ?? {}) as MsgPayload;
-            const failed = p.status === "echec";
-            const ignored = p.status === "ignore";
-            return (
-              <span
-                key={e.id}
-                title={p.erreur ?? undefined}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${failed ? "border-warn/40 bg-warn/10" : ignored ? "border-line bg-subtle" : "border-good/40 bg-good/10"}`}
-              >
-                <span>{p.channel === "sms" ? "💬" : "✉️"}</span>
-                <span className="font-medium text-ink">{p.template ?? p.rule}</span>
-                {p.to && <span className="text-ink-soft">→ {p.to}</span>}
-                <span className={`font-medium ${failed ? "text-warn" : ignored ? "text-ink-soft" : "text-good"}`}>· {failed ? "échec" : ignored ? "non envoyé" : "envoyé"}</span>
-              </span>
-            );
-          })}
-        </div>
-      )}
+    <div className="space-y-2">
+      {msgs.map((e) => {
+        const p = (e.payload ?? {}) as MsgPayload;
+        const failed = p.status === "echec";
+        const ignored = p.status === "ignore";
+        return (
+          <div key={e.id} className="flex items-start gap-3 rounded-xl border border-line bg-card px-4 py-3">
+            <span className="text-lg">{p.channel === "sms" ? "💬" : "✉️"}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{p.template ?? p.rule}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${failed ? "bg-warn/15 text-warn" : ignored ? "bg-subtle text-ink-soft" : "bg-good/15 text-good"}`}>
+                  {failed ? "échec" : ignored ? "non envoyé" : "envoyé"}
+                </span>
+                <span className="text-[11px] uppercase text-ink-soft">{p.channel}</span>
+              </div>
+              <div className="mt-0.5 text-xs text-ink-soft">
+                {p.to ? `→ ${p.to} · ` : ""}
+                {new Date(e.created_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" })}
+              </div>
+              {(failed || ignored) && p.erreur && <div className="mt-1 text-xs text-warn">{p.erreur}</div>}
+              {p.rule && p.rule !== p.template && <div className="mt-0.5 text-[11px] text-ink-soft/70">Règle : {p.rule}</div>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -476,36 +484,42 @@ function MissingBanner({ missing, token }: { missing: string[]; token: string | 
 /* ---------- Onglet Historique ---------- */
 
 function TimelineTab({ detail }: { detail: Detail }) {
-  const { events } = detail;
+  // Les envois email/SMS ont leur propre onglet « Messages ».
+  const events = detail.events.filter((e) => e.type !== "message");
   if (events.length === 0)
     return <div className="text-sm text-ink-soft">Aucun événement.</div>;
   return (
     <div className="relative space-y-4 pl-6">
       <div className="absolute inset-y-1 left-[7px] w-px bg-line" />
       {events.map((e) => {
-        const isMsg = e.type === "message";
-        const p = (e.payload ?? {}) as MsgPayload;
-        const failed = isMsg && p.status === "echec";
-        const ignored = isMsg && p.status === "ignore";
+        const p = (e.payload ?? {}) as { manque?: string[]; rempli?: { champ: string; valeur: string }[] };
+        const incomplete = e.type === "incomplete";
+        const completed = e.type === "completed";
         return (
           <div key={e.id} className="relative">
-            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${failed ? "border-warn" : ignored ? "border-line-strong" : isMsg ? "border-good" : "border-accent"}`} />
-            {isMsg ? (
-              <div>
-                <div className="text-sm font-medium">
-                  {p.channel === "sms" ? "💬 SMS" : "✉️ Email"} — {p.template ?? p.rule}
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${failed ? "bg-warn/15 text-warn" : ignored ? "bg-subtle text-ink-soft" : "bg-good/15 text-good"}`}>
-                    {failed ? "échec" : ignored ? "non envoyé" : "envoyé"}
-                  </span>
-                </div>
-                <div className="text-xs text-ink-soft">
-                  {p.to ? `→ ${p.to}` : ""}
-                  {(failed || ignored) && p.erreur ? `${p.to ? " · " : ""}${p.erreur}` : ""}
-                </div>
+            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${incomplete ? "border-amber-400" : completed ? "border-good" : "border-accent"}`} />
+            <div className="text-sm font-medium">{eventLabel(e.type)}</div>
+
+            {incomplete && Array.isArray(p.manque) && p.manque.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {p.manque.map((m) => (
+                  <span key={m} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">manque : {m}</span>
+                ))}
               </div>
-            ) : (
-              <div className="text-sm font-medium">{eventLabel(e.type)}</div>
             )}
+
+            {completed && (
+              <div className="mt-1 space-y-0.5 text-xs">
+                {Array.isArray(p.rempli) && p.rempli.length > 0 ? (
+                  p.rempli.map((r, i) => (
+                    <div key={i} className="text-ink-soft">✓ {r.champ} : <span className="text-ink">{r.valeur}</span></div>
+                  ))
+                ) : (
+                  <div className="text-ink-soft">Informations confirmées.</div>
+                )}
+              </div>
+            )}
+
             <div className="text-xs text-ink-soft">
               {new Date(e.created_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" })}
             </div>
@@ -524,6 +538,8 @@ function eventLabel(type: string): string {
     estimated: "Estimation calculée",
     note: "Note ajoutée",
     message: "Message envoyé",
+    incomplete: "Demande incomplète",
+    completed: "Demande complétée",
   };
   return map[type] ?? type;
 }

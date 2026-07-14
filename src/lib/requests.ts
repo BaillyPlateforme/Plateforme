@@ -130,6 +130,12 @@ export async function createRequest(
     token = randomUUID();
     await supabase.from("requests").update({ completion_token: token }).eq("id", created.id);
     created.completion_token = token;
+
+    const manque: string[] = [];
+    if (manque_volume) manque.push("Volume");
+    if (manque_depart) manque.push("Adresse de départ");
+    if (manque_arrivee) manque.push("Adresse d'arrivée");
+    await supabase.from("request_events").insert({ request_id: created.id, type: "incomplete", payload: { manque } });
   }
 
   const settings = await getSettings();

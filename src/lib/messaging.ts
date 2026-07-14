@@ -38,6 +38,7 @@ export const MESSAGE_EVENTS: { key: string; label: string }[] = [
   { key: "demande_recue", label: "Nouvelle demande reçue" },
   { key: "demande_complete", label: "Demande complète" },
   { key: "demande_incomplete", label: "Demande incomplète (à compléter)" },
+  { key: "demande_completee", label: "Demande complétée (via le lien)" },
   { key: "devis_cree", label: "Devis créé" },
   { key: "devis_envoye", label: "Devis envoyé" },
   { key: "devis_accepte", label: "Devis accepté" },

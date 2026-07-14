@@ -20,6 +20,7 @@ const S = {
   form: { id: "form", event: "demande_complete", source: "form", title: "Formulaire", icon: "📝", desc: "Demande complète", tone: "neutral" } as StageDef,
   mailOk: { id: "mailOk", event: "demande_complete", source: "email", title: "Mail complet", icon: "📬", desc: "Toutes les infos présentes", tone: "good" } as StageDef,
   mailKo: { id: "mailKo", event: "demande_incomplete", title: "Mail incomplet", icon: "⚠️", desc: "Lien de complétion (met en avant ce qui manque)", tone: "amber" } as StageDef,
+  mailComplete: { id: "mailComplete", event: "demande_completee", title: "Demande complétée", icon: "✅", desc: "Le client a complété via le lien", tone: "good" } as StageDef,
   devisCree: { id: "devisCree", event: "devis_cree", title: "Devis créé", icon: "📄", desc: "Estimation générée", tone: "neutral" } as StageDef,
   devisEnvoye: { id: "devisEnvoye", event: "devis_envoye", title: "Devis envoyé", icon: "✉️", desc: "Transmis au client", tone: "neutral", hasMontant: true } as StageDef,
   accepte: { id: "accepte", event: "devis_accepte", title: "Accepté → Chantier", icon: "✅", desc: "Devis signé", tone: "good", hasMontant: true } as StageDef,
@@ -63,7 +64,11 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
               <span className="pt-6 text-lg text-ink-soft/50">→</span>
               <div className="flex flex-col gap-2">
                 {node(S.mailOk, true)}
-                {node(S.mailKo, true)}
+                <div className="flex items-center gap-2">
+                  {node(S.mailKo, true)}
+                  <span className="text-lg text-ink-soft/50">→</span>
+                  {node(S.mailComplete, true)}
+                </div>
               </div>
             </div>
           </div>
