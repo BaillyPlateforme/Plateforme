@@ -11,7 +11,7 @@ type DevisData = {
 };
 const euro = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
 
-export function InstantResult({ requestId, volume, count = 1 }: { requestId: string; volume: number | null; count?: number }) {
+export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVariant }: { requestId: string; volume: number | null; count?: number; onNewQuote?: () => void; onVariant?: () => void }) {
   const DURATION = 21000; // ≥ 20 s de génération visible
   const STEPS = [
     "Analyse de votre projet…",
@@ -67,7 +67,6 @@ export function InstantResult({ requestId, volume, count = 1 }: { requestId: str
           <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-subtle">
             <div className="h-full rounded-full bg-accent transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
           </div>
-          <div className="mt-2 text-xs tabular-nums text-ink-soft">{progress}%</div>
           <p className="mt-6 text-xs text-ink-soft">Cela prend une vingtaine de secondes — merci de patienter.</p>
         </div>
       </Shell>
@@ -82,6 +81,9 @@ export function InstantResult({ requestId, volume, count = 1 }: { requestId: str
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-4xl">Vos {count} devis sont prêts</h1>
           <p className="mt-3 text-ink-soft">Nous vous adressons un devis pour chaque scénario par e-mail.</p>
+          {onNewQuote && (
+            <button onClick={onNewQuote} className="mt-6 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">Faire une nouvelle demande</button>
+          )}
         </div>
       </Shell>
     );
@@ -136,6 +138,21 @@ export function InstantResult({ requestId, volume, count = 1 }: { requestId: str
         ) : (
           <div className="mt-6 rounded-2xl border border-line bg-card p-8 text-center text-sm text-ink-soft">
             Votre devis est en cours de finalisation — un conseiller vous l&apos;adresse par e-mail très vite.
+          </div>
+        )}
+
+        {(onVariant || onNewQuote) && (
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {onVariant && (
+              <button onClick={onVariant} className="rounded-lg border border-line-strong px-5 py-2.5 text-sm font-medium transition hover:bg-subtle">
+                Demander une variante
+              </button>
+            )}
+            {onNewQuote && (
+              <button onClick={onNewQuote} className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">
+                Demander un nouveau devis
+              </button>
+            )}
           </div>
         )}
       </div>

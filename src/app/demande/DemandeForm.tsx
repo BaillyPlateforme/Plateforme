@@ -310,7 +310,10 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
 
   if (done) {
     return instant ? (
-      <InstantResult requestId={done} volume={volume} count={doneCount} />
+      <InstantResult requestId={done} volume={volume} count={doneCount}
+        onVariant={() => { setDone(null); setDoneCount(1); setCompare(true); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
+      />
     ) : (
       <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} count={doneCount} />
     );
@@ -461,7 +464,10 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
 
   if (done) {
     return instant ? (
-      <InstantResult requestId={done} volume={totalVolume} count={doneCount} />
+      <InstantResult requestId={done} volume={totalVolume} count={doneCount}
+        onVariant={() => { setDone(null); setDoneCount(1); setCompare(true); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setDistanceKm(null); }}
+      />
     ) : (
       <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} count={doneCount} />
     );
