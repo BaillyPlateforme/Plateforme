@@ -171,13 +171,14 @@ export async function createRequest(
   return created;
 }
 
-import type { RequestPhotoRow, RequestItemRow, RequestEventRow } from "@/lib/types";
+import type { RequestPhotoRow, RequestItemRow, RequestEventRow, DevisRow } from "@/lib/types";
 
 export interface RequestDetail {
   request: RequestRow;
   photos: RequestPhotoRow[];
   items: RequestItemRow[];
   events: RequestEventRow[];
+  devis: DevisRow | null;
 }
 
 // Détail complet d'une demande pour la fiche.
@@ -186,7 +187,7 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
   const { data: request } = await supabase.from("requests").select("*").eq("id", id).maybeSingle();
   if (!request) return null;
 
-  const [{ data: photos }, { data: items }, { data: events }] = await Promise.all([
+  const [{ data: photos }, { data: items }, { data: events }, { data: devis }] = await Promise.all([
     supabase.from("request_photos").select("*").eq("request_id", id).order("created_at"),
     supabase.from("request_items").select("*").eq("request_id", id).order("created_at"),
     supabase
@@ -194,6 +195,7 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
       .select("*")
       .eq("request_id", id)
       .order("created_at", { ascending: false }),
+    supabase.from("devis").select("*").eq("request_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   return {
@@ -201,6 +203,7 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
     photos: (photos ?? []) as RequestPhotoRow[],
     items: (items ?? []) as RequestItemRow[],
     events: (events ?? []) as RequestEventRow[],
+    devis: (devis as DevisRow) ?? null,
   };
 }
 

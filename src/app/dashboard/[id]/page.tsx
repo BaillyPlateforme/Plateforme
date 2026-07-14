@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getRequestDetail } from "@/lib/requests";
-import { listGrids } from "@/lib/grids";
 import { createServiceClient } from "@/lib/supabase/server";
 import { qualifyRequest } from "@/lib/qualification";
 import { env } from "@/lib/env";
@@ -28,8 +27,6 @@ export default async function RequestPage({
     detail = (await getRequestDetail(id)) ?? detail;
   }
 
-  const grids = await listGrids();
-
   // URLs signées pour afficher les photos du bucket privé.
   const supabase = createServiceClient();
   const bucket = env.storageBucket();
@@ -46,7 +43,7 @@ export default async function RequestPage({
       <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
         ← Toutes les demandes
       </Link>
-      <RequestDetail detail={detail} grids={grids} photoUrls={photoUrls} />
+      <RequestDetail detail={detail} photoUrls={photoUrls} />
     </div>
   );
 }

@@ -2,22 +2,18 @@
 
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
-import type { PricingGridRow, RequestStatus } from "@/lib/types";
-import { estimateQuote } from "@/lib/quote";
+import type { RequestStatus } from "@/lib/types";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
-import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
-import { createDevisFromRequest } from "@/lib/actions/devis";
+import { updateStatus, updateScores } from "@/lib/actions/requests";
 
 const TABS = ["Infos", "Analyse", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function RequestDetail({
   detail,
-  grids,
   photoUrls,
 }: {
   detail: Detail;
-  grids: PricingGridRow[];
   photoUrls: Record<string, string>;
 }) {
   const { request: r } = detail;
@@ -80,7 +76,7 @@ export default function RequestDetail({
         {tab === "Infos" && <InfosTab detail={detail} />}
         {tab === "Analyse" && <AnalyseTab detail={detail} />}
         {tab === "Volume & photos" && <VolumeTab detail={detail} photoUrls={photoUrls} />}
-        {tab === "Devis" && <DevisTab detail={detail} grids={grids} />}
+        {tab === "Devis" && <DevisTab detail={detail} />}
         {tab === "Messages" && <MessagesTab detail={detail} />}
         {tab === "Historique" && <TimelineTab detail={detail} />}
       </div>
@@ -254,110 +250,73 @@ function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<st
 
 /* ---------- Onglet Devis ---------- */
 
-function DevisTab({ detail, grids }: { detail: Detail; grids: PricingGridRow[] }) {
+function DevisTab({ detail }: { detail: Detail }) {
   const r = detail.request;
-  const activeGrids = grids.filter((g) => g.is_active);
-  const initial = r.grid_id ?? activeGrids.find((g) => g.is_default)?.id ?? activeGrids[0]?.id;
-  const [gridId, setGridId] = useState<string | undefined>(initial);
-  const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(false);
-  const [generated, setGenerated] = useState(false);
+  const devis = detail.devis;
+  const complete = r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville;
 
-  const grid = grids.find((g) => g.id === gridId);
-  const quote = grid ? estimateQuote(r, grid) : null;
-
-  if (activeGrids.length === 0) {
+  if (!devis) {
     return (
-      <div className="rounded-xl border border-dashed border-line p-8 text-center text-ink-soft">
-        Aucune grille active. Créez-en une dans « Grilles tarifaires ».
+      <div className="rounded-xl border border-dashed border-line p-10 text-center text-sm text-ink-soft">
+        {complete
+          ? "Le devis est en cours de génération…"
+          : "Le devis PDF est généré automatiquement dès que la demande est complète (volume + adresses)."}
       </div>
     );
   }
 
+  const lignes = Array.isArray(devis.lignes) ? devis.lignes : [];
+  const statusLabel: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", accepte: "Accepté", refuse: "Refusé" };
+
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
-        <Card title="Estimation">
-          {quote ? (
-            <div>
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-line/70">
-                  {quote.lines.map((l, i) => (
-                    <tr key={i}>
-                      <td className="py-2 text-ink-soft">{l.label}</td>
-                      <td className="py-2 text-right tabular-nums">{l.amount.toFixed(2)} €</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-line">
-                    <td className="py-2 text-ink-soft">Total HT</td>
-                    <td className="py-2 text-right tabular-nums">{quote.ht.toFixed(2)} €</td>
-                  </tr>
-                  <tr>
-                    <td className="py-1 text-ink-soft">TVA ({grid!.vat_rate}%)</td>
-                    <td className="py-1 text-right tabular-nums">{quote.tva.toFixed(2)} €</td>
-                  </tr>
-                  <tr>
-                    <td className="pt-2 font-serif text-lg">Total TTC</td>
-                    <td className="pt-2 text-right font-serif text-lg text-accent tabular-nums">
-                      {quote.ttc.toFixed(2)} €
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          ) : (
-            <p className="text-sm text-ink-soft">Sélectionnez une grille.</p>
-          )}
+        <Card title="Détail du devis">
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-line/70">
+              {lignes.map((l, i) => (
+                <tr key={i}>
+                  <td className="py-2 text-ink-soft">{l.label}</td>
+                  <td className="py-2 text-right tabular-nums">{l.amount.toFixed(2)} €</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-line">
+                <td className="py-2 text-ink-soft">Total HT</td>
+                <td className="py-2 text-right tabular-nums">{devis.montant_ht.toFixed(2)} €</td>
+              </tr>
+              <tr>
+                <td className="py-1 text-ink-soft">TVA</td>
+                <td className="py-1 text-right tabular-nums">{devis.montant_tva.toFixed(2)} €</td>
+              </tr>
+              <tr>
+                <td className="pt-2 font-serif text-lg">Total TTC</td>
+                <td className="pt-2 text-right font-serif text-lg text-accent tabular-nums">{devis.montant_ttc.toFixed(2)} €</td>
+              </tr>
+            </tfoot>
+          </table>
         </Card>
       </div>
 
       <div className="space-y-4">
-        <Card title="Grille appliquée">
-          <select
-            value={gridId}
-            onChange={(e) => setGridId(e.target.value)}
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+        <Card title={`Devis ${devis.reference}`}>
+          <div className="font-serif text-3xl text-accent">
+            {Math.round(devis.montant_ttc).toLocaleString("fr-FR")} €<span className="ml-1 text-sm text-ink-soft">TTC</span>
+          </div>
+          <div className="mt-1 text-xs text-ink-soft">
+            {statusLabel[devis.status] ?? devis.status}
+            {devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}
+          </div>
+          <a
+            href={`/api/devis/${devis.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
           >
-            {activeGrids.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-                {g.is_default ? " (défaut)" : ""}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() =>
-              start(async () => {
-                await applyEstimation(r.id, gridId);
-                setSaved(true);
-                setTimeout(() => setSaved(false), 1500);
-              })
-            }
-            disabled={pending || !quote}
-            className="mt-3 w-full rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-accent-soft/40 disabled:opacity-50"
-          >
-            {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer l'estimation"}
-          </button>
-          <button
-            onClick={() =>
-              start(async () => {
-                await createDevisFromRequest(r.id, gridId);
-                setGenerated(true);
-                setTimeout(() => setGenerated(false), 2000);
-              })
-            }
-            disabled={pending || !quote}
-            className="mt-2 w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
-          >
-            {generated ? "Devis créé ✓" : "Générer le devis"}
-          </button>
-          {r.estimation_prix != null && (
-            <p className="mt-3 text-xs text-ink-soft">
-              Dernière estimation : {Math.round(r.estimation_prix)} € TTC
-            </p>
-          )}
+            ⬇ Télécharger le devis PDF
+          </a>
+          <p className="mt-3 text-[11px] text-ink-soft">Généré automatiquement à la qualification de la demande.</p>
         </Card>
       </div>
     </div>
