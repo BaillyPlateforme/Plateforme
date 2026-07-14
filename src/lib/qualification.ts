@@ -39,6 +39,8 @@ interface CriterionMeta extends Omit<CriterionConfig, "enabled" | "poids" | "flo
   target: number;
   valueOf: (r: RequestRow) => number;
   format: (r: RequestRow) => string;
+  // Le critère n'est noté QUE si sa donnée est réellement renseignée.
+  has: (r: RequestRow) => boolean;
 }
 
 const daysUntil = (iso: string | null): number | null => {
@@ -70,48 +72,58 @@ const planningEase = (r: RequestRow) => {
   return 35;
 };
 
+const hasAcces = (r: RequestRow) =>
+  r.depart_etage != null || r.arrivee_etage != null || r.depart_ascenseur != null || r.arrivee_ascenseur != null;
+
 const CRITERIA_META: Record<CriterionKey, CriterionMeta> = {
   valeur: {
     key: "valeur", label: "Valeur du devis", description: "Montant TTC estimé — plus il est élevé, plus la demande est prioritaire.",
     unit: "€", poids: 25, floor: 500, target: 5000,
     valueOf: (r) => r.estimation_prix ?? 0,
     format: (r) => `${Math.round(r.estimation_prix ?? 0)} € TTC`,
+    has: (r) => r.estimation_prix != null,
   },
   volume: {
     key: "volume", label: "Volume à déménager", description: "Volume en m³ — un chantier plus gros pèse davantage.",
     unit: "m³", poids: 15, floor: 5, target: 40,
     valueOf: (r) => r.volume_m3 ?? 0,
     format: (r) => `${r.volume_m3 ?? 0} m³`,
+    has: (r) => r.volume_m3 != null,
   },
   distance: {
     key: "distance", label: "Distance", description: "Distance du trajet en km — les longues distances valorisent la prestation.",
     unit: "km", poids: 10, floor: 0, target: 400,
     valueOf: (r) => r.distance_km ?? 0,
     format: (r) => (r.distance_km != null ? `${r.distance_km} km` : "non renseignée"),
+    has: (r) => r.distance_km != null && r.distance_km > 0,
   },
   services: {
     key: "services", label: "Prestations additionnelles", description: "Nombre d'options (emballage, montage, garde-meuble…) — plus de marge.",
     unit: "options", poids: 10, floor: 0, target: 4,
     valueOf: servicesCount,
     format: (r) => `${servicesCount(r)} prestation(s)`,
+    has: (r) => Object.keys((r.services ?? {}) as Record<string, boolean>).length > 0,
   },
   formule: {
     key: "formule", label: "Formule choisie", description: "Éco / Standard / Luxe — la gamme influe sur la valeur.",
     unit: "", poids: 10, floor: 0, target: 100,
     valueOf: formuleScore,
     format: (r) => r.formule ?? "non précisée",
+    has: (r) => r.formule != null,
   },
   acces: {
     key: "acces", label: "Facilité d'accès", description: "Étages et ascenseurs départ/arrivée — un accès facile est plus rentable.",
     unit: "/100", poids: 15, floor: 0, target: 100,
     valueOf: accesEase,
     format: (r) => `${accesEase(r)}/100 de facilité`,
+    has: hasAcces,
   },
   planning: {
     key: "planning", label: "Souplesse de planning", description: "Dates flexibles ou éloignées = plus faciles à organiser.",
     unit: "/100", poids: 15, floor: 0, target: 100,
     valueOf: planningEase,
     format: (r) => (r.flexibilite ? "dates flexibles" : `${planningEase(r)}/100`),
+    has: (r) => !!r.flexibilite || !!r.date_souhaitee,
   },
 };
 
@@ -173,7 +185,9 @@ function normalize(value: number, floor: number, target: number): number {
 }
 
 export function analyzeRequest(r: RequestRow, criteria: CriterionConfig[]): QualifResult {
-  const active = criteria.filter((c) => c.enabled && c.poids > 0);
+  // On ne note QUE les critères activés dont la donnée est réellement renseignée
+  // (pas de points par défaut pour une valeur manquante), et on repondère sur ceux-là.
+  const active = criteria.filter((c) => c.enabled && c.poids > 0 && CRITERIA_META[c.key].has(r));
   const sumPoids = active.reduce((s, c) => s + c.poids, 0) || 1;
 
   const lines: QualifLine[] = active.map((c) => {
