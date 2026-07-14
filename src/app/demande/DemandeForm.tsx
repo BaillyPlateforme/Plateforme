@@ -139,21 +139,22 @@ export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
 
 function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
   return (
-    <aside className="relative hidden overflow-hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between bg-ink text-paper">
-      {heroUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/60 to-ink/90" />
+    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between">
       <div className="relative z-10 p-9">
-        <div className="font-serif text-3xl font-semibold">Bailly</div>
-        <div className="eyebrow mt-1 text-paper/60">Déménagement</div>
-        <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-paper/95">
+        <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
+        <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
+        <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-ink">
           Une question, un projet ? Nous vous accompagnons à chaque étape.
         </p>
       </div>
+      {heroUrl && (
+        <div className="relative z-10 px-9">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={heroUrl} alt="" className="h-44 w-full rounded-2xl border border-line object-cover" />
+        </div>
+      )}
       <div className="relative z-10 p-9">
-        <div className="border-t border-paper/15 pt-5 text-sm text-paper/70">
+        <div className="border-t border-line pt-5 text-sm text-ink-soft">
           {children ?? "Échangez avec nos experts pour un accompagnement sur mesure."}
         </div>
       </div>
@@ -169,38 +170,34 @@ function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
       type="button"
       onClick={onClick}
       style={{ animationDelay: delay }}
-      className="group animate-fade-up relative flex min-h-[58vh] flex-col justify-end overflow-hidden rounded-[28px] border border-white/10 text-left shadow-2xl ring-1 ring-white/5 transition duration-500 hover:border-white/40 md:min-h-0"
+      className="group animate-fade-up flex flex-col overflow-hidden rounded-[24px] border border-line bg-card text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-md)]"
     >
-      {img ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-[1.06]" />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/40 to-ink" />
-      )}
-
-      {/* Voiles dégradés (jeu de transparence) */}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/45 to-ink/5 transition duration-500 group-hover:from-ink/95 group-hover:via-ink/30 group-hover:to-transparent" />
-      <div className="absolute inset-0 bg-accent/0 mix-blend-soft-light transition duration-500 group-hover:bg-accent/25" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/10 to-transparent opacity-60" />
-
-      {/* Badges en verre dépoli */}
-      <div className="absolute left-6 top-6 z-10 flex items-center gap-2.5">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/25 bg-white/15 text-xl backdrop-blur-md">{icon}</span>
-        <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-white/90 backdrop-blur-md">{badge}</span>
+      {/* Visuel */}
+      <div className="relative h-52 w-full overflow-hidden">
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt="" className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-105" />
+        ) : (
+          <div className="h-full w-full bg-accent-soft" />
+        )}
+        <div className="absolute left-5 top-5 z-10 flex items-center gap-2.5">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/75 text-xl backdrop-blur-md">{icon}</span>
+          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-ink backdrop-blur-md">{badge}</span>
+        </div>
       </div>
 
-      {/* Contenu bas */}
-      <div className="relative z-10 p-7 md:p-8">
-        <h2 className="font-serif text-3xl text-white md:text-4xl">{title}</h2>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/75">{desc}</p>
+      {/* Contenu sur fond clair */}
+      <div className="flex flex-1 flex-col p-7 md:p-8">
+        <h2 className="font-serif text-3xl text-ink md:text-4xl">{title}</h2>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">{desc}</p>
         <ul className="mt-4 space-y-1.5">
           {points.map((p) => (
-            <li key={p} className="flex items-center gap-2 text-sm text-white/70">
-              <span className="h-1.5 w-1.5 rounded-full bg-white/60" />{p}
+            <li key={p} className="flex items-center gap-2 text-sm text-ink-soft">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent" />{p}
             </li>
           ))}
         </ul>
-        <span className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-5 py-2.5 text-sm font-medium text-white backdrop-blur-md transition-all duration-300 group-hover:gap-3 group-hover:bg-white group-hover:text-ink">
+        <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 group-hover:gap-3 group-hover:bg-accent-dark">
           Commencer <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
         </span>
       </div>
@@ -209,24 +206,16 @@ function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
 }
 
 function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[]; onSelect: (m: "express" | "complet") => void }) {
-  const bg = heroUrls[2] ?? heroUrls[0];
   return (
     <>
       <ModeSwitch current="form" />
-      <div className="relative min-h-screen overflow-hidden bg-ink text-paper">
-        {/* Ambiance de fond floutée */}
-        {bg && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={bg} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
-        )}
-        <div className="absolute inset-0 bg-ink/85" />
-
+      <div className="relative min-h-screen overflow-hidden bg-paper text-ink">
         <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12 md:py-16">
           <header className="animate-fade-up">
             <div className="font-serif text-2xl font-semibold">Bailly</div>
             <div className="eyebrow mt-4 text-accent">Demande de devis</div>
             <h1 className="mt-2 max-w-2xl font-serif text-4xl leading-[1.05] md:text-6xl">Comment souhaitez-vous procéder ?</h1>
-            <p className="mt-3 text-paper/60">Deux formules — à vous de choisir.</p>
+            <p className="mt-3 text-ink-soft">Deux formules — à vous de choisir.</p>
           </header>
 
           <div className="mt-9 grid flex-1 gap-5 md:grid-cols-2">
@@ -404,16 +393,11 @@ function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: ()
       <ModeSwitch current="form" />
       <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         {/* Panneau visuel */}
-        <aside className="relative hidden overflow-hidden md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between bg-ink text-paper">
-          {heroUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-35" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/60 to-ink/90" />
+        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between">
           <div className="relative z-10 p-9">
-            <div className="font-serif text-3xl font-semibold">Bailly</div>
-            <div className="eyebrow mt-1 text-paper/60">Déménagement</div>
-            <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-paper/95">
+            <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
+            <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
+            <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-ink">
               Une question, un projet ? Nous vous accompagnons à chaque étape.
             </p>
           </div>
@@ -425,9 +409,9 @@ function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: ()
                   <li key={label}>
                     <button type="button" onClick={() => i < step && setStep(i)} disabled={i > step}
                       className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${
-                        state === "active" ? "bg-paper/10 font-medium text-paper" : state === "done" ? "text-paper/80 hover:bg-paper/5" : "text-paper/40"}`}>
+                        state === "active" ? "bg-accent-soft font-medium text-accent" : state === "done" ? "text-ink hover:bg-line/50" : "text-ink-soft/50"}`}>
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
-                        state === "active" ? "bg-paper text-ink" : state === "done" ? "bg-paper/20 text-paper" : "border border-paper/25 text-paper/40"}`}>
+                        state === "active" ? "bg-accent text-white" : state === "done" ? "bg-accent-soft text-accent" : "border border-line-strong text-ink-soft/50"}`}>
                         {state === "done" ? "✓" : i + 1}
                       </span>
                       {label}
@@ -438,11 +422,11 @@ function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: ()
             </ol>
           </div>
           <div className="relative z-10 p-9">
-            <div className="flex items-end justify-between border-t border-paper/15 pt-5">
-              <p className="max-w-[13rem] text-sm text-paper/70">Échangez avec nos experts pour un accompagnement sur mesure.</p>
+            <div className="flex items-end justify-between border-t border-line pt-5">
+              <p className="max-w-[13rem] text-sm text-ink-soft">Échangez avec nos experts pour un accompagnement sur mesure.</p>
               <div className="text-right">
-                <div className="eyebrow text-paper/50">Volume estimé</div>
-                <div className="font-serif text-3xl">{totalVolume ?? "—"}<span className="ml-1 text-base text-paper/60">m³</span></div>
+                <div className="eyebrow text-ink-soft">Volume estimé</div>
+                <div className="font-serif text-3xl text-ink">{totalVolume ?? "—"}<span className="ml-1 text-base text-ink-soft">m³</span></div>
               </div>
             </div>
           </div>
