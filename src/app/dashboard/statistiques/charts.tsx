@@ -68,12 +68,12 @@ export function Sparkline({ data, color = "var(--color-accent)", height = 34 }: 
   );
 }
 
-// Carte KPI façon Redion : barre d'accent latérale + compteur animé + delta + sparkline.
+// Carte KPI façon Redion : barre d'accent latérale + compteur animé + sous-texte / sparkline.
 export function KpiCard({
-  label, value, decimals = 0, prefix = "", suffix = "", series, delta, color = "var(--color-accent)",
+  label, value, decimals = 0, prefix = "", suffix = "", sub, series, delta, color = "var(--color-accent)",
 }: {
   label: string; value: number; decimals?: number; prefix?: string; suffix?: string;
-  series?: number[]; delta?: number; color?: string;
+  sub?: string; series?: number[]; delta?: number; color?: string;
 }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-line bg-card p-5">
@@ -86,12 +86,135 @@ export function KpiCard({
         <div className="mt-2 font-serif text-[30px] font-bold leading-none text-ink">
           <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
         </div>
+        {sub && <div className="mt-2 truncate text-[11px] text-ink-soft">{sub}</div>}
         {series && series.length > 1 && (
           <div className="mt-3">
             <Sparkline data={series} color={color} />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Chemin lissé (Catmull-Rom → Bézier cubique).
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+export type Series = { name: string; color: string; data: number[] };
+
+// Courbe d'aire multi-séries lissée (façon Redion "Volume & tri dans le temps").
+export function MultiAreaTrend({ labels, series }: { labels: string[]; series: Series[] }) {
+  const gid = useId();
+  const [hover, setHover] = useState<number | null>(null);
+  const w = 800;
+  const h = 260;
+  const padY = 18;
+  const n = labels.length;
+  if (n < 2) return <p className="text-sm text-ink-soft">Pas assez de données.</p>;
+  const max = Math.max(1, ...series.flatMap((s) => s.data));
+  const xs = (i: number) => (i / (n - 1)) * w;
+  const ys = (v: number) => h - padY - (v / max) * (h - padY * 2);
+  const gridY = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-end gap-4">
+        {series.map((s) => (
+          <span key={s.name} className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+      <div className="relative">
+        <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" onMouseLeave={() => setHover(null)}>
+          <defs>
+            {series.map((s, si) => (
+              <linearGradient key={si} id={`${gid}-${si}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.18" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+              </linearGradient>
+            ))}
+          </defs>
+          {gridY.map((f, i) => {
+            const y = h - padY - f * (h - padY * 2);
+            return <line key={i} x1="0" y1={y} x2={w} y2={y} stroke="var(--color-line)" strokeWidth="1" vectorEffect="non-scaling-stroke" />;
+          })}
+          {series.map((s, si) => {
+            const pts = s.data.map((v, i) => ({ x: xs(i), y: ys(v) }));
+            const line = smoothPath(pts);
+            return (
+              <g key={si}>
+                <path d={`${line} L ${w} ${h - padY} L 0 ${h - padY} Z`} fill={`url(#${gid}-${si})`} />
+                <path d={line} fill="none" stroke={s.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              </g>
+            );
+          })}
+          {hover != null && (
+            <line x1={xs(hover)} y1="0" x2={xs(hover)} y2={h} stroke="var(--color-line-strong)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+          )}
+          {series.map((s, si) =>
+            hover != null ? <circle key={si} cx={xs(hover)} cy={ys(s.data[hover])} r="3.5" fill={s.color} stroke="var(--color-card)" strokeWidth="2" /> : null,
+          )}
+          {labels.map((_, i) => (
+            <rect key={i} x={xs(i) - w / n / 2} y="0" width={w / n} height={h} fill="transparent" onMouseEnter={() => setHover(i)} />
+          ))}
+        </svg>
+        {hover != null && (
+          <div className="pointer-events-none absolute -top-1 rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs shadow-[var(--shadow-md)]" style={{ left: `calc(${(hover / (n - 1)) * 100}% )`, transform: "translateX(-50%)" }}>
+            <div className="mb-0.5 font-medium">{labels[hover]}</div>
+            {series.map((s) => (
+              <div key={s.name} className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
+                <span className="text-ink-soft">{s.name}</span>
+                <span className="ml-auto font-medium tabular-nums">{s.data[hover]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="mt-2 flex justify-between text-[10px] text-ink-soft">
+        <span>{labels[0]}</span>
+        <span>{labels[Math.floor(n / 2)]}</span>
+        <span>{labels[n - 1]}</span>
+      </div>
+    </div>
+  );
+}
+
+// Barres de catégories façon Redion (pastille + libellé + total, barre pleine largeur dessous).
+export function CategoryBars({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  if (data.length === 0) return <p className="text-sm text-ink-soft">Pas de données.</p>;
+  return (
+    <div className="space-y-4">
+      {data.map((d) => (
+        <div key={d.label}>
+          <div className="mb-1.5 flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+            <span className="text-sm">{d.label}</span>
+            <span className="ml-auto text-sm font-semibold tabular-nums">{d.value}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-subtle">
+            <div className="h-full rounded-full" style={{ width: `${(d.value / max) * 100}%`, background: d.color }} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

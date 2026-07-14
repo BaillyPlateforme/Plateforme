@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { RequestRow } from "@/lib/types";
 import { moveRequestStage } from "@/lib/actions/requests";
 import { sourceLabel, sourceClass, isIncomplete } from "./status";
@@ -80,16 +80,19 @@ export default function KanbanBoard({ requests }: { requests: RequestRow[] }) {
 }
 
 function Card({ r, onDragStart, onDragEnd }: { r: RequestRow; onDragStart: () => void; onDragEnd: () => void }) {
+  const router = useRouter();
+  const moved = useState({ v: false })[0];
   return (
     <div
       draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className="group cursor-grab rounded-xl border border-line bg-card p-3 shadow-sm transition hover:border-accent active:cursor-grabbing"
+      onDragStart={() => { moved.v = true; onDragStart(); }}
+      onDragEnd={() => { onDragEnd(); setTimeout(() => (moved.v = false), 0); }}
+      onClick={() => { if (!moved.v) router.push(`/dashboard/${r.id}`); }}
+      className="group cursor-pointer rounded-xl border border-line bg-card p-3 shadow-sm transition hover:border-accent active:cursor-grabbing"
     >
-      <Link href={`/dashboard/${r.id}`} className="text-sm font-medium hover:text-accent">
+      <div className="text-sm font-medium group-hover:text-accent">
         {r.client_nom ?? r.client_email ?? "—"}
-      </Link>
+      </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
           {sourceLabel(r.source)}

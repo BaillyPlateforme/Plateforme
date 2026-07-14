@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getRequestDetail } from "@/lib/requests";
 import { listGrids } from "@/lib/grids";
 import { createServiceClient } from "@/lib/supabase/server";
+import { qualifyRequest } from "@/lib/qualification";
 import { env } from "@/lib/env";
 import RequestDetail from "./RequestDetail";
 
@@ -14,8 +15,20 @@ export default async function RequestPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [detail, grids] = await Promise.all([getRequestDetail(id), listGrids()]);
+  let detail = await getRequestDetail(id);
   if (!detail) notFound();
+
+  // Filet de sécurité : si la demande est complète mais pas encore analysée
+  // (ancienne demande), on génère l'estimation + l'évaluation automatiquement.
+  const r = detail.request;
+  const complete = r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville;
+  const hasAnalysis = detail.events.some((e) => e.type === "analysis");
+  if (complete && !hasAnalysis) {
+    await qualifyRequest(id);
+    detail = (await getRequestDetail(id)) ?? detail;
+  }
+
+  const grids = await listGrids();
 
   // URLs signées pour afficher les photos du bucket privé.
   const supabase = createServiceClient();

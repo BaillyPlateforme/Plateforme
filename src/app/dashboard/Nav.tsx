@@ -14,7 +14,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
       { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
       { href: "/dashboard/clients", label: "Clients", icon: <IconUsers /> },
       { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
-      { href: "/dashboard/analyse", label: "Analyse", icon: <IconChart /> },
+      { href: "/dashboard/statistiques", label: "Statistiques", icon: <IconChart /> },
     ],
   },
   {

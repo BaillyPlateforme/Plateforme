@@ -7,7 +7,6 @@ import { estimateQuote } from "@/lib/quote";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
 import { updateStatus, updateScores, applyEstimation } from "@/lib/actions/requests";
 import { createDevisFromRequest } from "@/lib/actions/devis";
-import { requalify } from "@/lib/actions/qualification";
 
 const TABS = ["Infos", "Analyse", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
@@ -93,8 +92,6 @@ export default function RequestDetail({
 
 function InfosTab({ detail }: { detail: Detail }) {
   const r = detail.request;
-  const [pot, setPot] = useState(r.score_potentiel?.toString() ?? "");
-  const [dif, setDif] = useState(r.score_difficulte?.toString() ?? "");
   const [notes, setNotes] = useState(r.score_notes ?? "");
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -141,13 +138,22 @@ function InfosTab({ detail }: { detail: Detail }) {
         </Card>
       </div>
 
-      {/* Scoring */}
+      {/* Évaluation automatique (lecture seule) + notes */}
       <Card title="Évaluation">
         <div className="space-y-4">
-          <ScoreInput label="Potentiel" value={pot} onChange={setPot} />
-          <ScoreInput label="Difficulté" value={dif} onChange={setDif} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-line bg-paper p-3">
+              <div className="eyebrow text-ink-soft">Potentiel</div>
+              <div className={`mt-1 font-serif text-2xl ${scoreColor(r.score_potentiel)}`}>{r.score_potentiel ?? "—"}<span className="text-sm text-ink-soft">/100</span></div>
+            </div>
+            <div className="rounded-xl border border-line bg-paper p-3">
+              <div className="eyebrow text-ink-soft">Difficulté</div>
+              <div className={`mt-1 font-serif text-2xl ${scoreColor(r.score_difficulte)}`}>{r.score_difficulte ?? "—"}<span className="text-sm text-ink-soft">/100</span></div>
+            </div>
+          </div>
+          <p className="text-xs text-ink-soft">Calculé automatiquement à la qualification. Détail dans l&apos;onglet <span className="font-medium text-ink">Analyse</span>.</p>
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Notes</label>
+            <label className="mb-1.5 block text-sm font-medium">Notes internes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -159,20 +165,15 @@ function InfosTab({ detail }: { detail: Detail }) {
           <button
             onClick={() =>
               start(async () => {
-                await updateScores(
-                  r.id,
-                  pot === "" ? null : Number(pot),
-                  dif === "" ? null : Number(dif),
-                  notes || null,
-                );
+                await updateScores(r.id, r.score_potentiel, r.score_difficulte, notes || null);
                 setSaved(true);
                 setTimeout(() => setSaved(false), 1500);
               })
             }
             disabled={pending}
-            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+            className="w-full rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
           >
-            {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer l'évaluation"}
+            {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer les notes"}
           </button>
         </div>
       </Card>
@@ -423,26 +424,14 @@ type QualifPayload = { score: number; difficulte: number; lines: QualifLine[] };
 function AnalyseTab({ detail }: { detail: Detail }) {
   const r = detail.request;
   const evt = detail.events.find((e) => e.type === "analysis");
-  const [pending, start] = useTransition();
   const complete = r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville;
 
   if (!evt) {
     return (
-      <div className="rounded-xl border border-dashed border-line p-10 text-center">
-        <p className="text-sm text-ink-soft">
-          {complete
-            ? "Cette demande n'a pas encore été qualifiée."
-            : "Complétez la demande (volume + adresses) pour lancer la qualification."}
-        </p>
-        {complete && (
-          <button
-            onClick={() => start(() => requalify(r.id).then(() => {}))}
-            disabled={pending}
-            className="mt-4 rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
-          >
-            {pending ? "Analyse…" : "Lancer la qualification"}
-          </button>
-        )}
+      <div className="rounded-xl border border-dashed border-line p-10 text-center text-sm text-ink-soft">
+        {complete
+          ? "Analyse en cours de génération…"
+          : "L'estimation et l'évaluation /100 sont générées automatiquement dès que la demande est complète (volume + adresses)."}
       </div>
     );
   }
@@ -457,13 +446,6 @@ function AnalyseTab({ detail }: { detail: Detail }) {
           <p className="mt-1 text-sm text-ink-soft">
             Score global pondéré sur {p.lines?.length ?? 0} critères. Difficulté estimée : <span className="font-medium text-ink">{p.difficulte}/100</span>.
           </p>
-          <button
-            onClick={() => start(() => requalify(r.id).then(() => {}))}
-            disabled={pending}
-            className="mt-3 rounded-lg border border-line-strong px-4 py-1.5 text-xs font-medium transition hover:bg-subtle disabled:opacity-50"
-          >
-            {pending ? "…" : "Recalculer"}
-          </button>
         </div>
       </div>
 
@@ -686,26 +668,6 @@ function AddressBlock({
           {ascenseur ? "Avec ascenseur" : "Sans ascenseur"}
         </span>
       </div>
-    </div>
-  );
-}
-
-function ScoreInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const n = value === "" ? null : Number(value);
-  return (
-    <div>
-      <label className="mb-1.5 flex items-center justify-between text-sm font-medium">
-        {label}
-        <span className={`tabular-nums ${scoreColor(n)}`}>{value || "—"}/100</span>
-      </label>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={value === "" ? 0 : value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full accent-[var(--color-accent)]"
-      />
     </div>
   );
 }
