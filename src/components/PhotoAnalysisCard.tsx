@@ -206,22 +206,32 @@ const LOADER_STEPS = [
   "Compilation des résultats…",
 ];
 
-export function AnalysisLoader({ count }: { count: number }) {
+export function AnalysisLoader({ count, current, total }: { count: number; current?: number; total?: number }) {
   const [step, setStep] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setStep((s) => (s + 1) % LOADER_STEPS.length), 2200);
     return () => clearInterval(id);
   }, []);
 
+  const n = total ?? count;
+  const cur = current ?? 1;
+  const pct = n > 0 ? Math.round(((cur - 1) / n) * 100) : 0;
+
   return (
     <div className="rounded-2xl border border-line bg-card p-6">
       <div className="flex items-center gap-3">
         <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-accent" />
         <div className="font-serif text-lg">
-          Analyse de {count} photo{count > 1 ? "s" : ""} en cours
+          {n > 1 ? `Analyse — photo ${cur} / ${n}` : "Analyse de la photo en cours"}
         </div>
+        {n > 1 && <span className="ml-auto text-sm tabular-nums text-ink-soft">{cur}/{n}</span>}
       </div>
-      <p className="mt-2 text-sm text-ink-soft">{LOADER_STEPS[step]}</p>
+      {n > 1 && (
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-subtle">
+          <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      )}
+      <p className="mt-3 text-sm text-ink-soft">{LOADER_STEPS[step]}</p>
       <div className="mt-4 space-y-1.5">
         {LOADER_STEPS.map((s, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">

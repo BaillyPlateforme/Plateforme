@@ -29,7 +29,7 @@ export default function PhotoAnalyzer({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
   const lastRun = useRef<null | (() => void)>(null);
 
   function toggleSelect(path: string) {
@@ -48,28 +48,34 @@ export default function PhotoAnalyzer({
     e.target.value = "";
   }
 
+  // Analyse séquentielle : une photo à la fois → progression réelle "photo X/N".
   async function analyzeSelection() {
     const chosen = library.filter((p) => selected.has(p.path));
     if (chosen.length === 0) return;
     lastRun.current = analyzeSelection;
     setAnalyzing(true);
     setError(null);
-    setPendingCount(chosen.length);
-    try {
-      const res = await fetch("/api/analyze-volume", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paths: chosen.map((p) => p.path) }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      onChange([...photos, ...(data.photos as AnalyzedPhoto[])]);
-      setSelected(new Set());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur inconnue");
-    } finally {
-      setAnalyzing(false);
+    const acc: AnalyzedPhoto[] = [];
+    let failures = 0;
+    for (let i = 0; i < chosen.length; i++) {
+      setProgress({ current: i + 1, total: chosen.length });
+      try {
+        const res = await fetch("/api/analyze-volume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paths: [chosen[i].path] }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
+        acc.push(...(data.photos as AnalyzedPhoto[]));
+        onChange([...photos, ...acc]);
+      } catch {
+        failures++;
+      }
     }
+    if (failures) setError(`${failures} photo(s) n'ont pas pu être analysées.`);
+    setSelected(new Set());
+    setAnalyzing(false);
   }
 
   async function analyzeUpload() {
@@ -77,24 +83,29 @@ export default function PhotoAnalyzer({
     lastRun.current = analyzeUpload;
     setAnalyzing(true);
     setError(null);
-    setPendingCount(previews.length);
-    try {
-      const fd = new FormData();
-      previews.forEach((p) => fd.append("photos", p.file));
-      const res = await fetch("/api/analyze-volume", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
-      const enriched: AnalyzedPhoto[] = (data.photos as AnalyzedPhoto[]).map((p, i) => ({
-        ...p,
-        previewUrl: previews[i]?.url ?? p.previewUrl,
-      }));
-      onChange([...photos, ...enriched]);
-      setPreviews([]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur inconnue");
-    } finally {
-      setAnalyzing(false);
+    const acc: AnalyzedPhoto[] = [];
+    let failures = 0;
+    for (let i = 0; i < previews.length; i++) {
+      setProgress({ current: i + 1, total: previews.length });
+      try {
+        const fd = new FormData();
+        fd.append("photos", previews[i].file);
+        const res = await fetch("/api/analyze-volume", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Analyse impossible");
+        const enriched: AnalyzedPhoto[] = (data.photos as AnalyzedPhoto[]).map((p) => ({
+          ...p,
+          previewUrl: previews[i]?.url ?? p.previewUrl,
+        }));
+        acc.push(...enriched);
+        onChange([...photos, ...acc]);
+      } catch {
+        failures++;
+      }
     }
+    if (failures) setError(`${failures} photo(s) n'ont pas pu être analysées.`);
+    setPreviews([]);
+    setAnalyzing(false);
   }
 
   function updatePhoto(idx: number, next: AnalyzedPhoto) {
@@ -193,7 +204,7 @@ export default function PhotoAnalyzer({
       )}
 
       {/* Chargement / erreur */}
-      {analyzing && <AnalysisLoader count={pendingCount} />}
+      {analyzing && <AnalysisLoader count={progress.total} current={progress.current} total={progress.total} />}
       {error && !analyzing && (
         <AnalysisError reason={error} onRetry={() => lastRun.current?.()} />
       )}
