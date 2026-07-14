@@ -2,20 +2,59 @@
 
 import { useEffect, useState } from "react";
 
-/* ---------- Résultat instantané : génération puis confirmation (sans prix) ---------- */
+/* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
 
-export function InstantResult({ reference, volume, count = 1 }: { reference: string; volume: number | null; count?: number }) {
-  const [progress, setProgress] = useState(8);
+type DevisData = {
+  id: string; reference: string; montant_ht: number; montant_tva: number; montant_ttc: number;
+  lignes: { label: string; amount: number }[]; valid_until: string | null;
+  ville_depart: string | null; ville_arrivee: string | null; volume_m3: number | null;
+};
+const euro = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
+
+export function InstantResult({ requestId, volume, count = 1 }: { requestId: string; volume: number | null; count?: number }) {
+  const DURATION = 21000; // ≥ 20 s de génération visible
+  const STEPS = [
+    "Analyse de votre projet…",
+    "Calcul du volume et de la distance…",
+    "Application de la grille tarifaire…",
+    "Prise en compte des accès et prestations…",
+    "Optimisation de votre estimation…",
+    "Édition de votre devis…",
+  ];
+  const [progress, setProgress] = useState(2);
+  const [msg, setMsg] = useState(0);
   const [ready, setReady] = useState(false);
+  const [devis, setDevis] = useState<DevisData | null>(null);
 
   useEffect(() => {
-    const iv = setInterval(() => setProgress((p) => Math.min(96, p + 8)), 130);
-    const t = setTimeout(() => {
+    // Récupère le devis généré (avec quelques tentatives si la qualification finit à peine).
+    let cancelled = false;
+    (async () => {
+      for (let i = 0; i < 6 && !cancelled; i++) {
+        try {
+          const r = await fetch(`/api/requests/${requestId}/devis`);
+          if (r.ok) { const d = await r.json(); if (!cancelled) setDevis(d); break; }
+        } catch { /* retry */ }
+        await new Promise((res) => setTimeout(res, 1500));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [requestId]);
+
+  useEffect(() => {
+    const start = Date.now();
+    const iv = setInterval(() => {
+      const t = Math.min(1, (Date.now() - start) / DURATION);
+      setProgress(Math.min(98, Math.round(t * 98)));
+      setMsg(Math.min(STEPS.length - 1, Math.floor(t * STEPS.length)));
+    }, 250);
+    const done = setTimeout(() => {
       clearInterval(iv);
       setProgress(100);
-      setTimeout(() => setReady(true), 350);
-    }, 1500);
-    return () => { clearInterval(iv); clearTimeout(t); };
+      setTimeout(() => setReady(true), 500);
+    }, DURATION);
+    return () => { clearInterval(iv); clearTimeout(done); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!ready) {
@@ -24,31 +63,83 @@ export function InstantResult({ reference, volume, count = 1 }: { reference: str
         <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-2xl">📄</div>
           <h1 className="font-serif text-3xl">{count > 1 ? "Génération de vos devis…" : "Génération de votre devis…"}</h1>
-          <p className="mt-2 text-sm text-ink-soft">Nous préparons votre déménagement{volume != null ? ` (~${volume} m³)` : ""}.</p>
+          <p className="mt-2 h-5 text-sm text-ink-soft transition-all">{STEPS[msg]}</p>
           <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-subtle">
             <div className="h-full rounded-full bg-accent transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
           </div>
           <div className="mt-2 text-xs tabular-nums text-ink-soft">{progress}%</div>
+          <p className="mt-6 text-xs text-ink-soft">Cela prend une vingtaine de secondes — merci de patienter.</p>
         </div>
       </Shell>
     );
   }
 
-  return (
-    <Shell>
-      <div className="w-full max-w-md animate-fade-up text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-        <h1 className="font-serif text-4xl">{count > 1 ? `Vos ${count} devis sont prêts` : "Votre devis est prêt"}</h1>
-        <p className="mt-3 text-ink-soft">
-          {count > 1
-            ? "Nos experts finalisent vos propositions et vous les adressent par e-mail très vite."
-            : "Nos experts finalisent votre proposition et vous l'adressent par e-mail très vite."}
-        </p>
-        <div className="mt-6 inline-block rounded-lg border border-line bg-card px-4 py-2 text-sm text-ink-soft">
-          Référence : <span className="font-mono text-ink">{reference.slice(0, 8)}</span>
+  // Plusieurs demandes (via le comparateur) : confirmation sans détailler chaque prix.
+  if (count > 1) {
+    return (
+      <Shell>
+        <div className="w-full max-w-md animate-fade-up text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
+          <h1 className="font-serif text-4xl">Vos {count} devis sont prêts</h1>
+          <p className="mt-3 text-ink-soft">Nous vous adressons un devis pour chaque scénario par e-mail.</p>
         </div>
+      </Shell>
+    );
+  }
+
+  // Devis unique : on affiche le montant, le résumé et le PDF complet.
+  return (
+    <div className="min-h-screen bg-paper px-5 py-12 md:px-8">
+      <div className="mx-auto max-w-3xl animate-fade-up">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
+          <div className="eyebrow text-accent">Votre proposition</div>
+          <h1 className="mt-2 font-serif text-4xl">Votre devis est prêt</h1>
+          <p className="mt-2 text-sm text-ink-soft">Estimation établie selon les informations transmises.</p>
+        </div>
+
+        {devis ? (
+          <>
+            <div className="mt-6 rounded-2xl border border-line bg-card p-6 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="text-sm text-ink-soft">{devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}{devis.volume_m3 != null ? ` · ~${devis.volume_m3} m³` : ""}</div>
+                  <div className="mt-0.5 text-xs text-ink-soft">Devis {devis.reference}{devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-ink-soft">Total estimé</div>
+                  <div className="font-serif text-4xl text-accent">{euro(devis.montant_ttc)} <span className="text-base text-ink-soft">TTC</span></div>
+                </div>
+              </div>
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-line/70">
+                  {(devis.lignes ?? []).map((l, i) => (
+                    <tr key={i}><td className="py-2 text-ink-soft">{l.label}</td><td className="py-2 text-right tabular-nums">{l.amount.toFixed(2)} €</td></tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-line"><td className="py-2 text-ink-soft">Total HT</td><td className="py-2 text-right tabular-nums">{devis.montant_ht.toFixed(2)} €</td></tr>
+                  <tr><td className="py-1 text-ink-soft">TVA</td><td className="py-1 text-right tabular-nums">{devis.montant_tva.toFixed(2)} €</td></tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* PDF complet */}
+            <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
+              <div className="flex items-center justify-between border-b border-line px-5 py-3">
+                <span className="font-serif text-lg">Votre devis</span>
+                <a href={`/api/devis/${devis.id}/pdf`} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">⬇ Télécharger le PDF</a>
+              </div>
+              <iframe src={`/api/devis/${devis.id}/pdf`} title="Devis" className="h-[640px] w-full" />
+            </div>
+          </>
+        ) : (
+          <div className="mt-6 rounded-2xl border border-line bg-card p-8 text-center text-sm text-ink-soft">
+            Votre devis est en cours de finalisation — un conseiller vous l&apos;adresse par e-mail très vite.
+          </div>
+        )}
       </div>
-    </Shell>
+    </div>
   );
 }
 

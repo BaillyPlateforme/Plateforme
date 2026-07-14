@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${devis.reference}.pdf"`,
+      "Content-Disposition": `inline; filename="${devis.reference}.pdf"`,
       "Cache-Control": "no-store",
     },
   });
