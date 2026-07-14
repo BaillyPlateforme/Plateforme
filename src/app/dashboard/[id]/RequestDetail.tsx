@@ -58,6 +58,9 @@ export default function RequestDetail({
       {/* Ce qui manque */}
       {missing.length > 0 && <MissingBanner missing={missing} token={r.completion_token} />}
 
+      {/* Éléments déclenchés (emails / SMS automatiques) */}
+      <TriggeredMessages detail={detail} />
+
       {/* Onglets */}
       <div className="mt-6 flex gap-1 border-b border-line">
         {TABS.map((t) => (
@@ -410,6 +413,39 @@ function ProgressStepper({ status }: { status: RequestStatus }) {
   );
 }
 
+type MsgPayload = { channel?: string; template?: string; rule?: string; to?: string; status?: string; erreur?: string | null };
+
+function TriggeredMessages({ detail }: { detail: Detail }) {
+  const msgs = detail.events.filter((e) => e.type === "message");
+  return (
+    <div className="mt-5">
+      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Éléments déclenchés</div>
+      {msgs.length === 0 ? (
+        <p className="text-sm text-ink-soft">Aucune action automatique (email / SMS) déclenchée pour l&apos;instant.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {msgs.map((e) => {
+            const p = (e.payload ?? {}) as MsgPayload;
+            const failed = p.status === "echec";
+            return (
+              <span
+                key={e.id}
+                title={failed && p.erreur ? p.erreur : undefined}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${failed ? "border-warn/40 bg-warn/10" : "border-good/40 bg-good/10"}`}
+              >
+                <span>{p.channel === "sms" ? "💬" : "✉️"}</span>
+                <span className="font-medium text-ink">{p.template ?? p.rule}</span>
+                <span className="text-ink-soft">→ {p.to}</span>
+                <span className={`font-medium ${failed ? "text-warn" : "text-good"}`}>· {failed ? "échec" : "envoyé"}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MissingBanner({ missing, token }: { missing: string[]; token: string | null }) {
   return (
     <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50/70 px-4 py-3">
@@ -445,15 +481,35 @@ function TimelineTab({ detail }: { detail: Detail }) {
   return (
     <div className="relative space-y-4 pl-6">
       <div className="absolute inset-y-1 left-[7px] w-px bg-line" />
-      {events.map((e) => (
-        <div key={e.id} className="relative">
-          <div className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-accent bg-card" />
-          <div className="text-sm font-medium">{eventLabel(e.type)}</div>
-          <div className="text-xs text-ink-soft">
-            {new Date(e.created_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" })}
+      {events.map((e) => {
+        const isMsg = e.type === "message";
+        const p = (e.payload ?? {}) as MsgPayload;
+        const failed = isMsg && p.status === "echec";
+        return (
+          <div key={e.id} className="relative">
+            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${failed ? "border-warn" : isMsg ? "border-good" : "border-accent"}`} />
+            {isMsg ? (
+              <div>
+                <div className="text-sm font-medium">
+                  {p.channel === "sms" ? "💬 SMS" : "✉️ Email"} envoyé — {p.template ?? p.rule}
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${failed ? "bg-warn/15 text-warn" : "bg-good/15 text-good"}`}>
+                    {failed ? "échec" : "envoyé"}
+                  </span>
+                </div>
+                <div className="text-xs text-ink-soft">
+                  → {p.to}
+                  {failed && p.erreur ? ` · ${p.erreur}` : ""}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm font-medium">{eventLabel(e.type)}</div>
+            )}
+            <div className="text-xs text-ink-soft">
+              {new Date(e.created_at).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -465,6 +521,7 @@ function eventLabel(type: string): string {
     scored: "Évaluation mise à jour",
     estimated: "Estimation calculée",
     note: "Note ajoutée",
+    message: "Message envoyé",
   };
   return map[type] ?? type;
 }

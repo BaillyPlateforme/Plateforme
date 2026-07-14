@@ -73,6 +73,15 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         status,
         erreur,
       });
+
+      // Trace l'élément déclenché sur la fiche de la demande (onglet Historique).
+      if (ctx.request_id) {
+        await supabase.from("request_events").insert({
+          request_id: ctx.request_id,
+          type: "message",
+          payload: { channel: a.channel, rule: a.name, template: tpl.name, to, event, status, erreur },
+        });
+      }
     }
   } catch (e) {
     console.error("fireEvent", event, e);

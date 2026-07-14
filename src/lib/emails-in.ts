@@ -68,6 +68,7 @@ export async function ingestEmail(body: IncomingEmail) {
   const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
 
   const ctx = {
+    request_id: req?.id ?? null,
     source: "email",
     client_nom: body.client_nom ?? null,
     client_email: body.client_email ?? null,

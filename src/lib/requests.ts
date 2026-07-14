@@ -1,5 +1,7 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
+import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
@@ -116,7 +118,26 @@ export async function createRequest(
     payload: { source },
   });
 
+  // Complétude : mêmes règles que pour les mails entrants.
+  const manque_volume = created.volume_m3 == null;
+  const manque_depart = !created.depart_ville;
+  const manque_arrivee = !created.arrivee_ville;
+  const incomplet = manque_volume || manque_depart || manque_arrivee;
+
+  // Un jeton (et donc un lien de complétion) n'est créé que si une info manque.
+  let token: string | null = null;
+  if (incomplet) {
+    token = randomUUID();
+    await supabase.from("requests").update({ completion_token: token }).eq("id", created.id);
+    created.completion_token = token;
+  }
+
+  const settings = await getSettings();
+  const base = (settings.base_url || "").replace(/\/$/, "");
+  const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
+
   const ctx = {
+    request_id: created.id,
     source: created.source,
     client_nom: created.client_nom,
     client_email: created.client_email,
@@ -125,11 +146,15 @@ export async function createRequest(
     ville_arrivee: created.arrivee_ville,
     volume: created.volume_m3,
     date: created.date_souhaitee,
+    lien_completion: lien,
+    manque_volume,
+    manque_depart,
+    manque_arrivee,
   };
-  await fireEvent("demande_recue", ctx);
 
-  const complete = created.volume_m3 != null && !!created.depart_ville && !!created.arrivee_ville;
-  if (complete) await fireEvent("demande_complete", ctx);
+  await fireEvent("demande_recue", ctx);
+  if (incomplet) await fireEvent("demande_incomplete", ctx);
+  else await fireEvent("demande_complete", ctx);
 
   return created;
 }
