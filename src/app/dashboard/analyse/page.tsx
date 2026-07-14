@@ -1,11 +1,13 @@
 import { listRequests } from "@/lib/requests";
 import { STATUS_META, STATUS_ORDER } from "../status";
-import { Donut, BarList, type Slice } from "./charts";
+import { Donut, BarList, KpiCard, AreaTrend, type Slice } from "./charts";
 import type { RequestRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const RAMP = ["#cdd4bd", "#b3bd9c", "#97a67c", "#7c8d62", "#61734a", "#495838", "#333f27"];
+const RAMP = ["#cfeae0", "#a9dcc9", "#7fceb0", "#52bd95", "#29a97b", "#0c8f6f", "#0a6f57"];
+
+const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0);
 
 export default async function AnalysePage() {
   let requests: RequestRow[] = [];
@@ -23,6 +25,38 @@ export default async function AnalysePage() {
   const won = requests.filter((r) => r.status === "won").length;
   const decided = requests.filter((r) => ["quoted", "won", "lost"].includes(r.status)).length;
   const conversion = decided ? Math.round((won / decided) * 100) : 0;
+
+  // ---- Séries temporelles (30 derniers jours) ----
+  const DAYS = 30;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayIndex = (iso: string) => {
+    const d = new Date(iso);
+    d.setHours(0, 0, 0, 0);
+    return DAYS - 1 - Math.round((today.getTime() - d.getTime()) / 86_400_000);
+  };
+  const counts = new Array(DAYS).fill(0);
+  const volumes = new Array(DAYS).fill(0);
+  const cas = new Array(DAYS).fill(0);
+  requests.forEach((r) => {
+    const i = dayIndex(r.created_at);
+    if (i >= 0 && i < DAYS) {
+      counts[i] += 1;
+      volumes[i] += r.volume_m3 ?? 0;
+      cas[i] += r.estimation_prix ?? 0;
+    }
+  });
+  const trendPoints = counts.map((v, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (DAYS - 1 - i));
+    return { label: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }), value: v };
+  });
+  const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
+  const last7 = (a: number[]) => sum(a.slice(-7));
+  const prev7 = (a: number[]) => sum(a.slice(-14, -7));
+  const deltaDemandes = pct(last7(counts), prev7(counts));
+  const deltaVolume = pct(last7(volumes), prev7(volumes));
+  const deltaCa = pct(last7(cas), prev7(cas));
 
   // Camembert statut (ordonné, rampe sauge)
   const statutSlices: Slice[] = STATUS_ORDER.map((s, i) => ({
@@ -78,13 +112,19 @@ export default async function AnalysePage() {
       </header>
 
       {/* KPIs */}
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Kpi label="Demandes" value={total} />
-        <Kpi label="Volume cumulé" value={`${volumeTotal} m³`} />
-        <Kpi label="CA potentiel" value={`${caPotentiel.toLocaleString("fr-FR")} €`} accent />
-        <Kpi label="Estimation moy." value={`${estMoyen.toLocaleString("fr-FR")} €`} />
-        <Kpi label="Conversion" value={`${conversion}%`} />
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <KpiCard label="Demandes" value={total} series={counts} delta={deltaDemandes} />
+        <KpiCard label="Volume cumulé" value={volumeTotal} suffix=" m³" series={volumes} delta={deltaVolume} />
+        <KpiCard label="CA potentiel" value={caPotentiel} suffix=" €" series={cas} delta={deltaCa} accent />
+        <KpiCard label="Estimation moy." value={estMoyen} suffix=" €" />
+        <KpiCard label="Conversion" value={conversion} suffix=" %" />
       </div>
+
+      {/* Tendance */}
+      <section className="mb-6 rounded-2xl border border-line bg-card p-6">
+        <h3 className="eyebrow mb-4 text-ink-soft">Demandes reçues · 30 derniers jours</h3>
+        <AreaTrend points={trendPoints} unit="demandes" />
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel title="Répartition par statut" className="lg:col-span-2">
@@ -104,15 +144,6 @@ export default async function AnalysePage() {
           <BarList data={volParFormule} unit="m³" />
         </Panel>
       </div>
-    </div>
-  );
-}
-
-function Kpi({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
-  return (
-    <div className={`rounded-2xl border p-5 ${accent ? "border-accent/30 bg-accent-soft/50" : "border-line bg-card"}`}>
-      <div className="eyebrow text-ink-soft">{label}</div>
-      <div className="mt-2 font-serif text-[28px] leading-none">{value}</div>
     </div>
   );
 }
