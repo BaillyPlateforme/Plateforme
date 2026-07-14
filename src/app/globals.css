@@ -9,20 +9,20 @@
   --color-ink-soft: #6f736a;     /* texte secondaire (muted) */
   --color-line: #e2e4de;         /* filets */
   --color-line-strong: #d2d5cd;
-  --color-accent: #0c8f6f;       /* émeraude (action) */
-  --color-accent-dark: #0a785e;  /* hover */
-  --color-accent-soft: #e3f1ec;  /* surface active / sélection */
-  --color-good: #0c8f6f;
-  --color-warn: #d97706;
+  --color-accent: #6366f1;       /* indigo (action) — accent primaire Redion */
+  --color-accent-dark: #4f46e5;  /* hover */
+  --color-accent-soft: #ecedfd;  /* surface active / sélection */
+  --color-good: #10b981;         /* émeraude (succès) */
+  --color-warn: #f59e0b;         /* ambre */
 
-  /* Rampe séquentielle émeraude (donuts ordonnés) — clair → foncé */
-  --chart-1: #cfeae0;
-  --chart-2: #a9dcc9;
-  --chart-3: #7fceb0;
-  --chart-4: #52bd95;
-  --chart-5: #29a97b;
-  --chart-6: #0c8f6f;
-  --chart-7: #0a6f57;
+  /* Palette catégorielle Redion (identités : statuts, sources, formules…) */
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #6366f1;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+  --chart-6: #8b5cf6;
+  --chart-7: #14b8a6;
 
   --font-sans: var(--font-sans-ui);
   --font-serif: var(--font-display);

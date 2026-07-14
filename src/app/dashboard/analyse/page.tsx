@@ -5,7 +5,8 @@ import type { RequestRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-const RAMP = ["#cfeae0", "#a9dcc9", "#7fceb0", "#52bd95", "#29a97b", "#0c8f6f", "#0a6f57"];
+// Palette catégorielle Redion (identités).
+const RAMP = ["#3b82f6", "#10b981", "#6366f1", "#f59e0b", "#ec4899", "#8b5cf6", "#ef4444", "#14b8a6", "#94a3b8"];
 
 const pct = (cur: number, prev: number) => (prev > 0 ? Math.round(((cur - prev) / prev) * 100) : cur > 0 ? 100 : 0);
 
@@ -113,11 +114,11 @@ export default async function AnalysePage() {
 
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <KpiCard label="Demandes" value={total} series={counts} delta={deltaDemandes} />
-        <KpiCard label="Volume cumulé" value={volumeTotal} suffix=" m³" series={volumes} delta={deltaVolume} />
-        <KpiCard label="CA potentiel" value={caPotentiel} suffix=" €" series={cas} delta={deltaCa} accent />
-        <KpiCard label="Estimation moy." value={estMoyen} suffix=" €" />
-        <KpiCard label="Conversion" value={conversion} suffix=" %" />
+        <KpiCard label="Demandes" value={total} series={counts} delta={deltaDemandes} color="#6366f1" />
+        <KpiCard label="Volume cumulé" value={volumeTotal} suffix=" m³" series={volumes} delta={deltaVolume} color="#3b82f6" />
+        <KpiCard label="CA potentiel" value={caPotentiel} suffix=" €" series={cas} delta={deltaCa} color="#10b981" />
+        <KpiCard label="Estimation moy." value={estMoyen} suffix=" €" color="#8b5cf6" />
+        <KpiCard label="Conversion" value={conversion} suffix=" %" color="#f59e0b" />
       </div>
 
       {/* Tendance */}

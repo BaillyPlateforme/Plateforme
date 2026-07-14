@@ -68,27 +68,30 @@ export function Sparkline({ data, color = "var(--color-accent)", height = 34 }: 
   );
 }
 
-// Carte KPI : compteur animé + delta + sparkline.
+// Carte KPI façon Redion : barre d'accent latérale + compteur animé + delta + sparkline.
 export function KpiCard({
-  label, value, decimals = 0, prefix = "", suffix = "", series, delta, accent,
+  label, value, decimals = 0, prefix = "", suffix = "", series, delta, color = "var(--color-accent)",
 }: {
   label: string; value: number; decimals?: number; prefix?: string; suffix?: string;
-  series?: number[]; delta?: number; accent?: boolean;
+  series?: number[]; delta?: number; color?: string;
 }) {
   return (
-    <div className={`rounded-2xl border p-5 ${accent ? "border-accent/30 bg-accent-soft/40" : "border-line bg-card"}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="eyebrow text-ink-soft">{label}</div>
-        {delta != null && <Delta value={delta} />}
-      </div>
-      <div className="mt-2 font-serif text-[30px] leading-none">
-        <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
-      </div>
-      {series && series.length > 1 && (
-        <div className="mt-3">
-          <Sparkline data={series} color={accent ? "#0a785e" : "var(--color-accent)"} />
+    <div className="relative overflow-hidden rounded-2xl border border-line bg-card p-5">
+      <div className="absolute left-0 top-5 h-8 w-1 rounded-r-full" style={{ background: color }} />
+      <div className="pl-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{label}</div>
+          {delta != null && <Delta value={delta} />}
         </div>
-      )}
+        <div className="mt-2 font-serif text-[30px] font-bold leading-none text-ink">
+          <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
+        </div>
+        {series && series.length > 1 && (
+          <div className="mt-3">
+            <Sparkline data={series} color={color} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
