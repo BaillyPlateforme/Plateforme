@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import ModeSwitch from "@/components/ModeSwitch";
 import { InstantResult, Comparateur } from "./QuoteTools";
+import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 
 /* ============================ Types ============================ */
 
@@ -33,6 +34,8 @@ type Address = {
   difficulte_acces: YN;
   type_difficulte: string;
   stationnement: YN;
+  lat?: number;
+  lon?: number;
 };
 
 type FormState = {
@@ -259,7 +262,17 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [departCoord, setDepartCoord] = useState<Place | null>(null);
+  const [arriveeCoord, setArriveeCoord] = useState<Place | null>(null);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
+
+  useEffect(() => {
+    if (!departCoord || !arriveeCoord) { setDistanceKm(null); return; }
+    let cancelled = false;
+    roadDistanceKm(departCoord, arriveeCoord).then((km) => { if (!cancelled) setDistanceKm(km); });
+    return () => { cancelled = true; };
+  }, [departCoord, arriveeCoord]);
 
   const volume = f.volMode === "explicit"
     ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
@@ -281,6 +294,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
           arrivee: { ville: f.arriveeVille || undefined },
           date_souhaitee: f.date || undefined,
+          distance_km: distanceKm ?? undefined,
           volume: volumePayload,
           type_client: "particulier",
           details: { express: true } as unknown as Record<string, unknown>,
@@ -307,7 +321,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
       {compare && (
         <Comparateur
           base={{ nom: f.nom, email: f.email, tel: f.tel, departVille: f.departVille, departCP: f.departCP, arriveeVille: f.arriveeVille, date: f.date }}
-          initialVolume={f.explicitVolume}
+          initial={{ volume: f.explicitVolume, distance: distanceKm != null ? String(distanceKm) : "" }}
           onClose={() => setCompare(false)}
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
@@ -341,11 +355,23 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
                 <Field label="E-mail *"><TextInput type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille@email.fr" /></Field>
                 <Field label="Téléphone"><TextInput value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
               </div>
-              <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr]">
-                <Field label="Ville de départ *"><TextInput value={f.departVille} onChange={(e) => set({ departVille: e.target.value })} placeholder="Lyon" /></Field>
-                <Field label="Code postal départ"><TextInput value={f.departCP} onChange={(e) => set({ departCP: e.target.value })} placeholder="69003" /></Field>
-                <Field label="Ville d'arrivée *"><TextInput value={f.arriveeVille} onChange={(e) => set({ arriveeVille: e.target.value })} placeholder="Toulouse" /></Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Ville de départ *" hint="Commencez à taper, choisissez dans la liste">
+                  <AddressInput kind="municipality" value={f.departVille} placeholder="Lyon"
+                    onChange={(v) => { set({ departVille: v }); setDepartCoord(null); }}
+                    onSelect={(p) => { set({ departVille: p.ville, departCP: p.code_postal }); setDepartCoord(p); }} />
+                </Field>
+                <Field label="Ville d'arrivée *" hint="Commencez à taper, choisissez dans la liste">
+                  <AddressInput kind="municipality" value={f.arriveeVille} placeholder="Toulouse"
+                    onChange={(v) => { set({ arriveeVille: v }); setArriveeCoord(null); }}
+                    onSelect={(p) => { set({ arriveeVille: p.ville }); setArriveeCoord(p); }} />
+                </Field>
               </div>
+              {distanceKm != null && (
+                <div className="rounded-lg border border-line bg-subtle/60 px-4 py-2.5 text-sm">
+                  📍 Distance estimée : <span className="font-semibold text-ink">{distanceKm} km</span> <span className="text-ink-soft">(trajet routier)</span>
+                </div>
+              )}
               <Field label="Date souhaitée" hint="facultatif"><TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
 
               <div>
@@ -397,9 +423,20 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   const [done, setDone] = useState<string | null>(null);
   const [doneCount, setDoneCount] = useState(1);
   const [compare, setCompare] = useState(false);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const totalVolume = useMemo(() => computeVolume(form), [form]);
+
+  useEffect(() => {
+    const d = form.depart, a = form.arrivee;
+    if (d.lat != null && d.lon != null && a.lat != null && a.lon != null) {
+      let cancelled = false;
+      roadDistanceKm({ lat: d.lat, lon: d.lon }, { lat: a.lat, lon: a.lon }).then((km) => { if (!cancelled) setDistanceKm(km); });
+      return () => { cancelled = true; };
+    }
+    setDistanceKm(null);
+  }, [form.depart, form.arrivee]);
   const heroUrl = library[0]?.url;
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
@@ -411,7 +448,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
     setError(null);
     try {
       const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(buildPayload(form)),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
@@ -435,7 +472,17 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
       {compare && (
         <Comparateur
           base={{ nom: `${form.prenom} ${form.nom}`.trim(), email: form.email, tel: form.tel, departVille: form.depart.ville, departCP: form.depart.code_postal, arriveeVille: form.arrivee.ville, date: form.periode }}
-          initialVolume={String(totalVolume ?? "")}
+          initial={{
+            volume: String(totalVolume ?? ""),
+            distance: distanceKm != null ? String(distanceKm) : "",
+            departEtage: form.depart.etage || "0",
+            departAsc: form.depart.ascenseur === "oui",
+            arriveeEtage: form.arrivee.etage || "0",
+            arriveeAsc: form.arrivee.ascenseur === "oui",
+            emballage: form.prestations.fragile === "bailly" || form.prestations.embNonFragile === "bailly",
+            demontage: form.prestations.demontage === "bailly",
+            montage: form.prestations.demontage === "bailly",
+          }}
           onClose={() => setCompare(false)}
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
@@ -477,6 +524,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
               <div className="text-right">
                 <div className="eyebrow text-ink-soft">Volume estimé</div>
                 <div className="font-serif text-3xl text-ink">{totalVolume ?? "—"}<span className="ml-1 text-base text-ink-soft">m³</span></div>
+                {distanceKm != null && <div className="mt-1 text-xs text-ink-soft">📍 {distanceKm} km</div>}
               </div>
             </div>
           </div>
@@ -590,8 +638,10 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
   return (
     <div className="space-y-6">
-      <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`}>
-        <TextInput value={a.adresse} onChange={(e) => set({ adresse: e.target.value })} placeholder="12 rue de la République" />
+      <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`} hint="Tapez et choisissez dans la liste (adresse & distance automatiques)">
+        <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris"
+          onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
+          onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
       </Field>
       <Field label="Complément d'adresse" hint="facultatif">
         <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />

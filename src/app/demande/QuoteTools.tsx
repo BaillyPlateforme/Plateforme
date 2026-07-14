@@ -159,22 +159,37 @@ export type CompareBase = {
   date: string;
 };
 
-type Variant = { volume: string; distance: string; etage: string; ascenseur: boolean; emballage: boolean; monteMeuble: boolean; include: boolean };
+type Variant = {
+  volume: string; distance: string;
+  departEtage: string; departAsc: boolean; departType: string;
+  arriveeEtage: string; arriveeAsc: boolean; arriveeType: string;
+  emballage: boolean; demontage: boolean; montage: boolean; monteMeuble: boolean; gardeMeuble: boolean;
+  formule: "" | "eco" | "standard" | "luxe";
+  include: boolean;
+};
 
-const blank = (v?: Partial<Variant>): Variant => ({ volume: "", distance: "", etage: "0", ascenseur: false, emballage: false, monteMeuble: false, include: true, ...v });
+const blank = (v?: Partial<Variant>): Variant => ({
+  volume: "", distance: "",
+  departEtage: "0", departAsc: false, departType: "",
+  arriveeEtage: "0", arriveeAsc: false, arriveeType: "",
+  emballage: false, demontage: false, montage: false, monteMeuble: false, gardeMeuble: false,
+  formule: "", include: true, ...v,
+});
+
+const LOGE = ["", "Studio", "T1", "T2", "T3", "T4", "T5+", "Maison"];
 
 export function Comparateur({
   base,
-  initialVolume,
+  initial,
   onClose,
   onDone,
 }: {
   base: CompareBase;
-  initialVolume: string;
+  initial?: Partial<Variant>;
   onClose: () => void;
   onDone: (count: number, firstId: string) => void;
 }) {
-  const [cols, setCols] = useState<Variant[]>([blank({ volume: initialVolume }), blank({ volume: initialVolume })]);
+  const [cols, setCols] = useState<Variant[]>([blank(initial), blank(initial)]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -183,7 +198,7 @@ export function Comparateur({
   const canSubmit = !missingBase && included.length > 0 && included.every((c) => Number(c.volume) > 0);
 
   const patch = (i: number, p: Partial<Variant>) => setCols((cs) => cs.map((c, j) => (j === i ? { ...c, ...p } : c)));
-  const addCol = () => setCols((cs) => (cs.length < 3 ? [...cs, blank({ volume: cs[cs.length - 1].volume })] : cs));
+  const addCol = () => setCols((cs) => (cs.length < 3 ? [...cs, blank(cs[cs.length - 1])] : cs));
   const removeCol = (i: number) => setCols((cs) => (cs.length > 2 ? cs.filter((_, j) => j !== i) : cs));
 
   async function submit() {
@@ -200,14 +215,15 @@ export function Comparateur({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             client: { nom: base.nom, email: base.email, tel: base.tel || undefined },
-            depart: { ville: base.departVille || undefined, code_postal: base.departCP || undefined, etage: Number(c.etage) || 0, ascenseur: c.ascenseur },
-            arrivee: { ville: base.arriveeVille || undefined },
+            depart: { ville: base.departVille || undefined, code_postal: base.departCP || undefined, etage: Number(c.departEtage) || 0, ascenseur: c.departAsc, type_logement: c.departType || undefined },
+            arrivee: { ville: base.arriveeVille || undefined, etage: Number(c.arriveeEtage) || 0, ascenseur: c.arriveeAsc, type_logement: c.arriveeType || undefined },
             date_souhaitee: base.date || undefined,
             distance_km: Number(c.distance) || undefined,
+            formule: c.formule || undefined,
             volume: { method: "explicit", volume_m3: Number(c.volume) || 0 },
-            services: { emballage: c.emballage, monte_meuble: c.monteMeuble },
+            services: { emballage: c.emballage, demontage: c.demontage, montage: c.montage, monte_meuble: c.monteMeuble, garde_meuble: c.gardeMeuble },
             type_client: "particulier",
-            details: { express: true, variante: i } as unknown as Record<string, unknown>,
+            details: { variante: i } as unknown as Record<string, unknown>,
           }),
         });
         const data = await res.json();
@@ -223,33 +239,59 @@ export function Comparateur({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm md:p-10">
-      <div className="w-full max-w-5xl rounded-2xl border border-line bg-paper p-6 shadow-[var(--shadow-md)]">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm md:p-8">
+      <div className="w-full max-w-6xl rounded-2xl border border-line bg-paper p-6 shadow-[var(--shadow-md)]">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-serif text-2xl">Comparer plusieurs scénarios</h2>
-            <p className="text-sm text-ink-soft">Créez des variantes de votre déménagement — chaque variante ajoutée devient une demande et vous recevrez un devis pour chacune par e-mail.</p>
+            <p className="text-sm text-ink-soft">
+              Trajet : <span className="font-medium text-ink">{base.departVille || "?"} → {base.arriveeVille || "?"}</span>. Faites varier tous les paramètres — chaque variante ajoutée devient une demande, et vous recevrez un devis pour chacune par e-mail.
+            </p>
           </div>
           <button onClick={onClose} className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft transition hover:text-ink">Fermer ✕</button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {cols.map((c, i) => (
             <div key={i} className={`rounded-2xl border-2 bg-card p-4 transition ${c.include ? "border-accent" : "border-line"}`}>
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium">{i === 0 ? "Votre demande" : `Variante ${i}`}</span>
-                {cols.length > 2 && i > 0 && (
-                  <button onClick={() => removeCol(i)} className="text-xs text-ink-soft hover:text-ink">retirer</button>
-                )}
+                {cols.length > 2 && i > 0 && <button onClick={() => removeCol(i)} className="text-xs text-ink-soft hover:text-ink">retirer</button>}
               </div>
-              <div className="space-y-2.5">
-                <NumF label="Volume (m³) *" value={c.volume} onChange={(v) => patch(i, { volume: v })} />
-                <NumF label="Distance (km)" value={c.distance} onChange={(v) => patch(i, { distance: v })} />
-                <NumF label="Étage départ" value={c.etage} onChange={(v) => patch(i, { etage: v })} />
-                <Toggle label="Ascenseur départ" checked={c.ascenseur} onChange={(v) => patch(i, { ascenseur: v })} />
-                <Toggle label="Emballage" checked={c.emballage} onChange={(v) => patch(i, { emballage: v })} />
-                <Toggle label="Monte-meuble" checked={c.monteMeuble} onChange={(v) => patch(i, { monteMeuble: v })} />
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <NumF label="Volume (m³) *" value={c.volume} onChange={(v) => patch(i, { volume: v })} />
+                  <NumF label="Distance (km)" value={c.distance} onChange={(v) => patch(i, { distance: v })} />
+                </div>
+
+                <Group title="Départ">
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumF label="Étage" value={c.departEtage} onChange={(v) => patch(i, { departEtage: v })} />
+                    <SelF label="Logement" value={c.departType} options={LOGE} onChange={(v) => patch(i, { departType: v })} />
+                  </div>
+                  <Toggle label="Ascenseur" checked={c.departAsc} onChange={(v) => patch(i, { departAsc: v })} />
+                </Group>
+
+                <Group title="Arrivée">
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumF label="Étage" value={c.arriveeEtage} onChange={(v) => patch(i, { arriveeEtage: v })} />
+                    <SelF label="Logement" value={c.arriveeType} options={LOGE} onChange={(v) => patch(i, { arriveeType: v })} />
+                  </div>
+                  <Toggle label="Ascenseur" checked={c.arriveeAsc} onChange={(v) => patch(i, { arriveeAsc: v })} />
+                </Group>
+
+                <Group title="Prestations">
+                  <Toggle label="Emballage" checked={c.emballage} onChange={(v) => patch(i, { emballage: v })} />
+                  <Toggle label="Démontage" checked={c.demontage} onChange={(v) => patch(i, { demontage: v })} />
+                  <Toggle label="Remontage" checked={c.montage} onChange={(v) => patch(i, { montage: v })} />
+                  <Toggle label="Monte-meuble" checked={c.monteMeuble} onChange={(v) => patch(i, { monteMeuble: v })} />
+                  <Toggle label="Garde-meuble" checked={c.gardeMeuble} onChange={(v) => patch(i, { gardeMeuble: v })} />
+                </Group>
+
+                <SelF label="Formule" value={c.formule} options={["", "eco", "standard", "luxe"]} labels={{ "": "— au choix —", eco: "Éco", standard: "Standard", luxe: "Confort" }} onChange={(v) => patch(i, { formule: v as Variant["formule"] })} />
               </div>
+
               <label className="mt-4 flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-paper px-3 py-2 text-sm">
                 <input type="checkbox" checked={c.include} onChange={(e) => patch(i, { include: e.target.checked })} className="h-4 w-4 accent-[var(--color-accent)]" />
                 <span className="font-medium">Ajouter à ma demande</span>
@@ -257,7 +299,7 @@ export function Comparateur({
             </div>
           ))}
           {cols.length < 3 && (
-            <button onClick={addCol} className="flex min-h-[220px] items-center justify-center rounded-2xl border-2 border-dashed border-line text-sm text-ink-soft transition hover:border-accent hover:text-accent">
+            <button onClick={addCol} className="flex min-h-[300px] items-center justify-center rounded-2xl border-2 border-dashed border-line text-sm text-ink-soft transition hover:border-accent hover:text-accent">
               + Ajouter une variante
             </button>
           )}
@@ -281,6 +323,26 @@ export function Comparateur({
         </div>
       </div>
     </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-line bg-paper/50 p-3">
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{title}</div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+function SelF({ label, value, options, labels, onChange }: { label: string; value: string; options: string[]; labels?: Record<string, string>; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs text-ink-soft">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-2 py-1.5 text-sm outline-none focus:border-accent">
+        {options.map((o) => <option key={o} value={o}>{labels?.[o] ?? (o === "" ? "—" : o)}</option>)}
+      </select>
+    </label>
   );
 }
 
