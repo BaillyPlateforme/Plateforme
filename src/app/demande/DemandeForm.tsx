@@ -6,6 +6,7 @@ import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import ModeSwitch from "@/components/ModeSwitch";
+import { InstantResult, Comparateur } from "./QuoteTools";
 
 /* ============================ Types ============================ */
 
@@ -130,11 +131,11 @@ const DEMO: FormState = {
 
 /* ============================ Sélecteur de devis ============================ */
 
-export default function DemandeForm({ library }: { library: LibraryPhoto[] }) {
+export default function DemandeForm({ library, instant = false }: { library: LibraryPhoto[]; instant?: boolean }) {
   const [mode, setMode] = useState<null | "express" | "complet">(null);
   if (mode === null) return <ModeChooser heroUrls={library.map((l) => l.url)} onSelect={setMode} />;
-  if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} />;
-  return <CompleteForm library={library} onBack={() => setMode(null)} />;
+  if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} instant={instant} />;
+  return <CompleteForm library={library} onBack={() => setMode(null)} instant={instant} />;
 }
 
 function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
@@ -248,7 +249,8 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
 
 /* ============================ Devis express ============================ */
 
-function ExpressForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () => void }) {
+function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
+  const [compare, setCompare] = useState(false);
   const [f, setF] = useState({
     nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "",
     volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
@@ -291,10 +293,17 @@ function ExpressForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () 
     } finally { setSubmitting(false); }
   }
 
-  if (done) return <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} />;
+  if (done) {
+    return instant ? (
+      <InstantResult reference={done} volume={volume} input={{ volume_m3: volume ?? 0 }} />
+    ) : (
+      <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} />
+    );
+  }
 
   return (
     <>
+      {compare && <Comparateur initial={{ volume: f.explicitVolume }} onClose={() => setCompare(false)} />}
       <ModeSwitch current="form" />
       <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         <BrandPanel heroUrl={library[0]?.url} />
@@ -340,12 +349,18 @@ function ExpressForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () 
 
             {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
 
-            <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
+            <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
               <span className="text-sm text-ink-soft">{volume != null ? `Volume estimé : ${volume} m³` : "Renseignez le volume"}</span>
-              <button type="button" onClick={submit} disabled={!canSubmit || submitting}
-                className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
-                {submitting ? "Envoi…" : "Obtenir mon estimation"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setCompare(true)}
+                  className="rounded-lg border border-line-strong px-5 py-3 text-sm font-medium transition hover:bg-subtle">
+                  Comparer
+                </button>
+                <button type="button" onClick={submit} disabled={!canSubmit || submitting}
+                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
+                  {submitting ? "Envoi…" : "Obtenir mon estimation"}
+                </button>
+              </div>
             </div>
           </div>
         </main>
@@ -356,7 +371,7 @@ function ExpressForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () 
 
 /* ============================ Formulaire complet ============================ */
 
-function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: () => void }) {
+function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -385,7 +400,18 @@ function CompleteForm({ library, onBack }: { library: LibraryPhoto[]; onBack: ()
     } finally { setSubmitting(false); }
   }
 
-  if (done) return <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} />;
+  if (done) {
+    return instant ? (
+      <InstantResult reference={done} volume={totalVolume} input={{
+        volume_m3: totalVolume ?? 0,
+        depart_etage: Number(form.depart.etage) || 0,
+        depart_ascenseur: form.depart.ascenseur === "oui",
+        services: { emballage: form.prestations.embNonFragile === "bailly", monte_meuble: form.depart.passage_ascenseur === "non" },
+      }} />
+    ) : (
+      <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} />
+    );
+  }
   const progress = ((step + 1) / STEPS.length) * 100;
 
   return (

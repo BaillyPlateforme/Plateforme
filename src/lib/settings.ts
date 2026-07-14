@@ -14,6 +14,7 @@ const DEFAULTS: SettingsRow = {
   sms_sender: "Bailly",
   base_url: null,
   devis_validite_jours: 30,
+  resultat_instantane: false,
   updated_at: new Date().toISOString(),
 };
 

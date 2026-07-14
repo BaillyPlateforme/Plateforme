@@ -181,6 +181,7 @@ export interface SettingsRow {
   sms_sender: string | null;
   base_url: string | null;
   devis_validite_jours: number;
+  resultat_instantane: boolean;
   updated_at: string;
 }
 

@@ -23,6 +23,7 @@ export default function ParametresClient({
     sms_sender: settings.sms_sender ?? "Bailly",
     base_url: settings.base_url ?? "",
     devis_validite_jours: settings.devis_validite_jours ?? 30,
+    resultat_instantane: settings.resultat_instantane ?? false,
   });
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -48,6 +49,7 @@ export default function ParametresClient({
         sms_sender: f.sms_sender || "Bailly",
         base_url: f.base_url || null,
         devis_validite_jours: Number(f.devis_validite_jours) || 30,
+        resultat_instantane: f.resultat_instantane,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
@@ -119,6 +121,25 @@ export default function ParametresClient({
           <F label="Webhook n8n (optionnel)" value={f.n8n_webhook_url} onChange={(v) => set("n8n_webhook_url", v)} placeholder="https://…" />
         </Card>
       </div>
+
+      <section className="rounded-2xl border border-line bg-card p-6">
+        <h3 className="eyebrow mb-3 text-ink-soft">Expérience formulaire</h3>
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={f.resultat_instantane}
+            onChange={(e) => setF((p) => ({ ...p, resultat_instantane: e.target.checked }))}
+            className="mt-0.5 h-4 w-4 accent-[var(--color-accent)]"
+          />
+          <div>
+            <div className="text-sm font-medium">Résultat instantané</div>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              À l&apos;envoi d&apos;une demande complète, le client voit une barre de génération puis sa
+              proposition de devis chiffrée directement à l&apos;écran.
+            </p>
+          </div>
+        </label>
+      </section>
 
       <button onClick={save} disabled={pending}
         className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
