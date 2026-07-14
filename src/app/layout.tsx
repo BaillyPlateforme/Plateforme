@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Hanken_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
-// Display : serif élégante haut de gamme (esprit Magnolia).
-const display = Cormorant_Garamond({
+// Display : grotesque serré et affirmé (esprit Redion).
+const display = Bricolage_Grotesque({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
 });
 
 // UI / corps : grotesque neutre et lisible.
-const sans = Hanken_Grotesk({
+const sans = Instrument_Sans({
   variable: "--font-sans-ui",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

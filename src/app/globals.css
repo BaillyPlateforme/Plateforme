@@ -1,33 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  /* ---- Palette Magnolia : crème, encre chaude, sauge ---- */
-  --color-paper: #f5f1ea;        /* fond crème */
-  --color-card: #fdfcf9;         /* surfaces / cartes (blanc chaud) */
-  --color-subtle: #eee9e0;       /* surfaces secondaires */
-  --color-ink: #211f1b;          /* encre chaude quasi noire */
-  --color-ink-soft: #7d7566;     /* taupe */
-  --color-line: #e6dfd2;         /* filets chauds */
-  --color-line-strong: #d6ccba;
-  --color-accent: #4a5541;       /* sauge profond (action) */
-  --color-accent-dark: #363f30;  /* hover */
-  --color-accent-soft: #e7e6d9;  /* surface active / sélection */
-  --color-good: #4a5541;
-  --color-warn: #a8712e;
+  /* ---- Palette inspirée Redion : gris clair froid, émeraude ---- */
+  --color-paper: #f4f5f3;        /* fond de page */
+  --color-card: #ffffff;         /* surfaces / cartes */
+  --color-subtle: #eef0ec;       /* surfaces secondaires */
+  --color-ink: #15170f;          /* texte principal (quasi noir) */
+  --color-ink-soft: #6f736a;     /* texte secondaire (muted) */
+  --color-line: #e2e4de;         /* filets */
+  --color-line-strong: #d2d5cd;
+  --color-accent: #0c8f6f;       /* émeraude (action) */
+  --color-accent-dark: #0a785e;  /* hover */
+  --color-accent-soft: #e3f1ec;  /* surface active / sélection */
+  --color-good: #0c8f6f;
+  --color-warn: #d97706;
 
-  /* Rampe séquentielle sauge (donuts ordonnés) — clair → foncé */
-  --chart-1: #cdd4bd;
-  --chart-2: #b3bd9c;
-  --chart-3: #97a67c;
-  --chart-4: #7c8d62;
-  --chart-5: #61734a;
-  --chart-6: #495838;
-  --chart-7: #333f27;
+  /* Rampe séquentielle émeraude (donuts ordonnés) — clair → foncé */
+  --chart-1: #cfeae0;
+  --chart-2: #a9dcc9;
+  --chart-3: #7fceb0;
+  --chart-4: #52bd95;
+  --chart-5: #29a97b;
+  --chart-6: #0c8f6f;
+  --chart-7: #0a6f57;
 
   --font-sans: var(--font-sans-ui);
   --font-serif: var(--font-display);
 
-  --radius: 0.875rem;
+  --radius: 1rem;
+
+  --shadow-sm: 0 1px 2px rgba(20, 23, 15, 0.06);
+  --shadow-md: 0 6px 24px -8px rgba(20, 23, 15, 0.14);
 }
 
 @layer base {
@@ -36,6 +39,19 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  /* Halo accent discret en fond (pas de quadrillage). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(900px 520px at 88% -12%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 60%),
+      radial-gradient(680px 480px at -5% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%);
   }
 
   ::selection {
@@ -44,24 +60,37 @@
   }
 }
 
-/* Titres display — serif élégante */
+/* Titres display — grotesque serré (esprit Redion) */
 .font-serif {
   font-family: var(--font-display);
-  letter-spacing: 0;
+  letter-spacing: -0.015em;
   font-weight: 600;
 }
 h1.font-serif,
 h2.font-serif {
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
   line-height: 1.05;
+  font-weight: 700;
 }
 
-/* Petites capitales étirées (esprit éditorial premium) */
+/* Petites capitales étirées */
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* Nombres tabulaires pour l'alignement des métriques */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Profondeur discrète sur les surfaces (esprit Redion) */
+.rounded-xl.bg-card,
+.rounded-2xl.bg-card {
+  box-shadow: var(--shadow-sm);
 }
 
 * {
