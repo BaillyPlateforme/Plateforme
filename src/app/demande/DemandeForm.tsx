@@ -320,9 +320,20 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
             <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
               ← Changer de type de devis
             </button>
-            <div className="eyebrow text-accent">Devis express</div>
-            <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Estimation rapide</h1>
-            <p className="mt-2 text-ink-soft">L&apos;essentiel pour un premier chiffrage — en deux minutes.</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="eyebrow text-accent">Devis express</div>
+                <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Estimation rapide</h1>
+                <p className="mt-2 text-ink-soft">L&apos;essentiel pour un premier chiffrage — en deux minutes.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => set({ nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", volMode: "explicit", explicitVolume: "30" })}
+                className="ml-4 hidden shrink-0 rounded-full border border-line-strong bg-card px-3.5 py-2 text-xs font-medium transition hover:border-ink sm:block"
+              >
+                ⚡ Devis express
+              </button>
+            </div>
 
             <div className="mt-8 space-y-6">
               <div className="grid gap-4 sm:grid-cols-3">
