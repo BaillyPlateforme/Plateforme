@@ -197,6 +197,66 @@ export function MultiAreaTrend({ labels, series }: { labels: string[]; series: S
   );
 }
 
+// Heatmap calendaire (contributions, façon GitHub) — cellules alignées lundi→dimanche.
+export function Heatmap({ cells }: { cells: { date: string; value: number }[] }) {
+  const max = Math.max(1, ...cells.map((c) => c.value));
+  const weeks: { date: string; value: number }[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const ramp = ["var(--color-subtle)", "#c7d2fe", "#a5b4fc", "#818cf8", "#6366f1"];
+  const level = (v: number) => (v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
+  const jours = ["L", "M", "M", "J", "V", "S", "D"];
+  return (
+    <div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex flex-col gap-1 pt-0.5 text-[9px] text-ink-soft">
+          {jours.map((j, i) => (
+            <div key={i} className="flex h-3.5 items-center">{i % 2 === 0 ? j : ""}</div>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {weeks.map((w, wi) => (
+            <div key={wi} className="flex flex-col gap-1">
+              {w.map((c, di) => (
+                <div key={di} title={`${c.date} · ${c.value} demande(s)`} className="h-3.5 w-3.5 rounded-[3px]" style={{ background: ramp[level(c.value)] }} />
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-1.5 text-[10px] text-ink-soft">
+        <span>Moins</span>
+        {ramp.map((c, i) => <span key={i} className="h-3 w-3 rounded-[3px]" style={{ background: c }} />)}
+        <span>Plus</span>
+      </div>
+    </div>
+  );
+}
+
+// Entonnoir de conversion (barres décroissantes + % de la 1re étape).
+export function Funnel({ steps }: { steps: { label: string; value: number; color: string }[] }) {
+  const base = Math.max(1, steps[0]?.value ?? 1);
+  return (
+    <div className="space-y-3">
+      {steps.map((s, i) => {
+        const pct = Math.round((s.value / base) * 100);
+        return (
+          <div key={s.label}>
+            <div className="mb-1 flex items-center gap-2 text-sm">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
+              <span>{s.label}</span>
+              <span className="ml-auto font-semibold tabular-nums">{s.value}</span>
+              {i > 0 && <span className="w-12 text-right text-xs text-ink-soft">{pct}%</span>}
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-subtle">
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: s.color }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Barres de catégories façon Redion (pastille + libellé + total, barre pleine largeur dessous).
 export function CategoryBars({ data }: { data: { label: string; value: number; color: string }[] }) {
   const max = Math.max(1, ...data.map((d) => d.value));
