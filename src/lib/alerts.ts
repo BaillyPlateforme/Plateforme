@@ -32,15 +32,30 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       // Condition "source" : ne déclenche que pour formulaire ou mail.
       if (a.condition_source && ctx.source !== a.condition_source) continue;
       const tpl = a.template;
-      if (!tpl) continue;
-
-      const to =
-        a.destinataire === "custom"
+      const to = !tpl
+        ? null
+        : a.destinataire === "custom"
           ? a.destinataire_custom
           : a.channel === "sms"
-            ? (ctx.client_tel as string | undefined)
-            : (ctx.client_email as string | undefined);
-      if (!to) continue;
+            ? (ctx.client_tel as string | undefined) ?? null
+            : (ctx.client_email as string | undefined) ?? null;
+
+      // Envoi impossible : on trace quand même la raison sur la fiche.
+      if (!tpl || !to) {
+        if (ctx.request_id) {
+          const reason = !tpl
+            ? "aucun template associé à la règle"
+            : a.channel === "sms"
+              ? "numéro de téléphone du client manquant"
+              : "email du client manquant";
+          await supabase.from("request_events").insert({
+            request_id: ctx.request_id as string,
+            type: "message",
+            payload: { channel: a.channel, rule: a.name, template: tpl?.name ?? null, to, event, status: "ignore", erreur: reason },
+          });
+        }
+        continue;
+      }
 
       const contenu = renderTemplate(tpl.contenu, fullCtx);
       let status: "envoye" | "echec" = "envoye";

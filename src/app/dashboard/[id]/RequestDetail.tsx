@@ -427,16 +427,17 @@ function TriggeredMessages({ detail }: { detail: Detail }) {
           {msgs.map((e) => {
             const p = (e.payload ?? {}) as MsgPayload;
             const failed = p.status === "echec";
+            const ignored = p.status === "ignore";
             return (
               <span
                 key={e.id}
-                title={failed && p.erreur ? p.erreur : undefined}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${failed ? "border-warn/40 bg-warn/10" : "border-good/40 bg-good/10"}`}
+                title={p.erreur ?? undefined}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${failed ? "border-warn/40 bg-warn/10" : ignored ? "border-line bg-subtle" : "border-good/40 bg-good/10"}`}
               >
                 <span>{p.channel === "sms" ? "💬" : "✉️"}</span>
                 <span className="font-medium text-ink">{p.template ?? p.rule}</span>
-                <span className="text-ink-soft">→ {p.to}</span>
-                <span className={`font-medium ${failed ? "text-warn" : "text-good"}`}>· {failed ? "échec" : "envoyé"}</span>
+                {p.to && <span className="text-ink-soft">→ {p.to}</span>}
+                <span className={`font-medium ${failed ? "text-warn" : ignored ? "text-ink-soft" : "text-good"}`}>· {failed ? "échec" : ignored ? "non envoyé" : "envoyé"}</span>
               </span>
             );
           })}
@@ -485,20 +486,21 @@ function TimelineTab({ detail }: { detail: Detail }) {
         const isMsg = e.type === "message";
         const p = (e.payload ?? {}) as MsgPayload;
         const failed = isMsg && p.status === "echec";
+        const ignored = isMsg && p.status === "ignore";
         return (
           <div key={e.id} className="relative">
-            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${failed ? "border-warn" : isMsg ? "border-good" : "border-accent"}`} />
+            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${failed ? "border-warn" : ignored ? "border-line-strong" : isMsg ? "border-good" : "border-accent"}`} />
             {isMsg ? (
               <div>
                 <div className="text-sm font-medium">
-                  {p.channel === "sms" ? "💬 SMS" : "✉️ Email"} envoyé — {p.template ?? p.rule}
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${failed ? "bg-warn/15 text-warn" : "bg-good/15 text-good"}`}>
-                    {failed ? "échec" : "envoyé"}
+                  {p.channel === "sms" ? "💬 SMS" : "✉️ Email"} — {p.template ?? p.rule}
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${failed ? "bg-warn/15 text-warn" : ignored ? "bg-subtle text-ink-soft" : "bg-good/15 text-good"}`}>
+                    {failed ? "échec" : ignored ? "non envoyé" : "envoyé"}
                   </span>
                 </div>
                 <div className="text-xs text-ink-soft">
-                  → {p.to}
-                  {failed && p.erreur ? ` · ${p.erreur}` : ""}
+                  {p.to ? `→ ${p.to}` : ""}
+                  {(failed || ignored) && p.erreur ? `${p.to ? " · " : ""}${p.erreur}` : ""}
                 </div>
               </div>
             ) : (
