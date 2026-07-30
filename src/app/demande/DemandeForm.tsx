@@ -459,6 +459,9 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
     }
     setDistanceKm(null);
   }, [form.depart, form.arrivee]);
+
+  // À chaque changement d'étape, on remonte en haut de la page.
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
   const heroUrl = library[0]?.url;
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
@@ -661,6 +664,7 @@ function VousStep({ form, patch }: StepProps) {
 function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "arrivee" }) {
   const a = form[which];
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
+  const etageNum = parseInt(a.etage || "0", 10) || 0;
   return (
     <div className="space-y-6">
       <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`} hint="Tapez et choisissez dans la liste (adresse & distance automatiques)">
@@ -668,12 +672,19 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
           onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
           onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
       </Field>
+      <p className="-mt-3 text-xs text-ink-soft">
+        Adresse introuvable dans la liste ? Saisissez-la telle quelle, puis <span className="font-medium text-ink">choisissez au moins la ville ci-dessous</span> — cela suffit pour calculer la distance.
+      </p>
       <Field label="Complément d'adresse" hint="facultatif">
         <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />
       </Field>
       <div className="grid grid-cols-[1fr_2fr] gap-4">
         <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" /></Field>
-        <Field label="Ville"><TextInput value={a.ville} onChange={(e) => set({ ville: e.target.value })} placeholder="Paris" /></Field>
+        <Field label="Ville *" hint="choisissez dans la liste">
+          <AddressInput kind="municipality" value={a.ville} placeholder="Paris"
+            onChange={(v) => set({ ville: v })}
+            onSelect={(p) => set({ ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
+        </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
@@ -692,14 +703,20 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
         </div>
         <div className="mt-3 space-y-3">
           <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
-          <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
-          {a.ascenseur === "oui" && (
-            <div className="grid grid-cols-1 gap-3 pl-1">
-              <Field label="Taille de l'ascenseur (nb de personnes)"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
-              <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
-            </div>
+          {etageNum > 0 ? (
+            <>
+              <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
+              {a.ascenseur === "oui" && (
+                <div className="grid grid-cols-1 gap-3 pl-1">
+                  <Field label="Taille de l'ascenseur (nb de personnes)"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
+                  <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
+                </div>
+              )}
+              <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
+            </>
+          ) : (
+            <p className="text-xs text-ink-soft">Renseignez un étage pour préciser l&apos;ascenseur et l&apos;accès par escalier.</p>
           )}
-          <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
         </div>
       </div>
 
