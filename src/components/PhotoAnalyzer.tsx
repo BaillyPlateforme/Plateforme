@@ -7,7 +7,6 @@ import {
   AnalysisLoader,
   AnalysisError,
   sumVolume,
-  round1,
   type AnalyzedPhoto,
 } from "./PhotoAnalysisCard";
 
@@ -116,8 +115,7 @@ export default function PhotoAnalyzer({
     onChange(photos.filter((_, i) => i !== idx));
   }
 
-  // Total = somme des volumes affichés par photo (chacun déjà arrondi à 0,1 m³) → cohérent.
-  const total = round1(photos.reduce((s, p) => s + p.volume_m3, 0));
+  const total = sumVolume(photos.flatMap((p) => p.objets));
 
   return (
     <div className="space-y-5">
