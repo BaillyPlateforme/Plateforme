@@ -1,12 +1,14 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { DevisRow, SettingsRow } from "@/lib/types";
 
+export type PdfTrajet = { depart: string | null; arrivee: string | null; volume: number | null; quand: string | null };
+
 const C = {
-  ink: "#211f1b",
-  soft: "#7d7566",
-  sage: "#4a5541",
-  line: "#e6dfd2",
-  cream: "#f7f4ef",
+  ink: "#15170f",
+  soft: "#6f736a",
+  sage: "#6366f1",
+  line: "#e2e4de",
+  cream: "#eef0ec",
 };
 
 const s = StyleSheet.create({
@@ -29,10 +31,11 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 32, left: 42, right: 42, fontSize: 8, color: C.soft, borderTop: `1 solid ${C.line}`, paddingTop: 8 },
 });
 
-const eur = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+// Helvetica ne connaît pas l'espace fine insécable du format fr-FR → on la remplace par une espace normale.
+const eur = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/[  ]/g, " ")} €`;
 const fdate = (d: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "—");
 
-export function DevisPdf({ devis, settings }: { devis: DevisRow; settings: SettingsRow }) {
+export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; settings: SettingsRow; trajet?: PdfTrajet }) {
   const lignes =
     devis.lignes && devis.lignes.length > 0
       ? devis.lignes
@@ -52,18 +55,27 @@ export function DevisPdf({ devis, settings }: { devis: DevisRow; settings: Setti
             {settings.siret ? <Text style={s.soft}>SIRET {settings.siret}</Text> : null}
           </View>
           <View style={{ alignItems: "flex-end" }}>
-            <Text style={s.title}>DEVIS</Text>
+            <Text style={s.title}>ESTIMATION</Text>
             <Text style={[s.soft, s.block]}>N° {devis.reference}</Text>
             <Text style={s.soft}>Date : {fdate(devis.created_at)}</Text>
             <Text style={s.soft}>Valable jusqu&apos;au {fdate(devis.valid_until)}</Text>
           </View>
         </View>
 
-        {/* Client */}
-        <View style={s.card}>
-          <Text style={s.label}>Client</Text>
-          <Text style={{ fontFamily: "Helvetica-Bold" }}>{devis.client_nom || "—"}</Text>
-          {devis.client_email ? <Text style={s.soft}>{devis.client_email}</Text> : null}
+        {/* Client + Prestation */}
+        <View style={[s.row, { gap: 12 }]}>
+          <View style={[s.card, { flex: 1 }]}>
+            <Text style={s.label}>Client</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>{devis.client_nom || "—"}</Text>
+            {devis.client_email ? <Text style={s.soft}>{devis.client_email}</Text> : null}
+          </View>
+          <View style={[s.card, { flex: 1 }]}>
+            <Text style={s.label}>Prestation</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>{(trajet?.depart ?? "—") + "  —  " + (trajet?.arrivee ?? "—")}</Text>
+            <Text style={s.soft}>
+              {[trajet?.volume != null ? `Volume estimé : ${trajet.volume} m³` : null, trajet?.quand ? `Souhait : ${trajet.quand}` : null].filter(Boolean).join("   ·   ")}
+            </Text>
+          </View>
         </View>
 
         {/* Détail */}
@@ -104,8 +116,8 @@ export function DevisPdf({ devis, settings }: { devis: DevisRow; settings: Setti
         ) : null}
 
         <Text style={s.footer}>
-          Devis établi par {settings.entreprise_nom || "Bailly Déménagement"}. Prix fermes et définitifs
-          dans la limite de validité indiquée. TVA {devis.montant_ht > 0 ? Math.round((devis.montant_tva / devis.montant_ht) * 100) : 20}%.
+          Estimation établie par {settings.entreprise_nom || "Bailly Déménagement"} sur la base des informations communiquées.
+          Montant indicatif, susceptible d&apos;être ajusté après visite ou échange avec nos experts. TVA {devis.montant_ht > 0 ? Math.round((devis.montant_tva / devis.montant_ht) * 100) : 20}%.
         </Text>
       </Page>
     </Document>

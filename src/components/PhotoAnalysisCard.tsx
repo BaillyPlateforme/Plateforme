@@ -14,8 +14,11 @@ export type AnalyzedPhotoBase = {
 export type AnalyzedPhoto = AnalyzedPhotoBase & { storage_path?: string };
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+export const round1 = (n: number) => Math.round(n * 10) / 10;
+// Volume d'une pièce, arrondi à 0,1 m³ : ainsi la somme des pièces affichées
+// est toujours cohérente avec le total (pas d'écart d'arrondi).
 export const sumVolume = (objets: AnalyzedObjet[]) =>
-  round2(objets.reduce((s, o) => s + o.volume_m3, 0));
+  round1(objets.reduce((s, o) => s + o.volume_m3, 0));
 
 export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
   photo,

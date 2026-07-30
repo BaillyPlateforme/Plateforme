@@ -13,14 +13,12 @@ type DevisData = {
 const euro = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
 
 export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVariant }: { requestId: string; volume: number | null; count?: number; onNewQuote?: () => void; onVariant?: () => void }) {
-  const DURATION = 21000; // ≥ 20 s de génération visible
+  const DURATION = 7000; // génération visible mais rapide
   const STEPS = [
-    "Analyse de votre projet…",
+    "Analyse de votre demande…",
     "Calcul du volume et de la distance…",
-    "Application de la grille tarifaire…",
-    "Prise en compte des accès et prestations…",
-    "Optimisation de votre estimation…",
-    "Édition de votre devis…",
+    "Application de nos tarifs…",
+    "Préparation de votre estimation…",
   ];
   const [progress, setProgress] = useState(2);
   const [msg, setMsg] = useState(0);
@@ -63,12 +61,12 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
       <Shell>
         <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-2xl">📄</div>
-          <h1 className="font-serif text-3xl">{count > 1 ? "Génération de vos devis…" : "Génération de votre devis…"}</h1>
+          <h1 className="font-serif text-3xl">{count > 1 ? "Génération de vos estimations…" : "Génération de votre estimation…"}</h1>
           <p className="mt-2 h-5 text-sm text-ink-soft transition-all">{STEPS[msg]}</p>
           <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-subtle">
             <div className="h-full rounded-full bg-accent transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
           </div>
-          <p className="mt-6 text-xs text-ink-soft">Cela prend une vingtaine de secondes — merci de patienter.</p>
+          <p className="mt-6 text-xs text-ink-soft">Encore quelques secondes…</p>
         </div>
       </Shell>
     );
@@ -80,8 +78,8 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
       <Shell>
         <div className="w-full max-w-md animate-fade-up text-center">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <h1 className="font-serif text-4xl">Vos {count} devis sont prêts</h1>
-          <p className="mt-3 text-ink-soft">Nous vous adressons un devis pour chaque scénario par e-mail.</p>
+          <h1 className="font-serif text-4xl">Vos {count} estimations sont prêtes</h1>
+          <p className="mt-3 text-ink-soft">Nous vous adressons une estimation pour chaque scénario par e-mail.</p>
           {onNewQuote && (
             <button onClick={onNewQuote} className="mt-6 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">Faire une nouvelle demande</button>
           )}
@@ -97,7 +95,7 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <div className="eyebrow text-accent">Votre proposition</div>
-          <h1 className="mt-2 font-serif text-4xl">Votre devis est prêt</h1>
+          <h1 className="mt-2 font-serif text-4xl">Votre estimation est prête</h1>
           <p className="mt-2 text-sm text-ink-soft">Estimation établie selon les informations transmises.</p>
         </div>
 
@@ -106,8 +104,10 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
             <div className="mt-6 rounded-2xl border border-line bg-card p-6 shadow-sm">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <div className="text-sm text-ink-soft">{devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}{devis.volume_m3 != null ? ` · ~${devis.volume_m3} m³` : ""}</div>
-                  <div className="mt-0.5 text-xs text-ink-soft">Devis {devis.reference}{devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}</div>
+                  <div className="text-base font-medium text-ink">{devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}</div>
+                  <div className="mt-0.5 text-xs text-ink-soft">
+                    {devis.volume_m3 != null ? `~${devis.volume_m3} m³ · ` : ""}Estimation {devis.reference}{devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-ink-soft">Total estimé</div>
@@ -137,7 +137,7 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
             {/* PDF complet */}
             <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
               <div className="flex items-center justify-between border-b border-line px-5 py-3">
-                <span className="font-serif text-lg">Votre devis</span>
+                <span className="font-serif text-lg">Votre estimation</span>
                 <a href={`/api/devis/${devis.id}/pdf`} target="_blank" rel="noreferrer" className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">⬇ Télécharger le PDF</a>
               </div>
               <iframe src={`/api/devis/${devis.id}/pdf`} title="Devis" className="h-[640px] w-full" />
