@@ -87,6 +87,7 @@ const HEADERS: { eyebrow: string; title: string; sub: string }[] = [
 ];
 
 const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
+const PERIODES = ["Dès que possible", "Sous 1 mois", "Dans 1 à 3 mois", "Dans 3 à 6 mois", "Plus tard / je reste flexible"];
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 const ASSURANCES: [string, string][] = [
   ["standard", "Garantie STANDARD — avec franchise, à valeur de vétusté"],
@@ -256,7 +257,8 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   const [compare, setCompare] = useState(false);
   const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState({
-    nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "",
+    nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
+    dateMode: "date" as "date" | "periode", date: "", periode: "",
     volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
   });
   const [submitting, setSubmitting] = useState(false);
@@ -278,7 +280,8 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
     ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
     : (f.photos.length ? Math.round(f.photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100 : null);
 
-  const canSubmit = f.nom.trim() && /.+@.+\..+/.test(f.email) && f.departVille.trim() && f.arriveeVille.trim() && volume != null;
+  const dateOk = f.dateMode === "date" ? !!f.date : !!f.periode;
+  const canSubmit = f.nom.trim() && /.+@.+\..+/.test(f.email) && f.departVille.trim() && f.arriveeVille.trim() && dateOk && volume != null;
 
   async function submit() {
     setSubmitting(true);
@@ -293,7 +296,8 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           client: { nom: f.nom, email: f.email, tel: f.tel || undefined },
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
           arrivee: { ville: f.arriveeVille || undefined },
-          date_souhaitee: f.date || undefined,
+          date_souhaitee: f.dateMode === "date" ? (f.date || undefined) : undefined,
+          flexibilite: f.dateMode === "periode" ? (f.periode || undefined) : undefined,
           distance_km: distanceKm ?? undefined,
           volume: volumePayload,
           type_client: "particulier",
@@ -312,7 +316,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
     return instant ? (
       <InstantResult requestId={done} volume={volume} count={doneCount}
         onVariant={() => { setDone(null); setDoneCount(1); setCompare(true); }}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", date: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", dateMode: "date", date: "", periode: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
       />
     ) : (
       <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} count={doneCount} />
@@ -376,7 +380,21 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
                   📍 Distance estimée : <span className="font-semibold text-ink">{distanceKm} km</span> <span className="text-ink-soft">(trajet routier)</span>
                 </div>
               )}
-              <Field label="Date souhaitée" hint="facultatif"><TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} /></Field>
+              <div>
+                <div className="mb-2 text-sm font-medium">Quand souhaitez-vous déménager ? *</div>
+                <div className="mb-3 w-full sm:w-80">
+                  <Choice options={[["date", "Une date précise"], ["periode", "Une période"]]} value={f.dateMode} onChange={(v) => set({ dateMode: v as "date" | "periode" })} />
+                </div>
+                {f.dateMode === "date" ? (
+                  <TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
+                ) : (
+                  <select value={f.periode} onChange={(e) => set({ periode: e.target.value })}
+                    className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20">
+                    <option value="">— Choisissez une période —</option>
+                    {PERIODES.map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                )}
+              </div>
 
               <div>
                 <div className="mb-2 text-sm font-medium">Volume à déménager *</div>

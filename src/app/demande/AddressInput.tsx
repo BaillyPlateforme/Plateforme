@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type Place = { label: string; ville: string; code_postal: string; lat: number; lon: number };
+export type Place = { label: string; ville: string; code_postal: string; context: string; lat: number; lon: number };
+
+// "69, Rhône, Auvergne-Rhône-Alpes" → "69 · Rhône"
+function shortContext(ctx: string): string {
+  const parts = (ctx ?? "").split(",").map((s) => s.trim());
+  return parts.slice(0, 2).join(" · ");
+}
 
 // Autocomplétion d'adresses via la Base Adresse Nationale (api-adresse.data.gouv.fr — gratuit, sans clé).
 export function AddressInput({
@@ -37,6 +43,7 @@ export function AddressInput({
           label: f.properties.label,
           ville: f.properties.city ?? f.properties.name ?? "",
           code_postal: f.properties.postcode ?? "",
+          context: f.properties.context ?? "",
           lat: f.geometry.coordinates[1],
           lon: f.geometry.coordinates[0],
         }));
@@ -87,9 +94,12 @@ export function AddressInput({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(p)}
-                className={`block w-full px-3 py-2 text-left text-sm transition ${i === active ? "bg-accent-soft text-accent-dark" : "hover:bg-subtle"}`}
+                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition ${i === active ? "bg-accent text-white" : "text-ink hover:bg-subtle"}`}
               >
-                {p.label}
+                <span className="truncate text-sm font-medium">{p.ville || p.label}</span>
+                <span className={`shrink-0 text-xs tabular-nums ${i === active ? "text-white/80" : "text-ink-soft"}`}>
+                  {[p.code_postal, shortContext(p.context)].filter(Boolean).join(" · ")}
+                </span>
               </button>
             </li>
           ))}
