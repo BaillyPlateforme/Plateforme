@@ -36,7 +36,7 @@ export default function LoginForm({ redirect }: { redirect: string }) {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-accent/20 bg-accent-soft px-3 py-2.5 text-[13px] text-accent-dark"
+          className="animate-step-in flex items-start gap-2 rounded-lg border border-accent/20 bg-accent-soft px-3 py-2.5 text-[13px] text-accent-dark"
         >
           <IconAlert />
           <span>{error}</span>
@@ -91,7 +91,7 @@ export default function LoginForm({ redirect }: { redirect: string }) {
       <button
         type="submit"
         disabled={loading}
-        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+        className="group flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-accent/30 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-dark hover:shadow-lg hover:shadow-accent/35 active:translate-y-0 disabled:translate-y-0 disabled:opacity-50 disabled:shadow-none"
       >
         {loading ? (
           <>

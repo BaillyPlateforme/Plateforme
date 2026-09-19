@@ -90,6 +90,102 @@ h2.font-serif {
   color: transparent;
 }
 
+/* Même signature, mais le dégradé défile en boucle. */
+.gradient-flow {
+  background-image: linear-gradient(
+    95deg,
+    #6366f1 0%,
+    #8b5cf6 22%,
+    #ec4899 44%,
+    #8b5cf6 66%,
+    #6366f1 88%,
+    #6366f1 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: gradient-flow 9s linear infinite;
+}
+
+/* Variante claire : lisible sur une photo assombrie. */
+.gradient-flow-light {
+  background-image: linear-gradient(
+    95deg,
+    #a5b4fc 0%,
+    #d8b4fe 22%,
+    #fbcfe8 44%,
+    #d8b4fe 66%,
+    #a5b4fc 88%,
+    #a5b4fc 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: gradient-flow 11s linear infinite;
+}
+
+@keyframes gradient-flow {
+  to { background-position: -300% 0; }
+}
+
+/* Apparition en cascade : le décalage se règle par --d. */
+.reveal {
+  animation: fade-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
+}
+
+/* Lévitation des cartes posées sur la photo : entrée puis flottement continu. */
+@keyframes levitate {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50%      { transform: translate3d(0, -10px, 0) rotate(-0.4deg); }
+}
+.levitate {
+  animation:
+    fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both,
+    levitate var(--dur, 7s) ease-in-out calc(var(--d, 0s) + 0.9s) infinite;
+  will-change: transform;
+}
+
+/* Respiration lente de la photo de fond. */
+@keyframes ken-burns {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to   { transform: scale(1.09) translate3d(0, -1.5%, 0); }
+}
+.ken-burns {
+  animation: ken-burns 30s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Halo qui dérive derrière les cartes. */
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(4%, -3%, 0) scale(1.12); }
+}
+.drift {
+  animation: drift 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gradient-flow,
+  .gradient-flow-light,
+  .reveal,
+  .levitate,
+  .ken-burns,
+  .drift,
+  .animate-fade-up,
+  .animate-step-in {
+    animation: none !important;
+  }
+  .reveal,
+  .levitate {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Grands nombres d'affichage */
 .display-num {
   font-family: var(--font-display);

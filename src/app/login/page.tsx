@@ -1,8 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import LoginForm from "./LoginForm";
 
 export const metadata = { title: "Connexion — Bailly" };
+
+// Décalage d'apparition : les blocs entrent les uns après les autres.
+const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
 export default async function LoginPage({
   searchParams,
@@ -18,50 +22,64 @@ export default async function LoginPage({
       {/* Gauche — formulaire */}
       <section className="relative flex flex-1 flex-col px-6 py-8 lg:max-w-[540px] lg:px-14 lg:py-10">
         {/* Mobile : le panneau de droite disparaît, la photo devient une bande en tête. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[210px] lg:hidden">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[210px] overflow-hidden lg:hidden">
           <Image
             src="/login-interieur.jpg"
             alt=""
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center"
+            className="ken-burns object-cover object-center"
           />
           <div className="absolute inset-0 bg-ink/30" />
           <div className="absolute inset-0 bg-linear-to-b from-transparent via-paper/45 to-paper" />
         </div>
 
-        <header className="relative z-10 flex items-center justify-between">
+        <header className="reveal relative z-10 flex items-center justify-between" style={delay(0)}>
           <div>
-            <div className="font-serif text-[26px] font-semibold leading-none text-white lg:text-ink">Bailly</div>
+            <div className="font-serif text-[26px] font-semibold leading-none text-white lg:text-ink">
+              Bailly
+            </div>
             <div className="eyebrow mt-1.5 text-white/75 lg:text-ink-soft">Déménagement</div>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-ink-soft">
-            <span className="h-1.5 w-1.5 rounded-full bg-good" />
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
             Espace équipe
           </span>
         </header>
 
-        <div className="relative z-10 flex max-w-[420px] flex-1 flex-col justify-center py-14 animate-fade-up">
-          <p className="eyebrow mb-4 text-ink-soft">Plateforme interne</p>
-          <h1 className="font-serif mb-3 text-balance text-[30px] leading-[1.08] sm:text-[34px]">
-            Connectez-vous à votre{" "}
-            <span className="gradient-text">poste de pilotage</span>
+        <div className="relative z-10 flex max-w-[420px] flex-1 flex-col justify-center py-14">
+          <p className="eyebrow reveal mb-4 text-ink-soft" style={delay(120)}>
+            Plateforme interne
+          </p>
+          <h1
+            className="font-serif reveal mb-3 text-balance text-[30px] leading-[1.08] sm:text-[34px]"
+            style={delay(200)}
+          >
+            Connectez-vous à votre <span className="gradient-flow">poste de pilotage</span>
           </h1>
-          <p className="mb-8 text-[14px] leading-relaxed text-ink-soft">
+          <p className="reveal mb-8 text-[14px] leading-relaxed text-ink-soft" style={delay(300)}>
             Demandes, estimations, devis et plannings au même endroit — du formulaire client
             au camion chargé.
           </p>
 
-          <LoginForm redirect={target} />
+          <div className="reveal" style={delay(400)}>
+            <LoginForm redirect={target} />
+          </div>
 
-          <div className="flex items-center gap-2 pt-5 text-[11.5px] text-ink-soft">
+          <div
+            className="reveal flex items-center gap-2 pt-5 text-[11.5px] text-ink-soft"
+            style={delay(520)}
+          >
             <IconLock />
             <span>Connexion chiffrée · Accès réservé à l&apos;équipe · Hébergement Europe</span>
           </div>
         </div>
 
-        <footer className="relative z-10 flex items-center justify-between text-[11.5px] text-ink-soft">
+        <footer
+          className="reveal relative z-10 flex items-center justify-between text-[11.5px] text-ink-soft"
+          style={delay(620)}
+        >
           <span>© {new Date().getFullYear()} Bailly Déménagement</span>
           <div className="flex items-center gap-4">
             <Link href="/demande" className="transition hover:text-ink">
@@ -74,7 +92,7 @@ export default async function LoginPage({
         </footer>
       </section>
 
-      {/* Droite — aperçu */}
+      {/* Droite — photo et cartes en verre */}
       <aside className="relative hidden flex-1 overflow-hidden border-l border-line lg:flex">
         <Image
           src="/login-interieur.jpg"
@@ -82,38 +100,44 @@ export default async function LoginPage({
           fill
           priority
           sizes="50vw"
-          className="object-cover"
+          className="ken-burns object-cover"
         />
-        {/* Voiles : lisibilité du texte, teinte accent, fondu avec la colonne de gauche. */}
-        <div className="absolute inset-0 bg-ink/45" />
+
+        {/* Voiles : lisibilité du texte et teinte accent. */}
+        <div className="absolute inset-0 bg-ink/50" />
         <div className="absolute inset-0 bg-linear-to-t from-ink/90 via-ink/25 to-ink/5" />
-        <div className="absolute inset-0 bg-linear-to-bl from-accent/30 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-bl from-accent/35 via-transparent to-transparent" />
+        {/* Halo qui dérive lentement derrière les cartes. */}
+        <div className="drift absolute -left-24 top-1/4 h-[460px] w-[460px] rounded-full bg-accent/25 blur-3xl" />
 
         <div className="relative z-10 mx-auto flex w-full max-w-[560px] flex-col justify-center p-12">
           <div className="space-y-5">
-            <div className="rounded-2xl border border-white/50 bg-white/85 p-6 shadow-lg shadow-ink/10 backdrop-blur-md">
+            <div
+              className="levitate rounded-3xl border border-white/25 bg-linear-to-br from-white/22 via-white/10 to-white/5 p-6 shadow-2xl shadow-ink/40 backdrop-blur-xl"
+              style={{ ...delay(250), "--dur": "8s" } as CSSProperties}
+            >
               <div className="mb-3 flex items-center justify-between">
-                <p className="eyebrow text-[10px] text-ink-soft">Exemple de demande</p>
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent-dark">
+                <p className="eyebrow text-[10px] text-white/70">Exemple de demande</p>
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-white/15 px-2 py-1 text-[11px] font-semibold text-white">
                   Estimation instantanée
                 </span>
               </div>
 
-              <div className="display-num gradient-text mb-1 text-[44px] leading-none">
+              <div className="display-num gradient-flow-light mb-1 text-[46px] leading-none">
                 2 640 €
               </div>
-              <p className="mb-5 text-[12.5px] text-ink-soft">
+              <p className="mb-5 text-[12.5px] text-white/75">
                 fourchette 2 400 – 2 900 € · formule standard
               </p>
 
-              <div className="flex items-center gap-3 border-t border-line pt-4 text-[13px]">
+              <div className="flex items-center gap-3 border-t border-white/15 pt-4 text-[13px] text-white">
                 <span className="font-medium">Paris 15e</span>
-                <span className="h-px flex-1 bg-line-strong" />
+                <span className="h-px flex-1 bg-white/25" />
                 <IconTruck />
-                <span className="h-px flex-1 bg-line-strong" />
+                <span className="h-px flex-1 bg-white/25" />
                 <span className="font-medium">Nantes</span>
               </div>
-              <div className="mt-2 flex items-center gap-4 text-[11.5px] text-ink-soft">
+              <div className="mt-2 flex items-center gap-4 text-[11.5px] text-white/70">
                 <span>385 km</span>
                 <span>32 m³</span>
                 <span>3e étage sans ascenseur</span>
@@ -121,21 +145,24 @@ export default async function LoginPage({
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <Feature color="#3b82f6" icon={<IconInbox />} title="Demandes">
+              <Feature color="#93c5fd" icon={<IconInbox />} title="Demandes" d={400} dur="9s">
                 Réception, tri et suivi des dossiers entrants.
               </Feature>
-              <Feature color="#8b5cf6" icon={<IconSparkle />} title="Photos">
+              <Feature color="#c4b5fd" icon={<IconSparkle />} title="Photos" d={480} dur="7.5s">
                 Volume estimé à partir des photos du logement.
               </Feature>
-              <Feature color="#ec4899" icon={<IconDoc />} title="Devis">
+              <Feature color="#f9a8d4" icon={<IconDoc />} title="Devis" d={560} dur="10s">
                 Chiffrage, grilles tarifaires et envoi au client.
               </Feature>
-              <Feature color="#10b981" icon={<IconCalendar />} title="Agenda">
+              <Feature color="#6ee7b7" icon={<IconCalendar />} title="Agenda" d={640} dur="8.5s">
                 Plannings, équipes et camions par intervention.
               </Feature>
             </div>
 
-            <p className="max-w-md text-[15px] leading-[1.45] text-white/90 drop-shadow-sm">
+            <p
+              className="reveal max-w-md text-[15px] leading-[1.45] text-white/85"
+              style={delay(760)}
+            >
               «&nbsp;Une demande, une estimation, un devis. Plus de ressaisie entre la boîte
               mail et le planning.&nbsp;»
             </p>
@@ -151,22 +178,29 @@ function Feature({
   icon,
   title,
   children,
+  d,
+  dur,
 }: {
   color: string;
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
+  d: number;
+  dur: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-md shadow-ink/5 backdrop-blur-md">
+    <div
+      className="levitate rounded-3xl border border-white/20 bg-linear-to-br from-white/20 via-white/9 to-white/5 p-4 shadow-xl shadow-ink/30 backdrop-blur-xl transition-colors hover:from-white/28 hover:via-white/14"
+      style={{ ...delay(d), "--dur": dur } as CSSProperties}
+    >
       <span
-        className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg"
-        style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
+        className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/15"
+        style={{ color, background: `color-mix(in srgb, ${color} 22%, transparent)` }}
       >
         {icon}
       </span>
-      <p className="text-[14px] font-medium leading-none">{title}</p>
-      <p className="mt-1.5 text-[11.5px] leading-snug text-ink-soft">{children}</p>
+      <p className="text-[14px] font-medium leading-none text-white">{title}</p>
+      <p className="mt-1.5 text-[11.5px] leading-snug text-white/75">{children}</p>
     </div>
   );
 }
@@ -190,7 +224,7 @@ function IconLock() {
 }
 function IconTruck() {
   return (
-    <svg {...S} width={17} height={17} className="text-ink-soft">
+    <svg {...S} width={17} height={17} className="text-white/70">
       <path d="M2 16V6a1 1 0 0 1 1-1h11v11" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M14 9h4l3 3.5V16h-2" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="7" cy="17.5" r="1.8" />
