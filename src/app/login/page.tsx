@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import DevisCarousel from "./DevisCarousel";
 import LoginForm from "./LoginForm";
+import Parallax from "./Parallax";
 
 export const metadata = { title: "Connexion — Bailly" };
 
@@ -93,7 +95,7 @@ export default async function LoginPage({
       </section>
 
       {/* Droite — photo et cartes en verre */}
-      <aside className="relative hidden flex-1 overflow-hidden border-l border-line lg:flex">
+      <aside className="grain relative hidden flex-1 overflow-hidden border-l border-line lg:flex">
         <Image
           src="/login-interieur.jpg"
           alt=""
@@ -109,40 +111,14 @@ export default async function LoginPage({
         <div className="absolute inset-0 bg-linear-to-bl from-accent/35 via-transparent to-transparent" />
         {/* Halo qui dérive lentement derrière les cartes. */}
         <div className="drift absolute -left-24 top-1/4 h-[460px] w-[460px] rounded-full bg-accent/25 blur-3xl" />
+        <div
+          className="drift absolute -right-20 bottom-0 h-[380px] w-[380px] rounded-full bg-[#ec4899]/20 blur-3xl"
+          style={{ animationDuration: "24s", animationDelay: "-8s" }}
+        />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-[560px] flex-col justify-center p-12">
+        <Parallax className="relative z-10 mx-auto flex w-full max-w-[560px] flex-col justify-center p-12">
           <div className="space-y-5">
-            <div
-              className="levitate rounded-3xl border border-white/25 bg-linear-to-br from-white/22 via-white/10 to-white/5 p-6 shadow-2xl shadow-ink/40 backdrop-blur-xl"
-              style={{ ...delay(250), "--dur": "8s" } as CSSProperties}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <p className="eyebrow text-[10px] text-white/70">Exemple de demande</p>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-white/20 bg-white/15 px-2 py-1 text-[11px] font-semibold text-white">
-                  Estimation instantanée
-                </span>
-              </div>
-
-              <div className="display-num gradient-flow-light mb-1 text-[46px] leading-none">
-                2 640 €
-              </div>
-              <p className="mb-5 text-[12.5px] text-white/75">
-                fourchette 2 400 – 2 900 € · formule standard
-              </p>
-
-              <div className="flex items-center gap-3 border-t border-white/15 pt-4 text-[13px] text-white">
-                <span className="font-medium">Paris 15e</span>
-                <span className="h-px flex-1 bg-white/25" />
-                <IconTruck />
-                <span className="h-px flex-1 bg-white/25" />
-                <span className="font-medium">Nantes</span>
-              </div>
-              <div className="mt-2 flex items-center gap-4 text-[11.5px] text-white/70">
-                <span>385 km</span>
-                <span>32 m³</span>
-                <span>3e étage sans ascenseur</span>
-              </div>
-            </div>
+            <DevisCarousel />
 
             <div className="grid grid-cols-2 gap-3">
               <Feature color="#93c5fd" icon={<IconInbox />} title="Demandes" d={400} dur="9s">
@@ -167,7 +143,7 @@ export default async function LoginPage({
               mail et le planning.&nbsp;»
             </p>
           </div>
-        </div>
+        </Parallax>
       </aside>
     </div>
   );
@@ -190,8 +166,8 @@ function Feature({
 }) {
   return (
     <div
-      className="levitate rounded-3xl border border-white/20 bg-linear-to-br from-white/20 via-white/9 to-white/5 p-4 shadow-xl shadow-ink/30 backdrop-blur-xl transition-colors hover:from-white/28 hover:via-white/14"
-      style={{ ...delay(d), "--dur": dur } as CSSProperties}
+      className="shine levitate relative overflow-hidden rounded-3xl border border-white/20 bg-linear-to-br from-white/20 via-white/9 to-white/5 p-4 shadow-xl shadow-ink/30 backdrop-blur-xl transition-colors hover:from-white/28 hover:via-white/14"
+      style={{ ...delay(d), "--dur": dur, "--shine": "11s", "--shine-delay": `${d}ms` } as CSSProperties}
     >
       <span
         className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/15"
@@ -219,17 +195,6 @@ function IconLock() {
     <svg {...S} width={12} height={12}>
       <rect x="4" y="10" width="16" height="11" rx="2" />
       <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-    </svg>
-  );
-}
-function IconTruck() {
-  return (
-    <svg {...S} width={17} height={17} className="text-white/70">
-      <path d="M2 16V6a1 1 0 0 1 1-1h11v11" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 9h4l3 3.5V16h-2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="7" cy="17.5" r="1.8" />
-      <circle cx="17" cy="17.5" r="1.8" />
-      <path d="M8.8 16h6.4" strokeLinecap="round" />
     </svg>
   );
 }

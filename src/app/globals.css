@@ -133,8 +133,12 @@ h2.font-serif {
 }
 
 /* Apparition en cascade : le décalage se règle par --d. */
+@keyframes rise-blur {
+  from { opacity: 0; transform: translateY(16px); filter: blur(10px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
 .reveal {
-  animation: fade-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
+  animation: rise-blur 0.85s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
 }
 
 /* Lévitation des cartes posées sur la photo : entrée puis flottement continu. */
@@ -144,8 +148,8 @@ h2.font-serif {
 }
 .levitate {
   animation:
-    fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both,
-    levitate var(--dur, 7s) ease-in-out calc(var(--d, 0s) + 0.9s) infinite;
+    rise-blur 0.95s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both,
+    levitate var(--dur, 7s) ease-in-out calc(var(--d, 0s) + 0.95s) infinite;
   will-change: transform;
 }
 
@@ -168,6 +172,72 @@ h2.font-serif {
   animation: drift 18s ease-in-out infinite;
 }
 
+/* Anneau de lumière qui tourne autour de la carte mise en avant. */
+@keyframes spin-slow {
+  to { transform: rotate(1turn); }
+}
+.spin-slow {
+  animation: spin-slow 9s linear infinite;
+}
+
+/* Filet lumineux : ne garde que la bordure de l'élément (le centre est masqué). */
+.ring-only {
+  padding: 1px;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+/* Reflet qui balaie le verre. */
+@keyframes shine {
+  0%        { transform: translateX(-140%) skewX(-14deg); }
+  55%, 100% { transform: translateX(320%) skewX(-14deg); }
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  animation: shine var(--shine, 8s) ease-in-out var(--shine-delay, 0s) infinite;
+  pointer-events: none;
+}
+
+/* Grain photo, pour casser les aplats du voile. */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* Transitions du carrousel. */
+@keyframes slide-in {
+  from { opacity: 0; transform: translate3d(28px, 0, 0) scale(0.985); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+.slide-in {
+  animation: slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes dot-fill {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.dot-fill {
+  transform-origin: left;
+  animation: dot-fill var(--hold, 5.5s) linear both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gradient-flow,
   .gradient-flow-light,
@@ -175,14 +245,26 @@ h2.font-serif {
   .levitate,
   .ken-burns,
   .drift,
+  .spin-slow,
+  .shine::after,
+  .slide-in,
+  .dot-fill,
   .animate-fade-up,
   .animate-step-in {
     animation: none !important;
   }
   .reveal,
-  .levitate {
+  .levitate,
+  .slide-in {
     opacity: 1;
     transform: none;
+    filter: none;
+  }
+  .shine::after {
+    display: none;
+  }
+  .dot-fill {
+    transform: scaleX(1);
   }
 }
 
