@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import LoginForm from "./LoginForm";
 
@@ -15,11 +16,25 @@ export default async function LoginPage({
   return (
     <div className="relative z-10 flex min-h-screen flex-col lg:flex-row">
       {/* Gauche — formulaire */}
-      <section className="flex flex-1 flex-col px-6 py-8 lg:max-w-[540px] lg:px-14 lg:py-10">
-        <header className="flex items-center justify-between">
+      <section className="relative flex flex-1 flex-col px-6 py-8 lg:max-w-[540px] lg:px-14 lg:py-10">
+        {/* Mobile : le panneau de droite disparaît, la photo devient une bande en tête. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[210px] lg:hidden">
+          <Image
+            src="/login-interieur.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-ink/30" />
+          <div className="absolute inset-0 bg-linear-to-b from-transparent via-paper/45 to-paper" />
+        </div>
+
+        <header className="relative z-10 flex items-center justify-between">
           <div>
-            <div className="font-serif text-[26px] font-semibold leading-none">Bailly</div>
-            <div className="eyebrow mt-1.5 text-ink-soft">Déménagement</div>
+            <div className="font-serif text-[26px] font-semibold leading-none text-white lg:text-ink">Bailly</div>
+            <div className="eyebrow mt-1.5 text-white/75 lg:text-ink-soft">Déménagement</div>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-ink-soft">
             <span className="h-1.5 w-1.5 rounded-full bg-good" />
@@ -27,7 +42,7 @@ export default async function LoginPage({
           </span>
         </header>
 
-        <div className="flex max-w-[420px] flex-1 flex-col justify-center py-14 animate-fade-up">
+        <div className="relative z-10 flex max-w-[420px] flex-1 flex-col justify-center py-14 animate-fade-up">
           <p className="eyebrow mb-4 text-ink-soft">Plateforme interne</p>
           <h1 className="font-serif mb-3 text-balance text-[30px] leading-[1.08] sm:text-[34px]">
             Connectez-vous à votre{" "}
@@ -46,7 +61,7 @@ export default async function LoginPage({
           </div>
         </div>
 
-        <footer className="flex items-center justify-between text-[11.5px] text-ink-soft">
+        <footer className="relative z-10 flex items-center justify-between text-[11.5px] text-ink-soft">
           <span>© {new Date().getFullYear()} Bailly Déménagement</span>
           <div className="flex items-center gap-4">
             <Link href="/demande" className="transition hover:text-ink">
@@ -60,10 +75,23 @@ export default async function LoginPage({
       </section>
 
       {/* Droite — aperçu */}
-      <aside className="relative hidden flex-1 overflow-hidden border-l border-line bg-card lg:flex">
+      <aside className="relative hidden flex-1 overflow-hidden border-l border-line lg:flex">
+        <Image
+          src="/login-interieur.jpg"
+          alt=""
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover"
+        />
+        {/* Voiles : lisibilité du texte, teinte accent, fondu avec la colonne de gauche. */}
+        <div className="absolute inset-0 bg-ink/45" />
+        <div className="absolute inset-0 bg-linear-to-t from-ink/90 via-ink/25 to-ink/5" />
+        <div className="absolute inset-0 bg-linear-to-bl from-accent/30 via-transparent to-transparent" />
+
         <div className="relative z-10 mx-auto flex w-full max-w-[560px] flex-col justify-center p-12">
           <div className="space-y-5">
-            <div className="rounded-2xl border border-line bg-paper p-6">
+            <div className="rounded-2xl border border-white/50 bg-white/85 p-6 shadow-lg shadow-ink/10 backdrop-blur-md">
               <div className="mb-3 flex items-center justify-between">
                 <p className="eyebrow text-[10px] text-ink-soft">Exemple de demande</p>
                 <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-1 text-[11px] font-semibold text-accent-dark">
@@ -107,7 +135,7 @@ export default async function LoginPage({
               </Feature>
             </div>
 
-            <p className="max-w-md text-[15px] leading-[1.45] text-ink-soft">
+            <p className="max-w-md text-[15px] leading-[1.45] text-white/90 drop-shadow-sm">
               «&nbsp;Une demande, une estimation, un devis. Plus de ressaisie entre la boîte
               mail et le planning.&nbsp;»
             </p>
@@ -130,7 +158,7 @@ function Feature({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-line bg-paper p-4">
+    <div className="rounded-2xl border border-white/50 bg-white/80 p-4 shadow-md shadow-ink/5 backdrop-blur-md">
       <span
         className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg"
         style={{ color, background: `color-mix(in srgb, ${color} 12%, transparent)` }}
