@@ -69,26 +69,6 @@ export interface RequestServices {
   garde_meuble?: boolean;
 }
 
-export interface PricingGridRow {
-  id: string;
-  name: string;
-  is_active: boolean;
-  is_default: boolean;
-  base_price: number;
-  price_per_m3: number;
-  price_per_km: number;
-  floor_surcharge: number;
-  long_carry_surcharge: number;
-  packing_price_per_m3: number;
-  furniture_lift_price: number;
-  min_price: number;
-  vat_rate: number;
-  tiers: Array<{ min_m3: number; max_m3: number; price_per_m3: number }>;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface RequestPhotoRow {
   id: string;
   request_id: string;
@@ -128,7 +108,7 @@ export interface DevisRow {
   montant_tva: number;
   montant_ttc: number;
   grid_id: string | null;
-  lignes: Array<{ label: string; amount: number }>;
+  lignes: Array<{ label: string; detail?: string; amount: number }>;
   status: DevisStatus;
   valid_until: string | null;
   created_at: string;

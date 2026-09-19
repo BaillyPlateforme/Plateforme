@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getGrid, getDefaultGrid } from "@/lib/grids";
-import { estimateQuote } from "@/lib/quote";
+import { estimerDemande } from "@/lib/pricing/engine";
 import type { RequestRow, RequestStatus } from "@/lib/types";
 
 export async function updateStatus(id: string, status: RequestStatus) {
@@ -38,25 +37,19 @@ export async function updateScores(
   revalidatePath("/dashboard");
 }
 
-// Applique une grille à la demande et enregistre l'estimation.
-export async function applyEstimation(id: string, gridId?: string) {
+// Rejoue le moteur sur la demande et enregistre l'estimation.
+export async function applyEstimation(id: string) {
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", id).maybeSingle();
   if (!data) return;
   const req = data as RequestRow;
 
-  const grid = gridId ? await getGrid(gridId) : await getDefaultGrid();
-  if (!grid) return;
-
-  const quote = estimateQuote(req, grid);
-  await supabase
-    .from("requests")
-    .update({ estimation_prix: quote.ttc, grid_id: grid.id })
-    .eq("id", id);
+  const quote = estimerDemande(req);
+  await supabase.from("requests").update({ estimation_prix: quote.ttc }).eq("id", id);
   await supabase.from("request_events").insert({
     request_id: id,
     type: "estimated",
-    payload: { ttc: quote.ttc, grid: grid.name },
+    payload: { ttc: quote.ttc, tarif_m3: quote.tarif_m3, alertes: quote.alertes },
   });
   revalidatePath(`/dashboard/${id}`);
 }

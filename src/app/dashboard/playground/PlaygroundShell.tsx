@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { PricingGridRow } from "@/lib/types";
 import type { LibraryPhoto } from "@/components/PhotoAnalyzer";
 import PlaygroundClient from "./PlaygroundClient";
 import LabClient from "./LabClient";
@@ -12,13 +11,7 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-export default function PlaygroundShell({
-  grids,
-  library,
-}: {
-  grids: PricingGridRow[];
-  library: LibraryPhoto[];
-}) {
+export default function PlaygroundShell({ library }: { library: LibraryPhoto[] }) {
   const [tab, setTab] = useState<Tab>("image");
 
   return (
@@ -36,7 +29,7 @@ export default function PlaygroundShell({
         ))}
       </div>
 
-      {tab === "image" && <PlaygroundClient grids={grids} library={library} />}
+      {tab === "image" && <PlaygroundClient library={library} />}
       {tab === "e2e" && <LabClient />}
     </div>
   );

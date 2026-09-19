@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getGrid, getDefaultGrid } from "@/lib/grids";
 import { getSettings } from "@/lib/settings";
-import { estimateQuote } from "@/lib/quote";
+import { estimerDemande } from "@/lib/pricing/engine";
 import { fireEvent } from "@/lib/alerts";
 import type { DevisStatus, RequestRow } from "@/lib/types";
 
@@ -34,16 +33,13 @@ async function nextReference(): Promise<string> {
 }
 
 // Génère (et enregistre) un devis à partir d'une demande.
-export async function createDevisFromRequest(requestId: string, gridId?: string) {
+export async function createDevisFromRequest(requestId: string) {
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", requestId).maybeSingle();
   if (!data) return;
   const req = data as RequestRow;
 
-  const grid = gridId ? await getGrid(gridId) : await getDefaultGrid();
-  if (!grid) return;
-
-  const quote = estimateQuote(req, grid);
+  const quote = estimerDemande(req);
   const settings = await getSettings();
   const reference = await nextReference();
 
@@ -58,7 +54,6 @@ export async function createDevisFromRequest(requestId: string, gridId?: string)
     montant_ht: quote.ht,
     montant_tva: quote.tva,
     montant_ttc: quote.ttc,
-    grid_id: grid.id,
     lignes: quote.lines,
     status: "brouillon",
     valid_until: validUntil.toISOString().slice(0, 10),
@@ -66,7 +61,7 @@ export async function createDevisFromRequest(requestId: string, gridId?: string)
 
   await supabase
     .from("requests")
-    .update({ estimation_prix: quote.ttc, grid_id: grid.id, status: "quoted" })
+    .update({ estimation_prix: quote.ttc, status: "quoted" })
     .eq("id", req.id);
 
   await fireEvent("devis_cree", devisCtx(

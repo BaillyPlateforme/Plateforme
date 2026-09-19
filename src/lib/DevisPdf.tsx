@@ -86,7 +86,10 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
           </View>
           {lignes.map((l, i) => (
             <View style={s.tr} key={i}>
-              <Text style={s.cLabel}>{l.label}</Text>
+              <View style={s.cLabel}>
+                <Text>{l.label}</Text>
+                {l.detail ? <Text style={s.soft}>{l.detail}</Text> : null}
+              </View>
               <Text style={s.cAmt}>{eur(l.amount)}</Text>
             </View>
           ))}

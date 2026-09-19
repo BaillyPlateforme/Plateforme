@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import type { LibraryPhoto } from "@/lib/library";
-import type { PricingGridRow } from "@/lib/types";
 import type { AiConfig } from "@/lib/ai-config";
 import type { CriterionConfig } from "@/lib/qualification";
 import ImagesManager from "./ImagesManager";
-import GridsManager from "../grilles/GridsManager";
+import GrilleApercu from "@/components/pricing/GrilleApercu";
 import AiConfigEditor from "./AiConfigEditor";
 import QualificationEditor from "./QualificationEditor";
 
@@ -15,12 +14,10 @@ type SubTab = (typeof SUBTABS)[number];
 
 export default function ConfigClient({
   library,
-  grids,
   aiConfig,
   qualifConfig,
 }: {
   library: LibraryPhoto[];
-  grids: PricingGridRow[];
   aiConfig: AiConfig;
   qualifConfig: CriterionConfig[];
 }) {
@@ -60,12 +57,14 @@ export default function ConfigClient({
       {tab === "Tarification" && (
         <div>
           <div className="mb-5">
-            <h3 className="font-serif text-xl">Grilles tarifaires</h3>
+            <h3 className="font-serif text-xl">Grille tarifaire</h3>
             <p className="text-sm text-ink-soft">
-              Forfaits, prix au m³ et au km, majorations (étage sans ascenseur, monte-meuble…), TVA.
+              La grille appliquée par le moteur : prix au m³ par tranche de volume et de distance,
+              suppléments et contenu des trois formules. Elle est versionnée dans le code — toute
+              évolution de tarif passe par une mise à jour du fichier de référence.
             </p>
           </div>
-          <GridsManager grids={grids} />
+          <GrilleApercu />
         </div>
       )}
 

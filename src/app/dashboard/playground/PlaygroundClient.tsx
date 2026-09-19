@@ -1,62 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { PricingGridRow, RequestRow } from "@/lib/types";
-import { estimateQuote } from "@/lib/quote";
+import { simuler } from "@/lib/pricing/engine";
+import { FORMULES, type Formule } from "@/lib/pricing/grille";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-const SERVICE_KEYS: { key: keyof RequestRow["services"]; label: string }[] = [
-  { key: "emballage", label: "Emballage" },
-  { key: "demontage", label: "Démontage" },
-  { key: "montage", label: "Montage" },
-  { key: "monte_meuble", label: "Monte-meuble" },
-  { key: "garde_meuble", label: "Garde-meuble" },
-];
-
-export default function PlaygroundClient({
-  grids,
-  library,
-}: {
-  grids: PricingGridRow[];
-  library: LibraryPhoto[];
-}) {
+export default function PlaygroundClient({ library }: { library: LibraryPhoto[] }) {
   const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
 
-  const [gridId, setGridId] = useState(grids.find((g) => g.is_default)?.id ?? grids[0]?.id);
+  const [formule, setFormule] = useState<Formule>("standard");
   const [distance, setDistance] = useState("250");
-  const [departEtage, setDepartEtage] = useState("2");
-  const [departAsc, setDepartAsc] = useState(false);
-  const [arriveeEtage, setArriveeEtage] = useState("0");
-  const [arriveeAsc, setArriveeAsc] = useState(true);
-  const [services, setServices] = useState<Record<string, boolean>>({ emballage: true });
+  const [monteMeubles, setMonteMeubles] = useState(false);
 
   const totalVolume = round2(photos.reduce((s, p) => s + p.volume_m3, 0));
-  const grid = grids.find((g) => g.id === gridId);
 
   const quote = useMemo(() => {
-    if (!grid || photos.length === 0) return null;
-    const fakeRequest = {
+    if (photos.length === 0) return null;
+    return simuler({
+      formule,
       volume_m3: totalVolume,
       distance_km: Number(distance) || 0,
-      services: Object.fromEntries(Object.entries(services).filter(([, v]) => v)),
-      depart_etage: Number(departEtage) || 0,
-      depart_ascenseur: departAsc,
-      arrivee_etage: Number(arriveeEtage) || 0,
-      arrivee_ascenseur: arriveeAsc,
-    } as unknown as RequestRow;
-    return estimateQuote(fakeRequest, grid);
-  }, [grid, photos.length, totalVolume, distance, services, departEtage, departAsc, arriveeEtage, arriveeAsc]);
-
-  if (grids.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-line p-12 text-center text-ink-soft">
-        Aucune grille active. Créez-en une dans « Configuration ».
-      </div>
-    );
-  }
+      monte_meubles: monteMeubles ? 1 : 0,
+    });
+  }, [photos.length, totalVolume, distance, formule, monteMeubles]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -72,49 +41,28 @@ export default function PlaygroundClient({
           </div>
 
           <label className="mb-3 block">
-            <span className="mb-1 block text-sm text-ink-soft">Grille</span>
+            <span className="mb-1 block text-sm text-ink-soft">Formule</span>
             <select
-              value={gridId}
-              onChange={(e) => setGridId(e.target.value)}
+              value={formule}
+              onChange={(e) => setFormule(e.target.value as Formule)}
               className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
             >
-              {grids.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
+              {FORMULES.map((f) => (
+                <option key={f.key} value={f.key}>
+                  {f.label}
                 </option>
               ))}
             </select>
           </label>
 
           <NumRow label="Distance (km)" value={distance} onChange={setDistance} />
-          <div className="grid grid-cols-2 gap-3">
-            <NumRow label="Étage départ" value={departEtage} onChange={setDepartEtage} />
-            <NumRow label="Étage arrivée" value={arriveeEtage} onChange={setArriveeEtage} />
+          <div className="mt-2 text-sm">
+            <Check label="Monte-meubles" checked={monteMeubles} onChange={setMonteMeubles} />
           </div>
-          <div className="mt-2 flex gap-4 text-sm">
-            <Check label="Asc. départ" checked={departAsc} onChange={setDepartAsc} />
-            <Check label="Asc. arrivée" checked={arriveeAsc} onChange={setArriveeAsc} />
-          </div>
-
-          <div className="mt-4">
-            <span className="mb-2 block text-sm text-ink-soft">Options</span>
-            <div className="flex flex-wrap gap-1.5">
-              {SERVICE_KEYS.map((s) => {
-                const on = services[s.key as string];
-                return (
-                  <button
-                    key={s.key as string}
-                    onClick={() => setServices((prev) => ({ ...prev, [s.key as string]: !on }))}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      on ? "border-accent bg-accent-soft" : "border-line text-ink-soft hover:border-accent"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <p className="mt-3 text-[11.5px] text-ink-soft">
+            Emballage, démontage et remontage sont compris dans la formule — voir le contenu des
+            formules dans le simulateur.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-line bg-card p-5">
@@ -124,7 +72,10 @@ export default function PlaygroundClient({
               <tbody className="divide-y divide-line/70">
                 {quote.lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="py-1.5 pr-2 text-ink-soft">{l.label}</td>
+                    <td className="py-1.5 pr-2 text-ink-soft">
+                      {l.label}
+                      {l.detail && <span className="block text-[11px]">{l.detail}</span>}
+                    </td>
                     <td className="py-1.5 text-right tabular-nums">{l.amount.toFixed(0)} €</td>
                   </tr>
                 ))}

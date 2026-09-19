@@ -1,14 +1,10 @@
-import { listGrids } from "@/lib/grids";
 import { listLibraryPhotos } from "@/lib/library";
 import PlaygroundShell from "./PlaygroundShell";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlaygroundPage() {
-  const [grids, library] = await Promise.all([
-    listGrids().then((g) => g.filter((x) => x.is_active)),
-    listLibraryPhotos(),
-  ]);
+  const library = await listLibraryPhotos();
   return (
     <div className="px-6 py-8 md:px-10">
       <header className="mb-8">
@@ -18,7 +14,7 @@ export default async function PlaygroundPage() {
           Testez l&apos;analyse d&apos;image et la chaîne complète (mails → demandes) de bout en bout.
         </p>
       </header>
-      <PlaygroundShell grids={grids} library={library} />
+      <PlaygroundShell library={library} />
     </div>
   );
 }

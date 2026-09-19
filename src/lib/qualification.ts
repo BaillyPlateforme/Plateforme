@@ -1,7 +1,6 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getDefaultGrid } from "@/lib/grids";
-import { estimateQuote } from "@/lib/quote";
+import { estimerDemande } from "@/lib/pricing/engine";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import type { RequestRow } from "@/lib/types";
@@ -224,31 +223,27 @@ export async function qualifyRequest(requestId: string): Promise<QualifResult | 
   if (!complete) return null;
 
   // 1) Devis (brouillon) si aucun n'existe encore, + estimation sur la demande.
-  const grid = await getDefaultGrid();
-  if (grid) {
-    const quote = estimateQuote(req, grid);
-    await supabase.from("requests").update({ estimation_prix: quote.ttc, grid_id: grid.id }).eq("id", req.id);
-    req.estimation_prix = quote.ttc;
-    req.grid_id = grid.id;
+  const quote = estimerDemande(req);
+  await supabase.from("requests").update({ estimation_prix: quote.ttc }).eq("id", req.id);
+  req.estimation_prix = quote.ttc;
 
-    const { data: existing } = await supabase.from("devis").select("id").eq("request_id", req.id).maybeSingle();
-    if (!existing) {
-      const settings = await getSettings();
-      const reference = await nextReference();
-      const validUntil = new Date();
-      validUntil.setDate(validUntil.getDate() + (settings.devis_validite_jours || 30));
-      await supabase.from("devis").insert({
-        reference, request_id: req.id, client_nom: req.client_nom, client_email: req.client_email,
-        montant_ht: quote.ht, montant_tva: quote.tva, montant_ttc: quote.ttc, grid_id: grid.id,
-        lignes: quote.lines, status: "brouillon", valid_until: validUntil.toISOString().slice(0, 10),
-      });
-      await fireEvent("devis_cree", {
-        request_id: req.id, source: req.source, reference,
-        client_nom: req.client_nom, client_email: req.client_email, client_tel: req.client_tel,
-        montant_ttc: quote.ttc, montant_ht: quote.ht,
-        ville_depart: req.depart_ville, ville_arrivee: req.arrivee_ville, volume: req.volume_m3,
-      });
-    }
+  const { data: existing } = await supabase.from("devis").select("id").eq("request_id", req.id).maybeSingle();
+  if (!existing) {
+    const settings = await getSettings();
+    const reference = await nextReference();
+    const validUntil = new Date();
+    validUntil.setDate(validUntil.getDate() + (settings.devis_validite_jours || 30));
+    await supabase.from("devis").insert({
+      reference, request_id: req.id, client_nom: req.client_nom, client_email: req.client_email,
+      montant_ht: quote.ht, montant_tva: quote.tva, montant_ttc: quote.ttc,
+      lignes: quote.lines, status: "brouillon", valid_until: validUntil.toISOString().slice(0, 10),
+    });
+    await fireEvent("devis_cree", {
+      request_id: req.id, source: req.source, reference,
+      client_nom: req.client_nom, client_email: req.client_email, client_tel: req.client_tel,
+      montant_ttc: quote.ttc, montant_ht: quote.ht,
+      ville_depart: req.depart_ville, ville_arrivee: req.arrivee_ville, volume: req.volume_m3,
+    });
   }
 
   // 2) Analyse pondérée
