@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 
 // Display : grotesque serré et affirmé (esprit Redion).
@@ -10,8 +10,8 @@ const display = Bricolage_Grotesque({
   display: "swap",
 });
 
-// UI / corps : la police d'Athena, plus ronde et plus lisible en petit corps.
-const sans = Plus_Jakarta_Sans({
+// UI / corps : grotesque neutre et lisible.
+const sans = Instrument_Sans({
   variable: "--font-sans-ui",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],

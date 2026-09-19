@@ -359,9 +359,9 @@ function Num({
 }) {
   return (
     <label className="mb-2.5 flex items-center justify-between gap-3 last:mb-0">
-      <span className="min-w-0">
-        <span className="block text-sm leading-tight">{label}</span>
-        {hint && <span className="block text-[11px] leading-tight text-ink-soft">{hint}</span>}
+      <span className="text-sm">
+        {label}
+        {hint && <span className="ml-1.5 text-[11px] text-ink-soft">{hint}</span>}
       </span>
       <span className="flex items-center gap-1.5">
         <input
@@ -392,11 +392,11 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!value)}
-      className="mb-3 flex w-full items-center justify-between gap-3 text-left"
+      className="mb-2.5 flex w-full items-center justify-between gap-3 text-left"
     >
-      <span className="min-w-0">
-        <span className="block text-sm leading-tight">{label}</span>
-        {hint && <span className="block text-[11px] leading-tight text-ink-soft">{hint}</span>}
+      <span className="text-sm">
+        {label}
+        {hint && <span className="ml-1.5 text-[11px] text-ink-soft">{hint}</span>}
       </span>
       <span
         className={`relative h-5 w-9 shrink-0 rounded-full transition ${value ? "bg-accent" : "bg-line-strong"}`}

@@ -1,73 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Système repris d'Athena (« Coursue ») ─────────────────────────────
-     Trois principes :
-     1. LE SOL EST GRIS, LES CARTES SONT BLANCHES — et sans filet : c'est le
-        contraste de fond qui les découpe, pas une bordure.
-     2. LE VIOLET MARQUE L'ACTION ET L'ÉTAT ACTIF, nulle part ailleurs.
-     3. LES PASTELS SONT DES DONNÉES : statuts, séries, jauges. Jamais de la
-        décoration.                                                          */
+  /* ---- Palette inspirée Redion : gris clair froid, émeraude ---- */
+  --color-paper: #f4f5f3;        /* fond de page */
+  --color-card: #ffffff;         /* surfaces / cartes */
+  --color-subtle: #eef0ec;       /* surfaces secondaires */
+  --color-ink: #15170f;          /* texte principal (quasi noir) */
+  --color-ink-soft: #6f736a;     /* texte secondaire (muted) */
+  --color-line: #e2e4de;         /* filets */
+  --color-line-strong: #d2d5cd;
+  --color-accent: #6366f1;       /* indigo (action) — accent primaire Redion */
+  --color-accent-dark: #4f46e5;  /* hover */
+  --color-accent-soft: #ecedfd;  /* surface active / sélection */
+  --color-good: #10b981;         /* émeraude (succès) */
+  --color-warn: #f59e0b;         /* ambre */
 
-  /* Surfaces */
-  --color-paper: #f4f6f9;        /* le sol : fond de page */
-  --color-card: #ffffff;         /* les cartes */
-  --color-subtle: #f5f6fa;       /* panneau en creux DANS une carte */
-  --color-ink: #1c1c22;          /* texte principal */
-  /* Athena descend à #8E929B pour ce gris. Sur les écrans de Bailly il porte
-     du texte de 12 à 14 px, et 3,5:1 ne suffit pas : #6b7280 donne 4,8:1 sur
-     blanc et 4,6:1 sur le sol gris. */
-  --color-ink-soft: #6b7280;     /* texte secondaire */
-  --color-line: #eceef3;         /* filet d'un tableau, piste d'une jauge */
-  --color-line-strong: #e4e6ec;
-
-  /* Violet : boutons pleins, icônes actives, liens */
-  --color-accent: #6b50de;
-  --color-accent-dark: #5a41c4;  /* survol */
-  --color-accent-soft: #ece8fb;  /* pastille, entrée de menu active */
-  --color-accent-pale: #d5ccfb;  /* barre non active d'un graphique */
-
-  /* États */
-  --color-good: #16a34a;
-  --color-good-soft: #e8f8ef;
-  --color-warn: #b45309;
-  --color-warn-soft: #fef3c7;
-  --color-danger: #c2410c;
-  --color-danger-soft: #fde8e0;
-  --color-info: #1c6b8f;
-  --color-info-soft: #e5f0fa;
-
-  /* Familles de couleur — séries, statuts, icônes de menu */
-  --color-rose: #d94fb0;
-  --color-rose-soft: #fbe5f5;
-  --color-bleu: #4b9fdc;
-  --color-bleu-soft: #e5f0fa;
-  --color-vert: #22c55e;
-  --color-vert-soft: #e8f8ef;
-  --color-ambre: #f59e0b;
-  --color-ambre-soft: #fef3c7;
-  --color-indigo: #6366f1;
-  --color-indigo-soft: #e0e7ff;
-
-  /* Palette catégorielle des graphiques */
-  --chart-1: #6b50de;
-  --chart-2: #4b9fdc;
-  --chart-3: #22c55e;
+  /* Palette catégorielle Redion (identités : statuts, sources, formules…) */
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #6366f1;
   --chart-4: #f59e0b;
-  --chart-5: #d94fb0;
-  --chart-6: #6366f1;
-  --chart-7: #06b6d4;
+  --chart-5: #ec4899;
+  --chart-6: #8b5cf6;
+  --chart-7: #14b8a6;
 
   --font-sans: var(--font-sans-ui);
   --font-serif: var(--font-display);
 
-  /* Deux rayons : 12 px pour les commandes, 15 px pour les blocs */
-  --radius: 0.9375rem;
+  --radius: 1rem;
 
-  /* Une carte posée dans le flux ne porte pas d'ombre ; seules les couches
-     flottantes en ont une. */
-  --shadow-sm: 0 1px 2px rgba(28, 28, 34, 0.04);
-  --shadow-md: 0 12px 32px -8px rgba(28, 28, 34, 0.18);
+  --shadow-sm: 0 1px 2px rgba(20, 23, 15, 0.06);
+  --shadow-md: 0 6px 24px -8px rgba(20, 23, 15, 0.14);
 }
 
 @layer base {
@@ -76,6 +39,19 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv01";
+  }
+
+  /* Halo accent discret en fond (pas de quadrillage). */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(900px 520px at 88% -12%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 60%),
+      radial-gradient(680px 480px at -5% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%);
   }
 
   ::selection {
@@ -87,7 +63,7 @@
 /* Titres display — grotesque serré (esprit Redion) */
 .font-serif {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   font-weight: 600;
 }
 h1.font-serif,
@@ -100,14 +76,14 @@ h2.font-serif {
 /* Petites capitales étirées */
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
   font-weight: 600;
 }
 
 /* Signature : dégradé sur un mot-clé (titres, grands nombres) */
 .gradient-text {
-  background: linear-gradient(95deg, #6b50de 0%, #8b5cf6 45%, #d94fb0 100%);
+  background: linear-gradient(95deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -118,12 +94,12 @@ h2.font-serif {
 .gradient-flow {
   background-image: linear-gradient(
     95deg,
-    #6b50de 0%,
+    #6366f1 0%,
     #8b5cf6 22%,
-    #d94fb0 44%,
+    #ec4899 44%,
     #8b5cf6 66%,
-    #6b50de 88%,
-    #6b50de 100%
+    #6366f1 88%,
+    #6366f1 100%
   );
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -306,7 +282,11 @@ h2.font-serif {
   font-feature-settings: "tnum";
 }
 
-/* Les cartes se lisent par leur fond, pas par une ombre : rien ici. */
+/* Profondeur discrète sur les surfaces (esprit Redion) */
+.rounded-xl.bg-card,
+.rounded-2xl.bg-card {
+  box-shadow: var(--shadow-sm);
+}
 
 * {
   scrollbar-width: thin;

@@ -1,6 +1,7 @@
 import { getUser } from "@/lib/supabase/auth";
-import Nav, { NavMobile } from "./Nav";
-import TopBar from "./TopBar";
+import Nav from "./Nav";
+import ModeSwitch from "@/components/ModeSwitch";
+import RefreshButton from "@/components/RefreshButton";
 
 export default async function DashboardLayout({
   children,
@@ -10,17 +11,13 @@ export default async function DashboardLayout({
   const user = await getUser();
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <TopBar email={user?.email ?? ""} />
-      <NavMobile />
-      <div className="flex flex-1">
-        <aside className="hidden w-56 shrink-0 bg-card md:block">
-          <div className="sticky top-[65px] h-[calc(100vh-65px)]">
-            <Nav />
-          </div>
-        </aside>
-        <main className="min-w-0 flex-1">{children}</main>
-      </div>
+    <div className="relative z-10 flex min-h-screen">
+      <ModeSwitch current="dashboard" />
+      <RefreshButton />
+      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-card md:block">
+        <Nav email={user?.email ?? ""} />
+      </aside>
+      <div className="flex-1 md:ml-60">{children}</div>
     </div>
   );
 }
