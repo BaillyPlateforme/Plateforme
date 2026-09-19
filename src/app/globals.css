@@ -81,6 +81,23 @@ h2.font-serif {
   font-weight: 600;
 }
 
+/* Signature : dégradé sur un mot-clé (titres, grands nombres) */
+.gradient-text {
+  background: linear-gradient(95deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Grands nombres d'affichage */
+.display-num {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Nombres tabulaires pour l'alignement des métriques */
 .tnum {
   font-variant-numeric: tabular-nums;
