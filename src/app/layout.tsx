@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 
-// Une seule famille, géométrique : celle de la maquette. Les titres jouent
-// sur la graisse et le crénage, pas sur un second caractère.
+// Une seule famille, géométrique, pour les titres comme pour le corps :
+// les titres jouent sur la graisse et le crénage, pas sur un second caractère.
 const display = Poppins({
   variable: "--font-display",
   subsets: ["latin"],

@@ -51,32 +51,32 @@ async function preparer() {
       valeur: nf.format(mois.length),
       label: "Demandes reçues",
       delta: delta(mois.length, moisPrec.length),
-      fond: TONS.ciel,
-      pastille: TONS.ciel,
+      fond: "#ffe2e5",
+      pastille: "#fa5a7d",
       icone: <IconInbox />,
     },
     {
       valeur: eur(somme(mois, (r) => r.estimation_prix)),
       label: "Estimations cumulées",
       delta: delta(somme(mois, (r) => r.estimation_prix), somme(moisPrec, (r) => r.estimation_prix)),
-      fond: TONS.peche,
-      pastille: TONS.peche,
+      fond: "#fff4de",
+      pastille: "#ff947a",
       icone: <IconEuro />,
     },
     {
       valeur: `${nf.format(somme(mois, (r) => r.volume_m3))} m³`,
       label: "Volume à déménager",
       delta: delta(somme(mois, (r) => r.volume_m3), somme(moisPrec, (r) => r.volume_m3)),
-      fond: TONS.menthe,
-      pastille: TONS.menthe,
+      fond: "#dcfce7",
+      pastille: "#3cd856",
       icone: <IconBox />,
     },
     {
       valeur: nf.format(clients(mois)),
       label: "Nouveaux clients",
       delta: delta(clients(mois), clients(moisPrec)),
-      fond: TONS.lilas,
-      pastille: TONS.lilas,
+      fond: "#f3e8ff",
+      pastille: "#bf83ff",
       icone: <IconUser />,
     },
   ];
@@ -95,19 +95,19 @@ async function preparer() {
   const flux = [
     {
       label: "Reçues",
-      color: TONS.lilas,
+      color: TONS.violet,
       data: moisSerie.map((d) => requests.filter((r) => dansMois(r, d)).length),
     },
     {
       label: "Qualifiées",
-      color: TONS.menthe,
+      color: TONS.vert,
       data: moisSerie.map(
         (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
       ),
     },
     {
       label: "Devisées",
-      color: TONS.rose,
+      color: TONS.rouge,
       data: moisSerie.map(
         (d) => requests.filter((r) => dansMois(r, d) && ["quoted", "won"].includes(r.status)).length,
       ),
@@ -127,8 +127,8 @@ async function preparer() {
       ),
     );
   const revenus = [
-    { label: "Formulaire", color: TONS.ciel, data: parJour("form") },
-    { label: "E-mail", color: TONS.menthe, data: parJour("email") },
+    { label: "Formulaire", color: TONS.bleu, data: parJour("form") },
+    { label: "E-mail", color: TONS.vert, data: parJour("email") },
   ];
 
   // ── Rythme hebdomadaire sur la fenêtre : reçues contre qualifiées ──
@@ -137,12 +137,12 @@ async function preparer() {
   const semaines = [
     {
       label: "Reçues",
-      color: TONS.ciel,
+      color: TONS.bleu,
       data: Array.from({ length: SEMAINES }, (_, i) => semaine(i).length),
     },
     {
       label: "Qualifiées",
-      color: TONS.menthe,
+      color: TONS.vert,
       data: Array.from({ length: SEMAINES }, (_, i) =>
         semaine(i).filter((r) => QUALIFIEES.includes(r.status)).length,
       ),
@@ -156,14 +156,14 @@ async function preparer() {
   const objectif = [
     {
       label: "Qualifiées",
-      color: TONS.menthe,
+      color: TONS.sapin,
       data: sept.map(
         (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
       ),
     },
     {
       label: "Reçues",
-      color: TONS.peche,
+      color: TONS.jaune,
       data: sept.map((d) => requests.filter((r) => dansMois(r, d)).length),
     },
   ];
@@ -179,7 +179,7 @@ async function preparer() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
   const villeMax = villes[0]?.[1] ?? 1;
-  const tons = [TONS.ciel, TONS.menthe, TONS.lilas, TONS.peche, TONS.rose];
+  const tons = [TONS.bleu, TONS.vert, TONS.violet, "#f59e0b", TONS.rouge];
 
   // ── Départements ──
   const deps = Object.entries(
@@ -221,8 +221,8 @@ export default async function TableauDeBordPage() {
 
   return (
     <div className="px-6 py-8 md:px-10">
-      <header className="mb-3 flex flex-wrap items-center justify-end gap-4">
-        <span className="rounded-full bg-card px-4 py-2 text-xs text-ink-soft">
+      <header className="mb-6 flex flex-wrap items-center justify-end gap-4">
+        <span className="rounded-full border border-line bg-card px-3.5 py-1.5 text-xs text-ink-soft">
           {FENETRE} derniers jours · {nf.format(requests.length)} demandes suivies · {devis.length} devis
         </span>
       </header>
@@ -233,13 +233,16 @@ export default async function TableauDeBordPage() {
           <EnTete titre="Activité récente" sous={`Résumé sur ${FENETRE} jours`} />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {tuiles.map((t) => (
-              <div key={t.label} className="rounded-3xl p-5" style={{ background: t.fond }}>
-                <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-white/70 text-ink">
+              <div key={t.label} className="rounded-2xl p-4" style={{ background: t.fond }}>
+                <span
+                  className="mb-3 flex h-9 w-9 items-center justify-center rounded-full text-white"
+                  style={{ background: t.pastille }}
+                >
                   {t.icone}
                 </span>
-                <div className="font-serif text-[28px] leading-none tnum">{t.valeur}</div>
-                <div className="mt-2 text-[13px] font-medium text-ink/75">{t.label}</div>
-                <div className="mt-1 text-[11.5px] text-ink/50">
+                <div className="font-serif text-[26px] leading-none tnum">{t.valeur}</div>
+                <div className="mt-1.5 text-[13px] text-ink/70">{t.label}</div>
+                <div className="mt-1 text-[11.5px] font-medium" style={{ color: t.pastille }}>
                   {t.delta === null
                     ? `sur ${FENETRE} jours`
                     : `${t.delta >= 0 ? "+" : ""}${t.delta} % vs ${FENETRE} j préc.`}
@@ -266,9 +269,9 @@ export default async function TableauDeBordPage() {
           <EnTete titre="Rythme hebdomadaire" sous={`${SEMAINES} dernières semaines`} />
           <Aires labels={Array.from({ length: SEMAINES }, (_, i) => `S${i + 1}`)} series={semaines} />
           <div className="mt-3 flex items-center justify-center gap-6 border-t border-line pt-3">
-            <Total couleur={TONS.ciel} label="Reçues" valeur={`${totalRecues}`} />
+            <Total couleur={TONS.bleu} label="Reçues" valeur={`${totalRecues}`} />
             <span className="h-8 w-px bg-line" />
-            <Total couleur={TONS.menthe} label="Qualifiées" valeur={`${totalQualifiees}`} />
+            <Total couleur={TONS.vert} label="Qualifiées" valeur={`${totalQualifiees}`} />
           </div>
         </Carte>
 
@@ -278,13 +281,13 @@ export default async function TableauDeBordPage() {
           <BarresGroupees labels={sept.map((d) => moisCourt.format(d).replace(".", ""))} series={objectif} />
           <div className="mt-3 space-y-2">
             <LigneTotal
-              couleur={TONS.menthe}
+              couleur={TONS.sapin}
               titre="Qualifiées"
               sous="complètes et chiffrées"
               valeur={nf.format(objectif[0].data.reduce((a, b) => a + b, 0))}
             />
             <LigneTotal
-              couleur={TONS.peche}
+              couleur={TONS.jaune}
               titre="Reçues"
               sous="toutes origines"
               valeur={nf.format(objectif[1].data.reduce((a, b) => a + b, 0))}
@@ -316,7 +319,7 @@ export default async function TableauDeBordPage() {
                     </td>
                     <td className="py-2.5 text-right">
                       <span
-                        className="rounded-lg px-2.5 py-1 text-[11.5px] font-semibold tnum"
+                        className="rounded-lg px-2 py-1 text-[11.5px] font-medium tnum"
                         style={{ color: tons[i % tons.length], background: `${tons[i % tons.length]}1a` }}
                       >
                         {pct}%
@@ -358,18 +361,18 @@ export default async function TableauDeBordPage() {
           <EnTete titre="Volume traité" sous="Six derniers mois" />
           <BarresEmpilees
             labels={six.map((d) => moisCourt.format(d).replace(".", ""))}
-            bas={{ label: "Qualifié", color: TONS.ciel, data: volQualifie }}
-            haut={{ label: "En attente", color: TONS.menthe, data: volAttente }}
+            bas={{ label: "Qualifié", color: TONS.bleu, data: volQualifie }}
+            haut={{ label: "En attente", color: TONS.vert, data: volAttente }}
           />
           <div className="mt-3 flex items-center justify-center gap-6 border-t border-line pt-3">
             <Total
-              couleur={TONS.ciel}
+              couleur={TONS.bleu}
               label="Qualifié"
               valeur={`${nf.format(volQualifie.reduce((a, b) => a + b, 0))} m³`}
             />
             <span className="h-8 w-px bg-line" />
             <Total
-              couleur={TONS.menthe}
+              couleur={TONS.vert}
               label="En attente"
               valeur={`${nf.format(volAttente.reduce((a, b) => a + b, 0))} m³`}
             />
@@ -384,14 +387,14 @@ export default async function TableauDeBordPage() {
 
 function Carte({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <section className={`rounded-3xl bg-card p-6 ${className}`}>{children}</section>
+    <section className={`rounded-2xl border border-line bg-card p-5 ${className}`}>{children}</section>
   );
 }
 
 function EnTete({ titre, sous }: { titre: string; sous?: string }) {
   return (
     <div className="mb-4">
-      <h2 className="font-serif text-[21px] leading-tight">{titre}</h2>
+      <h2 className="font-serif text-[19px] leading-tight">{titre}</h2>
       {sous && <p className="mt-0.5 text-[12.5px] text-ink-soft">{sous}</p>}
     </div>
   );
@@ -421,7 +424,7 @@ function LigneTotal({
   valeur: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-paper px-3.5 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
       <span
         className="flex h-8 w-8 items-center justify-center rounded-lg"
         style={{ background: `${couleur}1f`, color: couleur }}

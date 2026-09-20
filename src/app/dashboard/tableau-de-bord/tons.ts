@@ -1,14 +1,14 @@
-/* Palette du tableau de bord — les pastels de la maquette.
-   Dans un module à part, sans « use client » : lue depuis un composant
+/* Palette du tableau de bord.
+   Dans un module à part, sans « use client » : importée depuis un composant
    serveur, une constante exportée par un module client ne renvoie pas sa
-   valeur mais une référence. */
+   valeur mais une référence — les couleurs arrivaient à `undefined`, et les
+   barres se dessinaient en noir. */
 export const TONS = {
-  ciel: "#a9dcea",
-  menthe: "#c3dfa4",
-  peche: "#f7c99b",
-  lilas: "#c9c3ec",
-  rose: "#f3b6c0",
-  bleu: "#9ec7d8",
-  sable: "#ded3a8",
-  encre: "#1a1a1a",
+  bleu: "#0095ff",
+  vert: "#00e096",
+  violet: "#a700ff",
+  rouge: "#ef3826",
+  jaune: "#ffcf00",
+  sapin: "#4ab58e",
+  ambre: "#f59e0b",
 };
