@@ -9,6 +9,7 @@ const SECTIONS: { title: string; items: Item[] }[] = [
   {
     title: "Pilotage",
     items: [
+      { href: "/dashboard/tableau-de-bord", label: "Tableau de bord", icon: <IconGauge /> },
       { href: "/dashboard", label: "Demandes", icon: <IconInbox /> },
       { href: "/dashboard/focus", label: "Focus", icon: <IconStar /> },
       { href: "/dashboard/kanban", label: "Kanban", icon: <IconKanban /> },
@@ -142,6 +143,7 @@ function IconMarque() {
 }
 
 const S = { width: 19, height: 19, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7 } as const;
+function IconGauge() { return <svg {...S}><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /><path d="M13.4 10.6 18 6M3.5 18a9 9 0 1 1 17 0" strokeLinecap="round" /></svg>; }
 function IconInbox() { return <svg {...S}><path d="M22 12h-6l-2 3h-4l-2-3H2" strokeLinecap="round" strokeLinejoin="round" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function IconDoc() { return <svg {...S}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" strokeLinejoin="round" /><path d="M14 2v6h6M8 13h8M8 17h5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function IconKanban() { return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18M15 3v18" strokeLinecap="round" /></svg>; }
