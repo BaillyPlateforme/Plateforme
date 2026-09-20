@@ -241,12 +241,22 @@ export async function listRequests(): Promise<RequestRow[]> {
   return (data ?? []) as unknown as RequestRow[];
 }
 
-/** Compteur léger pour la pastille de la barre du haut. */
+/**
+ * Compteur de la pastille, gardé quelques secondes.
+ *
+ * Il est lu par le layout, donc à chaque navigation : une requête de plus à
+ * chaque clic pour un chiffre qui ne bouge qu'à la réception d'une demande.
+ */
+let cacheNouvelles: { a: number; v: number } | null = null;
+const TTL_NOUVELLES = 30_000;
+
 export async function compterNouvelles(): Promise<number> {
+  if (cacheNouvelles && Date.now() - cacheNouvelles.a < TTL_NOUVELLES) return cacheNouvelles.v;
   const supabase = createServiceClient();
   const { count } = await supabase
     .from("requests")
     .select("id", { count: "exact", head: true })
     .eq("status", "new");
-  return count ?? 0;
+  cacheNouvelles = { a: Date.now(), v: count ?? 0 };
+  return cacheNouvelles.v;
 }
