@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
-// Display : grotesque serré et affirmé (esprit Redion).
-const display = Bricolage_Grotesque({
+// Une seule famille, géométrique : celle de la maquette. Les titres jouent
+// sur la graisse et le crénage, pas sur un second caractère.
+const display = Poppins({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
-// UI / corps : grotesque neutre et lisible.
-const sans = Instrument_Sans({
+const sans = Poppins({
   variable: "--font-sans-ui",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 

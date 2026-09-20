@@ -1,36 +1,62 @@
 @import "tailwindcss";
 
 @theme {
-  /* ---- Palette inspirée Redion : gris clair froid, émeraude ---- */
-  --color-paper: #f4f5f3;        /* fond de page */
-  --color-card: #ffffff;         /* surfaces / cartes */
-  --color-subtle: #eef0ec;       /* surfaces secondaires */
-  --color-ink: #15170f;          /* texte principal (quasi noir) */
-  --color-ink-soft: #6f736a;     /* texte secondaire (muted) */
-  --color-line: #e2e4de;         /* filets */
-  --color-line-strong: #d2d5cd;
-  --color-accent: #6366f1;       /* indigo (action) — accent primaire Redion */
-  --color-accent-dark: #4f46e5;  /* hover */
-  --color-accent-soft: #ecedfd;  /* surface active / sélection */
-  --color-good: #10b981;         /* émeraude (succès) */
-  --color-warn: #f59e0b;         /* ambre */
+  /* ── Système repris de la maquette « Activity Tracking » ───────────────
+     1. LA PAGE EST BLANCHE, LES CARTES SONT GRISES — et sans filet ni
+        ombre : c'est l'aplat qui les découpe.
+     2. LE NOIR PORTE L'ACTION : bouton plein, entrée active, infobulle.
+        Pas de couleur de marque.
+     3. LES PASTELS SONT DES DONNÉES : séries, statuts, jauges.          */
 
-  /* Palette catégorielle Redion (identités : statuts, sources, formules…) */
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #6366f1;
-  --chart-4: #f59e0b;
-  --chart-5: #ec4899;
-  --chart-6: #8b5cf6;
-  --chart-7: #14b8a6;
+  /* Surfaces */
+  --color-paper: #ffffff;        /* fond de page */
+  --color-card: #f7f7f8;         /* cartes : un gris posé sur du blanc */
+  --color-subtle: #f0f0f2;       /* creux dans une carte, pilules */
+  --color-ink: #1a1a1a;
+  /* #8a8a8f, le gris de la maquette, ne donne que 3:1 sur blanc. Ce gris-ci
+     passe le seuil de 4,5:1 pour du texte de 12 à 14 px. */
+  --color-ink-soft: #6f6f76;
+  --color-line: #ededf0;
+  --color-line-strong: #e3e3e7;
+
+  /* Le noir tient lieu d'accent */
+  --color-accent: #1a1a1a;
+  --color-accent-dark: #000000;
+  --color-accent-soft: #f0f0f2;
+
+  /* Pastels — uniquement pour les données */
+  --color-ciel: #a9dcea;
+  --color-menthe: #c3dfa4;
+  --color-peche: #f7c99b;
+  --color-lilas: #c9c3ec;
+  --color-rose: #f3b6c0;
+
+  /* États : la teinte pastel porte le fond, une version foncée le texte */
+  --color-good: #4b7f52;
+  --color-good-soft: #e4f0da;
+  --color-warn: #9a6a24;
+  --color-warn-soft: #fdeed8;
+  --color-danger: #a8442f;
+  --color-danger-soft: #fbe0da;
+  --color-info: #2b6f86;
+  --color-info-soft: #e0f1f7;
+
+  /* Séries de graphiques */
+  --chart-1: #a9dcea;
+  --chart-2: #c3dfa4;
+  --chart-3: #f7c99b;
+  --chart-4: #c9c3ec;
+  --chart-5: #f3b6c0;
+  --chart-6: #9ec7d8;
+  --chart-7: #ded3a8;
 
   --font-sans: var(--font-sans-ui);
   --font-serif: var(--font-display);
 
-  --radius: 1rem;
+  --radius: 1.25rem;
 
-  --shadow-sm: 0 1px 2px rgba(20, 23, 15, 0.06);
-  --shadow-md: 0 6px 24px -8px rgba(20, 23, 15, 0.14);
+  --shadow-sm: none;
+  --shadow-md: 0 14px 34px -18px rgba(26, 26, 26, 0.25);
 }
 
 @layer base {
@@ -39,37 +65,24 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "ss01", "cv01";
-  }
-
-  /* Halo accent discret en fond (pas de quadrillage). */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(900px 520px at 88% -12%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 60%),
-      radial-gradient(680px 480px at -5% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%);
   }
 
   ::selection {
-    background: var(--color-accent);
+    background: var(--color-ink);
     color: #fff;
   }
 }
 
-/* Titres display — grotesque serré (esprit Redion) */
+/* Titres : gras et serrés, c'est la signature de la maquette */
 .font-serif {
   font-family: var(--font-display);
-  letter-spacing: -0.015em;
-  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-weight: 700;
 }
 h1.font-serif,
 h2.font-serif {
-  letter-spacing: -0.025em;
-  line-height: 1.05;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
   font-weight: 700;
 }
 

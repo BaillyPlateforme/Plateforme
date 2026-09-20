@@ -46,36 +46,28 @@ export function Courbes({
 }) {
   const W = 620;
   const H = hauteur;
-  const padL = 34;
+  const padL = 16;
   const padB = 22;
   const max = Math.max(1, ...series.flatMap((s) => s.data));
-  const { max: haut, ticks } = echelle(max);
-  const x = (i: number) => padL + (i * (W - padL - 8)) / Math.max(1, labels.length - 1);
+  const { max: haut } = echelle(max);
+  const x = (i: number) => padL + (i * (W - padL - 18)) / Math.max(1, labels.length - 1);
   const y = (v: number) => H - padB - (v / haut) * (H - padB - 10);
 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: hauteur }}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={padL} x2={W - 4} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" />
-            <text x={padL - 8} y={y(t) + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-ink-soft)">
-              {tick(t)}
-            </text>
-          </g>
-        ))}
         {series.map((s) => (
           <path
             key={s.label}
             d={lissage(s.data.map((v, i) => [x(i), y(v)]))}
             fill="none"
             stroke={s.color}
-            strokeWidth="2.6"
+            strokeWidth="3"
             strokeLinecap="round"
           />
         ))}
         {labels.map((l, i) => (
-          <text key={l + i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="9.5" fill="var(--color-ink-soft)">
+          <text key={l + i} x={x(i)} y={H - 6} textAnchor="middle" fontSize="10.5" fill="var(--color-ink-soft)">
             {l}
           </text>
         ))}
@@ -100,26 +92,17 @@ export function BarresGroupees({
 }) {
   const W = 560;
   const H = hauteur;
-  const padL = 40;
+  const padL = 14;
   const padB = 24;
   const max = Math.max(1, ...series.flatMap((s) => s.data));
-  const { max: haut, ticks } = echelle(max);
+  const { max: haut } = echelle(max);
   const pas = (W - padL - 10) / Math.max(1, labels.length);
-  const largeur = Math.min(13, (pas - 10) / series.length);
+  const largeur = Math.min(16, (pas - 12) / series.length);
   const y = (v: number) => H - padB - (v / haut) * (H - padB - 10);
 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: hauteur }}>
-        {ticks.map((t) => (
-          <g key={t}>
-            <line x1={padL} x2={W - 4} y1={y(t)} y2={y(t)} stroke="var(--color-line)" strokeWidth="1" />
-            <text x={padL - 8} y={y(t) + 3.5} textAnchor="end" fontSize="9.5" fill="var(--color-ink-soft)">
-              {tick(t)}
-              {unite}
-            </text>
-          </g>
-        ))}
         {labels.map((l, i) => {
           const centre = padL + pas * i + pas / 2;
           const total = series.length * largeur + (series.length - 1) * 6;
@@ -136,11 +119,12 @@ export function BarresGroupees({
                     width={largeur}
                     height={hb}
                     rx={largeur / 2}
+                    ry={largeur / 2}
                     fill={s.color}
                   />
                 );
               })}
-              <text x={centre} y={H - 7} textAnchor="middle" fontSize="9.5" fill="var(--color-ink-soft)">
+              <text x={centre} y={H - 7} textAnchor="middle" fontSize="10.5" fill="var(--color-ink-soft)">
                 {l}
               </text>
             </g>
@@ -171,7 +155,7 @@ export function BarresEmpilees({
   const totaux = labels.map((_, i) => (bas.data[i] ?? 0) + (serieHaut.data[i] ?? 0));
   const max = Math.max(1, ...totaux);
   const pas = W / Math.max(1, labels.length);
-  const largeur = Math.min(22, pas - 14);
+  const largeur = Math.min(24, pas - 14);
   const ech = (v: number) => (v / max) * (H - padB - 8);
 
   return (
@@ -182,16 +166,16 @@ export function BarresEmpilees({
         const x = pas * i + pas / 2 - largeur / 2;
         return (
           <g key={l + i}>
-            <rect x={x} y={H - padB - hb} width={largeur} height={Math.max(2, hb)} rx="6" fill={bas.color} />
+            <rect x={x} y={H - padB - hb} width={largeur} height={Math.max(2, hb)} rx={largeur / 2} fill={bas.color} />
             <rect
               x={x}
               y={H - padB - hb - hh}
               width={largeur}
               height={Math.max(2, hh)}
-              rx="6"
+              rx={largeur / 2}
               fill={serieHaut.color}
             />
-            <text x={x + largeur / 2} y={H - 5} textAnchor="middle" fontSize="9.5" fill="var(--color-ink-soft)">
+            <text x={x + largeur / 2} y={H - 5} textAnchor="middle" fontSize="10.5" fill="var(--color-ink-soft)">
               {l}
             </text>
           </g>
@@ -234,7 +218,7 @@ export function Aires({
         return (
           <g key={s.label}>
             <path d={`${trace} L ${W} ${H} L 0 ${H} Z`} fill={`url(#aire-${s.label.replace(/\W/g, "")})`} />
-            <path d={trace} fill="none" stroke={s.color} strokeWidth="2.4" strokeLinecap="round" />
+            <path d={trace} fill="none" stroke={s.color} strokeWidth="2.8" strokeLinecap="round" />
             {pts.map((p, i) => (
               <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#fff" stroke={s.color} strokeWidth="2" />
             ))}

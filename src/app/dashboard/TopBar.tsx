@@ -15,10 +15,10 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
   const [q, setQ] = useState("");
 
   return (
-    <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-line bg-card px-5 py-3 md:px-7">
+    <header className="sticky top-0 z-40 flex items-center gap-4 bg-paper px-5 py-5 md:px-9">
       <div className="min-w-0 shrink-0">
-        <h1 className="font-serif text-[25px] leading-none">{meta.titre}</h1>
-        {meta.sous && <p className="mt-1 truncate text-[12px] text-ink-soft">{meta.sous}</p>}
+        <h1 className="font-serif text-[30px] leading-none">{meta.titre}</h1>
+        {meta.sous && <p className="mt-1.5 truncate text-[12.5px] text-ink-soft">{meta.sous}</p>}
       </div>
 
       <form
@@ -26,7 +26,7 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
           e.preventDefault();
           router.push(q.trim() ? `/dashboard?q=${encodeURIComponent(q.trim())}` : "/dashboard");
         }}
-        className="mx-auto hidden w-full max-w-lg items-center gap-2.5 rounded-full bg-subtle px-4 py-2.5 lg:flex"
+        className="mx-auto hidden w-full max-w-md items-center gap-2.5 rounded-full bg-card px-5 py-3 lg:flex"
       >
         <IconSearch />
         <input
@@ -42,7 +42,7 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
 
         <Link
           href="/demande"
-          className="hidden rounded-xl border border-line-strong px-3 py-2 text-[13px] text-ink-soft transition hover:border-ink hover:text-ink xl:block"
+          className="hidden rounded-full bg-card px-4 py-2.5 text-[13px] text-ink-soft transition hover:bg-subtle hover:text-ink xl:block"
         >
           Formulaire client
         </Link>
@@ -50,7 +50,7 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
         <Link
           href="/dashboard?statut=new"
           title={`${nouvelles} demande(s) non traitée(s)`}
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition hover:bg-subtle hover:text-ink"
+          className="relative flex h-10 w-10 items-center justify-center rounded-full text-ink transition hover:bg-card"
         >
           <IconBell />
           {nouvelles > 0 && (
@@ -61,16 +61,13 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
         <div className="relative ml-1">
           <button
             onClick={() => setMenu((v) => !v)}
-            className="flex items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 transition hover:bg-subtle"
+            className="flex items-center gap-3 rounded-full py-1 pl-1 pr-2 transition hover:bg-card"
           >
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white"
-              style={{ background: "linear-gradient(145deg, #f4501e 0%, #ff8a3d 100%)" }}
-            >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ciel text-[14px] font-semibold text-ink ring-2 ring-ciel/40 ring-offset-2 ring-offset-paper">
               {email.charAt(0).toUpperCase()}
             </span>
             <span className="hidden text-left md:block">
-              <span className="block max-w-[140px] truncate text-[13px] font-semibold leading-tight">
+              <span className="block max-w-[140px] truncate text-[13.5px] font-semibold leading-tight">
                 {email.split("@")[0]}
               </span>
               <span className="block text-[11px] leading-tight text-ink-soft">Équipe Bailly</span>
@@ -131,7 +128,7 @@ function Refresh() {
       }}
       disabled={pending}
       title="Actualiser les données"
-      className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-soft transition hover:bg-subtle hover:text-ink disabled:opacity-60"
+      className="flex h-10 w-10 items-center justify-center rounded-full text-ink transition hover:bg-card disabled:opacity-60"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={`h-4 w-4 ${spin ? "animate-spin" : ""}`}>
         <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />

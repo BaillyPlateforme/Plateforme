@@ -42,18 +42,15 @@ export default function Nav() {
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   return (
-    <div className="flex h-full flex-col bg-[#fbfaf9]">
+    <div className="flex h-full flex-col bg-ink text-white">
       {/* La marque : tuile dégradée et nom, comme la référence. */}
       <div className="flex items-center gap-3 px-6 pt-5">
-        <span
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[0_4px_12px_-4px_rgba(232,80,42,0.6)]"
-          style={{ background: "linear-gradient(145deg, #f4501e 0%, #ff8a3d 100%)" }}
-        >
+        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-ink">
           <IconMarque />
         </span>
         <div>
-          <div className="text-[19px] font-bold leading-none tracking-tight">Bailly</div>
-          <div className="mt-1 text-[10.5px] uppercase tracking-[0.14em] text-ink-soft">
+          <div className="font-serif text-[20px] leading-none">Bailly</div>
+          <div className="mt-1 text-[10.5px] uppercase tracking-[0.14em] text-white/45">
             Déménagement
           </div>
         </div>
@@ -62,7 +59,7 @@ export default function Nav() {
       <nav className="mt-5 flex-1 overflow-y-auto px-3 pb-2">
         {SECTIONS.map((section) => (
           <div key={section.title} className="mb-3">
-            <div className="px-4 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-soft/70">
+            <div className="px-4 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-white/35">
               {section.title}
             </div>
             <div className="space-y-0.5">
@@ -71,26 +68,14 @@ export default function Nav() {
                 return (
                   <Link key={l.href} href={l.href} className="relative block">
                     {/* Le halo orange qui déborde à droite de la pastille active. */}
-                    {active && (
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-y-0.5 left-8 right-[-26px] rounded-full blur-xl"
-                        style={{
-                          background:
-                            "linear-gradient(90deg, rgba(244,80,30,0.55) 0%, rgba(255,138,61,0.34) 45%, rgba(255,138,61,0) 100%)",
-                        }}
-                      />
-                    )}
                     <span
                       className={`relative flex items-center gap-3.5 rounded-2xl px-4 py-2 transition ${
-                        active
-                          ? "bg-white shadow-[0_2px_10px_-2px_rgba(28,28,34,0.10)]"
-                          : "hover:bg-black/[0.035]"
+                        active ? "bg-white text-ink" : "hover:bg-white/[0.07]"
                       }`}
                     >
-                      <span className={active ? "text-[#e8502a]" : "text-ink-soft"}>{l.icon}</span>
+                      <span className={active ? "text-ink" : "text-white/55"}>{l.icon}</span>
                       <span
-                        className={`text-[14.5px] ${active ? "font-semibold text-ink" : "font-medium text-ink/75"}`}
+                        className={`text-[14.5px] ${active ? "font-semibold" : "font-medium text-white/75"}`}
                       >
                         {l.label}
                       </span>
@@ -105,20 +90,19 @@ export default function Nav() {
 
       <div className="p-3">
         <div
-          className="relative overflow-hidden rounded-3xl p-3.5 text-white"
-          style={{ background: "linear-gradient(160deg, #f4501e 0%, #ff8a3d 100%)" }}
+          className="relative overflow-hidden rounded-3xl bg-ciel p-3.5 text-ink"
         >
-          <span className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/15" />
-          <span className="relative mb-2.5 flex h-8 w-8 items-center justify-center rounded-2xl bg-white/20">
+          <span className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/30" />
+          <span className="relative mb-2.5 flex h-8 w-8 items-center justify-center rounded-2xl bg-white/70">
             <IconCalc />
           </span>
           <div className="relative text-[14px] font-semibold leading-tight">Simulateur</div>
-          <p className="relative mt-0.5 text-[11.5px] leading-snug text-white/85">
+          <p className="relative mt-0.5 text-[11.5px] leading-snug text-ink/70">
             Chiffrez en direct, avec la grille.
           </p>
           <Link
             href="/dashboard/simulateur"
-            className="relative mt-2.5 inline-flex rounded-xl bg-white px-3 py-1.5 text-[12px] font-semibold text-[#e8502a] transition hover:bg-white/90"
+            className="relative mt-2.5 inline-flex rounded-xl bg-ink px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-black"
           >
             Ouvrir
           </Link>
@@ -127,9 +111,9 @@ export default function Nav() {
         <form action={signOut} className="mt-2">
           <button
             type="submit"
-            className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-2.5 text-[14.5px] font-medium text-ink/75 transition hover:bg-black/[0.035]"
+            className="flex w-full items-center gap-3.5 rounded-2xl px-4 py-2.5 text-[14.5px] font-medium text-white/70 transition hover:bg-white/[0.07]"
           >
-            <span className="text-ink-soft">
+            <span className="text-white/55">
               <IconSortie />
             </span>
             Se déconnecter
