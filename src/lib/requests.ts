@@ -207,17 +207,38 @@ export async function getRequestDetail(id: string): Promise<RequestDetail | null
   };
 }
 
+/**
+ * Colonnes des vues de liste : tout sauf `raw_payload`.
+ *
+ * Ce champ porte la copie intégrale du formulaire — 42 Ko sur 53 demandes,
+ * la moitié du poids de la requête, et il repartait ensuite dans le flux RSC
+ * jusqu'au navigateur. Seule la marque « express » en était lue : on va la
+ * chercher directement par son chemin JSON.
+ */
+const COLONNES_LISTE = [
+  "id", "source", "status",
+  "client_nom", "client_email", "client_tel",
+  "depart_adresse", "depart_code_postal", "depart_ville", "depart_etage", "depart_ascenseur",
+  "arrivee_adresse", "arrivee_code_postal", "arrivee_ville", "arrivee_etage", "arrivee_ascenseur",
+  "date_souhaitee", "flexibilite",
+  "volume_m3", "volume_method", "type_logement_depart", "type_logement_arrivee",
+  "distance_km", "formule", "services", "estimation_prix", "grid_id",
+  "score_potentiel", "score_difficulte", "score_notes",
+  "completion_token", "created_at", "updated_at",
+  "express:raw_payload->details->>express",
+].join(",");
+
 // Liste pour le dashboard.
 export async function listRequests(): Promise<RequestRow[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("requests")
-    .select("*")
+    .select(COLONNES_LISTE)
     .order("created_at", { ascending: false })
     .limit(200);
 
   if (error) throw new Error(`Lecture des demandes échouée : ${error.message}`);
-  return (data ?? []) as RequestRow[];
+  return (data ?? []) as unknown as RequestRow[];
 }
 
 /** Compteur léger pour la pastille de la barre du haut. */

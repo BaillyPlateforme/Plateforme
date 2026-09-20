@@ -2,19 +2,12 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 
-// Une seule famille, géométrique, pour les titres comme pour le corps :
-// les titres jouent sur la graisse et le crénage, pas sur un second caractère.
-const display = Poppins({
-  variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-});
-
-const sans = Poppins({
+// Une seule famille, une seule déclaration : deux instances de Poppins
+// faisaient charger deux fois les mêmes fichiers de fonte.
+const poppins = Poppins({
   variable: "--font-sans-ui",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -29,7 +22,7 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
-      className={`${display.variable} ${sans.variable} h-full antialiased`}
+      className={`${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
         {children}

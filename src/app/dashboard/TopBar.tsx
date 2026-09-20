@@ -6,6 +6,13 @@ import { useState, useTransition } from "react";
 import { metaDe } from "./nav-meta";
 import { signOut } from "@/lib/actions/auth";
 
+/** Les réglages vivent ici, plus dans le rail : ils ne servent qu'à l'occasion. */
+const REGLAGES = [
+  { href: "/dashboard/equipe", label: "Équipe", icone: <IconTeam /> },
+  { href: "/dashboard/configuration", label: "Configuration", icone: <IconGrid /> },
+  { href: "/dashboard/parametres", label: "Paramètres", icone: <IconGear /> },
+];
+
 /** Barre du haut : titre de l'écran, recherche, gestes globaux et compte. */
 export default function TopBar({ email, nouvelles }: { email: string; nouvelles: number }) {
   const pathname = usePathname();
@@ -92,13 +99,19 @@ export default function TopBar({ email, nouvelles }: { email: string; nouvelles:
                   </div>
                   <div className="text-[11.5px] text-ink-soft">Connecté</div>
                 </div>
-                <Link
-                  href="/dashboard/parametres"
-                  onClick={() => setMenu(false)}
-                  className="block rounded-xl px-3 py-2 text-[13px] text-ink-soft transition hover:bg-subtle hover:text-ink"
-                >
-                  Paramètres
-                </Link>
+                <div className="my-1 h-px bg-line" />
+                {REGLAGES.map((r) => (
+                  <Link
+                    key={r.href}
+                    href={r.href}
+                    onClick={() => setMenu(false)}
+                    className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] text-ink-soft transition hover:bg-subtle hover:text-ink"
+                  >
+                    <span className="text-ink-soft">{r.icone}</span>
+                    {r.label}
+                  </Link>
+                ))}
+                <div className="my-1 h-px bg-line" />
                 <form action={signOut}>
                   <button
                     type="submit"
@@ -146,4 +159,7 @@ function Refresh() {
 const S = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 function IconSearch() { return <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-ink-soft" {...S}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>; }
 function IconBell() { return <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" {...S}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>; }
+function IconTeam() { return <svg viewBox="0 0 24 24" className="h-4 w-4" {...S}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>; }
+function IconGrid() { return <svg viewBox="0 0 24 24" className="h-4 w-4" {...S}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>; }
+function IconGear() { return <svg viewBox="0 0 24 24" className="h-4 w-4" {...S}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>; }
 function IconChevron() { return <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-ink-soft" {...S}><path d="m6 9 6 6 6-6" /></svg>; }

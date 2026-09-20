@@ -14,6 +14,8 @@ const CATC: Record<string, string> = {
 
 const isComplete = (r: RequestRow) => r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville && !r.completion_token;
 const isExpress = (r: RequestRow) => {
+  // Les listes projettent la marque ; les fiches complètes ont encore l'objet.
+  if (r.express != null) return r.express === "true";
   const d = (r.raw_payload as { details?: { express?: boolean }; express?: boolean } | null) ?? null;
   return d?.details?.express === true || d?.express === true;
 };

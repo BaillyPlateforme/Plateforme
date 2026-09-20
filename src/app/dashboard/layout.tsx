@@ -1,4 +1,4 @@
-import { getUser } from "@/lib/supabase/auth";
+import { getUserAffichage } from "@/lib/supabase/auth";
 import { compterNouvelles } from "@/lib/requests";
 import Nav from "./Nav";
 import TopBar from "./TopBar";
@@ -8,13 +8,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getUser();
-  let nouvelles = 0;
-  try {
-    nouvelles = await compterNouvelles();
-  } catch {
-    /* la pastille reste à zéro si la base ne répond pas */
-  }
+  // De front : deux allers-retours en séquence coûtaient le double.
+  const [user, nouvelles] = await Promise.all([
+    getUserAffichage(),
+    compterNouvelles().catch(() => 0), // la pastille reste à zéro si la base ne répond pas
+  ]);
 
   return (
     <div className="relative z-10 flex min-h-screen">

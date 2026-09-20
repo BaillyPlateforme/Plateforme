@@ -56,6 +56,8 @@ export interface RequestRow {
   completion_token: string | null;
 
   raw_payload: Record<string, unknown>;
+  /** Projeté par les vues de liste depuis raw_payload->details->>express. */
+  express?: string | null;
 
   created_at: string;
   updated_at: string;

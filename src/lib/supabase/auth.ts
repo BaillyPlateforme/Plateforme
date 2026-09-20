@@ -27,6 +27,22 @@ export async function createAuthClient() {
   );
 }
 
+/**
+ * Identité affichable, lue dans le cookie de session — sans aller-retour.
+ *
+ * Le middleware a déjà validé la session auprès de Supabase avant que la page
+ * ne soit rendue ; refaire un `getUser()` ici ajoutait un second appel réseau
+ * (150 à 250 ms) à chaque navigation, pour afficher une adresse e-mail.
+ * À n'utiliser que pour l'affichage : jamais pour autoriser quoi que ce soit.
+ */
+export async function getUserAffichage() {
+  const supabase = await createAuthClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user ?? null;
+}
+
 export async function getUser() {
   const supabase = await createAuthClient();
   const {

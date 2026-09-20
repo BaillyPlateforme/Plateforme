@@ -24,11 +24,22 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `getClaims()` vérifie la signature du jeton avec les clés publiques du
+  // projet, gardées en cache : 1 ms contre 50 à 250 ms pour `getUser()`, qui
+  // interroge Supabase à chaque navigation. On ne repasse par le réseau que
+  // si le jeton est absent, expiré ou illisible — et c'est alors `getUser()`
+  // qui rafraîchit la session et réécrit les cookies.
+  const { data: claims } = await supabase.auth.getClaims();
+  let valide = !!claims?.claims?.sub;
 
-  if (!user) {
+  if (!valide) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    valide = !!user;
+  }
+
+  if (!valide) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);

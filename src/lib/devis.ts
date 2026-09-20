@@ -7,7 +7,8 @@ export async function listDevis(): Promise<DevisRow[]> {
   const { data, error } = await supabase
     .from("devis")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
   if (error) throw new Error(error.message);
   return (data ?? []) as DevisRow[];
 }

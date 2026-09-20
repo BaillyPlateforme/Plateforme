@@ -60,13 +60,23 @@ export async function sendBrevoSms(input: { to: string; content: string; sender?
 }
 
 // Vérifie la validité de la clé (compte).
+// L'appel sort chez Brevo : 200 à 400 ms, à chaque ouverture des paramètres.
+// L'état ne bouge pas d'une minute à l'autre, on le garde en mémoire.
+let cacheBrevo: { a: number; v: { ok: boolean; message: string } } | null = null;
+const TTL_BREVO = 60_000;
+
 export async function checkBrevo(): Promise<{ ok: boolean; message: string }> {
   if (!env.brevoApiKey()) return { ok: false, message: "Aucune clé Brevo configurée." };
+  if (cacheBrevo && Date.now() - cacheBrevo.a < TTL_BREVO) return cacheBrevo.v;
+  const garder = (v: { ok: boolean; message: string }) => {
+    cacheBrevo = { a: Date.now(), v };
+    return v;
+  };
   try {
     const res = await fetch(`${BREVO}/account`, { headers: headers() });
-    if (res.ok) return { ok: true, message: "Connexion Brevo active." };
+    if (res.ok) return garder({ ok: true, message: "Connexion Brevo active." });
     const body = await res.text();
-    return { ok: false, message: `Brevo ${res.status} : ${body.slice(0, 200)}` };
+    return garder({ ok: false, message: `Brevo ${res.status} : ${body.slice(0, 200)}` });
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : "Erreur" };
   }
