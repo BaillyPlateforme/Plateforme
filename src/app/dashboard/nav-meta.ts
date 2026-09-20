@@ -7,6 +7,10 @@ export const META: Record<string, { titre: string; sous?: string }> = {
   "/dashboard/agenda": { titre: "Agenda", sous: "Interventions et disponibilités" },
   "/dashboard/statistiques": { titre: "Statistiques", sous: "Analyse complète du flux de demandes" },
   "/dashboard/simulateur": { titre: "Simulateur de chiffrage", sous: "Le moteur qui chiffre les demandes, en direct" },
+  "/dashboard/campagne": {
+    titre: "Campagne de test",
+    sous: "Tirer des devis au hasard et vérifier ce que la grille produit",
+  },
   "/dashboard/messagerie": { titre: "Messagerie", sous: "Mails entrants rattachés aux demandes" },
   "/dashboard/workflow": { titre: "Workflow", sous: "Le parcours d'une demande, étape par étape" },
   "/dashboard/playground": { titre: "Playground & Lab", sous: "Analyse d'image et chaîne complète, en test" },

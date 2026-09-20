@@ -73,6 +73,12 @@ h2.font-serif {
   font-weight: 700;
 }
 
+/* La barre latérale a sa propre police */
+.font-rail {
+  font-family: var(--font-rail), var(--font-sans-ui), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.006em;
+}
+
 /* Petites capitales étirées */
 .eyebrow {
   text-transform: uppercase;

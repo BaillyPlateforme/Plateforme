@@ -22,7 +22,13 @@ const SECTIONS: { title: string; items: Item[] }[] = [
     items: [
       { href: "/dashboard/messagerie", label: "Messagerie", icon: <IconMail /> },
       { href: "/dashboard/workflow", label: "Workflow", icon: <IconFlow /> },
+    ],
+  },
+  {
+    title: "Évaluation",
+    items: [
       { href: "/dashboard/simulateur", label: "Simulateur", icon: <IconCalc /> },
+      { href: "/dashboard/campagne", label: "Campagne", icon: <IconDes /> },
       { href: "/dashboard/playground", label: "Playground", icon: <IconSparkle /> },
     ],
   },
@@ -34,7 +40,7 @@ export default function Nav() {
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   return (
-    <div className="flex h-full flex-col bg-[#fbfaf9]">
+    <div className="font-rail flex h-full flex-col bg-[#fbfaf9]">
       {/* La marque : tuile dégradée et nom, comme la référence. */}
       <div className="flex items-center gap-3 px-6 pt-5">
         <span
@@ -44,7 +50,7 @@ export default function Nav() {
           <IconMarque />
         </span>
         <div>
-          <div className="text-[19px] font-bold leading-none tracking-tight">Bailly</div>
+          <div className="text-[20px] font-bold leading-none tracking-[-0.03em]">Bailly</div>
           <div className="mt-1 text-[10.5px] uppercase tracking-[0.14em] text-ink-soft">
             Déménagement
           </div>
@@ -152,4 +158,5 @@ function IconChart() { return <svg {...S}><path d="M21 21H3V3" strokeLinecap="ro
 function IconMail() { return <svg {...S}><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function IconFlow() { return <svg {...S}><rect x="3" y="4" width="6" height="5" rx="1" /><rect x="15" y="4" width="6" height="5" rx="1" /><rect x="9" y="15" width="6" height="5" rx="1" /><path d="M6 9v3a2 2 0 0 0 2 2h1M18 9v3a2 2 0 0 1-2 2h-1" strokeLinecap="round" /></svg>; }
 function IconCalc() { return <svg {...S}><rect x="4" y="2" width="16" height="20" rx="2" /><path d="M8 6h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M16 15v4M8 19h6" strokeLinecap="round" /></svg>; }
+function IconDes() { return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" /></svg>; }
 function IconSparkle() { return <svg {...S}><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" strokeLinecap="round" /></svg>; }
