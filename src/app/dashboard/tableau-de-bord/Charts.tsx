@@ -3,9 +3,6 @@
 /* Primitives de graphiques dessinées pour ce tableau de bord :
    traits lissés, barres à bouts arrondis, aplats pastel. */
 
-const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
-/** Graduations compactes : 20 000 devient 20 k, sinon l'axe déborde. */
-const tick = (v: number) => (v >= 1000 ? `${nf.format(Math.round(v / 100) / 10)} k` : nf.format(v));
 
 /** Courbe lissée passant par les points (Catmull-Rom converti en bézier). */
 function lissage(pts: [number, number][]): string {
@@ -83,12 +80,10 @@ export function BarresGroupees({
   labels,
   series,
   hauteur = 210,
-  unite = "",
 }: {
   labels: string[];
   series: { label: string; color: string; data: number[] }[];
   hauteur?: number;
-  unite?: string;
 }) {
   const W = 560;
   const H = hauteur;
