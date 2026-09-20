@@ -11,10 +11,6 @@ export default async function DevisPage() {
 
   return (
     <div className="px-6 py-8 md:px-10">
-      <header className="mb-8">
-        <div className="eyebrow text-ink-soft">Pilotage</div>
-        <h1 className="mt-1 font-serif text-4xl">Devis</h1>
-      </header>
 
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <Stat label="Devis émis" value={devis.length} />

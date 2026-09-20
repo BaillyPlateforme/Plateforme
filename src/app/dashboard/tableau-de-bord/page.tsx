@@ -221,11 +221,7 @@ export default async function TableauDeBordPage() {
 
   return (
     <div className="px-6 py-8 md:px-10">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="eyebrow text-ink-soft">Pilotage</div>
-          <h1 className="mt-1 font-serif text-4xl">Tableau de bord</h1>
-        </div>
+      <header className="mb-6 flex flex-wrap items-center justify-end gap-4">
         <span className="rounded-full border border-line bg-card px-3.5 py-1.5 text-xs text-ink-soft">
           {FENETRE} derniers jours · {nf.format(requests.length)} demandes suivies · {devis.length} devis
         </span>

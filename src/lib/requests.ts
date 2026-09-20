@@ -219,3 +219,13 @@ export async function listRequests(): Promise<RequestRow[]> {
   if (error) throw new Error(`Lecture des demandes échouée : ${error.message}`);
   return (data ?? []) as RequestRow[];
 }
+
+/** Compteur léger pour la pastille de la barre du haut. */
+export async function compterNouvelles(): Promise<number> {
+  const supabase = createServiceClient();
+  const { count } = await supabase
+    .from("requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "new");
+  return count ?? 0;
+}

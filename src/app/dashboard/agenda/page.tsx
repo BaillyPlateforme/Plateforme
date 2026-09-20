@@ -17,10 +17,6 @@ export default async function AgendaPage() {
 
   return (
     <div className="px-6 py-8 md:px-10">
-      <header className="mb-8">
-        <div className="eyebrow text-ink-soft">Pilotage</div>
-        <h1 className="mt-1 font-serif text-4xl">Agenda</h1>
-      </header>
       <AgendaClient events={events} />
     </div>
   );

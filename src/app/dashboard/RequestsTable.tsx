@@ -7,10 +7,18 @@ import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isInco
 
 type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
 
-export default function RequestsTable({ requests }: { requests: RequestRow[] }) {
+export default function RequestsTable({
+  requests,
+  initialQ = "",
+  initialStatut = "all",
+}: {
+  requests: RequestRow[];
+  initialQ?: string;
+  initialStatut?: RequestStatus | "all";
+}) {
   const router = useRouter();
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<RequestStatus | "all">("all");
+  const [q, setQ] = useState(initialQ);
+  const [status, setStatus] = useState<RequestStatus | "all">(initialStatut);
   const [sort, setSort] = useState<SortKey>("date");
 
   const rows = useMemo(() => {

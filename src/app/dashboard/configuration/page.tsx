@@ -13,10 +13,6 @@ export default async function ConfigurationPage() {
   ]);
   return (
     <div className="px-6 py-8 md:px-10">
-      <header className="mb-8">
-        <div className="eyebrow text-ink-soft">Réglages</div>
-        <h1 className="mt-1 font-serif text-4xl">Configuration</h1>
-      </header>
       <ConfigClient library={library} aiConfig={aiConfig} qualifConfig={qualifConfig} />
     </div>
   );
