@@ -14,10 +14,10 @@ export default async function DashboardLayout({
     <div className="relative z-10 flex min-h-screen">
       <ModeSwitch current="dashboard" />
       <RefreshButton />
-      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r border-line bg-card md:block">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#fbfaf9] md:block">
         <Nav email={user?.email ?? ""} />
       </aside>
-      <div className="flex-1 md:ml-60">{children}</div>
+      <div className="flex-1 md:ml-64">{children}</div>
     </div>
   );
 }
