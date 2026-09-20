@@ -1,223 +1,42 @@
-import { listRequests } from "@/lib/requests";
-import { listDevis } from "@/lib/devis";
-import type { DevisRow, RequestRow } from "@/lib/types";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import { Aires, BarresEmpilees, BarresGroupees, Courbes, Popularite } from "./Charts";
 import { TONS } from "./tons";
+import type { preparerTableauDeBord } from "@/lib/tableau-de-bord";
 
-export const dynamic = "force-dynamic";
-export const metadata = { title: "Tableau de bord — Bailly" };
+type Donnees = Awaited<ReturnType<typeof preparerTableauDeBord>>;
 
-const JOUR = 86_400_000;
 const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
-const eur = (n: number) =>
-  n >= 1000 ? `${nf.format(Math.round(n / 100) / 10)} k€` : `${nf.format(n)} €`;
-const moisCourt = new Intl.DateTimeFormat("fr-FR", { month: "short" });
-
-const somme = (rs: RequestRow[], f: (r: RequestRow) => number | null) =>
-  rs.reduce((s, r) => s + (f(r) ?? 0), 0);
-
-const QUALIFIEES = ["qualified", "quoted", "won"];
-
-/** Fenêtre d'observation : assez large pour couvrir un cycle de demandes. */
 const FENETRE = 90;
 
-async function preparer() {
-  let requests: RequestRow[] = [];
-  let devis: DevisRow[] = [];
-  try {
-    [requests, devis] = await Promise.all([listRequests(), listDevis()]);
-  } catch {
-    /* base indisponible : la page s'affiche à zéro plutôt que de planter */
-  }
+export default function TableauDeBordPage() {
+  const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/tableau-de-bord");
 
-  const now = Date.now();
-  const depuis = (n: number) => requests.filter((r) => +new Date(r.created_at) >= now - n * JOUR);
-  const entre = (a: number, b: number) =>
-    requests.filter((r) => {
-      const t = +new Date(r.created_at);
-      return t >= now - a * JOUR && t < now - b * JOUR;
-    });
-
-  const mois = depuis(FENETRE);
-  const moisPrec = entre(FENETRE * 2, FENETRE);
-  // Sans période précédente, une variation de « +100 % » ne veut rien dire.
-  const delta = (a: number, b: number): number | null =>
-    b === 0 ? null : Math.round(((a - b) / b) * 100);
-
-  const clients = (rs: RequestRow[]) => new Set(rs.map((r) => r.client_email).filter(Boolean)).size;
-
-  const tuiles = [
-    {
-      valeur: nf.format(mois.length),
-      label: "Demandes reçues",
-      delta: delta(mois.length, moisPrec.length),
-      fond: "#ffe2e5",
-      pastille: "#fa5a7d",
-      icone: <IconInbox />,
-    },
-    {
-      valeur: eur(somme(mois, (r) => r.estimation_prix)),
-      label: "Estimations cumulées",
-      delta: delta(somme(mois, (r) => r.estimation_prix), somme(moisPrec, (r) => r.estimation_prix)),
-      fond: "#fff4de",
-      pastille: "#ff947a",
-      icone: <IconEuro />,
-    },
-    {
-      valeur: `${nf.format(somme(mois, (r) => r.volume_m3))} m³`,
-      label: "Volume à déménager",
-      delta: delta(somme(mois, (r) => r.volume_m3), somme(moisPrec, (r) => r.volume_m3)),
-      fond: "#dcfce7",
-      pastille: "#3cd856",
-      icone: <IconBox />,
-    },
-    {
-      valeur: nf.format(clients(mois)),
-      label: "Nouveaux clients",
-      delta: delta(clients(mois), clients(moisPrec)),
-      fond: "#f3e8ff",
-      pastille: "#bf83ff",
-      icone: <IconUser />,
-    },
-  ];
-
-  // ── Flux des demandes, 12 derniers mois ──
-  const moisSerie = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (11 - i), 1);
-    return d;
-  });
-  const dansMois = (r: RequestRow, d: Date) => {
-    const t = new Date(r.created_at);
-    return t.getFullYear() === d.getFullYear() && t.getMonth() === d.getMonth();
-  };
-  const fluxLabels = moisSerie.map((d) => moisCourt.format(d).replace(".", ""));
-  const flux = [
-    {
-      label: "Reçues",
-      color: TONS.violet,
-      data: moisSerie.map((d) => requests.filter((r) => dansMois(r, d)).length),
-    },
-    {
-      label: "Qualifiées",
-      color: TONS.vert,
-      data: moisSerie.map(
-        (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
-      ),
-    },
-    {
-      label: "Devisées",
-      color: TONS.rouge,
-      data: moisSerie.map(
-        (d) => requests.filter((r) => dansMois(r, d) && ["quoted", "won"].includes(r.status)).length,
-      ),
-    },
-  ];
-
-  // ── Estimations par jour de la semaine, par origine ──
-  const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
-  const indexJour = (r: RequestRow) => (new Date(r.created_at).getDay() + 6) % 7;
-  const parJour = (source: RequestRow["source"]) =>
-    JOURS.map((_, i) =>
-      Math.round(
-        somme(
-          requests.filter((r) => r.source === source && indexJour(r) === i),
-          (r) => r.estimation_prix,
-        ),
-      ),
+  if (erreur) {
+    return (
+      <div className="px-6 py-8 md:px-10">
+        <Echec message={erreur} onRetry={recharger} />
+      </div>
     );
-  const revenus = [
-    { label: "Formulaire", color: TONS.bleu, data: parJour("form") },
-    { label: "E-mail", color: TONS.vert, data: parJour("email") },
-  ];
-
-  // ── Rythme hebdomadaire sur la fenêtre : reçues contre qualifiées ──
-  const SEMAINES = 12;
-  const semaine = (i: number) => entre((SEMAINES - i) * 7, (SEMAINES - i - 1) * 7);
-  const semaines = [
-    {
-      label: "Reçues",
-      color: TONS.bleu,
-      data: Array.from({ length: SEMAINES }, (_, i) => semaine(i).length),
-    },
-    {
-      label: "Qualifiées",
-      color: TONS.vert,
-      data: Array.from({ length: SEMAINES }, (_, i) =>
-        semaine(i).filter((r) => QUALIFIEES.includes(r.status)).length,
-      ),
-    },
-  ];
-  const totalRecues = semaines[0].data.reduce((a, b) => a + b, 0);
-  const totalQualifiees = semaines[1].data.reduce((a, b) => a + b, 0);
-
-  // ── Reçues vs qualifiées, 7 derniers mois ──
-  const sept = moisSerie.slice(-7);
-  const objectif = [
-    {
-      label: "Qualifiées",
-      color: TONS.sapin,
-      data: sept.map(
-        (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
-      ),
-    },
-    {
-      label: "Reçues",
-      color: TONS.jaune,
-      data: sept.map((d) => requests.filter((r) => dansMois(r, d)).length),
-    },
-  ];
-
-  // ── Top villes de départ ──
-  const villes = Object.entries(
-    requests.reduce<Record<string, number>>((acc, r) => {
-      const v = (r.depart_ville ?? "").trim();
-      if (v) acc[v] = (acc[v] ?? 0) + 1;
-      return acc;
-    }, {}),
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  const villeMax = villes[0]?.[1] ?? 1;
-  const tons = [TONS.bleu, TONS.vert, TONS.violet, "#f59e0b", TONS.rouge];
-
-  // ── Départements ──
-  const deps = Object.entries(
-    requests.reduce<Record<string, number>>((acc, r) => {
-      const cp = (r.depart_code_postal ?? "").trim();
-      if (cp.length >= 2) {
-        const d = cp.slice(0, 2);
-        acc[d] = (acc[d] ?? 0) + 1;
-      }
-      return acc;
-    }, {}),
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6);
-  const depMax = deps[0]?.[1] ?? 1;
-
-  // ── Volume traité, 6 derniers mois ──
-  const six = moisSerie.slice(-6);
-  const volQualifie = six.map((d) =>
-    Math.round(somme(requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)), (r) => r.volume_m3)),
-  );
-  const volAttente = six.map((d) =>
-    Math.round(somme(requests.filter((r) => dansMois(r, d) && !QUALIFIEES.includes(r.status)), (r) => r.volume_m3)),
-  );
-
-  return {
-    requests, devis, tuiles, fluxLabels, flux, JOURS, revenus, semaines, SEMAINES,
-    totalRecues, totalQualifiees, sept, objectif, villes, villeMax, tons, deps, depMax,
-    six, volQualifie, volAttente,
-  };
+  }
+  if (!donnees) {
+    return (
+      <div className="px-6 py-8 md:px-10">
+        <Squelette lignes={8} />
+      </div>
+    );
+  }
+  return <Contenu d={donnees} />;
 }
 
-export default async function TableauDeBordPage() {
+function Contenu({ d }: { d: Donnees }) {
   const {
     requests, devis, tuiles, fluxLabels, flux, JOURS, revenus, semaines, SEMAINES,
-    totalRecues, totalQualifiees, sept, objectif, villes, villeMax, tons, deps, depMax,
-    six, volQualifie, volAttente,
-  } = await preparer();
+    totalRecues, totalQualifiees, objectif, villes, villeMax, tons, deps, depMax,
+    volQualifie, volAttente, septLabels, sixLabels,
+  } = d;
 
   return (
     <div className="px-6 py-8 md:px-10">
@@ -238,7 +57,7 @@ export default async function TableauDeBordPage() {
                   className="mb-3 flex h-9 w-9 items-center justify-center rounded-full text-white"
                   style={{ background: t.pastille }}
                 >
-                  {t.icone}
+                  {ICONES[t.icone]}
                 </span>
                 <div className="font-serif text-[26px] leading-none tnum">{t.valeur}</div>
                 <div className="mt-1.5 text-[13px] text-ink/70">{t.label}</div>
@@ -278,7 +97,7 @@ export default async function TableauDeBordPage() {
         {/* ── Reçues vs qualifiées ── */}
         <Carte className="col-span-12 xl:col-span-4">
           <EnTete titre="Reçues vs qualifiées" sous="Sept derniers mois" />
-          <BarresGroupees labels={sept.map((d) => moisCourt.format(d).replace(".", ""))} series={objectif} />
+          <BarresGroupees labels={septLabels} series={objectif} />
           <div className="mt-3 space-y-2">
             <LigneTotal
               couleur={TONS.sapin}
@@ -360,7 +179,7 @@ export default async function TableauDeBordPage() {
         <Carte className="col-span-12 lg:col-span-6 xl:col-span-3">
           <EnTete titre="Volume traité" sous="Six derniers mois" />
           <BarresEmpilees
-            labels={six.map((d) => moisCourt.format(d).replace(".", ""))}
+            labels={sixLabels}
             bas={{ label: "Qualifié", color: TONS.bleu, data: volQualifie }}
             haut={{ label: "En attente", color: TONS.vert, data: volAttente }}
           />
@@ -447,3 +266,11 @@ function IconInbox() { return <svg {...S}><path d="M22 12h-6l-2 3h-4l-2-3H2" str
 function IconEuro() { return <svg {...S}><path d="M18 7a7 7 0 1 0 0 10M4 10h9M4 14h9" strokeLinecap="round" /></svg>; }
 function IconBox() { return <svg {...S}><path d="M21 8 12 3 3 8v8l9 5 9-5z" strokeLinejoin="round" /><path d="m3 8 9 5 9-5M12 13v8" strokeLinecap="round" /></svg>; }
 function IconUser() { return <svg {...S}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" strokeLinecap="round" /></svg>; }
+
+/** Les quatre dessins des tuiles, appelés par leur clé. */
+const ICONES: Record<string, React.ReactNode> = {
+  inbox: <IconInbox />,
+  euro: <IconEuro />,
+  box: <IconBox />,
+  user: <IconUser />,
+};

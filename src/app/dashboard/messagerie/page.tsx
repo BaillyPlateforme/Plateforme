@@ -1,14 +1,26 @@
-import { listTemplates } from "@/lib/templates";
-import { listAlerts } from "@/lib/alerts";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import MessagerieTabs from "./MessagerieTabs";
 
-export const dynamic = "force-dynamic";
+type Donnees = {
+  templates: Parameters<typeof MessagerieTabs>[0]["templates"];
+  rules: Parameters<typeof MessagerieTabs>[0]["rules"];
+};
 
-export default async function MessageriePage() {
-  const [templates, rules] = await Promise.all([listTemplates(), listAlerts()]);
+export default function MessageriePage() {
+  const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/messagerie");
+
   return (
     <div className="px-6 py-8 md:px-10">
-      <MessagerieTabs templates={templates} rules={rules} />
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette titre={false} lignes={6} />
+      ) : (
+        <MessagerieTabs templates={donnees.templates} rules={donnees.rules} />
+      )}
     </div>
   );
 }

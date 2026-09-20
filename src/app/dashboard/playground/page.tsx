@@ -1,13 +1,24 @@
-import { listLibraryPhotos } from "@/lib/library";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import PlaygroundShell from "./PlaygroundShell";
+import type { LibraryPhoto } from "@/components/PhotoAnalyzer";
 
-export const dynamic = "force-dynamic";
+export default function PlaygroundPage() {
+  const { donnees, erreur, recharger } = useRessource<{ library: LibraryPhoto[] }>(
+    "/api/data/bibliotheque",
+  );
 
-export default async function PlaygroundPage() {
-  const library = await listLibraryPhotos();
   return (
     <div className="px-6 py-8 md:px-10">
-      <PlaygroundShell library={library} />
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette titre={false} lignes={6} />
+      ) : (
+        <PlaygroundShell library={donnees.library} />
+      )}
     </div>
   );
 }

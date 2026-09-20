@@ -39,6 +39,10 @@ export async function middleware(request: NextRequest) {
     valide = !!user;
   }
 
+  if (!valide && request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
   if (!valide) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -50,5 +54,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/api/data/:path*"],
 };

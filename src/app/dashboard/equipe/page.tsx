@@ -1,13 +1,24 @@
-import { listTeam } from "@/lib/team";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import EquipeClient from "./EquipeClient";
+import type { TeamMemberRow } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+export default function EquipePage() {
+  const { donnees, erreur, recharger } = useRessource<{ members: TeamMemberRow[] }>(
+    "/api/data/equipe",
+  );
 
-export default async function EquipePage() {
-  const members = await listTeam();
   return (
     <div className="px-6 py-8 md:px-10">
-      <EquipeClient members={members} />
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette titre={false} lignes={4} />
+      ) : (
+        <EquipeClient members={donnees.members} />
+      )}
     </div>
   );
 }

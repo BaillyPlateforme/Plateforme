@@ -1,11 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { listRequests } from "@/lib/requests";
+import { useSearchParams } from "next/navigation";
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import RequestsTable from "./RequestsTable";
 import KanbanBoard from "./KanbanBoard";
 import FocusVue, { SEUIL } from "./FocusVue";
 import type { RequestRow, RequestStatus } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
 
 type Vue = "liste" | "focus" | "kanban";
 const VUES: { cle: Vue; label: string; sous: string }[] = [
@@ -14,21 +16,15 @@ const VUES: { cle: Vue; label: string; sous: string }[] = [
   { cle: "kanban", label: "Kanban", sous: "par étape" },
 ];
 
-export default async function DemandesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ vue?: string; q?: string; statut?: string }>;
-}) {
-  const params = await searchParams;
-  const vue: Vue = VUES.some((v) => v.cle === params.vue) ? (params.vue as Vue) : "liste";
+export default function DemandesPage() {
+  const params = useSearchParams();
+  const demande = params.get("vue");
+  const vue: Vue = VUES.some((v) => v.cle === demande) ? (demande as Vue) : "liste";
 
-  let requests: RequestRow[] = [];
-  let error: string | null = null;
-  try {
-    requests = await listRequests();
-  } catch (e) {
-    error = e instanceof Error ? e.message : "Erreur inconnue";
-  }
+  const { donnees, erreur, recharger } = useRessource<{ requests: RequestRow[] }>(
+    "/api/data/demandes",
+  );
+  const requests = donnees?.requests ?? [];
 
   const nouvelles = requests.filter((r) => r.status === "new").length;
   const volumeTotal = requests.reduce((s, r) => s + (r.volume_m3 ?? 0), 0);
@@ -43,13 +39,13 @@ export default async function DemandesPage({
   const compteur: Record<Vue, number> = {
     liste: requests.length,
     focus: aFocus,
-    kanban: requests.filter((r) => !["archived"].includes(r.status)).length,
+    kanban: requests.filter((r) => r.status !== "archived").length,
   };
 
   return (
     <div className="px-6 py-7 md:px-10">
       {/* Les trois façons de regarder les mêmes demandes. */}
-      <div className="mb-7 flex w-fit gap-1 rounded-2xl bg-subtle p-1.5">
+      <div className="mb-6 flex w-fit gap-1 rounded-2xl bg-subtle p-1.5">
         {VUES.map((v) => {
           const on = v.cle === vue;
           return (
@@ -64,24 +60,28 @@ export default async function DemandesPage({
               <span className={`text-[14px] ${on ? "font-semibold text-ink" : "text-ink-soft"}`}>
                 {v.label}
               </span>
-              <span
-                className={`rounded-lg px-1.5 py-0.5 text-[11px] font-semibold tnum ${
-                  on ? "bg-[#e8502a]/12 text-[#e8502a]" : "bg-card text-ink-soft"
-                }`}
-              >
-                {compteur[v.cle]}
-              </span>
+              {donnees && (
+                <span
+                  className={`rounded-lg px-1.5 py-0.5 text-[11px] font-semibold tnum ${
+                    on ? "bg-accent-soft text-accent-dark" : "bg-card text-ink-soft"
+                  }`}
+                >
+                  {compteur[v.cle]}
+                </span>
+              )}
               <span className="hidden text-[11.5px] text-ink-soft lg:block">{v.sous}</span>
             </Link>
           );
         })}
       </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-warn/30 bg-warn/5 p-4 text-sm">{error}</div>
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette lignes={8} />
       ) : vue === "liste" ? (
         <>
-          <div className="mb-7 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
             <Stat label="Total" value={requests.length} />
             <Stat label="Nouvelles" value={nouvelles} accent />
             <Stat label="Volume cumulé" value={`${Math.round(volumeTotal)} m³`} />
@@ -92,8 +92,8 @@ export default async function DemandesPage({
           </div>
           <RequestsTable
             requests={requests}
-            initialQ={params.q ?? ""}
-            initialStatut={(params.statut as RequestStatus) ?? "all"}
+            initialQ={params.get("q") ?? ""}
+            initialStatut={(params.get("statut") as RequestStatus) ?? "all"}
           />
         </>
       ) : vue === "focus" ? (

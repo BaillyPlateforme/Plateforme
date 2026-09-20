@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { metaDe } from "./nav-meta";
 import { signOut } from "@/lib/actions/auth";
+import { rafraichirTout } from "@/lib/donnees";
 
 /** Les réglages vivent ici, plus dans le rail : ils ne servent qu'à l'occasion. */
 const REGLAGES = [
@@ -137,6 +138,7 @@ function Refresh() {
     <button
       onClick={() => {
         setSpin(true);
+        rafraichirTout(); // les écrans lisent leurs données eux-mêmes
         start(() => {
           router.refresh();
           setTimeout(() => setSpin(false), 600);

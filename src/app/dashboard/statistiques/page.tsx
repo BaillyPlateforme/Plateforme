@@ -1,20 +1,24 @@
-import { listRequests } from "@/lib/requests";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import StatsTabs from "./StatsTabs";
 import type { RequestRow } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
-
-export default async function StatistiquesPage() {
-  let requests: RequestRow[] = [];
-  try {
-    requests = await listRequests();
-  } catch {
-    /* zéro */
-  }
+export default function StatistiquesPage() {
+  const { donnees, erreur, recharger } = useRessource<{ requests: RequestRow[] }>(
+    "/api/data/demandes",
+  );
 
   return (
     <div className="px-6 py-8 md:px-10">
-      <StatsTabs requests={requests} />
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette lignes={8} />
+      ) : (
+        <StatsTabs requests={donnees.requests} />
+      )}
     </div>
   );
 }

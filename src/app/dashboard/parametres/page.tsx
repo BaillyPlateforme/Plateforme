@@ -1,14 +1,24 @@
-import { getSettings } from "@/lib/settings";
-import { checkBrevo } from "@/lib/brevo";
+"use client";
+
+import { useRessource } from "@/lib/donnees";
+import { Echec, Squelette } from "@/components/Squelette";
 import ParametresClient from "./ParametresClient";
+import type { SettingsRow } from "@/lib/types";
 
-export const dynamic = "force-dynamic";
+type Donnees = { settings: SettingsRow; brevo: { ok: boolean; message: string } };
 
-export default async function ParametresPage() {
-  const [settings, brevo] = await Promise.all([getSettings(), checkBrevo()]);
+export default function ParametresPage() {
+  const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/parametres");
+
   return (
     <div className="px-6 py-8 md:px-10">
-      <ParametresClient settings={settings} brevo={brevo} />
+      {erreur ? (
+        <Echec message={erreur} onRetry={recharger} />
+      ) : !donnees ? (
+        <Squelette titre={false} lignes={6} />
+      ) : (
+        <ParametresClient settings={donnees.settings} brevo={donnees.brevo} />
+      )}
     </div>
   );
 }
