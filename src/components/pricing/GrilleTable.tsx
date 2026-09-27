@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  COEFFICIENTS,
-  TARIFS_STANDARD,
-  TRANCHES_DISTANCE,
-  TRANCHES_VOLUME,
-  type Formule,
-} from "@/lib/pricing/grille";
+import { TARIFS, TRANCHES_DISTANCE, TRANCHES_VOLUME, type Formule } from "@/lib/pricing/grille";
 
 const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 });
 
@@ -22,7 +16,7 @@ export default function GrilleTable({
   formule: Formule;
   highlight?: { volume: number; distance: number } | null;
 }) {
-  const coef = COEFFICIENTS[formule];
+  const tarifs = TARIFS[formule];
 
   return (
     <div className="overflow-x-auto">
@@ -40,12 +34,13 @@ export default function GrilleTable({
                 }`}
               >
                 {t.max === null ? "> 100" : `${t.min}–${t.max}`}
+                {t.forfait && <span className="ml-1 text-[10px] font-normal">forfait</span>}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {TARIFS_STANDARD.map((row, d) => (
+          {tarifs.map((row, d) => (
             <tr key={TRANCHES_DISTANCE[d].label} className="border-t border-line">
               <th
                 className={`sticky left-0 z-10 whitespace-nowrap bg-card px-3 py-1.5 text-left font-normal ${
@@ -67,7 +62,7 @@ export default function GrilleTable({
                           : "text-ink"
                     }`}
                   >
-                    {nf.format(Math.round(v * coef * 100) / 100)}
+                    {nf.format(v)}
                   </td>
                 );
               })}
@@ -76,8 +71,8 @@ export default function GrilleTable({
         </tbody>
       </table>
       <p className="mt-3 text-[11.5px] text-ink-soft">
-        Prix au m³, en euros HT.
-        {coef !== 1 && ` Formule appliquée à ${nf.format(coef)} × le tarif standard.`}
+        Prix au m³, en euros HT — sauf la première colonne, qui donne un forfait pour les
+        déménagements de moins de 5 m³.
       </p>
     </div>
   );

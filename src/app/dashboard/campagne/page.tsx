@@ -303,7 +303,10 @@ export default function CampagnePage() {
                 </span>
 
                 <span className="text-[12px] text-ink-soft">
-                  {nb(c.sim.tarif_m3)} €/m³ — {c.sim.tranche_volume}, {c.sim.tranche_distance}
+                  {c.sim.est_forfait
+                    ? `forfait ${nb(c.sim.valeur_case)} €`
+                    : `${nb(c.sim.tarif_m3)} €/m³`}{" "}
+                  — {c.sim.tranche_volume}, {c.sim.tranche_distance}
                 </span>
 
                 {resume(c.entree).map((t) => (

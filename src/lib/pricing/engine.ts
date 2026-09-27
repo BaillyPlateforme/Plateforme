@@ -1,19 +1,19 @@
 // ============================================================
 // Moteur de calcul — il applique la grille de `grille.ts`.
 //
-// Principe : le transport est le volume multiplié par le prix au m³ lu
-// dans la matrice (tranche de distance × tranche de volume), ajusté par
-// le coefficient de la formule. Tout le reste vient s'ajouter en
-// suppléments, chacun sur sa propre ligne.
+// Principe : le transport se lit dans la matrice de la formule, à
+// l'intersection de la tranche de volume et de la tranche de distance. La
+// première tranche donne un FORFAIT ; les autres, un prix au m³ à multiplier
+// par le volume. Tout le reste vient s'ajouter en suppléments, chacun sur sa
+// propre ligne.
 //
 // Le moteur ne devine rien : ce qu'il ne sait pas, il le remonte dans
 // `alertes` pour que l'équipe tranche, plutôt que de facturer à l'aveugle.
 // ============================================================
 
 import {
-  COEFFICIENTS,
   SUPPLEMENTS,
-  TARIFS_STANDARD,
+  TARIFS,
   TRANCHES_DISTANCE,
   TRANCHES_VOLUME,
   TVA_DEFAUT,
@@ -59,9 +59,11 @@ export interface Simulation {
   tva: number;
   ttc: number;
   /** Ce que le moteur a lu dans la grille, pour pouvoir le montrer. */
+  /** Valeur de la case : un forfait en euros, ou un prix au m³. */
+  valeur_case: number;
+  est_forfait: boolean;
+  /** Prix au m³ appliqué — zéro quand la tranche est au forfait. */
   tarif_m3: number;
-  tarif_m3_standard: number;
-  coefficient: number;
   tranche_volume: string;
   tranche_distance: string;
   index_volume: number;
@@ -84,10 +86,13 @@ export function indexDistance(km: number): number {
   return i === -1 ? TRANCHES_DISTANCE.length - 1 : i;
 }
 
-/** Prix au m³ appliqué pour une formule, un volume et une distance. */
-export function tarifM3(formule: Formule, volume: number, km: number): number {
-  const base = TARIFS_STANDARD[indexDistance(km)][indexVolume(volume)];
-  return r2(base * COEFFICIENTS[formule]);
+/** Ce que la grille donne pour un chantier : un forfait, ou un prix au m³. */
+export function caseGrille(formule: Formule, volume: number, km: number) {
+  const iv = indexVolume(volume);
+  return {
+    valeur: TARIFS[formule][indexDistance(km)][iv],
+    forfait: TRANCHES_VOLUME[iv].forfait,
+  };
 }
 
 export function simuler(input: SimulationInput): Simulation {
@@ -101,19 +106,14 @@ export function simuler(input: SimulationInput): Simulation {
   const trancheVolume = TRANCHES_VOLUME[iv];
   const trancheDistance = TRANCHES_DISTANCE[id];
 
-  const tarifStandard = TARIFS_STANDARD[id][iv];
-  const coefficient = COEFFICIENTS[formule];
-  const tarif = r2(tarifStandard * coefficient);
+  const valeurCase = TARIFS[formule][id][iv];
+  const estForfait = trancheVolume.forfait;
+  const tarif = estForfait ? 0 : valeurCase;
 
   const alertes: string[] = [];
   const mentions: string[] = [];
 
   // Hors bornes : on prolonge la tranche la plus proche, mais on le dit.
-  if (volume > 0 && volume < TRANCHES_VOLUME[0].min) {
-    alertes.push(
-      `Volume sous la première tranche de la grille (${TRANCHES_VOLUME[0].min} m³) : tarif de la tranche ${trancheVolume.label} appliqué.`,
-    );
-  }
   const distanceMax = TRANCHES_DISTANCE[TRANCHES_DISTANCE.length - 1].max;
   if (km > distanceMax) {
     alertes.push(
@@ -124,12 +124,17 @@ export function simuler(input: SimulationInput): Simulation {
   const lines: LigneDevis[] = [];
 
   // ---- Transport ----
-  const transport = r2(volume * tarif);
+  const transport = r2(estForfait ? valeurCase : volume * tarif);
   lines.push({
     label: "Transport et manutention",
-    detail: `${nb(volume)} m³ × ${nb(tarif)} €/m³ — ${trancheVolume.label}, ${trancheDistance.label}`,
+    detail: estForfait
+      ? `forfait ${nb(valeurCase)} € — ${trancheVolume.label}, ${trancheDistance.label}`
+      : `${nb(volume)} m³ × ${nb(tarif)} €/m³ — ${trancheVolume.label}, ${trancheDistance.label}`,
     amount: transport,
   });
+  if (estForfait) {
+    mentions.push("Moins de 5 m³ : le transport est facturé au forfait de la tranche.");
+  }
 
   // ---- Suppléments ----
   const supplements: LigneDevis[] = [];
@@ -222,9 +227,9 @@ export function simuler(input: SimulationInput): Simulation {
     ht,
     tva,
     ttc: r2(ht + tva),
+    valeur_case: valeurCase,
+    est_forfait: estForfait,
     tarif_m3: tarif,
-    tarif_m3_standard: tarifStandard,
-    coefficient,
     tranche_volume: trancheVolume.label,
     tranche_distance: trancheDistance.label,
     index_volume: iv,

@@ -79,8 +79,8 @@ export default function SimulateurClient() {
                   }`}
                 >
                   <div className="text-sm font-medium">{f.label}</div>
-                  <div className="mt-0.5 text-[11px] text-ink-soft">
-                    ×{f.key === "standard" ? "1" : f.key === "eco" ? "0,92" : "1,15"}
+                  <div className="mt-0.5 text-[11px] leading-tight text-ink-soft">
+                    {f.key === "standard" ? "référence" : f.key === "eco" ? "moins cher" : "tout compris"}
                   </div>
                 </button>
               ))}
@@ -183,15 +183,16 @@ export default function SimulateurClient() {
               </div>
               <div className="rounded-xl border border-line bg-paper px-4 py-3 text-[12.5px] text-ink-soft">
                 <div className="tnum">
-                  <span className="font-medium text-ink">{nb(sim.tarif_m3)} €/m³</span> appliqué
+                  <span className="font-medium text-ink">
+                    {sim.est_forfait ? `${nb(sim.valeur_case)} € forfait` : `${nb(sim.tarif_m3)} €/m³`}
+                  </span>{" "}
+                  appliqué
                 </div>
                 <div className="mt-0.5">
                   {sim.tranche_volume} · {sim.tranche_distance}
                 </div>
-                {sim.coefficient !== 1 && (
-                  <div className="mt-0.5 tnum">
-                    {nb(sim.tarif_m3_standard)} € standard × {nb(sim.coefficient)}
-                  </div>
+                {sim.est_forfait && (
+                  <div className="mt-0.5">moins de 5 m³ : facturé au forfait</div>
                 )}
               </div>
             </div>
