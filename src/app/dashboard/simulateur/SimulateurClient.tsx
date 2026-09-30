@@ -74,14 +74,14 @@ export default function SimulateurClient() {
                 <button
                   key={f.key}
                   onClick={() => set({ formule: f.key })}
-                  className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                  className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-left transition ${
                     input.formule === f.key
                       ? "border-accent bg-accent-soft"
                       : "border-line bg-paper hover:border-line-strong"
                   }`}
                 >
-                  <div className="text-sm font-medium">{f.label}</div>
-                  <div className="mt-0.5 text-[11px] leading-tight text-ink-soft">
+                  <div className="truncate text-[12.5px] font-medium">{f.label}</div>
+                  <div className="mt-0.5 truncate text-[11px] leading-tight text-ink-soft">
                     {f.key === "standard" ? "référence" : f.key === "eco" ? "moins cher" : "tout compris"}
                   </div>
                 </button>

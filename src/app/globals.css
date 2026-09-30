@@ -1,36 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  /* ---- Palette inspirée Redion : gris clair froid, émeraude ---- */
-  --color-paper: #f4f5f3;        /* fond de page */
-  --color-card: #ffffff;         /* surfaces / cartes */
-  --color-subtle: #eef0ec;       /* surfaces secondaires */
-  --color-ink: #15170f;          /* texte principal (quasi noir) */
-  --color-ink-soft: #6f736a;     /* texte secondaire (muted) */
-  --color-line: #e2e4de;         /* filets */
-  --color-line-strong: #d2d5cd;
-  --color-accent: #6366f1;       /* indigo (action) — accent primaire Redion */
-  --color-accent-dark: #4f46e5;  /* hover */
-  --color-accent-soft: #ecedfd;  /* surface active / sélection */
-  --color-good: #10b981;         /* émeraude (succès) */
-  --color-warn: #f59e0b;         /* ambre */
+  /* ── Système repris de la maquette ERP ────────────────────────────────
+     Sol gris froid, cartes blanches cerclées d'un filet fin, bleu plein
+     pour l'état actif et l'action, texte dense. Pas d'ombre portée : le
+     filet suffit à détacher une carte.                                   */
 
-  /* Palette catégorielle Redion (identités : statuts, sources, formules…) */
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #6366f1;
-  --chart-4: #f59e0b;
-  --chart-5: #ec4899;
-  --chart-6: #8b5cf6;
-  --chart-7: #14b8a6;
+  /* Surfaces */
+  --color-paper: #f7f8fa;        /* sol */
+  --color-card: #ffffff;         /* cartes */
+  --color-subtle: #f2f4f7;       /* en-têtes de tableau, champs, pastilles */
+  --color-ink: #1a1d21;          /* texte principal */
+  --color-ink-soft: #6b7280;     /* texte secondaire — 4,8:1 sur blanc */
+  --color-line: #e8eaee;         /* filet des cartes et des lignes */
+  --color-line-strong: #d8dbe1;
 
-  --font-sans: var(--font-sans-ui);
-  --font-serif: var(--font-sans-ui);
+  /* Bleu : entrée active, bouton plein, liens */
+  --color-accent: #3b5bfd;
+  --color-accent-dark: #2d49e0;
+  --color-accent-soft: #eef2ff;
 
-  --radius: 1rem;
+  /* États */
+  --color-good: #12b76a;
+  --color-good-soft: #e7f8ef;
+  --color-warn: #f79009;
+  --color-warn-soft: #fef5e7;
+  --color-danger: #f04438;
+  --color-danger-soft: #fdeceb;
 
-  --shadow-sm: 0 1px 2px rgba(20, 23, 15, 0.06);
-  --shadow-md: 0 6px 24px -8px rgba(20, 23, 15, 0.14);
+  /* Séries de graphiques */
+  --chart-1: #3b5bfd;
+  --chart-2: #12b76a;
+  --chart-3: #7a5af8;
+  --chart-4: #f79009;
+  --chart-5: #ef4a81;
+  --chart-6: #0ba5ec;
+  --chart-7: #66c61c;
+
+  --font-sans: var(--font-rail);
+  --font-serif: var(--font-rail);
+
+  --radius: 0.75rem;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.16);
 }
 
 @layer base {
@@ -39,19 +52,6 @@
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "ss01", "cv01";
-  }
-
-  /* Halo accent discret en fond (pas de quadrillage). */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(900px 520px at 88% -12%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 60%),
-      radial-gradient(680px 480px at -5% 0%, color-mix(in srgb, var(--color-accent) 6%, transparent), transparent 55%);
   }
 
   ::selection {
@@ -60,10 +60,10 @@
   }
 }
 
-/* Titres display — grotesque serré (esprit Redion) */
+/* Titres : la même famille, plus serrée et plus grasse */
 .font-serif {
-  font-family: var(--font-sans-ui);
-  letter-spacing: -0.015em;
+  font-family: var(--font-rail);
+  letter-spacing: -0.02em;
   font-weight: 600;
 }
 h1.font-serif,
@@ -73,9 +73,9 @@ h2.font-serif {
   font-weight: 700;
 }
 
-/* La barre latérale a sa propre police */
+/* Une seule famille dans toute l'application, comme la maquette. */
 .font-rail {
-  font-family: var(--font-rail), var(--font-sans-ui), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-rail), ui-sans-serif, system-ui, sans-serif;
   letter-spacing: -0.006em;
 }
 

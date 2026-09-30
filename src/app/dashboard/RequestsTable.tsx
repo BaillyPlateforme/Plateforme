@@ -88,7 +88,7 @@ export default function RequestsTable({
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b border-line text-left text-ink-soft">
+            <thead className="border-b border-line bg-subtle text-left text-[11.5px] uppercase tracking-wide text-ink-soft">
               <tr>
                 <Th>Client</Th>
                 <Th>Trajet</Th>

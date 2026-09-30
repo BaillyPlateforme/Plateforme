@@ -30,7 +30,7 @@ export default function ClientsTable({ clients }: { clients: ClientSummary[] }) 
       />
       <div className="overflow-x-auto rounded-2xl border border-line bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-line text-left text-ink-soft">
+          <thead className="border-b border-line bg-subtle text-left text-[11.5px] uppercase tracking-wide text-ink-soft">
             <tr>
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">Société</th>
