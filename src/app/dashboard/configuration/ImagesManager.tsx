@@ -27,7 +27,7 @@ export default function ImagesManager({ library }: { library: LibraryPhoto[] }) 
           <h3 className="font-serif text-xl">Base de photos</h3>
           <p className="text-sm text-ink-soft">{library.length} photo(s) — utilisées dans le Playground.</p>
         </div>
-        <label className="cursor-pointer rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">
+        <label className="cursor-pointer rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">
           {pending ? "Envoi…" : "Ajouter des photos"}
           <input
             ref={inputRef}
@@ -48,7 +48,7 @@ export default function ImagesManager({ library }: { library: LibraryPhoto[] }) 
       ) : (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-6">
           {library.map((p) => (
-            <div key={p.path} className="group relative aspect-square overflow-hidden rounded-lg border border-line">
+            <div key={p.path} className="group relative aspect-square overflow-hidden rounded-xl border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.url} alt="" className="h-full w-full object-cover" />
               <button

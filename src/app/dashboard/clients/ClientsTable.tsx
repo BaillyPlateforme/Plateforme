@@ -26,11 +26,11 @@ export default function ClientsTable({ clients }: { clients: ClientSummary[] }) 
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Rechercher un client…"
-        className="mb-4 w-72 rounded-lg border border-line bg-card px-3.5 py-2 text-sm outline-none focus:border-accent"
+        className="mb-4 w-72 rounded-xl border border-line bg-card px-3.5 py-2 text-sm outline-none focus:border-accent"
       />
       <div className="overflow-x-auto rounded-2xl border border-line bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-line bg-subtle text-left text-[11.5px] uppercase tracking-wide text-ink-soft">
+          <thead className="border-b border-line text-left text-[11.5px] font-medium text-ink-soft">
             <tr>
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium">Société</th>

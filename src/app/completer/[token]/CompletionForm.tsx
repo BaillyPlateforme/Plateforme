@@ -119,7 +119,7 @@ export default function CompletionForm({
 
   if (done) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
+      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-lg flex-col items-center justify-center px-6 text-center">
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-4xl">Merci !</h1>
@@ -132,7 +132,7 @@ export default function CompletionForm({
   const nbManque = Number(manque.volume) + Number(manque.depart) + Number(manque.arrivee);
 
   return (
-    <div className="mx-auto min-h-screen max-w-2xl px-5 py-12 md:px-8">
+    <div className="mx-auto my-2.5 max-w-2xl rounded-[26px] bg-card px-5 py-12 shadow-[var(--shadow-coque)] md:my-4 md:px-8">
       <div className="font-serif text-3xl font-semibold">Bailly</div>
       <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
       <h1 className="mt-6 font-serif text-4xl leading-tight">
@@ -142,9 +142,9 @@ export default function CompletionForm({
 
       {/* ===== À COMPLÉTER — mis en avant, en haut ===== */}
       {nbManque > 0 && (
-        <section className="mt-8 rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-5">
+        <section className="mt-8 rounded-2xl border-2 border-warn/45 bg-warn-soft/70 p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-amber-900">À compléter</span>
+            <span className="text-sm font-semibold text-warn">À compléter</span>
             {manque.volume && <MissingChip label="Volume à déménager" />}
             {manque.depart && <MissingChip label="Adresse de départ" />}
             {manque.arrivee && <MissingChip label="Adresse d'arrivée" />}
@@ -208,7 +208,7 @@ export default function CompletionForm({
               type="date"
               value={date ? date.slice(0, 10) : ""}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-accent sm:w-64"
+              className="w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-accent sm:w-64"
             />
           </div>
 
@@ -231,7 +231,7 @@ export default function CompletionForm({
         <button
           onClick={submit}
           disabled={!canSubmit || submitting}
-          className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
         >
           {submitting ? "Envoi…" : "Valider ma demande"}
         </button>
@@ -242,8 +242,8 @@ export default function CompletionForm({
 
 function MissingChip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400 bg-white/70 px-3 py-1 text-xs font-medium text-amber-800">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-warn/60 bg-white/70 px-3 py-1 text-xs font-medium text-warn">
+      <span className="h-1.5 w-1.5 rounded-full bg-warn-soft/700" />
       {label}
     </span>
   );
@@ -310,7 +310,7 @@ function VolumePicker({
       {mode === "explicit" && (
         <div className="space-y-3">
           <input type="number" min={0} step="0.5" value={explicitVolume} onChange={(e) => setExplicitVolume(e.target.value)} placeholder="Volume estimé en m³"
-            className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent" />
+            className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent" />
           <div className="flex flex-wrap gap-2">
             {LOGEMENT_HINTS.map((h) => (
               <button key={h.label} type="button" onClick={() => setExplicitVolume(String(h.volume))}
@@ -330,7 +330,7 @@ function Input({ label, value, onChange, placeholder, highlight }: { label: stri
     <label className="block">
       <span className="mb-1 block text-sm font-medium">{label}</span>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full rounded-lg border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent ${highlight && !value ? "border-amber-400 bg-amber-50/40" : "border-line"}`} />
+        className={`w-full rounded-xl border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent ${highlight && !value ? "border-warn/60 bg-warn-soft/60" : "border-line"}`} />
     </label>
   );
 }

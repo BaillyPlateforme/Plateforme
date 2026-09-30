@@ -7,10 +7,10 @@ import { updateDevisStatus, deleteDevis } from "@/lib/actions/devis";
 
 export const DEVIS_STATUS: Record<DevisStatus, { label: string; className: string }> = {
   brouillon: { label: "Brouillon", className: "bg-subtle text-ink-soft" },
-  envoye: { label: "Envoyé", className: "bg-blue-100 text-blue-800" },
+  envoye: { label: "Envoyé", className: "bg-accent-soft text-accent" },
   accepte: { label: "Accepté", className: "bg-accent-soft text-accent-dark" },
-  refuse: { label: "Refusé", className: "bg-neutral-200 text-neutral-600" },
-  expire: { label: "Expiré", className: "bg-amber-100 text-amber-800" },
+  refuse: { label: "Refusé", className: "bg-subtle text-ink-soft" },
+  expire: { label: "Expiré", className: "bg-warn-soft text-warn" },
 };
 const ORDER: DevisStatus[] = ["brouillon", "envoye", "accepte", "refuse", "expire"];
 
@@ -40,11 +40,11 @@ export default function DevisTable({ devis }: { devis: DevisRow[] }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Rechercher une référence, un client…"
-        className="mb-4 w-72 rounded-lg border border-line bg-card px-3.5 py-2 text-sm outline-none focus:border-accent"
+        className="mb-4 w-72 rounded-xl border border-line bg-card px-3.5 py-2 text-sm outline-none focus:border-accent"
       />
       <div className="overflow-x-auto rounded-2xl border border-line bg-card">
         <table className="w-full text-sm">
-          <thead className="border-b border-line bg-subtle text-left text-[11.5px] uppercase tracking-wide text-ink-soft">
+          <thead className="border-b border-line text-left text-[11.5px] font-medium text-ink-soft">
             <tr>
               <th className="px-4 py-3 font-medium">Référence</th>
               <th className="px-4 py-3 font-medium">Client</th>

@@ -1,54 +1,64 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Système repris de la maquette ERP ────────────────────────────────
-     Sol gris froid, cartes blanches cerclées d'un filet fin, bleu plein
-     pour l'état actif et l'action, texte dense. Pas d'ombre portée : le
-     filet suffit à détacher une carte.                                   */
+  /* ── Système repris de la maquette Emedley ───────────────────────────
+     Un sol de verdure à l'extérieur, une coque blanche posée dessus, des
+     cartes blanches cerclées d'un filet très clair. Deux couleurs
+     portantes : un vert profond pour l'action, un abricot pour l'état
+     actif et les accents chauds. Coins généreux, ombres douces.        */
 
   /* Surfaces */
-  --color-paper: #f7f8fa;        /* sol */
+  --color-canvas: #bdd3b6;       /* le sol, hors de la coque */
+  --color-canvas-haut: #e4ede0;
+  --color-paper: #f6f8f4;        /* intérieur de la coque */
   --color-card: #ffffff;         /* cartes */
-  --color-subtle: #f2f4f7;       /* en-têtes de tableau, champs, pastilles */
-  --color-ink: #1a1d21;          /* texte principal */
-  --color-ink-soft: #6b7280;     /* texte secondaire — 4,8:1 sur blanc */
-  --color-line: #e8eaee;         /* filet des cartes et des lignes */
-  --color-line-strong: #d8dbe1;
+  --color-subtle: #f4f5f1;       /* en-têtes de tableau, champs, pastilles */
+  --color-ink: #1b1d1b;          /* texte principal */
+  --color-ink-soft: #787d77;     /* texte secondaire — 4,7:1 sur blanc */
+  --color-line: #ecedea;         /* filet des cartes et des lignes */
+  --color-line-strong: #dcdfd9;
 
-  /* Bleu : entrée active, bouton plein, liens */
-  --color-accent: #3b5bfd;
-  --color-accent-dark: #2d49e0;
-  --color-accent-soft: #eef2ff;
+  /* Vert : action, état actif, liens */
+  --color-accent: #1f7a4d;
+  --color-accent-dark: #17603b;
+  --color-accent-soft: #e6f2ea;
+
+  /* Abricot : la pastille du menu, les tuiles chaudes, les badges */
+  --color-peach: #e89a68;
+  --color-peach-soft: #fbe6d5;
+  --color-peach-ink: #b56a33;
 
   /* États */
-  --color-good: #12b76a;
-  --color-good-soft: #e7f8ef;
-  --color-warn: #f79009;
-  --color-warn-soft: #fef5e7;
-  --color-danger: #f04438;
-  --color-danger-soft: #fdeceb;
+  --color-good: #2f9e63;
+  --color-good-soft: #e6f4ec;
+  --color-warn: #dda23f;
+  --color-warn-soft: #fbf1de;
+  --color-danger: #d9544a;
+  --color-danger-soft: #fbeae8;
 
-  /* Séries de graphiques */
-  --chart-1: #3b5bfd;
-  --chart-2: #12b76a;
-  --chart-3: #7a5af8;
-  --chart-4: #f79009;
-  --chart-5: #ef4a81;
-  --chart-6: #0ba5ec;
-  --chart-7: #66c61c;
+  /* Séries de graphiques : la palette de la maquette, vert et abricot en tête */
+  --chart-1: #1f7a4d;
+  --chart-2: #e8935f;
+  --chart-3: #8fb79b;
+  --chart-4: #1b1d1b;
+  --chart-5: #c9a227;
+  --chart-6: #4e8f7e;
+  --chart-7: #c4623f;
 
   --font-sans: var(--font-rail);
   --font-serif: var(--font-rail);
 
-  --radius: 0.75rem;
+  --radius: 1rem;
 
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.16);
+  --shadow-sm: 0 1px 2px rgba(28, 45, 30, 0.05);
+  --shadow-md: 0 10px 30px -14px rgba(28, 45, 30, 0.22);
+  --shadow-coque: 0 30px 80px -40px rgba(26, 52, 33, 0.45);
 }
 
 @layer base {
   body {
-    background: var(--color-paper);
+    background: linear-gradient(168deg, var(--color-canvas-haut) 0%, #d2e0cc 45%, var(--color-canvas) 100%);
+    background-attachment: fixed;
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -89,7 +99,7 @@ h2.font-serif {
 
 /* Signature : dégradé sur un mot-clé (titres, grands nombres) */
 .gradient-text {
-  background: linear-gradient(95deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%);
+  background: linear-gradient(95deg, #1f7a4d 0%, #6aa36f 45%, #e8935f 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -100,12 +110,12 @@ h2.font-serif {
 .gradient-flow {
   background-image: linear-gradient(
     95deg,
-    #6366f1 0%,
-    #8b5cf6 22%,
-    #ec4899 44%,
-    #8b5cf6 66%,
-    #6366f1 88%,
-    #6366f1 100%
+    #1f7a4d 0%,
+    #5f9c69 22%,
+    #e8935f 44%,
+    #5f9c69 66%,
+    #1f7a4d 88%,
+    #1f7a4d 100%
   );
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -119,12 +129,12 @@ h2.font-serif {
 .gradient-flow-light {
   background-image: linear-gradient(
     95deg,
-    #a5b4fc 0%,
-    #d8b4fe 22%,
-    #fbcfe8 44%,
-    #d8b4fe 66%,
-    #a5b4fc 88%,
-    #a5b4fc 100%
+    #a7d9ba 0%,
+    #d5e9c8 22%,
+    #f7c9a4 44%,
+    #d5e9c8 66%,
+    #a7d9ba 88%,
+    #a7d9ba 100%
   );
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -390,7 +400,7 @@ h2.font-serif {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05) 42%, rgba(99, 102, 241, 0.45));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05) 42%, rgba(31, 122, 77, 0.45));
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);

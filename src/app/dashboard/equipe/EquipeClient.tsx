@@ -56,7 +56,7 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
                     value={m.role}
                     disabled={pending}
                     onChange={(e) => start(() => updateMember(m.id, { role: e.target.value }))}
-                    className="rounded-lg border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-accent"
+                    className="rounded-xl border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-accent"
                   >
                     <option value="admin">Admin</option>
                     <option value="agent">Agent</option>
@@ -93,23 +93,23 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
         <h3 className="eyebrow mb-4 text-ink-soft">Ajouter un membre</h3>
         <div className="space-y-3">
           <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom"
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@bailly.fr"
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
           <select value={role} onChange={(e) => setRole(e.target.value)}
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="agent">Agent</option>
             <option value="admin">Admin</option>
           </select>
           <button
             onClick={add}
             disabled={pending || !email.trim()}
-            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+            className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
           >
             {pending ? "…" : "Créer l'accès"}
           </button>
           {flash && (
-            <div className="rounded-lg bg-accent-soft/60 px-3 py-2 text-xs text-accent-dark">{flash}</div>
+            <div className="rounded-xl bg-accent-soft/60 px-3 py-2 text-xs text-accent-dark">{flash}</div>
           )}
           <p className="text-xs text-ink-soft">
             Un compte de connexion est créé avec un mot de passe temporaire à transmettre au membre.

@@ -63,8 +63,8 @@ export default function TrajetMap({
       map = L.map(ref.current, { scrollWheelZoom: false, attributionControl: true });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
 
-      const green = "#10b981";
-      const indigo = "#6366f1";
+      const green = "#2f9e63";
+      const indigo = "#1f7a4d";
       L.circleMarker([a.lat, a.lon], { radius: 8, color: "#fff", weight: 2, fillColor: green, fillOpacity: 1 }).addTo(map).bindTooltip(`Départ · ${departVille ?? ""}`);
       L.circleMarker([b.lat, b.lon], { radius: 8, color: "#fff", weight: 2, fillColor: indigo, fillOpacity: 1 }).addTo(map).bindTooltip(`Arrivée · ${arriveeVille ?? ""}`);
 
@@ -97,7 +97,7 @@ export default function TrajetMap({
         </div>
       )}
       {status === "ok" && (
-        <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-lg border border-line bg-card/95 px-3 py-1.5 text-xs shadow-sm">
+        <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-xl border border-line bg-card/95 px-3 py-1.5 text-xs shadow-sm">
           <span className="font-medium">{departVille ?? "?"}</span> → <span className="font-medium">{arriveeVille ?? "?"}</span>
           {km != null && <span className="ml-1.5 text-ink-soft">· {km} km</span>}
         </div>

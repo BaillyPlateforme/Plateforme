@@ -6,7 +6,7 @@ export type PdfTrajet = { depart: string | null; arrivee: string | null; volume:
 const C = {
   ink: "#15170f",
   soft: "#6f736a",
-  sage: "#6366f1",
+  sage: "#1f7a4d",
   line: "#e2e4de",
   cream: "#eef0ec",
 };

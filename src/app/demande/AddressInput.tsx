@@ -100,10 +100,10 @@ export function AddressInput({
         }}
         placeholder={placeholder}
         autoComplete="off"
-        className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+        className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
       />
       {open && sugg.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-line bg-card shadow-[var(--shadow-md)]">
+        <ul className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-[var(--shadow-md)]">
           {sugg.map((p, i) => (
             <li key={i}>
               <button

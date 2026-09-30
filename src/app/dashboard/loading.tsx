@@ -9,7 +9,7 @@
  */
 export default function Loading() {
   return (
-    <div className="animate-pulse px-6 py-8 md:px-10">
+    <div className="animate-pulse px-5 py-5 md:px-7 md:py-6">
       <div className="mb-6 h-9 w-44 rounded-full bg-subtle" />
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">

@@ -63,10 +63,10 @@ function Hero() {
       {/* Voiles : la photo descend derrière le texte sans l'assombrir d'un bloc. */}
       <div className="absolute inset-0 bg-ink/62" />
       <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/35 to-ink/92" />
-      <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#ec4899]/18" />
+      <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#e8935f]/18" />
       <div className="drift absolute -left-40 top-24 h-[520px] w-[520px] rounded-full bg-accent/25 blur-3xl" />
       <div
-        className="drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px] rounded-full bg-[#8b5cf6]/22 blur-3xl"
+        className="drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px] rounded-full bg-[#4e8f7e]/22 blur-3xl"
         style={{ animationDuration: "26s", animationDelay: "-9s" }}
       />
 
@@ -428,13 +428,13 @@ function Equipe() {
     <section id="equipe" className="grain relative scroll-mt-20 overflow-hidden bg-ink py-24 lg:py-32">
       <div className="drift absolute -right-32 top-0 h-[460px] w-[460px] rounded-full bg-accent/20 blur-3xl" />
       <div
-        className="drift absolute -left-40 bottom-0 h-[420px] w-[420px] rounded-full bg-[#7a5af8]/18 blur-3xl"
+        className="drift absolute -left-40 bottom-0 h-[420px] w-[420px] rounded-full bg-[#4e8f7e]/18 blur-3xl"
         style={{ animationDuration: "22s", animationDelay: "-6s" }}
       />
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-16 lg:px-10">
         <Reveal>
-          <p className="eyebrow text-[#a5b4fc]">Réservé à l&apos;équipe</p>
+          <p className="eyebrow text-[#8fb79b]">Réservé à l&apos;équipe</p>
           <h2 className="font-serif mt-4 text-[34px] leading-[1.08] text-white sm:text-[42px]">
             Le <span className="gradient-flow-light">poste de pilotage</span>
           </h2>
@@ -498,7 +498,7 @@ function Fin() {
       <Reveal className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-[32px] border border-line bg-card px-8 py-14 text-center sm:px-14">
           <div className="pointer-events-none absolute -left-24 -top-24 h-[280px] w-[280px] rounded-full bg-accent/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 -right-20 h-[300px] w-[300px] rounded-full bg-[#ec4899]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 -right-20 h-[300px] w-[300px] rounded-full bg-[#e8935f]/10 blur-3xl" />
           <div className="relative">
             <h2 className="font-serif mx-auto max-w-[18ch] text-balance text-[32px] leading-[1.1] sm:text-[40px]">
               Combien coûte votre déménagement&nbsp;?

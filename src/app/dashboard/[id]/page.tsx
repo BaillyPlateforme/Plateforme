@@ -39,7 +39,7 @@ export default async function RequestPage({
   );
 
   return (
-    <div className="px-6 py-8 md:px-10">
+    <div className="px-5 py-5 md:px-7 md:py-6">
       <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
         ← Toutes les demandes
       </Link>

@@ -13,7 +13,7 @@ export default function ConfigurationPage() {
   const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/configuration");
 
   return (
-    <div className="px-6 py-8 md:px-10">
+    <div className="px-5 py-5 md:px-7 md:py-6">
       {erreur ? (
         <Echec message={erreur} onRetry={recharger} />
       ) : !donnees ? (

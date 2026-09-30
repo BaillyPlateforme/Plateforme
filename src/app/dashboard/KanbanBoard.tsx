@@ -9,11 +9,11 @@ import { sourceLabel, sourceClass, isIncomplete } from "./status";
 type Stage = "incomplete" | "qualifier" | "devis" | "chantier" | "perdu";
 
 const COLUMNS: { key: Stage; label: string; hint: string; droppable: boolean; accent: string }[] = [
-  { key: "incomplete", label: "Incomplète", hint: "En attente du client", droppable: false, accent: "bg-amber-400" },
-  { key: "qualifier", label: "À qualifier", hint: "Complète, à chiffrer", droppable: true, accent: "bg-blue-400" },
-  { key: "devis", label: "Devis", hint: "Devis envoyé", droppable: true, accent: "bg-indigo-400" },
+  { key: "incomplete", label: "Incomplète", hint: "En attente du client", droppable: false, accent: "bg-warn" },
+  { key: "qualifier", label: "À qualifier", hint: "Complète, à chiffrer", droppable: true, accent: "bg-accent" },
+  { key: "devis", label: "Devis", hint: "Devis envoyé", droppable: true, accent: "bg-peach" },
   { key: "chantier", label: "Chantier", hint: "Accepté", droppable: true, accent: "bg-good" },
-  { key: "perdu", label: "Perdu", hint: "Refusé", droppable: true, accent: "bg-neutral-400" },
+  { key: "perdu", label: "Perdu", hint: "Refusé", droppable: true, accent: "bg-ink-soft" },
 ];
 
 function stageOf(r: RequestRow): Stage | null {
@@ -98,7 +98,7 @@ function Card({ r, onDragStart, onDragEnd }: { r: RequestRow; onDragStart: () =>
           {sourceLabel(r.source)}
         </span>
         {isIncomplete(r) ? (
-          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Incomplète</span>
+          <span className="rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn">Incomplète</span>
         ) : (
           <span className="rounded-full bg-good/15 px-1.5 py-0.5 text-[10px] font-medium text-good">Complète</span>
         )}

@@ -36,7 +36,7 @@ export default function RequestDetail({
               {sourceLabel(r.source)}
             </span>
             {isIncomplete(r) ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Incomplète</span>
+              <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">Incomplète</span>
             ) : (
               <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-good">Complète</span>
             )}
@@ -164,7 +164,7 @@ function InfosTab({ detail }: { detail: Detail }) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
-              className="w-full resize-none rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="Contexte, points d'attention…"
             />
           </div>
@@ -177,7 +177,7 @@ function InfosTab({ detail }: { detail: Detail }) {
               })
             }
             disabled={pending}
-            className="w-full rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
+            className="w-full rounded-xl border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
           >
             {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer les notes"}
           </button>
@@ -232,7 +232,7 @@ function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<st
                 <img
                   src={photoUrls[p.id]}
                   alt={p.piece ?? ""}
-                  className="mb-3 aspect-video w-full rounded-lg object-cover"
+                  className="mb-3 aspect-video w-full rounded-xl object-cover"
                 />
               )}
               <div className="mb-2 text-right font-serif text-xl">{p.volume_m3} m³</div>
@@ -322,7 +322,7 @@ function DevisTab({ detail }: { detail: Detail }) {
             href={`/api/devis/${devis.id}/pdf`}
             target="_blank"
             rel="noreferrer"
-            className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+            className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
           >
             ⬇ Télécharger le devis PDF
           </a>
@@ -369,13 +369,13 @@ function ProgressStepper({ status }: { status: RequestStatus }) {
         {lost && (
           <>
             <span className="text-ink-soft/30">—</span>
-            <div className="whitespace-nowrap rounded-full border border-neutral-300 bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-600">✕ Perdue</div>
+            <div className="whitespace-nowrap rounded-full border border-line-strong bg-subtle px-3 py-1.5 text-xs font-medium text-ink-soft">✕ Perdue</div>
           </>
         )}
         {archived && (
           <>
             <span className="text-ink-soft/30">—</span>
-            <div className="whitespace-nowrap rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-500">Archivée</div>
+            <div className="whitespace-nowrap rounded-full border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink-soft">Archivée</div>
           </>
         )}
       </div>
@@ -502,12 +502,12 @@ function MessagesTab({ detail }: { detail: Detail }) {
 
 function MissingBanner({ missing, token }: { missing: string[]; token: string | null }) {
   return (
-    <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50/70 px-4 py-3">
+    <div className="mt-5 rounded-xl border border-warn/45 bg-warn-soft/70/70 px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-sm font-medium text-amber-900">Informations manquantes :</span>
+        <span className="text-sm font-medium text-warn">Informations manquantes :</span>
         {missing.map((m) => (
-          <span key={m} className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span key={m} className="inline-flex items-center gap-1.5 rounded-full border border-warn/45 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-warn">
+            <span className="h-1.5 w-1.5 rounded-full bg-warn-soft/700" />
             {m}
           </span>
         ))}
@@ -516,7 +516,7 @@ function MissingBanner({ missing, token }: { missing: string[]; token: string | 
             href={`/completer/${token}`}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto rounded-lg border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-900 transition hover:bg-amber-100"
+            className="ml-auto rounded-xl border border-warn/60 px-3 py-1.5 text-xs font-medium text-warn transition hover:bg-warn-soft"
           >
             Ouvrir le lien de complétion ↗
           </a>
@@ -542,13 +542,13 @@ function TimelineTab({ detail }: { detail: Detail }) {
         const completed = e.type === "completed";
         return (
           <div key={e.id} className="relative">
-            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${incomplete ? "border-amber-400" : completed ? "border-good" : "border-accent"}`} />
+            <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${incomplete ? "border-warn/60" : completed ? "border-good" : "border-accent"}`} />
             <div className="text-sm font-medium">{eventLabel(e.type)}</div>
 
             {incomplete && Array.isArray(p.manque) && p.manque.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {p.manque.map((m) => (
-                  <span key={m} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">manque : {m}</span>
+                  <span key={m} className="rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">manque : {m}</span>
                 ))}
               </div>
             )}
@@ -655,7 +655,7 @@ function StatusPicker({
       value={value}
       onChange={(e) => onChange(e.target.value as RequestStatus)}
       disabled={disabled}
-      className="rounded-lg border border-line bg-card px-3 py-2 text-sm font-medium outline-none focus:border-accent disabled:opacity-50"
+      className="rounded-xl border border-line bg-card px-3 py-2 text-sm font-medium outline-none focus:border-accent disabled:opacity-50"
     >
       {STATUS_ORDER.map((s) => (
         <option key={s} value={s}>

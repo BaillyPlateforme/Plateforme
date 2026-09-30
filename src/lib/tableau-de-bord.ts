@@ -56,32 +56,32 @@ export async function preparerTableauDeBord() {
       valeur: nf.format(mois.length),
       label: "Demandes reçues",
       delta: delta(mois.length, moisPrec.length),
-      fond: "#ffe2e5",
-      pastille: "#fa5a7d",
+      fond: "#fbe6d5",
+      pastille: "#e89a68",
       icone: "inbox",
     },
     {
       valeur: eur(somme(mois, (r) => r.estimation_prix)),
       label: "Estimations cumulées",
       delta: delta(somme(mois, (r) => r.estimation_prix), somme(moisPrec, (r) => r.estimation_prix)),
-      fond: "#fff4de",
-      pastille: "#ff947a",
+      fond: "#e6f2ea",
+      pastille: "#1f7a4d",
       icone: "euro",
     },
     {
       valeur: `${nf.format(somme(mois, (r) => r.volume_m3))} m³`,
       label: "Volume à déménager",
       delta: delta(somme(mois, (r) => r.volume_m3), somme(moisPrec, (r) => r.volume_m3)),
-      fond: "#dcfce7",
-      pastille: "#3cd856",
+      fond: "#eceeea",
+      pastille: "#1b1d1b",
       icone: "box",
     },
     {
       valeur: nf.format(clients(mois)),
       label: "Nouveaux clients",
       delta: delta(clients(mois), clients(moisPrec)),
-      fond: "#f3e8ff",
-      pastille: "#bf83ff",
+      fond: "#e6f4ec",
+      pastille: "#2f9e63",
       icone: "user",
     },
   ];
@@ -100,19 +100,19 @@ export async function preparerTableauDeBord() {
   const flux = [
     {
       label: "Reçues",
-      color: TONS.violet,
+      color: TONS.sauge,
       data: moisSerie.map((d) => requests.filter((r) => dansMois(r, d)).length),
     },
     {
       label: "Qualifiées",
-      color: TONS.vert,
+      color: TONS.abricot,
       data: moisSerie.map(
         (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
       ),
     },
     {
       label: "Devisées",
-      color: TONS.rouge,
+      color: TONS.brique,
       data: moisSerie.map(
         (d) => requests.filter((r) => dansMois(r, d) && ["quoted", "won"].includes(r.status)).length,
       ),
@@ -132,8 +132,8 @@ export async function preparerTableauDeBord() {
       ),
     );
   const revenus = [
-    { label: "Formulaire", color: TONS.bleu, data: parJour("form") },
-    { label: "E-mail", color: TONS.vert, data: parJour("email") },
+    { label: "Formulaire", color: TONS.foret, data: parJour("form") },
+    { label: "E-mail", color: TONS.abricot, data: parJour("email") },
   ];
 
   // ── Rythme hebdomadaire sur la fenêtre : reçues contre qualifiées ──
@@ -142,12 +142,12 @@ export async function preparerTableauDeBord() {
   const semaines = [
     {
       label: "Reçues",
-      color: TONS.bleu,
+      color: TONS.foret,
       data: Array.from({ length: SEMAINES }, (_, i) => semaine(i).length),
     },
     {
       label: "Qualifiées",
-      color: TONS.vert,
+      color: TONS.abricot,
       data: Array.from({ length: SEMAINES }, (_, i) =>
         semaine(i).filter((r) => QUALIFIEES.includes(r.status)).length,
       ),
@@ -161,14 +161,14 @@ export async function preparerTableauDeBord() {
   const objectif = [
     {
       label: "Qualifiées",
-      color: TONS.sapin,
+      color: TONS.mousse,
       data: sept.map(
         (d) => requests.filter((r) => dansMois(r, d) && QUALIFIEES.includes(r.status)).length,
       ),
     },
     {
       label: "Reçues",
-      color: TONS.jaune,
+      color: TONS.or,
       data: sept.map((d) => requests.filter((r) => dansMois(r, d)).length),
     },
   ];
@@ -184,7 +184,7 @@ export async function preparerTableauDeBord() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
   const villeMax = villes[0]?.[1] ?? 1;
-  const tons = [TONS.bleu, TONS.vert, TONS.violet, "#f59e0b", TONS.rouge];
+  const tons = [TONS.foret, TONS.abricot, TONS.sauge, TONS.or, TONS.brique];
 
   // ── Départements ──
   const deps = Object.entries(

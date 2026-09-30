@@ -62,7 +62,7 @@ export default function DemandesPage() {
               </span>
               {donnees && (
                 <span
-                  className={`rounded-lg px-1.5 py-0.5 text-[11px] font-semibold tnum ${
+                  className={`rounded-xl px-1.5 py-0.5 text-[11px] font-semibold tnum ${
                     on ? "bg-accent-soft text-accent-dark" : "bg-card text-ink-soft"
                   }`}
                 >

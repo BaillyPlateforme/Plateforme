@@ -4,11 +4,11 @@
    valeur mais une référence — les couleurs arrivaient à `undefined`, et les
    barres se dessinaient en noir. */
 export const TONS = {
-  bleu: "#0095ff",
-  vert: "#00e096",
-  violet: "#a700ff",
-  rouge: "#ef3826",
-  jaune: "#ffcf00",
-  sapin: "#4ab58e",
-  ambre: "#f59e0b",
+  foret: "#1f7a4d",   /* le vert portant */
+  abricot: "#e8935f", /* le chaud de la maquette */
+  sauge: "#8fb79b",
+  ardoise: "#4e8f7e",
+  or: "#c9a227",
+  mousse: "#2f9e63",
+  brique: "#c4623f",
 };

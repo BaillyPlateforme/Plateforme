@@ -57,14 +57,14 @@ export default function AgendaClient({ events }: { events: Ev[] }) {
             {MONTHS[month]} {year}
           </h3>
           <div className="flex gap-1">
-            <button onClick={() => shift(-1)} className="rounded-lg border border-line px-3 py-1.5 text-sm transition hover:bg-subtle">←</button>
+            <button onClick={() => shift(-1)} className="rounded-xl border border-line px-3 py-1.5 text-sm transition hover:bg-subtle">←</button>
             <button
               onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth()); }}
-              className="rounded-lg border border-line px-3 py-1.5 text-sm transition hover:bg-subtle"
+              className="rounded-xl border border-line px-3 py-1.5 text-sm transition hover:bg-subtle"
             >
               Aujourd&apos;hui
             </button>
-            <button onClick={() => shift(1)} className="rounded-lg border border-line px-3 py-1.5 text-sm transition hover:bg-subtle">→</button>
+            <button onClick={() => shift(1)} className="rounded-xl border border-line px-3 py-1.5 text-sm transition hover:bg-subtle">→</button>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export default function AgendaClient({ events }: { events: Ev[] }) {
             return (
               <div
                 key={i}
-                className={`min-h-[70px] rounded-lg border p-1.5 text-left ${
+                className={`min-h-[70px] rounded-xl border p-1.5 text-left ${
                   isToday ? "border-accent bg-accent-soft/40" : "border-line"
                 }`}
               >

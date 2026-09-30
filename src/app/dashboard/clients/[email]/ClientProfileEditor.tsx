@@ -33,7 +33,7 @@ export default function ClientProfileEditor({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={5}
-            className="w-full resize-none rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
             placeholder="Contexte, préférences, historique…"
           />
         </div>
@@ -53,7 +53,7 @@ export default function ClientProfileEditor({
             })
           }
           disabled={pending}
-          className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          className="w-full rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
           {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer la fiche"}
         </button>
@@ -69,7 +69,7 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+        className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
       />
     </div>
   );

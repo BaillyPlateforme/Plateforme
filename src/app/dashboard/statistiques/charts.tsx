@@ -83,7 +83,7 @@ export function KpiCard({
           <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{label}</div>
           {delta != null && <Delta value={delta} />}
         </div>
-        <div className="mt-2 font-serif text-[30px] font-bold leading-none text-ink">
+        <div className="mt-2 whitespace-nowrap font-serif text-[clamp(20px,2.1vw,30px)] font-bold leading-none text-ink">
           <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} />
         </div>
         {sub && <div className="mt-2 truncate text-[11px] text-ink-soft">{sub}</div>}
@@ -176,7 +176,7 @@ export function MultiAreaTrend({ labels, series }: { labels: string[]; series: S
           ))}
         </svg>
         {hover != null && (
-          <div className="pointer-events-none absolute -top-1 rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs shadow-[var(--shadow-md)]" style={{ left: `calc(${(hover / (n - 1)) * 100}% )`, transform: "translateX(-50%)" }}>
+          <div className="pointer-events-none absolute -top-1 rounded-xl border border-line bg-card px-2.5 py-1.5 text-xs shadow-[var(--shadow-md)]" style={{ left: `calc(${(hover / (n - 1)) * 100}% )`, transform: "translateX(-50%)" }}>
             <div className="mb-0.5 font-medium">{labels[hover]}</div>
             {series.map((s) => (
               <div key={s.name} className="flex items-center gap-1.5">
@@ -202,7 +202,7 @@ export function Heatmap({ cells }: { cells: { date: string; value: number }[] })
   const max = Math.max(1, ...cells.map((c) => c.value));
   const weeks: { date: string; value: number }[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  const ramp = ["var(--color-subtle)", "#c7d2fe", "#a5b4fc", "#818cf8", "#6366f1"];
+  const ramp = ["var(--color-subtle)", "#cfe3d5", "#8fb79b", "#3f9468", "#1f7a4d"];
   const level = (v: number) => (v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
   const jours = ["L", "M", "M", "J", "V", "S", "D"];
   return (

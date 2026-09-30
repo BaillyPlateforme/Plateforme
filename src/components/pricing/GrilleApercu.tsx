@@ -63,7 +63,7 @@ export default function GrilleApercu() {
               <button
                 key={f.key}
                 onClick={() => setFormule(f.key)}
-                className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                className={`rounded-xl px-3 py-1.5 text-sm transition ${
                   formule === f.key
                     ? "bg-accent-soft font-medium text-accent-dark"
                     : "text-ink-soft hover:bg-subtle hover:text-ink"
@@ -75,7 +75,7 @@ export default function GrilleApercu() {
           </div>
           <Link
             href="/dashboard/simulateur"
-            className="rounded-lg border border-line-strong bg-card px-3 py-1.5 text-sm transition hover:border-ink"
+            className="rounded-xl border border-line-strong bg-card px-3 py-1.5 text-sm transition hover:border-ink"
           >
             Ouvrir le simulateur
           </Link>

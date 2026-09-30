@@ -53,12 +53,12 @@ export default function RequestsTable({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Rechercher un client, une ville…"
-          className="w-64 rounded-lg border border-line bg-card px-3.5 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="w-64 rounded-xl border border-line bg-card px-3.5 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as RequestStatus | "all")}
-          className="rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
         >
           <option value="all">Tous les statuts</option>
           {STATUS_ORDER.map((s) => (
@@ -70,7 +70,7 @@ export default function RequestsTable({
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
         >
           <option value="date">Tri : récentes</option>
           <option value="potentiel">Tri : potentiel</option>
@@ -88,7 +88,7 @@ export default function RequestsTable({
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b border-line bg-subtle text-left text-[11.5px] uppercase tracking-wide text-ink-soft">
+            <thead className="border-b border-line text-left text-[11.5px] font-medium text-ink-soft">
               <tr>
                 <Th>Client</Th>
                 <Th>Trajet</Th>
@@ -119,7 +119,7 @@ export default function RequestsTable({
                           {sourceLabel(r.source)}
                         </span>
                         {isIncomplete(r) ? (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">Incomplète</span>
+                          <span className="rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn">Incomplète</span>
                         ) : (
                           <span className="rounded-full bg-good/15 px-1.5 py-0.5 text-[10px] font-medium text-good">Complète</span>
                         )}

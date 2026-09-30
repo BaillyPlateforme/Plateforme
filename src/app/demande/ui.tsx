@@ -25,7 +25,7 @@ export function Field({
 }
 
 const inputBase =
-  "w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-ink " +
+  "w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-ink " +
   "placeholder:text-ink-soft/50 outline-none transition " +
   "focus:border-accent focus:ring-2 focus:ring-accent/20";
 
@@ -72,7 +72,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40 ${
         props.className ?? ""
       }`}
     >
@@ -88,7 +88,7 @@ export function GhostButton({
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-accent-soft/40 disabled:opacity-40 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-xl border border-line-strong px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-accent-soft/40 disabled:opacity-40 ${
         props.className ?? ""
       }`}
     >

@@ -58,7 +58,7 @@ export default function QualificationEditor({ criteria }: { criteria: CriterionC
                   <input
                     type="number" value={c.floor}
                     onChange={(e) => patch(c.key, { floor: Number(e.target.value) })}
-                    className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+                    className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
                   />
                 </label>
                 <label className="block">
@@ -66,7 +66,7 @@ export default function QualificationEditor({ criteria }: { criteria: CriterionC
                   <input
                     type="number" value={c.target}
                     onChange={(e) => patch(c.key, { target: Number(e.target.value) })}
-                    className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+                    className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
                   />
                 </label>
               </div>
@@ -85,7 +85,7 @@ export default function QualificationEditor({ criteria }: { criteria: CriterionC
             })
           }
           disabled={pending}
-          className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          className="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
           {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer la configuration"}
         </button>

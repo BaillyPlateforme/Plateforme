@@ -58,7 +58,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
             list="ai-models"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
           />
           <datalist id="ai-models">
             {MODELS.map((m) => <option key={m} value={m} />)}
@@ -84,7 +84,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
           <input
             value={userInstruction}
             onChange={(e) => setUserInstruction(e.target.value)}
-            className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
           />
         </div>
       </section>
@@ -131,7 +131,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
             value={promptAvant}
             onChange={(e) => setPromptAvant(e.target.value)}
             rows={4}
-            className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
           />
         </div>
         <div>
@@ -140,10 +140,10 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
             value={promptApres}
             onChange={(e) => setPromptApres(e.target.value)}
             rows={6}
-            className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
           />
         </div>
-        <details className="rounded-lg border border-line bg-paper p-3">
+        <details className="rounded-xl border border-line bg-paper p-3">
           <summary className="cursor-pointer text-sm text-ink-soft">Aperçu du prompt final envoyé à l&apos;IA</summary>
           <pre className="mt-2 whitespace-pre-wrap text-xs text-ink">{preview}</pre>
         </details>
@@ -153,7 +153,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
         <button
           onClick={save}
           disabled={pending}
-          className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
           {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer la configuration d'analyse"}
         </button>

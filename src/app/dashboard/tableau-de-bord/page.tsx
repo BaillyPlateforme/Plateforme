@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import { Aires, BarresEmpilees, BarresGroupees, Courbes, Popularite } from "./Charts";
@@ -16,14 +17,14 @@ export default function TableauDeBordPage() {
 
   if (erreur) {
     return (
-      <div className="px-6 py-8 md:px-10">
+      <div className="px-5 py-5 md:px-7 md:py-6">
         <Echec message={erreur} onRetry={recharger} />
       </div>
     );
   }
   if (!donnees) {
     return (
-      <div className="px-6 py-8 md:px-10">
+      <div className="px-5 py-5 md:px-7 md:py-6">
         <Squelette lignes={8} />
       </div>
     );
@@ -38,43 +39,72 @@ function Contenu({ d }: { d: Donnees }) {
     volQualifie, volAttente, septLabels, sixLabels,
   } = d;
 
+  const suivi = [
+    { label: "Demandes qualifiées", part: pct(totalQualifiees, totalRecues), ton: TONS.foret },
+    { label: "Demandes devisées", part: pct(devis.length, requests.length), ton: TONS.abricot },
+    {
+      label: "Volume déjà chiffré",
+      part: pct(
+        volQualifie.reduce((a, b) => a + b, 0),
+        volQualifie.reduce((a, b) => a + b, 0) + volAttente.reduce((a, b) => a + b, 0),
+      ),
+      ton: TONS.mousse,
+    },
+    { label: "Part du formulaire dans les estimations", part: pct(revenus[0].data.reduce((a, b) => a + b, 0), revenus.reduce((t, s) => t + s.data.reduce((a, b) => a + b, 0), 0)), ton: TONS.ardoise },
+  ];
+
   return (
-    <div className="px-6 py-8 md:px-10">
-      <header className="mb-6 flex flex-wrap items-center justify-end gap-4">
-        <span className="rounded-full border border-line bg-card px-3.5 py-1.5 text-xs text-ink-soft">
-          {FENETRE} derniers jours · {nf.format(requests.length)} demandes suivies · {devis.length} devis
-        </span>
-      </header>
+    <div className="px-5 py-5 md:px-7 md:py-6">
+      <Banniere demandes={requests.length} devis={devis.length} />
 
-      <div className="grid grid-cols-12 gap-5">
-        {/* ── Activité du mois ── */}
-        <Carte className="col-span-12 xl:col-span-7">
-          <EnTete titre="Activité récente" sous={`Résumé sur ${FENETRE} jours`} />
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {tuiles.map((t) => (
-              <div key={t.label} className="rounded-2xl p-4" style={{ background: t.fond }}>
-                <span
-                  className="mb-3 flex h-9 w-9 items-center justify-center rounded-full text-white"
-                  style={{ background: t.pastille }}
-                >
-                  {ICONES[t.icone]}
-                </span>
-                <div className="font-serif text-[26px] leading-none tnum">{t.valeur}</div>
-                <div className="mt-1.5 text-[13px] text-ink/70">{t.label}</div>
-                <div className="mt-1 text-[11.5px] font-medium" style={{ color: t.pastille }}>
-                  {t.delta === null
-                    ? `sur ${FENETRE} jours`
-                    : `${t.delta >= 0 ? "+" : ""}${t.delta} % vs ${FENETRE} j préc.`}
-                </div>
-              </div>
-            ))}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {tuiles.map((t) => (
+          <div key={t.label} className="rounded-2xl border border-line bg-card p-5">
+            <div className="flex items-start justify-between gap-3">
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white"
+                style={{ background: t.pastille }}
+              >
+                {ICONES[t.icone]}
+              </span>
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+                style={{ background: t.fond, color: t.pastille }}
+              >
+                {t.delta === null ? `${FENETRE} j` : `${t.delta >= 0 ? "+" : ""}${t.delta} %`}
+              </span>
+            </div>
+            <div className="mt-5 text-[13px] text-ink-soft">{t.label}</div>
+            <div className="mt-1 font-serif text-[27px] leading-none tnum">{t.valeur}</div>
           </div>
-        </Carte>
+        ))}
+      </div>
 
+      <div className="mt-4 grid grid-cols-12 gap-4">
         {/* ── Flux des demandes ── */}
-        <Carte className="col-span-12 xl:col-span-5">
+        <Carte className="col-span-12 xl:col-span-8">
           <EnTete titre="Flux des demandes" sous="Sur douze mois" />
           <Courbes labels={fluxLabels} series={flux} />
+        </Carte>
+
+        {/* ── Ce qui avance, en jauges — le panneau de droite de la maquette ── */}
+        <Carte className="col-span-12 xl:col-span-4">
+          <EnTete titre="Où en est le flux" sous={`Sur ${FENETRE} jours`} />
+          <div className="flex items-baseline gap-2.5">
+            <span className="font-serif text-[34px] leading-none tnum">{totalQualifiees}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-good-soft px-2 py-1 text-[11px] font-medium text-good">
+              <IconFleche />
+              {pct(totalQualifiees, totalRecues)} %
+            </span>
+          </div>
+          <p className="mt-1.5 text-[12.5px] text-ink-soft">
+            demandes qualifiées sur {totalRecues} reçues
+          </p>
+          <div className="mt-6 space-y-4">
+            {suivi.map((j) => (
+              <Jauge key={j.label} label={j.label} part={j.part} ton={j.ton} />
+            ))}
+          </div>
         </Carte>
 
         {/* ── Estimations par jour ── */}
@@ -88,9 +118,9 @@ function Contenu({ d }: { d: Donnees }) {
           <EnTete titre="Rythme hebdomadaire" sous={`${SEMAINES} dernières semaines`} />
           <Aires labels={Array.from({ length: SEMAINES }, (_, i) => `S${i + 1}`)} series={semaines} />
           <div className="mt-3 flex items-center justify-center gap-6 border-t border-line pt-3">
-            <Total couleur={TONS.bleu} label="Reçues" valeur={`${totalRecues}`} />
+            <Total couleur={TONS.foret} label="Reçues" valeur={`${totalRecues}`} />
             <span className="h-8 w-px bg-line" />
-            <Total couleur={TONS.vert} label="Qualifiées" valeur={`${totalQualifiees}`} />
+            <Total couleur={TONS.abricot} label="Qualifiées" valeur={`${totalQualifiees}`} />
           </div>
         </Carte>
 
@@ -100,13 +130,13 @@ function Contenu({ d }: { d: Donnees }) {
           <BarresGroupees labels={septLabels} series={objectif} />
           <div className="mt-3 space-y-2">
             <LigneTotal
-              couleur={TONS.sapin}
+              couleur={TONS.mousse}
               titre="Qualifiées"
               sous="complètes et chiffrées"
               valeur={nf.format(objectif[0].data.reduce((a, b) => a + b, 0))}
             />
             <LigneTotal
-              couleur={TONS.jaune}
+              couleur={TONS.or}
               titre="Reçues"
               sous="toutes origines"
               valeur={nf.format(objectif[1].data.reduce((a, b) => a + b, 0))}
@@ -138,7 +168,7 @@ function Contenu({ d }: { d: Donnees }) {
                     </td>
                     <td className="py-2.5 text-right">
                       <span
-                        className="rounded-lg px-2 py-1 text-[11.5px] font-medium tnum"
+                        className="rounded-xl px-2 py-1 text-[11.5px] font-medium tnum"
                         style={{ color: tons[i % tons.length], background: `${tons[i % tons.length]}1a` }}
                       >
                         {pct}%
@@ -180,18 +210,18 @@ function Contenu({ d }: { d: Donnees }) {
           <EnTete titre="Volume traité" sous="Six derniers mois" />
           <BarresEmpilees
             labels={sixLabels}
-            bas={{ label: "Qualifié", color: TONS.bleu, data: volQualifie }}
-            haut={{ label: "En attente", color: TONS.vert, data: volAttente }}
+            bas={{ label: "Qualifié", color: TONS.foret, data: volQualifie }}
+            haut={{ label: "En attente", color: TONS.abricot, data: volAttente }}
           />
           <div className="mt-3 flex items-center justify-center gap-6 border-t border-line pt-3">
             <Total
-              couleur={TONS.bleu}
+              couleur={TONS.foret}
               label="Qualifié"
               valeur={`${nf.format(volQualifie.reduce((a, b) => a + b, 0))} m³`}
             />
             <span className="h-8 w-px bg-line" />
             <Total
-              couleur={TONS.vert}
+              couleur={TONS.abricot}
               label="En attente"
               valeur={`${nf.format(volAttente.reduce((a, b) => a + b, 0))} m³`}
             />
@@ -203,6 +233,92 @@ function Contenu({ d }: { d: Donnees }) {
 }
 
 /* ─────────────── briques de mise en page ─────────────── */
+
+/** Part en pourcentage, bornée — les jauges et les badges s'en servent. */
+function pct(part: number, tout: number) {
+  return tout <= 0 ? 0 : Math.min(100, Math.round((part / tout) * 100));
+}
+
+/**
+ * La bannière de la maquette : un bandeau en dégradé, une phrase, un bouton,
+ * et un dessin à droite.
+ */
+function Banniere({ demandes, devis }: { demandes: number; devis: number }) {
+  return (
+    <section className="relative overflow-hidden rounded-2xl bg-linear-to-r from-[#c9a46c] via-[#7fa267] to-accent px-6 py-6 text-white md:px-8">
+      <div className="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+      <div className="relative flex flex-wrap items-center justify-between gap-6">
+        <div className="min-w-0">
+          <p className="text-[12px] text-white/80">
+            {FENETRE} derniers jours · {nf.format(demandes)} demandes suivies · {devis} devis
+          </p>
+          <h2 className="font-serif mt-2 max-w-[34ch] text-[22px] leading-snug md:text-[25px]">
+            L&apos;activité de l&apos;agence, du formulaire client au camion chargé
+          </h2>
+          <Link
+            href="/dashboard?statut=new"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-[13px] font-medium text-ink transition hover:bg-white/90"
+          >
+            Ouvrir la file d&apos;attente
+          </Link>
+        </div>
+        <Camion />
+      </div>
+    </section>
+  );
+}
+
+/** Dessin décoratif du bandeau : des caisses et un camion, au trait. */
+function Camion() {
+  return (
+    <svg
+      width="190"
+      height="120"
+      viewBox="0 0 190 120"
+      fill="none"
+      className="hidden shrink-0 text-white/85 md:block"
+      aria-hidden
+    >
+      <g stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+        <path d="M14 96V58l24-12 24 12v38" fill="rgba(255,255,255,0.12)" />
+        <path d="M14 58l24 12 24-12M38 70v26" />
+        <path d="M70 96V72l20-10 20 10v24" fill="rgba(255,255,255,0.18)" />
+        <path d="M70 72l20 10 20-10M90 82v14" />
+        <path d="M118 96V64h32v32z" fill="rgba(255,255,255,0.1)" />
+        <path d="M150 74h14l10 11v11h-24z" fill="rgba(255,255,255,0.16)" />
+        <circle cx="130" cy="100" r="6" fill="rgba(255,255,255,0.2)" />
+        <circle cx="163" cy="100" r="6" fill="rgba(255,255,255,0.2)" />
+        <path d="M8 100h110M172 100h10" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
+/** Une jauge du panneau de droite : libellé, barre, valeur. */
+function Jauge({ label, part, ton }: { label: string; part: number; ton: string }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3 text-[12.5px]">
+        <span className="text-ink-soft">{label}</span>
+        <span className="font-medium tnum">{part} %</span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-subtle">
+        <div
+          className="h-full rounded-full transition-[width] duration-700"
+          style={{ width: `${part}%`, background: ton }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function IconFleche() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
+      <path d="M12 19V5M5 12l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function Carte({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -245,7 +361,7 @@ function LigneTotal({
   return (
     <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2">
       <span
-        className="flex h-8 w-8 items-center justify-center rounded-lg"
+        className="flex h-8 w-8 items-center justify-center rounded-xl"
         style={{ background: `${couleur}1f`, color: couleur }}
       >
         <IconBox />

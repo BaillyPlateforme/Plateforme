@@ -1,13 +1,13 @@
 import type { RequestStatus } from "@/lib/types";
 
 export const STATUS_META: Record<RequestStatus, { label: string; className: string }> = {
-  new: { label: "Nouvelle", className: "bg-accent-soft text-accent-dark" },
-  analyzing: { label: "En analyse", className: "bg-amber-100 text-amber-800" },
-  qualified: { label: "Qualifiée", className: "bg-blue-100 text-blue-800" },
-  quoted: { label: "Devis envoyé", className: "bg-indigo-100 text-indigo-800" },
-  won: { label: "Gagnée", className: "bg-good/15 text-good" },
-  lost: { label: "Perdue", className: "bg-neutral-200 text-neutral-600" },
-  archived: { label: "Archivée", className: "bg-neutral-100 text-neutral-500" },
+  new: { label: "Nouvelle", className: "bg-peach-soft text-peach-ink" },
+  analyzing: { label: "En analyse", className: "bg-warn-soft text-warn" },
+  qualified: { label: "Qualifiée", className: "bg-accent-soft text-accent" },
+  quoted: { label: "Devis envoyé", className: "bg-subtle text-ink" },
+  won: { label: "Gagnée", className: "bg-good-soft text-good" },
+  lost: { label: "Perdue", className: "bg-danger-soft text-danger" },
+  archived: { label: "Archivée", className: "bg-subtle text-ink-soft" },
 };
 
 export const STATUS_ORDER: RequestStatus[] = [
@@ -23,8 +23,8 @@ export const STATUS_ORDER: RequestStatus[] = [
 export function scoreColor(v: number | null): string {
   if (v == null) return "text-ink-soft/40";
   if (v >= 70) return "text-good";
-  if (v >= 40) return "text-amber-600";
-  return "text-accent";
+  if (v >= 40) return "text-peach-ink";
+  return "text-ink-soft";
 }
 
 // Source d'arrivée de la demande.
@@ -32,7 +32,7 @@ export function sourceLabel(source: string): string {
   return source === "email" ? "Mail" : "Formulaire";
 }
 export const sourceClass = (source: string) =>
-  source === "email" ? "bg-blue-100 text-blue-800" : "bg-accent-soft text-accent-dark";
+  source === "email" ? "bg-subtle text-ink-soft" : "bg-accent-soft text-accent";
 
 // Une demande est incomplète si un jeton de complétion est en attente,
 // ou s'il lui manque le volume ou une adresse.

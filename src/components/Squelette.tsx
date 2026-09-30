@@ -40,7 +40,7 @@ export function Echec({ message, onRetry }: { message: string; onRetry: () => vo
       <p>Chargement impossible : {message}</p>
       <button
         onClick={onRetry}
-        className="mt-3 rounded-lg bg-accent px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-accent-dark"
+        className="mt-3 rounded-xl bg-accent px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-accent-dark"
       >
         Réessayer
       </button>

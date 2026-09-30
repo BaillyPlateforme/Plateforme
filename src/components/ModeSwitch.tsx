@@ -5,7 +5,7 @@ import Link from "next/link";
 // Bascule flottante entre le formulaire public et l'espace équipe.
 export default function ModeSwitch({ current }: { current: "form" | "dashboard" }) {
   return (
-    <div className="fixed right-4 top-4 z-50 flex items-center gap-0.5 rounded-full border border-line bg-card/90 p-1 text-xs shadow-sm backdrop-blur">
+    <div className="fixed right-7 top-7 z-50 flex items-center gap-0.5 rounded-full border border-line bg-card/90 p-1 text-xs shadow-sm backdrop-blur">
       <Seg href="/demande" active={current === "form"} label="Formulaire" />
       <Seg href="/dashboard" active={current === "dashboard"} label="Espace équipe" />
     </div>

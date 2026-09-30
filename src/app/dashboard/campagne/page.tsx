@@ -250,14 +250,14 @@ export default function CampagnePage() {
                           setGraine(s.graine);
                           setOuverts(new Set([s.rang]));
                         }}
-                        className="rounded-lg border border-line-strong px-2.5 py-1 text-[11.5px] transition hover:border-ink"
+                        className="rounded-xl border border-line-strong px-2.5 py-1 text-[11.5px] transition hover:border-ink"
                       >
                         Revoir ce tirage
                       </button>
                     )}
                     <button
                       onClick={() => memoriser(signales.filter((x) => x.id !== s.id))}
-                      className="rounded-lg px-2 py-1 text-[11.5px] text-ink-soft transition hover:text-ink"
+                      className="rounded-xl px-2 py-1 text-[11.5px] text-ink-soft transition hover:text-ink"
                     >
                       Retirer
                     </button>
@@ -269,7 +269,7 @@ export default function CampagnePage() {
                     memoriser(signales.map((x) => (x.id === s.id ? { ...x, note: e.target.value } : x)))
                   }
                   placeholder="Ce qui pose question…"
-                  className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] outline-none transition focus:border-accent"
+                  className="mt-2 w-full rounded-xl border border-line bg-paper px-3 py-1.5 text-[12.5px] outline-none transition focus:border-accent"
                 />
               </div>
             ))}
@@ -459,7 +459,7 @@ function Paire({
   onMax: (v: number) => void;
 }) {
   const style =
-    "w-20 rounded-lg border border-line bg-paper px-2.5 py-1.5 text-right text-sm tnum outline-none transition focus:border-accent";
+    "w-20 rounded-xl border border-line bg-paper px-2.5 py-1.5 text-right text-sm tnum outline-none transition focus:border-accent";
   return (
     <span className="flex items-center gap-2">
       <input type="number" step={pas} min={0} value={min} onChange={(e) => onMin(Number(e.target.value))} className={style} />

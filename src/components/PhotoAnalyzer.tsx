@@ -138,7 +138,7 @@ export default function PhotoAnalyzer({
                 type="button"
                 onClick={analyzeSelection}
                 disabled={selected.size === 0 || analyzing}
-                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
+                className="rounded-xl bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
               >
                 Analyser la sélection ({selected.size})
               </button>
@@ -152,7 +152,7 @@ export default function PhotoAnalyzer({
                   type="button"
                   key={p.path}
                   onClick={() => toggleSelect(p.path)}
-                  className={`group relative aspect-square overflow-hidden rounded-lg border-2 transition ${
+                  className={`group relative aspect-square overflow-hidden rounded-xl border-2 transition ${
                     on ? "border-accent" : "border-transparent hover:border-line-strong"
                   }`}
                 >
@@ -178,7 +178,7 @@ export default function PhotoAnalyzer({
         <div>
           <div className="grid grid-cols-6 gap-2">
             {previews.map((p, i) => (
-              <div key={p.url} className="group relative aspect-square overflow-hidden rounded-lg border border-line">
+              <div key={p.url} className="group relative aspect-square overflow-hidden rounded-xl border border-line">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.url} alt="" className="h-full w-full object-cover" />
                 <button
@@ -195,7 +195,7 @@ export default function PhotoAnalyzer({
             type="button"
             onClick={analyzeUpload}
             disabled={analyzing}
-            className="mt-3 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+            className="mt-3 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
           >
             Analyser {previews.length} photo{previews.length > 1 ? "s" : ""}
           </button>

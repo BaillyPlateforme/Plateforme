@@ -11,7 +11,7 @@ export default function StatistiquesPage() {
   );
 
   return (
-    <div className="px-6 py-8 md:px-10">
+    <div className="px-5 py-5 md:px-7 md:py-6">
       {erreur ? (
         <Echec message={erreur} onRetry={recharger} />
       ) : !donnees ? (

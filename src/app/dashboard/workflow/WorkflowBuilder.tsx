@@ -29,7 +29,7 @@ const S = {
 const ALL = Object.values(S);
 const CHANNEL_ICON: Record<string, string> = { email: "✉️", sms: "💬" };
 const toneRing: Record<StageDef["tone"], string> = {
-  neutral: "border-line", amber: "border-amber-300", good: "border-good/40", grey: "border-line-strong",
+  neutral: "border-line", amber: "border-warn/45", good: "border-good/40", grey: "border-line-strong",
 };
 
 export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[]; templates: MessageTemplate[] }) {
@@ -189,7 +189,7 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle">
+      <button onClick={() => setOpen(true)} className="rounded-xl border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle">
         + Ajouter une action
       </button>
     );
@@ -199,21 +199,21 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-sm text-ink-soft">Canal</span>
-          <select value={channel} onChange={(e) => { setChannel(e.target.value as Channel); setTemplateId(""); }} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={channel} onChange={(e) => { setChannel(e.target.value as Channel); setTemplateId(""); }} className="w-full rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="email">✉️ Email</option>
             <option value="sms">💬 SMS</option>
           </select>
         </label>
         <label className="block">
           <span className="mb-1 block text-sm text-ink-soft">Template</span>
-          <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="">— choisir —</option>
             {compatible.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </label>
         <label className="block">
           <span className="mb-1 block text-sm text-ink-soft">Destinataire</span>
-          <select value={dest} onChange={(e) => setDest(e.target.value as "client" | "custom")} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={dest} onChange={(e) => setDest(e.target.value as "client" | "custom")} className="w-full rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="client">Le client</option>
             <option value="custom">Adresse / numéro fixe</option>
           </select>
@@ -221,20 +221,20 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
         {dest === "custom" && (
           <label className="block">
             <span className="mb-1 block text-sm text-ink-soft">Adresse / numéro</span>
-            <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={channel === "sms" ? "0612…" : "equipe@bailly.fr"} className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
+            <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={channel === "sms" ? "0612…" : "equipe@bailly.fr"} className="w-full rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
           </label>
         )}
         {stage.event === "demande_incomplete" && (
-          <div className="sm:col-span-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <div className="sm:col-span-2 rounded-xl bg-warn-soft/70 px-3 py-2 text-xs text-warn">
             Envoyé dès qu&apos;une info manque (volume, départ ou arrivée). Insérez{" "}
-            <code className="rounded bg-amber-100 px-1 font-mono">{"{{lien_completion}}"}</code> dans le template : le lien
+            <code className="rounded bg-warn-soft px-1 font-mono">{"{{lien_completion}}"}</code> dans le template : le lien
             met automatiquement en avant les champs à compléter.
           </div>
         )}
         {stage.hasMontant && (
           <label className="block">
             <span className="mb-1 block text-sm text-ink-soft">Seulement si montant TTC ≥ (optionnel)</span>
-            <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="ex : 3000" className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
+            <input type="number" value={montant} onChange={(e) => setMontant(e.target.value)} placeholder="ex : 3000" className="w-full rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent" />
           </label>
         )}
       </div>
@@ -253,7 +253,7 @@ function AddAction({ stage, templates }: { stage: StageDef; templates: MessageTe
             setOpen(false); setTemplateId(""); setCustom(""); setMontant("");
           })}
           disabled={pending || !templateId}
-          className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+          className="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
         >
           {pending ? "…" : "Ajouter l'action"}
         </button>

@@ -85,7 +85,7 @@ function ScoreBadge({ score }: { score: number }) {
 
 function Cell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-subtle/60 px-2.5 py-1.5">
+    <div className="rounded-xl bg-subtle/60 px-2.5 py-1.5">
       <div className="text-[10px] uppercase tracking-wide text-ink-soft">{label}</div>
       <div className="tabular-nums">{value}</div>
     </div>

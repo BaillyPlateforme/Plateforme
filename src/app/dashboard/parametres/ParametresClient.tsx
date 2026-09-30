@@ -72,18 +72,18 @@ export default function ParametresClient({
           <button
             onClick={() => startBrevo(async () => setBrevoState(await testBrevo()))}
             disabled={brevoPending}
-            className="rounded-lg border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
+            className="rounded-xl border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
           >
             {brevoPending ? "…" : "Tester la connexion"}
           </button>
           <div className="flex flex-1 flex-wrap items-center gap-2">
             <select value={testChannel} onChange={(e) => setTestChannel(e.target.value as "email" | "sms")}
-              className="rounded-lg border border-line bg-paper px-2 py-2 text-sm outline-none focus:border-accent">
+              className="rounded-xl border border-line bg-paper px-2 py-2 text-sm outline-none focus:border-accent">
               <option value="email">Email</option>
               <option value="sms">SMS</option>
             </select>
             <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={testChannel === "sms" ? "06 12 34 56 78" : "test@email.fr"}
-              className="min-w-[160px] flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+              className="min-w-[160px] flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
             <button
               onClick={() => startBrevo(async () => {
                 const r = await sendTest(testChannel, testTo, "Message de test — Bailly Déménagement.");
@@ -91,7 +91,7 @@ export default function ParametresClient({
                 setTimeout(() => setTestFlash(null), 4000);
               })}
               disabled={brevoPending || !testTo.trim()}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
             >
               Envoyer un test
             </button>
@@ -115,7 +115,7 @@ export default function ParametresClient({
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Signature des emails</label>
             <textarea value={f.signature_email} onChange={(e) => set("signature_email", e.target.value)} rows={2}
-              className="w-full resize-none rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="L'équipe Bailly Déménagement" />
+              className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="L'équipe Bailly Déménagement" />
           </div>
           <F label="URL publique du site (liens de complétion)" value={f.base_url} onChange={(v) => set("base_url", v)} placeholder="https://plateforme.up.railway.app" />
           <F label="Webhook n8n (optionnel)" value={f.n8n_webhook_url} onChange={(v) => set("n8n_webhook_url", v)} placeholder="https://…" />
@@ -142,7 +142,7 @@ export default function ParametresClient({
       </section>
 
       <button onClick={save} disabled={pending}
-        className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
+        className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
         {pending ? "…" : saved ? "Enregistré ✓" : "Enregistrer les paramètres"}
       </button>
     </div>
@@ -163,7 +163,7 @@ function F({ label, value, onChange, type = "text", placeholder }: { label: stri
     <div>
       <label className="mb-1 block text-sm text-ink-soft">{label}</label>
       <input type={type} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+        className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
     </div>
   );
 }

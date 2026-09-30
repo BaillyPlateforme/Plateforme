@@ -65,7 +65,7 @@ export default function SimulateurClient() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         {/* ---------------- Paramètres ---------------- */}
         <div className="space-y-4">
           <Card title="Chantier">
@@ -183,7 +183,7 @@ export default function SimulateurClient() {
                 onChange={(e) =>
                   set({ garantie: e.target.value === "" ? null : (e.target.value as "standard" | "luxe") })
                 }
-                className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-sm outline-none transition focus:border-accent"
+                className="rounded-xl border border-line bg-paper px-2.5 py-1.5 text-sm outline-none transition focus:border-accent"
               >
                 <option value="">aucune</option>
                 <option value="standard">standard</option>
@@ -400,7 +400,7 @@ function Num({
           step={step}
           value={value}
           onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))}
-          className="w-24 rounded-lg border border-line bg-paper px-2.5 py-1.5 text-right text-sm tnum outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="w-24 rounded-xl border border-line bg-paper px-2.5 py-1.5 text-right text-sm tnum outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
         />
         <span className="w-4 text-[11.5px] text-ink-soft">{unit}</span>
       </span>

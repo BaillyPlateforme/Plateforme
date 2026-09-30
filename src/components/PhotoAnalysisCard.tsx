@@ -127,7 +127,7 @@ function AddObjetPicker({
   }, [q]);
 
   return (
-    <div className="mt-2 rounded-lg border border-line bg-paper p-2">
+    <div className="mt-2 rounded-xl border border-line bg-paper p-2">
       <div className="mb-2 flex items-center gap-2">
         <input
           autoFocus
@@ -281,7 +281,7 @@ export function AnalysisError({ reason, onRetry }: { reason: string; onRetry: ()
           type="button"
           onClick={onRetry}
           disabled={left > 0}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
         >
           {left > 0 ? `Patientez ${left}s…` : "Réessayer"}
         </button>

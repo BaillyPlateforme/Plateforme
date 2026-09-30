@@ -158,7 +158,7 @@ export default function DemandeForm({ library, instant = false }: { library: Lib
 
 function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
   return (
-    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between">
+    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-4 md:flex md:h-[calc(100dvh-2rem)] md:flex-col md:justify-between md:rounded-l-[26px]">
       <div className="relative z-10 p-9">
         <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
         <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
@@ -228,8 +228,9 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
   return (
     <>
       <ModeSwitch current="form" />
-      <div className="relative min-h-screen overflow-hidden bg-paper text-ink">
-        <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-12 md:py-16">
+      <div className="p-2.5 md:p-4">
+        <div className="relative min-h-[calc(100dvh-1.25rem)] overflow-hidden rounded-[26px] bg-card text-ink shadow-[var(--shadow-coque)] md:min-h-[calc(100dvh-2rem)]">
+        <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-1.25rem)] max-w-6xl flex-col px-6 py-12 md:min-h-[calc(100dvh-2rem)] md:py-16">
           <header className="animate-fade-up">
             <div className="font-serif text-2xl font-semibold">Bailly</div>
             <div className="eyebrow mt-4 text-accent">Demande de devis</div>
@@ -259,6 +260,7 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
               delay="160ms"
             />
           </div>
+        </div>
         </div>
       </div>
     </>
@@ -348,9 +350,10 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
         />
       )}
       <ModeSwitch current="form" />
-      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
+      <div className="p-2.5 md:p-4">
+        <div className="min-h-[calc(100dvh-1.25rem)] rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:grid md:min-h-[calc(100dvh-2rem)] md:grid-cols-[minmax(340px,420px)_1fr]">
         <BrandPanel heroUrl={library[0]?.url} />
-        <main className="flex min-h-screen flex-col">
+        <main className="flex min-h-[calc(100dvh-2rem)] flex-col">
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
             <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
               ← Changer de type de devis
@@ -389,7 +392,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
                 </Field>
               </div>
               {distanceKm != null && (
-                <div className="rounded-lg border border-line bg-subtle/60 px-4 py-2.5 text-sm">
+                <div className="rounded-xl border border-line bg-subtle/60 px-4 py-2.5 text-sm">
                   📍 Distance estimée : <span className="font-semibold text-ink">{distanceKm} km</span> <span className="text-ink-soft">(trajet routier)</span>
                 </div>
               )}
@@ -433,13 +436,14 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
               <span className="text-sm text-ink-soft">{volume != null ? `Volume estimé : ${volume} m³` : "Renseignez le volume"}</span>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={submit} disabled={!canSubmit || submitting}
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
+                  className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
                   {submitting ? "Envoi…" : "Obtenir mon estimation"}
                 </button>
               </div>
             </div>
           </div>
         </main>
+        </div>
       </div>
     </>
   );
@@ -537,9 +541,10 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
         />
       )}
       <ModeSwitch current="form" />
-      <div className="min-h-screen bg-paper md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
+      <div className="p-2.5 md:p-4">
+        <div className="min-h-[calc(100dvh-1.25rem)] rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:grid md:min-h-[calc(100dvh-2rem)] md:grid-cols-[minmax(340px,420px)_1fr]">
         {/* Panneau visuel */}
-        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-screen md:flex-col md:justify-between">
+        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-4 md:flex md:h-[calc(100dvh-2rem)] md:flex-col md:justify-between md:rounded-l-[26px]">
           <div className="relative z-10 p-9">
             <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
             <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
@@ -554,7 +559,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                 return (
                   <li key={label}>
                     <button type="button" onClick={() => i < step && setStep(i)} disabled={i > step}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-1.5 text-left text-sm transition ${
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${
                         state === "active" ? "bg-accent-soft font-medium text-accent" : state === "done" ? "text-ink hover:bg-line/50" : "text-ink-soft/50"}`}>
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
                         state === "active" ? "bg-accent text-white" : state === "done" ? "bg-accent-soft text-accent" : "border border-line-strong text-ink-soft/50"}`}>
@@ -580,7 +585,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
         </aside>
 
         {/* Contenu */}
-        <main className="flex min-h-screen flex-col">
+        <main className="flex min-h-[calc(100dvh-2rem)] flex-col">
           <div className="sticky top-0 z-20 h-1 w-full bg-line">
             <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
@@ -610,19 +615,20 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
 
             <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
               <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || submitting}
-                className="rounded-lg px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink disabled:opacity-40">← Retour</button>
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink disabled:opacity-40">← Retour</button>
               {step < STEPS.length - 1 ? (
                 <button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canNext}
-                  className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
+                  className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
               ) : (
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={submit} disabled={submitting}
-                    className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
+                    className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
                 </div>
               )}
             </div>
           </div>
         </main>
+        </div>
       </div>
     </>
   );
@@ -678,7 +684,7 @@ function VousStep({ form, patch }: StepProps) {
               key={v}
               type="button"
               onClick={() => patch({ assurance: v as FormState["assurance"] })}
-              className={`block w-full rounded-lg border px-4 py-3 text-left transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}
+              className={`block w-full rounded-xl border px-4 py-3 text-left transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}
             >
               <span className="block text-sm font-medium">{titre}</span>
               <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">{explication}</span>
@@ -763,7 +769,7 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
       <div className="grid grid-cols-2 gap-4">
         <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
         <Field label="Pays">
-          <select value={a.pays} onChange={(e) => set({ pays: e.target.value })} className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent">
+          <select value={a.pays} onChange={(e) => set({ pays: e.target.value })} className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent">
             {PAYS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </Field>
@@ -895,7 +901,7 @@ function CommentairesStep({ form, patch, volume }: StepProps & { volume: number 
       <RecapCard form={form} volume={volume} />
       <Field label="Message" hint="facultatif">
         <textarea value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
-          className="w-full resize-none rounded-lg border border-line bg-card px-3.5 py-2.5 text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+          className="w-full resize-none rounded-xl border border-line bg-card px-3.5 py-2.5 text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
           placeholder="Précisions, contraintes, objets particuliers…" />
       </Field>
     </div>
@@ -1008,13 +1014,14 @@ function RecapCard({ form, volume }: { form: FormState; volume: number | null })
 
 function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume: number | null; heroUrl?: string; count?: number }) {
   return (
-    <div className="relative min-h-screen">
+    <div className="p-2.5 md:p-4">
+      <div className="relative min-h-[calc(100dvh-1.25rem)] overflow-hidden rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:min-h-[calc(100dvh-2rem)]">
       {heroUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
       )}
-      <div className="absolute inset-0 bg-paper/80" />
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
+      <div className="absolute inset-0 bg-card/80" />
+      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-1.25rem)] max-w-lg flex-col items-center justify-center px-6 text-center md:min-h-[calc(100dvh-2rem)]">
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-5xl">{count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}</h1>
@@ -1023,8 +1030,9 @@ function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume:
               ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
               : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`}
           </p>
-          <div className="mt-6 inline-block rounded-lg border border-line bg-card px-4 py-2 text-sm text-ink-soft">Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span></div>
+          <div className="mt-6 inline-block rounded-xl border border-line bg-card px-4 py-2 text-sm text-ink-soft">Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span></div>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -1034,7 +1042,7 @@ function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume:
 
 function Choice({ options, value, onChange, small }: { options: [string, string][]; value: string; onChange: (v: string) => void; small?: boolean }) {
   return (
-    <div className={`inline-flex rounded-lg border border-line bg-subtle p-0.5 ${small ? "" : "flex"}`}>
+    <div className={`inline-flex rounded-xl border border-line bg-subtle p-0.5 ${small ? "" : "flex"}`}>
       {options.map(([val, label]) => (
         <button key={val} type="button" onClick={() => onChange(val)}
           className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${small ? "" : "flex-1"} ${value === val ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}>{label}</button>
@@ -1048,7 +1056,7 @@ function YesNo({ value, onChange }: { value: YN; onChange: (v: YN) => void }) {
     <div className="inline-flex gap-2">
       {(["oui", "non"] as const).map((v) => (
         <button key={v} type="button" onClick={() => onChange(v)}
-          className={`rounded-lg border px-4 py-1.5 text-sm font-medium transition ${value === v ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card text-ink-soft hover:border-accent"}`}>
+          className={`rounded-xl border px-4 py-1.5 text-sm font-medium transition ${value === v ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card text-ink-soft hover:border-accent"}`}>
           {v === "oui" ? "Oui" : "Non"}
         </button>
       ))}

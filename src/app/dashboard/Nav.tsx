@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { signOut } from "@/lib/actions/auth";
 
 export type Item = { href: string; label: string; icon: React.ReactNode };
@@ -35,44 +34,35 @@ export const SECTIONS: { title: string; items: Item[] }[] = [
   },
 ];
 
-/** Où se trouve une URL dans le menu : sert au fil d'Ariane de la barre du haut. */
-export function situer(pathname: string): { section: string; page: string } | null {
-  for (const s of SECTIONS) {
-    for (const i of s.items) {
-      const dessus = i.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(i.href);
-      if (dessus) return { section: s.title, page: i.label };
-    }
-  }
-  return null;
-}
-
-export default function Nav({ email }: { email: string }) {
+export default function Nav({ email, nouvelles }: { email: string; nouvelles: number }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
-  const [menu, setMenu] = useState(false);
-
   return (
-    <div className="flex h-full flex-col border-r border-line bg-card">
-      {/* La marque : tuile pleine et nom, comme la maquette. */}
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-white">
+    <div className="flex h-full w-full flex-col bg-card">
+      {/* La marque : un jeton vert et le nom, comme la maquette. */}
+      <div className="flex items-center gap-2.5 px-5 pb-2 pt-5">
+        <span className="text-accent">
           <IconMarque />
         </span>
         <div className="min-w-0">
-          <div className="truncate text-[14px] font-semibold leading-tight tracking-tight">BAILLY</div>
-          <div className="truncate text-[11px] leading-tight text-ink-soft">Déménagement</div>
+          <div className="truncate text-[15.5px] font-semibold leading-none tracking-tight">
+            Bailly
+          </div>
+          <div className="mt-1 truncate text-[10.5px] leading-none text-ink-soft">
+            Déménagement
+          </div>
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-3">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
         {SECTIONS.map((section) => (
-          <div key={section.title} className="mb-4">
-            <div className="px-2 pb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-ink-soft/70">
+          <div key={section.title} className="mb-5 last:mb-0">
+            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-soft/60">
               {section.title}
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {section.items.map((l) => {
                 const active = isActive(l.href);
                 return (
@@ -80,13 +70,13 @@ export default function Nav({ email }: { email: string }) {
                     key={l.href}
                     href={l.href}
                     aria-current={active ? "page" : undefined}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] transition ${
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] transition ${
                       active
-                        ? "bg-accent font-medium text-white"
-                        : "text-ink/80 hover:bg-subtle hover:text-ink"
+                        ? "bg-peach-soft font-medium text-ink"
+                        : "text-ink/75 hover:bg-subtle hover:text-ink"
                     }`}
                   >
-                    <span className={active ? "text-white" : "text-ink-soft"}>{l.icon}</span>
+                    <span className={active ? "text-accent" : "text-ink-soft"}>{l.icon}</span>
                     {l.label}
                   </Link>
                 );
@@ -96,75 +86,84 @@ export default function Nav({ email }: { email: string }) {
         ))}
       </nav>
 
-      {/* Le compte, en pied de rail — c'est là que la maquette le place. */}
-      <div className="relative border-t border-line p-3">
-        {menu && (
-          <>
-            <button
-              className="fixed inset-0 z-10 cursor-default"
-              onClick={() => setMenu(false)}
-              aria-label="Fermer le menu"
-            />
-            <div className="absolute bottom-[calc(100%-0.25rem)] left-3 right-3 z-20 rounded-xl border border-line bg-card p-1.5 shadow-[var(--shadow-md)]">
-              {REGLAGES.map((r) => (
-                <Link
-                  key={r.href}
-                  href={r.href}
-                  onClick={() => setMenu(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-ink/80 transition hover:bg-subtle hover:text-ink"
-                >
-                  <span className="text-ink-soft">{r.icone}</span>
-                  {r.label}
-                </Link>
-              ))}
-              <div className="my-1 h-px bg-line" />
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] text-danger transition hover:bg-danger-soft"
-                >
-                  <IconSortie />
-                  Se déconnecter
-                </button>
-              </form>
-            </div>
-          </>
-        )}
+      {/* La file d'attente, en carte chaude — la maquette pose ici un encart. */}
+      <div className="px-3 pb-2">
+        <FileAttente nouvelles={nouvelles} />
+      </div>
 
-        <button
-          onClick={() => setMenu((v) => !v)}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-subtle"
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[12px] font-semibold text-accent">
-            {email.charAt(0).toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] font-medium leading-tight">
-              {email.split("@")[0]}
-            </span>
-            <span className="block truncate text-[11px] leading-tight text-ink-soft">{email}</span>
-          </span>
-          <IconChevron />
-        </button>
+      {/* Le compte vit dans la barre du haut : il ne reste ici que la sortie. */}
+      <div className="border-t border-line p-3">
+        <form action={signOut}>
+          <button
+            type="submit"
+            title={email}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] text-ink/75 transition hover:bg-danger-soft hover:text-danger"
+          >
+            <IconSortie />
+            Se déconnecter
+          </button>
+        </form>
       </div>
     </div>
   );
 }
 
-/** Les réglages, au pied du menu : on ne les ouvre qu'à l'occasion. */
-const REGLAGES = [
+/**
+ * L'encart du bas : ce qui attend d'être traité. La maquette y met une carte
+ * en dégradé ; on y met le seul chiffre qui appelle une action.
+ */
+function FileAttente({ nouvelles }: { nouvelles: number }) {
+  if (nouvelles === 0) {
+    return (
+      <div className="rounded-2xl border border-line bg-subtle p-4">
+        <p className="text-[12.5px] font-medium">Rien en attente</p>
+        <p className="mt-1 text-[11.5px] leading-snug text-ink-soft">
+          Toutes les demandes reçues ont été ouvertes.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-[#c9a46c] via-[#6d9a63] to-accent p-4 text-white">
+      <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/15 blur-2xl" />
+      <div className="relative">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[24px] font-semibold leading-none tnum">{nouvelles}</span>
+          <span className="text-[12px] text-white/85">
+            {nouvelles > 1 ? "nouvelles" : "nouvelle"}
+          </span>
+        </div>
+        <p className="mt-2 text-[11.5px] leading-snug text-white/85">
+          {nouvelles > 1 ? "Demandes reçues" : "Demande reçue"} et pas encore ouverte
+          {nouvelles > 1 ? "s" : ""}.
+        </p>
+        <div className="mt-3.5 flex gap-2">
+          <Link
+            href="/dashboard?statut=new"
+            className="rounded-xl bg-white px-3 py-1.5 text-[11.5px] font-medium text-ink transition hover:bg-white/90"
+          >
+            Les traiter
+          </Link>
+          <Link
+            href="/dashboard"
+            className="rounded-xl border border-white/45 px-3 py-1.5 text-[11.5px] font-medium transition hover:bg-white/15"
+          >
+            Tout voir
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Les réglages : le jeton du compte, dans la barre du haut, les ouvre. */
+export const REGLAGES = [
   { href: "/dashboard/equipe", label: "Équipe", icone: <IconTeam /> },
   { href: "/dashboard/configuration", label: "Configuration", icone: <IconGrid /> },
   { href: "/dashboard/parametres", label: "Paramètres", icone: <IconGear /> },
 ];
 
-function IconChevron() {
-  return (
-    <svg {...S} width={14} height={14} className="shrink-0 text-ink-soft">
-      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 function IconTeam() { return <svg {...S}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" strokeLinecap="round" /></svg>; }
 function IconGrid() { return <svg {...S}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>; }
 function IconGear() { return <svg {...S}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
@@ -172,11 +171,24 @@ function IconGear() { return <svg {...S}><circle cx="12" cy="12" r="3" /><path d
 function IconSortie() { return <svg {...S}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" /><path d="m16 17 5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function IconMarque() {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 16V7a1 1 0 0 1 1-1h10v10" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M14 10h4l3 3.5V16h-2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="7.5" cy="17.5" r="1.8" />
-      <circle cx="17" cy="17.5" r="1.8" />
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 1.8 21 7v10l-9 5.2L3 17V7z"
+        fill="currentColor"
+        fillOpacity="0.14"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.2 14V9.6h5.2V14M12.4 11h2.1l1.9 2v1h-1.2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="9.3" cy="14.9" r="1" fill="currentColor" />
+      <circle cx="14.6" cy="14.9" r="1" fill="currentColor" />
     </svg>
   );
 }

@@ -21,7 +21,7 @@ export default function TemplatesManager({ templates }: { templates: MessageTemp
               <div className="truncate font-medium">{t.name}</div>
               <div className="text-xs text-ink-soft">{eventLabel(t.event)}</div>
             </div>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${t.channel === "sms" ? "bg-blue-100 text-blue-800" : "bg-accent-soft text-accent-dark"}`}>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${t.channel === "sms" ? "bg-accent-soft text-accent" : "bg-accent-soft text-accent-dark"}`}>
               {t.channel.toUpperCase()}
             </span>
           </button>
@@ -50,21 +50,21 @@ function TemplateEditor({ template, isNew, onDone }: { template: MessageTemplate
   return (
     <div className="rounded-2xl border border-line bg-card p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <input value={f.name} onChange={(e) => set("name", e.target.value)} className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-2 font-serif text-lg outline-none focus:border-accent" />
+        <input value={f.name} onChange={(e) => set("name", e.target.value)} className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 py-2 font-serif text-lg outline-none focus:border-accent" />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} className="accent-[var(--color-accent)]" />Actif</label>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Canal</label>
-          <select value={f.channel} onChange={(e) => set("channel", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={f.channel} onChange={(e) => set("channel", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="email">Email</option>
             <option value="sms">SMS</option>
           </select>
         </div>
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Déclencheur associé</label>
-          <select value={f.event} onChange={(e) => set("event", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={f.event} onChange={(e) => set("event", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
             {MESSAGE_EVENTS.map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
           </select>
         </div>
@@ -73,14 +73,14 @@ function TemplateEditor({ template, isNew, onDone }: { template: MessageTemplate
       {f.channel === "email" && (
         <div className="mt-4">
           <label className="mb-1 block text-sm text-ink-soft">Sujet</label>
-          <input value={f.sujet} onChange={(e) => set("sujet", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Votre devis {{reference}}" />
+          <input value={f.sujet} onChange={(e) => set("sujet", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Votre devis {{reference}}" />
         </div>
       )}
 
       <div className="mt-4">
         <label className="mb-1 block text-sm text-ink-soft">{f.channel === "sms" ? "Message (SMS)" : "Corps du message"}</label>
         <textarea value={f.contenu} onChange={(e) => set("contenu", e.target.value)} rows={f.channel === "sms" ? 4 : 8}
-          className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Bonjour {{client_nom}}, …" />
+          className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Bonjour {{client_nom}}, …" />
       </div>
 
       <div className="mt-3">
@@ -100,12 +100,12 @@ function TemplateEditor({ template, isNew, onDone }: { template: MessageTemplate
           await saveTemplate(template?.id ?? null, { name: f.name, channel: f.channel, event: f.event, sujet: f.channel === "email" ? f.sujet || null : null, contenu: f.contenu, active: f.active });
           if (isNew) onDone(null);
           setSaved(true); setTimeout(() => setSaved(false), 1500);
-        })} disabled={pending} className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
+        })} disabled={pending} className="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
           {pending ? "…" : saved ? "Enregistré ✓" : isNew ? "Créer le template" : "Enregistrer"}
         </button>
         {template && (
           <button onClick={() => start(() => deleteTemplate(template.id).then(() => onDone(null)))} disabled={pending}
-            className="ml-auto rounded-lg px-4 py-2 text-sm text-accent transition hover:bg-accent-soft/40">Supprimer</button>
+            className="ml-auto rounded-xl px-4 py-2 text-sm text-accent transition hover:bg-accent-soft/40">Supprimer</button>
         )}
       </div>
     </div>

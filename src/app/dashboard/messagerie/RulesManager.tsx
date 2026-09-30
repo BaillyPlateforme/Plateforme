@@ -75,22 +75,22 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
   return (
     <div className="rounded-2xl border border-line bg-card p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <input value={f.name} onChange={(e) => set("name", e.target.value)} className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-2 font-serif text-lg outline-none focus:border-accent" />
+        <input value={f.name} onChange={(e) => set("name", e.target.value)} className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 py-2 font-serif text-lg outline-none focus:border-accent" />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} className="accent-[var(--color-accent)]" />Active</label>
       </div>
 
       <div className="space-y-4">
         <div>
           <label className="mb-1 block text-sm text-ink-soft">{kind === "workflow" ? "Action déclencheuse" : "Quand ? (événement)"}</label>
-          <select value={f.event} onChange={(e) => set("event", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+          <select value={f.event} onChange={(e) => set("event", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
             {MESSAGE_EVENTS.filter((e) => e.key !== "manual").map((e) => <option key={e.key} value={e.key}>{e.label}</option>)}
           </select>
         </div>
 
         {f.event === "demande_incomplete" && (
-          <div className="rounded-lg border border-accent/20 bg-accent-soft/30 p-3">
+          <div className="rounded-xl border border-accent/20 bg-accent-soft/30 p-3">
             <label className="mb-1 block text-sm font-medium">Se déclenche quand ce champ manque :</label>
-            <select value={f.condition_champ} onChange={(e) => set("condition_champ", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={f.condition_champ} onChange={(e) => set("condition_champ", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="volume">Le volume est manquant</option>
               <option value="depart">L&apos;adresse de départ manque</option>
               <option value="arrivee">L&apos;adresse d&apos;arrivée manque</option>
@@ -105,7 +105,7 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
         {showCondition && (
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Condition — montant TTC minimal (optionnel)</label>
-            <div className="flex items-center rounded-lg border border-line bg-paper">
+            <div className="flex items-center rounded-xl border border-line bg-paper">
               <input type="number" value={f.montant_min} onChange={(e) => set("montant_min", e.target.value)} placeholder="Ex : 3000 — déclenche uniquement au-delà"
                 className="w-full bg-transparent px-3 py-2 text-sm outline-none" />
               <span className="pr-3 text-sm text-ink-soft">€</span>
@@ -116,14 +116,14 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Canal</label>
-            <select value={f.channel} onChange={(e) => { set("channel", e.target.value); set("template_id", ""); }} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={f.channel} onChange={(e) => { set("channel", e.target.value); set("template_id", ""); }} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="email">Email</option>
               <option value="sms">SMS</option>
             </select>
           </div>
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Template envoyé</label>
-            <select value={f.template_id} onChange={(e) => set("template_id", e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={f.template_id} onChange={(e) => set("template_id", e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="">— choisir —</option>
               {compatible.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -133,13 +133,13 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Destinataire</label>
           <div className="flex flex-wrap items-center gap-3">
-            <select value={f.destinataire} onChange={(e) => set("destinataire", e.target.value)} className="rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={f.destinataire} onChange={(e) => set("destinataire", e.target.value)} className="rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="client">Le client</option>
               <option value="custom">Adresse / numéro fixe (équipe)</option>
             </select>
             {f.destinataire === "custom" && (
               <input value={f.destinataire_custom} onChange={(e) => set("destinataire_custom", e.target.value)} placeholder={f.channel === "sms" ? "06 12 34 56 78" : "equipe@bailly.fr"}
-                className="min-w-[180px] flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+                className="min-w-[180px] flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
             )}
           </div>
         </div>
@@ -158,13 +158,13 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
           if (isNew) onDone(null);
           setSaved(true); setTimeout(() => setSaved(false), 1500);
         })} disabled={pending || !f.template_id}
-          className="rounded-lg bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
+          className="rounded-xl bg-accent px-5 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">
           {pending ? "…" : saved ? "Enregistré ✓" : isNew ? "Créer" : "Enregistrer"}
         </button>
         {!f.template_id && <span className="text-xs text-ink-soft">Choisissez un template pour activer.</span>}
         {rule && (
           <button onClick={() => start(() => deleteAlert(rule.id).then(() => onDone(null)))} disabled={pending}
-            className="ml-auto rounded-lg px-4 py-2 text-sm text-accent transition hover:bg-accent-soft/40">Supprimer</button>
+            className="ml-auto rounded-xl px-4 py-2 text-sm text-accent transition hover:bg-accent-soft/40">Supprimer</button>
         )}
       </div>
     </div>

@@ -50,14 +50,14 @@ export default function SimulationClient({ templates }: { templates: MessageTemp
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Depuis un template</label>
-            <select value={templateId} onChange={(e) => loadTemplate(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={templateId} onChange={(e) => loadTemplate(e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="">— message libre —</option>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.channel})</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Canal</label>
-            <select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
+            <select value={channel} onChange={(e) => setChannel(e.target.value as Channel)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
               <option value="email">Email</option>
               <option value="sms">SMS</option>
             </select>
@@ -67,13 +67,13 @@ export default function SimulationClient({ templates }: { templates: MessageTemp
         {channel === "email" && (
           <div>
             <label className="mb-1 block text-sm text-ink-soft">Sujet</label>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+            <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
           </div>
         )}
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Contenu</label>
           <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={channel === "sms" ? 4 : 7}
-            className="w-full resize-y rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Bonjour {{client_nom}}, …" />
+            className="w-full resize-y rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" placeholder="Bonjour {{client_nom}}, …" />
         </div>
 
         <div>
@@ -90,12 +90,12 @@ export default function SimulationClient({ templates }: { templates: MessageTemp
           <label className="mb-1 block text-sm text-ink-soft">Envoyer le test à</label>
           <div className="flex gap-2">
             <input value={to} onChange={(e) => setTo(e.target.value)} placeholder={channel === "sms" ? "06 12 34 56 78" : "vous@email.fr"}
-              className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+              className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
             <button onClick={() => start(async () => {
               const r = await sendTest(channel, to, previewBody, previewSubject);
               setFlash(r.message); setTimeout(() => setFlash(null), 5000);
             })} disabled={pending || !to.trim()}
-              className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-40">
+              className="shrink-0 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-40">
               {pending ? "Envoi…" : "Envoyer le test"}
             </button>
           </div>

@@ -45,7 +45,7 @@ export default function PlaygroundClient({ library }: { library: LibraryPhoto[] 
             <select
               value={formule}
               onChange={(e) => setFormule(e.target.value as Formule)}
-              className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+              className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
             >
               {FORMULES.map((f) => (
                 <option key={f.key} value={f.key}>
@@ -112,7 +112,7 @@ function NumRow({ label, value, onChange }: { label: string; value: string; onCh
         type="number"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
+        className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
       />
     </label>
   );
