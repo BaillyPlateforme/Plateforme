@@ -12,7 +12,7 @@ type DevisData = {
 };
 const euro = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
 
-export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVariant }: { requestId: string; volume: number | null; count?: number; onNewQuote?: () => void; onVariant?: () => void }) {
+export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { requestId: string; volume: number | null; count?: number; onNewQuote?: () => void }) {
   const DURATION = 7000; // génération visible mais rapide
   const STEPS = [
     "Analyse de votre demande…",
@@ -80,6 +80,10 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-4xl">Vos {count} estimations sont prêtes</h1>
           <p className="mt-3 text-ink-soft">Nous vous adressons une estimation pour chaque scénario par e-mail.</p>
+          <p className="mt-4 text-sm text-ink-soft">
+            Cette estimation vous convient ? Contactez-nous pour la transformer en devis ferme —
+            nous revenons vers vous sous 24 h ouvrées.
+          </p>
           {onNewQuote && (
             <button onClick={onNewQuote} className="mt-6 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">Faire une nouvelle demande</button>
           )}
@@ -149,13 +153,8 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote, onVari
           </div>
         )}
 
-        {(onVariant || onNewQuote) && (
+        {onNewQuote && (
           <div className="mt-6 flex flex-wrap justify-center gap-3">
-            {onVariant && (
-              <button onClick={onVariant} className="rounded-lg border border-line-strong px-5 py-2.5 text-sm font-medium transition hover:bg-subtle">
-                Demander une variante
-              </button>
-            )}
             {onNewQuote && (
               <button onClick={onNewQuote} className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">
                 Demander un nouveau devis

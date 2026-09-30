@@ -57,6 +57,43 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         continue;
       }
 
+      // Garde-fou anti-doublon.
+      //
+      // Une demande complète déclenche `demande_recue` PUIS `demande_complete`,
+      // et deux règles pointent aujourd'hui le même modèle vers le client : il
+      // recevait donc deux fois le même message. Plutôt que de dépendre du
+      // réglage des règles, on refuse d'envoyer deux fois le même modèle au
+      // même destinataire à moins de deux minutes d'intervalle.
+      const sujetPrevu =
+        a.channel === "sms" ? `[SMS] ${tpl.name}` : renderTemplate(tpl.sujet || tpl.name, fullCtx);
+      const { data: dejaEnvoye } = await supabase
+        .from("emails")
+        .select("id")
+        .eq("destinataire", to)
+        .eq("sujet", sujetPrevu)
+        .eq("status", "envoye")
+        .gte("created_at", new Date(Date.now() - 2 * 60_000).toISOString())
+        .limit(1);
+
+      if (dejaEnvoye && dejaEnvoye.length > 0) {
+        if (ctx.request_id) {
+          await supabase.from("request_events").insert({
+            request_id: ctx.request_id,
+            type: "message",
+            payload: {
+              channel: a.channel,
+              rule: a.name,
+              template: tpl.name,
+              to,
+              event,
+              status: "ignore",
+              erreur: "déjà envoyé à l'instant — doublon écarté",
+            },
+          });
+        }
+        continue;
+      }
+
       const contenu = renderTemplate(tpl.contenu, fullCtx);
       let status: "envoye" | "echec" = "envoye";
       let erreur: string | null = null;
@@ -82,7 +119,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       await supabase.from("emails").insert({
         destinataire: to,
         client_email: (ctx.client_email as string | undefined) ?? null,
-        sujet: a.channel === "sms" ? `[SMS] ${tpl.name}` : renderTemplate(tpl.sujet || tpl.name, fullCtx),
+        sujet: sujetPrevu,
         corps: contenu,
         template: `Alerte : ${a.name}`,
         status,

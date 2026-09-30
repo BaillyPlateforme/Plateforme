@@ -15,6 +15,8 @@ export const adresseSchema = z.object({
   surface: z.number().min(0).optional(),
   stationnement: z.boolean().optional(),
   acces_difficile: z.boolean().optional(),
+  /** Distance entre le stationnement du camion et la porte, en mètres. */
+  portage_m: z.number().min(0).optional(),
 });
 
 export const servicesSchema = z.object({

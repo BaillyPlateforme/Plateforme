@@ -292,10 +292,18 @@ export function entreeDepuisDemande(req: RequestRow): SimulationInput {
     sansAscenseur(req.arrivee_etage, req.arrivee_ascenseur),
   );
 
+  // Distance camion → porte, posée au client dans le formulaire.
+  const portage = (cote: "depart" | "arrivee") => {
+    const a = raw[cote] as { portage_m?: number } | undefined;
+    return typeof a?.portage_m === "number" ? a.portage_m : 0;
+  };
+
   return {
     formule: (req.formule as Formule) || "standard",
     volume_m3: req.volume_m3 ?? 0,
     distance_km: req.distance_km ?? 0,
+    portage_depart_m: portage("depart"),
+    portage_arrivee_m: portage("arrivee"),
     monte_meubles: services.monte_meuble ? 1 : 0,
     etages_sans_ascenseur: etages,
     valeur_declaree: valeurDeclaree(raw.valeur_mobilier),

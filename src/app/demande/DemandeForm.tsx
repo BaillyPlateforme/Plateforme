@@ -35,6 +35,7 @@ type Address = {
   difficulte_acces: YN;
   type_difficulte: string;
   stationnement: YN;
+  portage_m: string;
   lat?: number;
   lon?: number;
 };
@@ -90,7 +91,6 @@ const HEADERS: { eyebrow: string; title: string; sub: string }[] = [
 ];
 
 const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
-const PERIODES = ["Dès que possible", "Sous 1 mois", "Dans 1 à 3 mois", "Dans 3 à 6 mois", "Plus tard / je reste flexible"];
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 // Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
 // et le Luxe rembourse à l'identique — pas à neuf.
@@ -123,6 +123,7 @@ const emptyAddress: Address = {
   adresse: "", complement: "", ville: "", region: "", code_postal: "", pays: "France",
   etage: "", duplex: "", ascenseur: "", taille_ascenseur: "", passage_ascenseur: "",
   passage_escalier: "", surface: "", difficulte_acces: "", type_difficulte: "", stationnement: "",
+  portage_m: "",
 };
 
 const initial: FormState = {
@@ -140,7 +141,7 @@ const DEMO: FormState = {
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
   articles_lourds: "non", articles_lourds_detail: "", piano: "non", periode: "",
-  depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui" },
+  depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   volumeMode: "explicit", explicitVolume: "30",
@@ -328,7 +329,6 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   if (done) {
     return instant ? (
       <InstantResult requestId={done} volume={volume} count={doneCount}
-        onVariant={() => { setDone(null); setDoneCount(1); setCompare(true); }}
         onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", dateMode: "date", date: "", periode: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
       />
     ) : (
@@ -401,11 +401,11 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
                 {f.dateMode === "date" ? (
                   <TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
                 ) : (
-                  <select value={f.periode} onChange={(e) => set({ periode: e.target.value })}
-                    className="w-full rounded-lg border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20">
-                    <option value="">— Choisissez une période —</option>
-                    {PERIODES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
+                  <TextInput
+                    value={f.periode}
+                    onChange={(e) => set({ periode: e.target.value })}
+                    placeholder="Courant mars, entre le 10 et le 20 avril, avant l'été…"
+                  />
                 )}
               </div>
 
@@ -432,10 +432,6 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
             <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
               <span className="text-sm text-ink-soft">{volume != null ? `Volume estimé : ${volume} m³` : "Renseignez le volume"}</span>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setCompare(true)}
-                  className="rounded-lg border border-line-strong px-5 py-3 text-sm font-medium transition hover:bg-subtle">
-                  Comparer
-                </button>
                 <button type="button" onClick={submit} disabled={!canSubmit || submitting}
                   className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
                   {submitting ? "Envoi…" : "Obtenir mon estimation"}
@@ -512,7 +508,6 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   if (done) {
     return instant ? (
       <InstantResult requestId={done} volume={totalVolume} count={doneCount}
-        onVariant={() => { setDone(null); setDoneCount(1); setCompare(true); }}
         onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setDistanceKm(null); }}
       />
     ) : (
@@ -621,8 +616,6 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                   className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setCompare(true)}
-                    className="rounded-lg border border-line-strong px-5 py-3 text-sm font-medium transition hover:bg-subtle">Comparer</button>
                   <button type="button" onClick={submit} disabled={submitting}
                     className="rounded-lg bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
                 </div>
@@ -645,10 +638,30 @@ function VousStep({ form, patch }: StepProps) {
       <Field label="Vous êtes *">
         <Choice options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
       </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Prénom"><TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" /></Field>
-        <Field label="Nom"><TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" /></Field>
-      </div>
+      {form.type_client === "entreprise" ? (
+        <>
+          <Field label="Raison sociale *">
+            <TextInput
+              value={form.societe}
+              onChange={(e) => patch({ societe: e.target.value })}
+              placeholder="Transports Dubois SARL"
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Interlocuteur" hint="facultatif">
+              <TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" />
+            </Field>
+            <Field label="Nom de l'interlocuteur" hint="facultatif">
+              <TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" />
+            </Field>
+          </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Prénom"><TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" /></Field>
+          <Field label="Nom"><TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" /></Field>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Téléphone *"><TextInput value={form.tel} onChange={(e) => patch({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
         <Field label="E-mail *"><TextInput type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="camille.durand@email.fr" /></Field>
@@ -676,7 +689,7 @@ function VousStep({ form, patch }: StepProps) {
       <Field label="S'agit-il d'une mutation professionnelle ? *">
         <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
       </Field>
-      {(form.type_client === "entreprise" || form.mutation_pro === "oui") && (
+      {form.type_client !== "entreprise" && form.mutation_pro === "oui" && (
         <Field label="De quelle société s'agit-il ?"><TextInput value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" /></Field>
       )}
       <Field label="Déménagement complet ou partiel ?">
@@ -722,6 +735,17 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
       <p className="-mt-3 text-xs text-ink-soft">
         Adresse introuvable dans la liste ? Saisissez-la telle quelle, puis <span className="font-medium text-ink">choisissez au moins la ville ci-dessous</span> — cela suffit pour calculer la distance.
       </p>
+      <Field
+        label="Distance entre le stationnement du camion et la porte d'entrée"
+        hint="en mètres — au-delà de 20 m, un portage s'ajoute"
+      >
+        <TextInput
+          type="number"
+          value={a.portage_m}
+          onChange={(e) => set({ portage_m: e.target.value })}
+          placeholder="15"
+        />
+      </Field>
       <Field label="Complément d'adresse" hint="facultatif">
         <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />
       </Field>
@@ -729,7 +753,10 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
         <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" /></Field>
         <Field label="Ville *" hint="choisissez dans la liste">
           <AddressInput kind="municipality" value={a.ville} placeholder="Paris"
-            onChange={(v) => set({ ville: v })}
+            /* Les coordonnées repartent à zéro dès qu'on retape : sans ça, une
+               ville saisie à la main gardait celles de l'adresse précédente, et
+               la distance comme la carte restaient sur l'ancienne commune. */
+            onChange={(v) => set({ ville: v, lat: undefined, lon: undefined })}
             onSelect={(p) => set({ ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
         </Field>
       </div>
@@ -808,12 +835,34 @@ function PrestationsStep({ form, patch }: StepProps) {
         )}
       </div>
 
-      {PRESTATIONS.map((p) => (
-        <div key={p.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
-          <div className="text-sm font-medium">{p.label}</div>
-          <Choice small options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]} value={form.prestations[p.key]} onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })} />
-        </div>
-      ))}
+      {PRESTATIONS.map((p) => {
+        // Transporter les meubles seuls exclut tout emballage et tout démontage :
+        // les quatre lignes du dessus n'ont plus de sens, on les éteint.
+        const transportSeul = form.prestations.transport === "bailly";
+        const eteinte = transportSeul && p.key !== "transport";
+        return (
+          <div
+            key={p.key}
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 transition ${eteinte ? "pointer-events-none opacity-40" : ""}`}
+            aria-disabled={eteinte}
+          >
+            <div className="text-sm font-medium">
+              {p.label}
+              {eteinte && (
+                <span className="ml-2 text-[11.5px] font-normal text-ink-soft">
+                  sans objet : vous n&apos;avez demandé que le transport
+                </span>
+              )}
+            </div>
+            <Choice
+              small
+              options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]}
+              value={eteinte ? "moi" : form.prestations[p.key]}
+              onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1047,6 +1096,7 @@ function buildPayload(form: FormState) {
     adresse: a.adresse || undefined, code_postal: a.code_postal || undefined, ville: a.ville || undefined,
     etage: a.etage ? parseInt(a.etage, 10) : undefined, ascenseur: yn(a.ascenseur),
     surface: a.surface ? parseFloat(a.surface) : undefined, stationnement: yn(a.stationnement),
+    portage_m: a.portage_m ? parseInt(a.portage_m, 10) : undefined,
     acces_difficile: yn(a.difficulte_acces),
   });
 

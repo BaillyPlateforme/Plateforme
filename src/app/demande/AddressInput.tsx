@@ -37,9 +37,12 @@ export function AddressInput({
     const t = setTimeout(async () => {
       try {
         const typeParam = kind === "municipality" ? "&type=municipality" : "";
-        const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5${typeParam}`);
+        // On demande large et on dédoublonne ensuite : sur un code postal,
+        // l'API renvoie la même commune jusqu'à sept fois (une par voie ou par
+        // code INSEE), et la liste devenait illisible.
+        const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=12${typeParam}`);
         const j = await r.json();
-        const places: Place[] = (j.features ?? []).map((f: { properties: Record<string, string>; geometry: { coordinates: [number, number] } }) => ({
+        const brut: Place[] = (j.features ?? []).map((f: { properties: Record<string, string>; geometry: { coordinates: [number, number] } }) => ({
           label: f.properties.label,
           ville: f.properties.city ?? f.properties.name ?? "",
           code_postal: f.properties.postcode ?? "",
@@ -47,6 +50,19 @@ export function AddressInput({
           lat: f.geometry.coordinates[1],
           lon: f.geometry.coordinates[0],
         }));
+
+        const vues = new Set<string>();
+        const places = brut
+          .filter((p) => {
+            // Une commune se distingue par son nom ET son code postal : Paris 11e
+            // et Paris 15e restent deux entrées, Massy répété n'en fait qu'une.
+            const cle = kind === "municipality" ? `${p.ville}|${p.code_postal}` : p.label;
+            if (vues.has(cle)) return false;
+            vues.add(cle);
+            return true;
+          })
+          .slice(0, 6);
+
         setSugg(places);
         setActive(0);
         setOpen(places.length > 0);
