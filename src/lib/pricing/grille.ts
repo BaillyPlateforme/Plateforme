@@ -115,22 +115,78 @@ export const TARIFS: Record<Formule, number[][]> = {
   ],
 };
 
-// ---- Suppléments (onglet « particularités », prix HT) ----
+// ---- Suppléments (onglet « particularités » + arbitrages client du 29/09/2026) ----
 export const SUPPLEMENTS = {
-  /** Date imposée par le client : majoration du transport. */
+  /**
+   * Le voyage spécial n'est plus proposé au client ni appliqué automatiquement :
+   * « nous ne parlons pas de voyage spécial, cette notion sera abordée avec le
+   * commercial si nécessaire ». Le taux reste ici pour le levier manuel du
+   * simulateur, côté équipe.
+   */
   voyageSpecialPct: 0.15,
+
   /** Portage au-delà de 20 m, par tranche de 20 m entamée, au m³. */
   portage: { seuilMetres: 20, trancheMetres: 20, prixParM3: 2.2 },
+
   /** Camion porteur inaccessible : navette avec un véhicule plus petit. */
   transbordement: { demiJournee: 180, journee: 250, seuilM3: 20 },
-  /** Monte-meubles avec opérateur. */
-  monteMeubles: { demiJournee: 260, journee: 390, seuilM3: 30 },
-  /** Portage de charges lourdes, à l'unité. */
-  pianoDroit: 220,
-  chargeLourde: 120,
-  /** Garantie nationale : pourcentage de la valeur déclarée. */
-  assurance: { taux: 0.005, franchise: 150 },
+
+  /**
+   * Monte-meubles. Règle arrêtée par le client : nécessaire à partir de 25 m³
+   * ET d'un 2e étage sans ascenseur. Demi-journée à 260 € ; au-delà de 35 m³,
+   * la journée entière à 390 €.
+   */
+  monteMeubles: {
+    demiJournee: 260,
+    journee: 390,
+    /** Au-delà de ce volume, la demi-journée passe en journée. */
+    seuilJourneeM3: 35,
+    /** Déclenchement automatique. */
+    declenche: { volumeM3: 25, etage: 2 },
+  },
+
+  /** Charges lourdes, de 80 à 150 kg. */
+  chargeLourde: {
+    prix: 120,
+    exemples: [
+      "aquarium de plus de 150 litres",
+      "frigo américain",
+      "juke-box",
+      "flipper",
+      "cave à vin",
+      "petit coffre-fort",
+      "buffet en bois massif",
+    ],
+  },
+
+  /**
+   * Au-delà de 150 kg : le piano. Les pianos électriques sont légers et
+   * n'entrent pas dans cette catégorie.
+   */
+  piano: { prix: 220, note: "les pianos électriques, légers, n'entrent pas dans cette catégorie" },
+
+  /**
+   * On écrit GARANTIE, jamais « assurance » : le client y tient, et les
+   * assureurs font la différence. Les deux niveaux, dans ses mots :
+   */
+  garantie: {
+    franchise: 150,
+    niveaux: {
+      standard: {
+        taux: 0.005,
+        label: "Garantie dommages standard",
+        texte: "Garantie avec tableau de vétusté pour le mobilier.",
+      },
+      luxe: {
+        taux: 0.008,
+        label: "Garantie dommages Luxe",
+        texte: "Garantie en valeur de remplacement à l'identique et sans vétusté.",
+      },
+    },
+  },
 } as const;
+
+export type NiveauGarantie = keyof typeof SUPPLEMENTS.garantie.niveaux;
 
 export const TVA_DEFAUT = 20;
 

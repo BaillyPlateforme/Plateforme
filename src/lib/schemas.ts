@@ -80,6 +80,8 @@ export const createRequestSchema = z.object({
   valeur_mobilier: z.string().optional(),
   assurance: z.enum(["standard", "luxe"]).optional(),
   articles_lourds: z.boolean().optional(),
+  articles_lourds_detail: z.string().optional(),
+  piano: z.boolean().optional(),
   commentaire: z.string().optional(),
   prestations: z.record(z.string(), z.string()).optional(),
   details: z.record(z.string(), z.any()).optional(),

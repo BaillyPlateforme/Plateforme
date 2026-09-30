@@ -9,7 +9,7 @@ import { FORMULES, SUPPLEMENTS, TVA_DEFAUT, type Formule } from "@/lib/pricing/g
 const SUPPLEMENTS_LISTE: { label: string; base: string; prix: string }[] = [
   {
     label: "Voyage spécial",
-    base: "date imposée par le client",
+    base: "n'est plus proposé au client : le commercial le traite à la main",
     prix: `+${Math.round(SUPPLEMENTS.voyageSpecialPct * 100)} % du transport`,
   },
   {
@@ -24,19 +24,28 @@ const SUPPLEMENTS_LISTE: { label: string; base: string; prix: string }[] = [
   },
   {
     label: "Monte-meubles avec opérateur",
-    base: `absence d'ascenseur ou escalier complexe · seuil ${SUPPLEMENTS.monteMeubles.seuilM3} m³`,
+    base: `nécessaire dès ${SUPPLEMENTS.monteMeubles.declenche.volumeM3} m³ et un ${SUPPLEMENTS.monteMeubles.declenche.etage}e étage sans ascenseur · journée au-delà de ${SUPPLEMENTS.monteMeubles.seuilJourneeM3} m³`,
     prix: `${SUPPLEMENTS.monteMeubles.demiJournee} € la demi-journée, ${SUPPLEMENTS.monteMeubles.journee} € la journée`,
   },
-  { label: "Piano droit", base: "hors réaccordage, rez-de-chaussée", prix: `${SUPPLEMENTS.pianoDroit} €` },
   {
-    label: "Charge lourde",
-    base: "80 à 150 kg : aquarium, frigo américain, coffre-fort",
-    prix: `${SUPPLEMENTS.chargeLourde} €`,
+    label: "Piano",
+    base: `plus de 150 kg — ${SUPPLEMENTS.piano.note}`,
+    prix: `${SUPPLEMENTS.piano.prix} €`,
   },
   {
-    label: "Garantie nationale",
-    base: `valeur déclarée · franchise ${SUPPLEMENTS.assurance.franchise} €`,
-    prix: `${(SUPPLEMENTS.assurance.taux * 100).toFixed(1).replace(".", ",")} % de la valeur`,
+    label: "Charge lourde",
+    base: `80 à 150 kg : ${SUPPLEMENTS.chargeLourde.exemples.join(", ")}`,
+    prix: `${SUPPLEMENTS.chargeLourde.prix} €`,
+  },
+  {
+    label: SUPPLEMENTS.garantie.niveaux.standard.label,
+    base: `${SUPPLEMENTS.garantie.niveaux.standard.texte} Franchise ${SUPPLEMENTS.garantie.franchise} €.`,
+    prix: `${(SUPPLEMENTS.garantie.niveaux.standard.taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée`,
+  },
+  {
+    label: SUPPLEMENTS.garantie.niveaux.luxe.label,
+    base: SUPPLEMENTS.garantie.niveaux.luxe.texte,
+    prix: `${(SUPPLEMENTS.garantie.niveaux.luxe.taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée`,
   },
   { label: "Frais de stationnement", base: "formalités de stationnement", prix: "sur justificatif" },
 ];

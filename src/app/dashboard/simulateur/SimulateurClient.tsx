@@ -30,7 +30,9 @@ export default function SimulateurClient() {
     portage_arrivee_m: 0,
     transbordement: false,
     monte_meubles: 0,
-    piano_droit: 0,
+    pianos: 0,
+    etages_sans_ascenseur: 0,
+    garantie: null,
     charges_lourdes: 0,
     valeur_declaree: 0,
     tva: TVA_DEFAUT,
@@ -109,7 +111,7 @@ export default function SimulateurClient() {
           <Card title="Suppléments">
             <Toggle
               label="Voyage spécial"
-              hint={`date imposée · +${Math.round(SUPPLEMENTS.voyageSpecialPct * 100)} %`}
+              hint={`+${Math.round(SUPPLEMENTS.voyageSpecialPct * 100)} % · à la main, avec le commercial`}
               value={!!input.voyage_special}
               onChange={(v) => set({ voyage_special: v })}
             />
@@ -140,27 +142,54 @@ export default function SimulateurClient() {
               onChange={(v) => set({ monte_meubles: v })}
             />
             <Num
-              label="Piano droit"
+              label="Piano"
               unit="×"
-              hint={`${SUPPLEMENTS.pianoDroit} €`}
-              value={input.piano_droit ?? 0}
-              onChange={(v) => set({ piano_droit: v })}
+              hint={`${SUPPLEMENTS.piano.prix} € · plus de 150 kg`}
+              value={input.pianos ?? 0}
+              onChange={(v) => set({ pianos: v })}
             />
             <Num
               label="Charges lourdes"
               unit="×"
-              hint={`${SUPPLEMENTS.chargeLourde} € · 80 à 150 kg`}
+              hint={`${SUPPLEMENTS.chargeLourde.prix} € · 80 à 150 kg`}
               value={input.charges_lourdes ?? 0}
               onChange={(v) => set({ charges_lourdes: v })}
+            />
+            <Num
+              label="Étages sans ascenseur"
+              unit="ét."
+              hint={`monte-meubles dès ${SUPPLEMENTS.monteMeubles.declenche.volumeM3} m³ et un ${SUPPLEMENTS.monteMeubles.declenche.etage}e étage`}
+              value={input.etages_sans_ascenseur ?? 0}
+              onChange={(v) => set({ etages_sans_ascenseur: v })}
             />
             <Num
               label="Valeur déclarée"
               unit="€"
               step={1000}
-              hint={`garantie ${(SUPPLEMENTS.assurance.taux * 100).toFixed(1).replace(".", ",")} %`}
+              hint="sert au calcul de la garantie"
               value={input.valeur_declaree ?? 0}
               onChange={(v) => set({ valeur_declaree: v })}
             />
+            <label className="mb-2.5 flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-sm leading-tight">Garantie dommages</span>
+                <span className="block text-[11px] leading-tight text-ink-soft">
+                  standard {nb(SUPPLEMENTS.garantie.niveaux.standard.taux * 100)} % · Luxe{" "}
+                  {nb(SUPPLEMENTS.garantie.niveaux.luxe.taux * 100)} %
+                </span>
+              </span>
+              <select
+                value={input.garantie ?? ""}
+                onChange={(e) =>
+                  set({ garantie: e.target.value === "" ? null : (e.target.value as "standard" | "luxe") })
+                }
+                className="rounded-lg border border-line bg-paper px-2.5 py-1.5 text-sm outline-none transition focus:border-accent"
+              >
+                <option value="">aucune</option>
+                <option value="standard">standard</option>
+                <option value="luxe">Luxe</option>
+              </select>
+            </label>
             <Num
               label="TVA"
               unit="%"

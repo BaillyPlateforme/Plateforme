@@ -58,7 +58,9 @@ function tirer(graine: number, nombre: number, b: Bornes): Cas[] {
       portage_arrivee_m: b.supplements && r() < 0.2 ? entre(20, 60) : 0,
       transbordement: b.supplements && r() < 0.15,
       monte_meubles: b.supplements && r() < 0.35 ? (r() < 0.25 ? 2 : 1) : 0,
-      piano_droit: b.supplements && r() < 0.08 ? 1 : 0,
+      pianos: b.supplements && r() < 0.08 ? 1 : 0,
+      etages_sans_ascenseur: b.supplements ? entre(0, 4) : 0,
+      garantie: b.supplements && r() < 0.4 ? (r() < 0.3 ? "luxe" : "standard") : null,
       charges_lourdes: b.supplements && r() < 0.12 ? entre(1, 2) : 0,
       valeur_declaree: b.supplements && r() < 0.4 ? entre(10, 80) * 1000 : 0,
     };
@@ -416,9 +418,10 @@ function resume(e: SimulationInput): string[] {
   if (e.portage_arrivee_m) t.push(`portage arrivée ${e.portage_arrivee_m} m`);
   if (e.transbordement) t.push("transbordement");
   if (e.monte_meubles) t.push(`monte-meubles ×${e.monte_meubles}`);
-  if (e.piano_droit) t.push("piano droit");
+  if (e.etages_sans_ascenseur) t.push(`${e.etages_sans_ascenseur} étages sans ascenseur`);
+  if (e.pianos) t.push("piano");
   if (e.charges_lourdes) t.push(`charge lourde ×${e.charges_lourdes}`);
-  if (e.valeur_declaree) t.push(`garantie ${(e.valeur_declaree / 1000).toFixed(0)} k€`);
+  if (e.valeur_declaree) t.push(`garantie ${e.garantie === "luxe" ? "Luxe" : "standard"} ${(e.valeur_declaree / 1000).toFixed(0)} k€`);
   return t;
 }
 

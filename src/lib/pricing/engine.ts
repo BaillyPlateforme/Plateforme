@@ -18,6 +18,7 @@ import {
   TRANCHES_VOLUME,
   TVA_DEFAUT,
   type Formule,
+  type NiveauGarantie,
 } from "./grille";
 import type { RequestRow } from "@/lib/types";
 
@@ -36,12 +37,20 @@ export interface SimulationInput {
   portage_arrivee_m?: number;
   /** Navette quand le porteur ne peut pas se positionner. */
   transbordement?: boolean;
-  /** Nombre de mises en œuvre du monte-meubles (départ et/ou arrivée). */
+  /**
+   * Monte-meubles posé à la main. Le moteur en déclenche un tout seul dès que
+   * le volume et les étages franchissent le seuil : c'est le plus grand des
+   * deux qui est retenu.
+   */
   monte_meubles?: number;
-  piano_droit?: number;
+  /** Étages sans ascenseur, le plus haut des deux adresses. */
+  etages_sans_ascenseur?: number;
+  pianos?: number;
   charges_lourdes?: number;
-  /** Valeur déclarée du mobilier, en € : sert à la garantie nationale. */
+  /** Valeur déclarée du mobilier, en € : sert à la garantie. */
   valeur_declaree?: number;
+  /** Niveau de garantie choisi par le client. */
+  garantie?: NiveauGarantie | null;
   tva?: number;
 }
 
@@ -171,24 +180,35 @@ export function simuler(input: SimulationInput): Simulation {
     });
   }
 
-  const mm = Math.max(0, Math.round(input.monte_meubles || 0));
+  // Monte-meubles : la règle du client décide seule, sauf si l'équipe en pose
+  // davantage à la main.
+  const { demiJournee, journee, seuilJourneeM3, declenche } = SUPPLEMENTS.monteMeubles;
+  const etages = Math.max(0, Math.round(input.etages_sans_ascenseur || 0));
+  const declenchement = volume >= declenche.volumeM3 && etages >= declenche.etage;
+  const mm = Math.max(declenchement ? 1 : 0, Math.max(0, Math.round(input.monte_meubles || 0)));
   if (mm > 0) {
-    const { demiJournee, journee, seuilM3 } = SUPPLEMENTS.monteMeubles;
-    const gros = volume > seuilM3;
-    const prix = gros ? journee : demiJournee;
+    const pleineJournee = volume > seuilJourneeM3;
+    const prix = pleineJournee ? journee : demiJournee;
     supplements.push({
       label: "Monte-meubles avec opérateur",
-      detail: `${mm} × ${gros ? "journée" : `demi-journée (jusqu'à ${seuilM3} m³)`} · ${prix} €`,
+      detail: declenchement
+        ? `${pleineJournee ? "journée" : "demi-journée"} · ${prix} € — nécessaire dès ${declenche.volumeM3} m³ et un ${declenche.etage}e étage sans ascenseur${mm > 1 ? `, ${mm} mises en œuvre` : ""}`
+        : `${mm} × ${pleineJournee ? "journée" : "demi-journée"} · ${prix} €`,
       amount: r2(mm * prix),
     });
+    if (declenchement) {
+      mentions.push(
+        `Monte-meubles inclus : ${volume} m³ à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`,
+      );
+    }
   }
 
-  const pianos = Math.max(0, Math.round(input.piano_droit || 0));
+  const pianos = Math.max(0, Math.round(input.pianos || 0));
   if (pianos > 0) {
     supplements.push({
-      label: "Portage piano droit",
-      detail: `${pianos} × ${SUPPLEMENTS.pianoDroit} € · hors réaccordage, départ et arrivée en rez-de-chaussée`,
-      amount: r2(pianos * SUPPLEMENTS.pianoDroit),
+      label: "Portage piano",
+      detail: `${pianos} × ${SUPPLEMENTS.piano.prix} € · plus de 150 kg — ${SUPPLEMENTS.piano.note}`,
+      amount: r2(pianos * SUPPLEMENTS.piano.prix),
     });
   }
 
@@ -196,20 +216,23 @@ export function simuler(input: SimulationInput): Simulation {
   if (lourds > 0) {
     supplements.push({
       label: "Portage charges lourdes",
-      detail: `${lourds} × ${SUPPLEMENTS.chargeLourde} € · 80 à 150 kg (aquarium, frigo américain, coffre-fort…)`,
-      amount: r2(lourds * SUPPLEMENTS.chargeLourde),
+      detail: `${lourds} × ${SUPPLEMENTS.chargeLourde.prix} € · 80 à 150 kg (${SUPPLEMENTS.chargeLourde.exemples.slice(0, 3).join(", ")}…)`,
+      amount: r2(lourds * SUPPLEMENTS.chargeLourde.prix),
     });
   }
 
   const valeur = Math.max(0, input.valeur_declaree || 0);
-  if (valeur > 0) {
-    const { taux, franchise } = SUPPLEMENTS.assurance;
+  const niveau = input.garantie ?? (valeur > 0 ? "standard" : null);
+  if (valeur > 0 && niveau) {
+    const { franchise, niveaux } = SUPPLEMENTS.garantie;
+    const g = niveaux[niveau];
     supplements.push({
-      label: "Garantie nationale",
-      detail: `${nb(taux * 100)} % de ${nb(valeur)} € déclarés`,
-      amount: r2(valeur * taux),
+      label: g.label,
+      detail: `${nb(g.taux * 100)} % de ${nb(valeur)} € déclarés`,
+      amount: r2(valeur * g.taux),
     });
-    mentions.push(`Franchise de ${franchise} € par sinistre.`);
+    mentions.push(g.texte);
+    if (niveau === "standard") mentions.push(`Franchise de ${franchise} € par sinistre.`);
   }
 
   mentions.push("Frais de stationnement : sur justificatif.");
@@ -261,12 +284,23 @@ export function entreeDepuisDemande(req: RequestRow): SimulationInput {
   const raw = (req.raw_payload ?? {}) as Record<string, unknown>;
   const services = req.services ?? {};
 
+  // Le plus haut des deux étages sans ascenseur : c'est lui qui décide du
+  // monte-meubles.
+  const sansAscenseur = (etage: number | null, asc: boolean | null) => (asc ? 0 : (etage ?? 0));
+  const etages = Math.max(
+    sansAscenseur(req.depart_etage, req.depart_ascenseur),
+    sansAscenseur(req.arrivee_etage, req.arrivee_ascenseur),
+  );
+
   return {
     formule: (req.formule as Formule) || "standard",
     volume_m3: req.volume_m3 ?? 0,
     distance_km: req.distance_km ?? 0,
     monte_meubles: services.monte_meuble ? 1 : 0,
+    etages_sans_ascenseur: etages,
     valeur_declaree: valeurDeclaree(raw.valeur_mobilier),
+    garantie: raw.assurance === "luxe" ? "luxe" : raw.assurance === "standard" ? "standard" : null,
+    // Le voyage spécial ne s'applique plus tout seul : le commercial le pose.
     voyage_special: false,
   };
 }
@@ -282,25 +316,9 @@ export function estimerDemande(req: RequestRow): Simulation {
   if (req.distance_km == null) {
     sim.alertes.push("Distance non renseignée : tarif de la tranche 0 à 50 km appliqué par défaut.");
   }
-  if (req.date_souhaitee && !req.flexibilite) {
-    sim.alertes.push(
-      `Date précise demandée : voyage spécial (+${Math.round(SUPPLEMENTS.voyageSpecialPct * 100)} %) applicable si la date est imposée en route.`,
-    );
-  }
   if (raw.articles_lourds === true) {
     sim.alertes.push(
-      `Objets lourds signalés : portage charge lourde ${SUPPLEMENTS.chargeLourde} € l'unité, piano droit ${SUPPLEMENTS.pianoDroit} €, à ajouter selon le relevé.`,
-    );
-  }
-  if (raw.assurance === "luxe") {
-    sim.alertes.push("Garantie LUXE demandée : hors grille, à chiffrer à la main.");
-  }
-
-  const sansAscenseur = (etage: number | null, asc: boolean | null) => (asc ? 0 : etage ?? 0);
-  const etages = sansAscenseur(req.depart_etage, req.depart_ascenseur) + sansAscenseur(req.arrivee_etage, req.arrivee_ascenseur);
-  if (etages >= 3 && !req.services?.monte_meuble) {
-    sim.alertes.push(
-      `${etages} étages sans ascenseur : monte-meubles probablement nécessaire (${SUPPLEMENTS.monteMeubles.demiJournee} € la demi-journée).`,
+      `Objets lourds signalés : charge lourde ${SUPPLEMENTS.chargeLourde.prix} € l'unité, piano ${SUPPLEMENTS.piano.prix} €, à ajouter selon le relevé.`,
     );
   }
 

@@ -6,6 +6,7 @@ import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import ModeSwitch from "@/components/ModeSwitch";
+import FormulesClient from "@/components/pricing/FormulesClient";
 import { InstantResult, Comparateur } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 
@@ -51,6 +52,8 @@ type FormState = {
   societe: string;
   demenagement: "complet" | "partiel" | "";
   articles_lourds: YN;
+  articles_lourds_detail: string;
+  piano: YN;
   periode: string;
   // Étapes 2/3
   depart: Address;
@@ -89,9 +92,19 @@ const HEADERS: { eyebrow: string; title: string; sub: string }[] = [
 const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
 const PERIODES = ["Dès que possible", "Sous 1 mois", "Dans 1 à 3 mois", "Dans 3 à 6 mois", "Plus tard / je reste flexible"];
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
-const ASSURANCES: [string, string][] = [
-  ["standard", "Garantie STANDARD — avec franchise, à valeur de vétusté"],
-  ["luxe", "Garantie LUXE — sans franchise, à valeur de remplacement"],
+// Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
+// et le Luxe rembourse à l'identique — pas à neuf.
+const GARANTIES: [string, string, string][] = [
+  [
+    "standard",
+    "Garantie dommages standard",
+    "Garantie avec tableau de vétusté pour le mobilier. Franchise de 150 € par sinistre.",
+  ],
+  [
+    "luxe",
+    "Garantie dommages Luxe",
+    "Garantie en valeur de remplacement à l'identique et sans vétusté.",
+  ],
 ];
 const PRESTATIONS: { key: keyof FormState["prestations"]; label: string }[] = [
   { key: "fragile", label: "Emballage et déballage du fragile" },
@@ -114,7 +127,7 @@ const emptyAddress: Address = {
 
 const initial: FormState = {
   type_client: "particulier", prenom: "", nom: "", tel: "", email: "",
-  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", periode: "",
+  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", articles_lourds_detail: "", piano: "", periode: "",
   depart: { ...emptyAddress }, arrivee: { ...emptyAddress },
   prestations: { fragile: "", embNonFragile: "", debNonFragile: "", demontage: "", transport: "" },
   emballage: { ikea: "", ikeaPrecision: "", anciens: "", anciensPrecision: "", specifiques: "", specifiquesPrecision: "" },
@@ -126,7 +139,7 @@ const DEMO: FormState = {
   ...initial,
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
-  articles_lourds: "non", periode: "",
+  articles_lourds: "non", articles_lourds_detail: "", piano: "non", periode: "",
   depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
@@ -241,7 +254,7 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
               badge="Sur mesure"
               title="Devis complet"
               desc="Le dossier détaillé pour un devis au plus juste, adapté à votre situation."
-              points={["Conditions d'accès complètes", "Prestations & emballage", "Assurance & inventaire"]}
+              points={["Conditions d'accès complètes", "Prestations & emballage", "Garantie & inventaire"]}
               delay="160ms"
             />
           </div>
@@ -465,7 +478,20 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   const heroUrl = library[0]?.url;
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
+  // Raccourci de démonstration. L'ancien bouton portait le libellé « Devis
+  // express » en plein parcours complet : le client n'y comprenait rien, et
+  // ça ne menait pas au devis express. Il est retiré ; le raccourci reste
+  // accessible par ?demo=1 pour les démonstrations.
   function fillDemo() { setForm(DEMO); setStep(STEPS.length - 1); }
+
+  // Le raccourci de démonstration, déclenché par ?demo=1. Différé d'un tour :
+  // le premier rendu doit être le même côté serveur et côté navigateur.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("demo") === "1") fillDemo();
+    }, 0);
+    return () => clearTimeout(id);
+  }, []);
   const canNext = validateStep(step, form);
 
   async function submit() {
@@ -573,10 +599,6 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                 <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">{HEADERS[step].title}</h1>
                 <p className="mt-2 text-ink-soft">{HEADERS[step].sub}</p>
               </div>
-              <button type="button" onClick={fillDemo}
-                className="ml-4 hidden shrink-0 rounded-full border border-line-strong bg-card px-3.5 py-2 text-xs font-medium transition hover:border-ink sm:block">
-                ⚡ Devis express
-              </button>
             </div>
 
             <div key={step} className="animate-step-in flex-1">
@@ -636,11 +658,18 @@ function VousStep({ form, patch }: StepProps) {
           {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
         </div>
       </Field>
-      <Field label="Assurance souhaitée *">
+      <Field label="Garantie dommages souhaitée *">
         <div className="space-y-2">
-          {ASSURANCES.map(([v, l]) => (
-            <button key={v} type="button" onClick={() => patch({ assurance: v as FormState["assurance"] })}
-              className={`block w-full rounded-lg border px-4 py-2.5 text-left text-sm transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}>{l}</button>
+          {GARANTIES.map(([v, titre, explication]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => patch({ assurance: v as FormState["assurance"] })}
+              className={`block w-full rounded-lg border px-4 py-3 text-left transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}
+            >
+              <span className="block text-sm font-medium">{titre}</span>
+              <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">{explication}</span>
+            </button>
           ))}
         </div>
       </Field>
@@ -653,8 +682,26 @@ function VousStep({ form, patch }: StepProps) {
       <Field label="Déménagement complet ou partiel ?">
         <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
       </Field>
-      <Field label="Avez-vous des articles de plus de 80 kg ?">
+      <Field
+        label="Avez-vous des objets de 80 à 150 kg ?"
+        hint="aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif"
+      >
         <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
+      </Field>
+      {form.articles_lourds === "oui" && (
+        <Field label="Lesquels, et quel poids ?" hint="pour prévoir le portage">
+          <TextInput
+            value={form.articles_lourds_detail}
+            onChange={(e) => patch({ articles_lourds_detail: e.target.value })}
+            placeholder="Cave à vin ≈ 120 kg, frigo américain ≈ 110 kg"
+          />
+        </Field>
+      )}
+      <Field
+        label="Avez-vous un piano ?"
+        hint="plus de 150 kg, il demande une manutention à part — les pianos électriques, légers, n'en font pas partie"
+      >
+        <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
       </Field>
       <Field label="Période souhaitée *"><TextInput type="date" value={form.periode} onChange={(e) => patch({ periode: e.target.value })} /></Field>
     </div>
@@ -735,8 +782,32 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
 }
 
 function PrestationsStep({ form, patch }: StepProps) {
+  const [comparatif, setComparatif] = useState(false);
+
   return (
     <div className="space-y-2.5">
+      {/* Les trois formules sur une page, à la demande du client. */}
+      <div className="rounded-xl border border-line bg-card">
+        <button
+          type="button"
+          onClick={() => setComparatif((v) => !v)}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium">Nos trois formules</span>
+            <span className="block text-[12.5px] text-ink-soft">
+              Éco, Standard, Premium — ce que chacune comprend
+            </span>
+          </span>
+          <span className="text-sm text-accent">{comparatif ? "Masquer" : "Comparer"}</span>
+        </button>
+        {comparatif && (
+          <div className="border-t border-line p-3">
+            <FormulesClient />
+          </div>
+        )}
+      </div>
+
       {PRESTATIONS.map((p) => (
         <div key={p.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3">
           <div className="text-sm font-medium">{p.label}</div>
@@ -1004,6 +1075,8 @@ function buildPayload(form: FormState) {
     mutation_pro: form.mutation_pro === "oui",
     valeur_mobilier: form.valeur_mobilier || undefined,
     articles_lourds: form.articles_lourds === "oui",
+    articles_lourds_detail: form.articles_lourds_detail || undefined,
+    piano: form.piano === "oui",
     commentaire: form.commentaire || undefined,
     prestations: form.prestations as unknown as Record<string, string>,
     // tout le détail brut (adresses complètes, emballage, etc.) conservé
