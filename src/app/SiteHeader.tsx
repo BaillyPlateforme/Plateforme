@@ -10,7 +10,11 @@ import { useEffect, useRef } from "react";
  * L'état est écrit directement dans la classe du nœud : un `useState` ici
  * ferait re-rendre la page entière à chaque pixel de défilement.
  */
-export default function SiteHeader() {
+export default function SiteHeader({
+  onChoisir,
+}: {
+  onChoisir: (p: "express" | "complet") => void;
+}) {
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -65,21 +69,23 @@ export default function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2.5">
-          <Link
-            href="/demande?mode=express"
+          <button
+            type="button"
+            onClick={() => onChoisir("express")}
             className="site-ghost hidden rounded-full border px-4 py-2 text-[13px] font-medium transition sm:inline-flex"
           >
             Devis express
-          </Link>
-          <Link
-            href="/demande?mode=complet"
+          </button>
+          <button
+            type="button"
+            onClick={() => onChoisir("complet")}
             className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-[13px] font-semibold text-[#1b1a18] shadow-lg shadow-black/20 transition hover:bg-[#e0b81a]"
           >
             Mon devis
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </Link>
+          </button>
         </div>
       </div>
     </header>

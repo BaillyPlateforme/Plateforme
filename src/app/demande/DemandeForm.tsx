@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput } from "./ui";
@@ -151,128 +152,61 @@ const DEMO: FormState = {
 export default function DemandeForm({
   library,
   instant = false,
-  modeInitial = null,
+  modeInitial = "express",
+  onQuitter,
 }: {
   library: LibraryPhoto[];
   instant?: boolean;
-  /** Choisi depuis l'accueil : on entre alors directement dans le parcours. */
-  modeInitial?: null | "express" | "complet";
+  /** Le parcours choisi sur la vitrine. */
+  modeInitial?: "express" | "complet";
+  /** Retour à la vitrine, sans changer de page. */
+  onQuitter: () => void;
 }) {
-  const [mode, setMode] = useState<null | "express" | "complet">(modeInitial);
-  if (mode === null) return <ModeChooser heroUrls={library.map((l) => l.url)} onSelect={setMode} />;
-  if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} instant={instant} />;
-  return <CompleteForm library={library} onBack={() => setMode(null)} instant={instant} />;
+  if (modeInitial === "express")
+    return <ExpressForm library={library} onBack={onQuitter} instant={instant} />;
+  return <CompleteForm library={library} onBack={onQuitter} instant={instant} />;
 }
 
-function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
+/**
+ * Le panneau de gauche, dans le langage de la vitrine : la photo d'intérieur
+ * assombrie, le halo doré, le texte en blanc. Le milieu est laissé au
+ * parcours — les étapes du devis complet, rien pour l'express.
+ */
+function BrandPanel({
+  milieu,
+  bas,
+}: {
+  milieu?: React.ReactNode;
+  bas?: React.ReactNode;
+}) {
   return (
-    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
+    <aside className="grain relative hidden overflow-hidden bg-ink md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
+      <Image src="/login-interieur.jpg" alt="" fill priority sizes="420px" className="ken-burns object-cover" />
+      <div className="absolute inset-0 bg-ink/72" />
+      <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/45 to-ink/95" />
+      <div className="drift absolute -left-24 top-1/3 h-[380px] w-[380px] rounded-full bg-brand/20 blur-3xl" />
+
       <div className="relative z-10 p-9">
-        <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
-        <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
-        <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-ink">
-          Une question, un projet ? Nous vous accompagnons à chaque étape.
+        <div className="font-serif text-[28px] font-bold leading-none text-white">Bailly</div>
+        <div className="eyebrow mt-2 text-white/60">Déménagement</div>
+        <p className="mt-8 max-w-xs font-serif text-[23px] leading-snug text-white">
+          Une question, un projet ? Nous vous{" "}
+          <span className="gradient-flow-light">accompagnons</span> à chaque étape.
         </p>
       </div>
-      {heroUrl && (
-        <div className="relative z-10 px-9">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={heroUrl} alt="" className="h-44 w-full rounded-2xl border border-line object-cover" />
-        </div>
-      )}
+
+      {milieu && <div className="relative z-10 px-6">{milieu}</div>}
+
       <div className="relative z-10 p-9">
-        <div className="border-t border-line pt-5 text-sm text-ink-soft">
-          {children ?? "Échangez avec nos experts pour un accompagnement sur mesure."}
+        <div className="border-t border-white/15 pt-5 text-[13px] text-white/65">
+          {bas ?? "Échangez avec nos experts pour un accompagnement sur mesure."}
         </div>
       </div>
     </aside>
   );
 }
 
-function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
-  onClick: () => void; img?: string; icon: string; badge: string; title: string; desc: string; points: string[]; delay: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{ animationDelay: delay }}
-      className="group animate-fade-up flex flex-col overflow-hidden rounded-[24px] border border-line bg-card text-left shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-md)]"
-    >
-      {/* Visuel */}
-      <div className="relative h-52 w-full overflow-hidden">
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-105" />
-        ) : (
-          <div className="h-full w-full bg-accent-soft" />
-        )}
-        <div className="absolute left-5 top-5 z-10 flex items-center gap-2.5">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/75 text-xl backdrop-blur-md">{icon}</span>
-          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#1b1a18] backdrop-blur-md">{badge}</span>
-        </div>
-      </div>
 
-      {/* Contenu sur fond clair */}
-      <div className="flex flex-1 flex-col p-7 md:p-8">
-        <h2 className="font-serif text-3xl text-ink md:text-4xl">{title}</h2>
-        <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">{desc}</p>
-        <ul className="mt-4 space-y-1.5">
-          {points.map((p) => (
-            <li key={p} className="flex items-center gap-2 text-sm text-ink-soft">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent" />{p}
-            </li>
-          ))}
-        </ul>
-        <span className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition-all duration-300 group-hover:gap-3 group-hover:bg-accent-dark">
-          Commencer <span className="transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[]; onSelect: (m: "express" | "complet") => void }) {
-  return (
-    <>
-      <div>
-        <div className="relative min-h-dvh overflow-hidden bg-card text-ink">
-        <div className="relative z-10 mx-auto flex min-h-dvh max-w-6xl flex-col px-6 py-12 md:py-16">
-          <header className="animate-fade-up">
-            <div className="font-serif text-2xl font-semibold">Bailly</div>
-            <div className="eyebrow mt-4 text-brand-ink">Demande de devis</div>
-            <h1 className="mt-2 max-w-2xl font-serif text-4xl leading-[1.05] md:text-6xl">Comment souhaitez-vous procéder ?</h1>
-            <p className="mt-3 text-ink-soft">Deux formules — à vous de choisir.</p>
-          </header>
-
-          <div className="mt-9 grid flex-1 gap-5 md:grid-cols-2">
-            <BigCard
-              onClick={() => onSelect("express")}
-              img={heroUrls[0]}
-              icon="⚡"
-              badge="≈ 2 minutes"
-              title="Devis express"
-              desc="Une estimation rapide, sans détour. Idéal pour obtenir un premier chiffrage."
-              points={["Vos coordonnées", "Trajet départ → arrivée", "Volume : saisie ou photos IA"]}
-              delay="80ms"
-            />
-            <BigCard
-              onClick={() => onSelect("complet")}
-              img={heroUrls[1] ?? heroUrls[0]}
-              icon="◆"
-              badge="Sur mesure"
-              title="Devis complet"
-              desc="Le dossier détaillé pour un devis au plus juste, adapté à votre situation."
-              points={["Conditions d'accès complètes", "Prestations & emballage", "Garantie & inventaire"]}
-              delay="160ms"
-            />
-          </div>
-        </div>
-        </div>
-      </div>
-    </>
-  );
-}
 
 /* ============================ Devis express ============================ */
 
@@ -358,11 +292,11 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
       )}
       <div>
         <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
-        <BrandPanel heroUrl={library[0]?.url} />
+        <BrandPanel />
         <main className="flex min-h-dvh flex-col">
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
             <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
-              ← Changer de type de devis
+              ← Revenir au choix du devis
             </button>
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -548,27 +482,36 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
       )}
       <div>
         <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
-        {/* Panneau visuel */}
-        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
-          <div className="relative z-10 p-9">
-            <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
-            <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
-            <p className="mt-7 max-w-xs font-serif text-2xl leading-snug text-ink">
-              Une question, un projet ? Nous vous accompagnons à chaque étape.
-            </p>
-          </div>
-          <div className="relative z-10 px-9">
-            <ol className="space-y-0.5">
+        {/* Panneau visuel — les étapes, posées sur le héros de la vitrine */}
+        <BrandPanel
+          milieu={
+            <ol className="space-y-1">
               {STEPS.map((label, i) => {
-                const state = i === step ? "active" : i < step ? "done" : "todo";
+                const etat = i === step ? "active" : i < step ? "done" : "todo";
                 return (
                   <li key={label}>
-                    <button type="button" onClick={() => i < step && setStep(i)} disabled={i > step}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left text-sm transition ${
-                        state === "active" ? "bg-accent-soft font-medium text-accent" : state === "done" ? "text-ink hover:bg-line/50" : "text-ink-soft/50"}`}>
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
-                        state === "active" ? "bg-accent text-white" : state === "done" ? "bg-accent-soft text-accent" : "border border-line-strong text-ink-soft/50"}`}>
-                        {state === "done" ? "✓" : i + 1}
+                    <button
+                      type="button"
+                      onClick={() => i < step && setStep(i)}
+                      disabled={i > step}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[13.5px] transition ${
+                        etat === "active"
+                          ? "bg-white/15 font-semibold text-white backdrop-blur-md"
+                          : etat === "done"
+                            ? "text-white/85 hover:bg-white/10"
+                            : "text-white/35"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                          etat === "active"
+                            ? "bg-brand text-[#1b1a18]"
+                            : etat === "done"
+                              ? "bg-white/20 text-white"
+                              : "border border-white/25 text-white/40"
+                        }`}
+                      >
+                        {etat === "done" ? "✓" : i + 1}
                       </span>
                       {label}
                     </button>
@@ -576,18 +519,23 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                 );
               })}
             </ol>
-          </div>
-          <div className="relative z-10 p-9">
-            <div className="flex items-end justify-between border-t border-line pt-5">
-              <p className="max-w-[13rem] text-sm text-ink-soft">Échangez avec nos experts pour un accompagnement sur mesure.</p>
+          }
+          bas={
+            <div className="flex items-end justify-between gap-4">
+              <p className="max-w-[12rem]">Un commercial reprend la main dès l&apos;envoi.</p>
               <div className="text-right">
-                <div className="eyebrow text-ink-soft">Volume estimé</div>
-                <div className="font-serif text-3xl text-ink">{totalVolume ?? "—"}<span className="ml-1 text-base text-ink-soft">m³</span></div>
-                {distanceKm != null && <div className="mt-1 text-xs text-ink-soft">📍 {distanceKm} km</div>}
+                <div className="eyebrow text-white/50">Volume estimé</div>
+                <div className="font-serif text-[28px] leading-none text-white">
+                  {totalVolume ?? "—"}
+                  <span className="ml-1 text-[15px] text-white/60">m³</span>
+                </div>
+                {distanceKm != null && (
+                  <div className="mt-1.5 text-[11.5px] text-white/55">{distanceKm} km de trajet</div>
+                )}
               </div>
             </div>
-          </div>
-        </aside>
+          }
+        />
 
         {/* Contenu */}
         <main className="flex min-h-dvh flex-col">
@@ -596,7 +544,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
           </div>
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
             <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
-              ← Changer de type de devis
+              ← Revenir au choix du devis
             </button>
             <div className="mb-8 flex items-start justify-between">
               <div>
