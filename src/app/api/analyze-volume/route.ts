@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
-import { analyzePhoto } from "@/lib/volume-ai";
+import { analyzePhoto, detecterDoublons } from "@/lib/volume-ai";
 import { getAiConfig } from "@/lib/ai-config";
 import { env } from "@/lib/env";
 import type { AnalyzedPhotoInput } from "@/lib/schemas";
+import type { AiConfig } from "@/lib/ai-config";
+import type { GroupePieces } from "@/lib/volume-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,6 +15,86 @@ const MAX_PHOTOS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
 
 type ResultPhoto = AnalyzedPhotoInput & { previewUrl?: string };
+
+/** Une photo analysée, avec ses octets : la passe de doublons les redemande. */
+type Analysee = { photo: ResultPhoto; base64: string; mimeType: string };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Regroupe les photos d'une même pièce.
+ *
+ * Le mobilier commun n'est compté qu'une fois : la première photo du groupe
+ * porte la liste fusionnée — pour chaque meuble, la vue qui en montre le plus
+ * — et les autres sont marquées « doublon », conservées mais hors du total.
+ * Chacune garde sa propre liste : le regroupement se défait d'un clic.
+ */
+async function regrouper(
+  results: PromiseSettledResult<Analysee>[],
+  cfg: AiConfig,
+): Promise<PromiseSettledResult<ResultPhoto>[]> {
+  const ok = results.filter((r) => r.status === "fulfilled");
+  if (ok.length < 2) return aplatir(results);
+
+  let groupes: GroupePieces[] = [];
+  try {
+    groupes = await detecterDoublons(
+      ok.map((r) => ({ base64: r.value.base64, mimeType: r.value.mimeType })),
+      cfg,
+    );
+  } catch {
+    // La détection est un confort : si elle échoue, les photos restent telles
+    // quelles plutôt que de faire échouer toute l'analyse.
+    return aplatir(results);
+  }
+
+  groupes.forEach((g, n) => {
+    const membres = g.photos.map((i) => ok[i].value.photo);
+    const [retenue, ...doublons] = membres;
+    const id = `${Date.now().toString(36)}-${n}`;
+
+    retenue.groupe = id;
+    retenue.objets_seuls = retenue.objets;
+    retenue.objets = fusionnerObjets(membres.map((m) => m.objets));
+    retenue.volume_m3 = round2(retenue.objets.reduce((s, o) => s + o.volume_m3, 0));
+    retenue.fusionne = doublons.length;
+    if (g.piece) retenue.piece = g.piece;
+
+    doublons.forEach((d) => {
+      d.groupe = id;
+      d.doublon_de = retenue.storage_path;
+      d.doublon_raison = g.raison;
+      d.ignore = true;
+    });
+  });
+
+  return aplatir(results);
+}
+
+function aplatir(results: PromiseSettledResult<Analysee>[]): PromiseSettledResult<ResultPhoto>[] {
+  return results.map((r) =>
+    r.status === "fulfilled"
+      ? { status: "fulfilled" as const, value: r.value.photo }
+      : { status: "rejected" as const, reason: r.reason },
+  );
+}
+
+/**
+ * Deux vues d'un même canapé ne font pas deux canapés : pour chaque meuble on
+ * garde la vue qui en compte le plus, jamais la somme. Un meuble visible sur
+ * une seule des photos est conservé — c'est tout l'intérêt du second angle.
+ */
+function fusionnerObjets(listes: ResultPhoto["objets"][]): ResultPhoto["objets"] {
+  const par = new Map<string, ResultPhoto["objets"][number]>();
+  for (const liste of listes) {
+    for (const o of liste) {
+      const cle = o.label.trim().toLowerCase();
+      const deja = par.get(cle);
+      if (!deja || o.quantite > deja.quantite) par.set(cle, { ...o });
+    }
+  }
+  return [...par.values()];
+}
 
 // POST /api/analyze-volume
 // - multipart/form-data (champ "photos") : upload + analyse (formulaire)
@@ -48,17 +130,19 @@ async function analyzeLibrary(req: Request) {
   const cfg = await getAiConfig();
 
   const results = await Promise.allSettled(
-    paths.map(async (path): Promise<ResultPhoto> => {
+    paths.map(async (path): Promise<Analysee> => {
       const { data, error } = await supabase.storage.from(bucket).download(path);
       if (error || !data) throw new Error(`Téléchargement échoué : ${path}`);
       const bytes = Buffer.from(await data.arrayBuffer());
-      const analysis = await analyzePhoto(bytes.toString("base64"), data.type || "image/jpeg", cfg);
+      const mimeType = data.type || "image/jpeg";
+      const base64 = bytes.toString("base64");
+      const analysis = await analyzePhoto(base64, mimeType, cfg);
       const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-      return { ...analysis, storage_path: path, previewUrl: pub.publicUrl };
+      return { photo: { ...analysis, storage_path: path, previewUrl: pub.publicUrl }, base64, mimeType };
     }),
   );
 
-  return collect(results);
+  return collect(await regrouper(results, cfg));
 }
 
 // Analyse d'un upload multipart (formulaire client).
@@ -87,7 +171,7 @@ async function analyzeUpload(req: Request) {
   const cfg = await getAiConfig();
 
   const results = await Promise.allSettled(
-    files.map(async (file, i): Promise<ResultPhoto> => {
+    files.map(async (file, i): Promise<Analysee> => {
       if (file.size > MAX_BYTES) throw new Error(`${file.name} dépasse 15 Mo`);
 
       const bytes = Buffer.from(await file.arrayBuffer());
@@ -102,12 +186,14 @@ async function analyzeUpload(req: Request) {
         });
       if (upErr) throw new Error(`Upload échoué (${file.name}) : ${upErr.message}`);
 
-      const analysis = await analyzePhoto(bytes.toString("base64"), file.type || "image/jpeg", cfg);
-      return { ...analysis, storage_path: storagePath };
+      const mimeType = file.type || "image/jpeg";
+      const base64 = bytes.toString("base64");
+      const analysis = await analyzePhoto(base64, mimeType, cfg);
+      return { photo: { ...analysis, storage_path: storagePath }, base64, mimeType };
     }),
   );
 
-  return collect(results);
+  return collect(await regrouper(results, cfg));
 }
 
 // Agrège les résultats d'analyse (fulfilled/rejected) en réponse JSON.
@@ -123,8 +209,9 @@ function collect(results: PromiseSettledResult<ResultPhoto>[]) {
     return NextResponse.json({ error: "Analyse impossible", details: errors }, { status: 502 });
   }
 
-  const total_volume_m3 =
-    Math.round(photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100;
+  const total_volume_m3 = round2(
+    photos.reduce((s, p) => s + (p.ignore ? 0 : p.volume_m3), 0),
+  );
 
   return NextResponse.json({ photos, total_volume_m3, errors }, { status: 200 });
 }

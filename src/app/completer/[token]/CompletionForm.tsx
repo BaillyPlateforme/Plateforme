@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
-import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
+import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { completeRequest } from "@/lib/actions/completion";
 
 type Mode = "explicit" | "list" | "ai";
@@ -79,7 +79,7 @@ export default function CompletionForm({
       ? isNaN(parseFloat(explicitVolume)) ? null : Math.round(parseFloat(explicitVolume) * 100) / 100
       : mode === "list"
         ? items.length ? Math.round(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100 : null
-        : photos.length ? Math.round(photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100 : null;
+        : photos.length ? volumePhotos(photos) : null;
 
   const canSubmit =
     (!manque.volume || volume != null) &&

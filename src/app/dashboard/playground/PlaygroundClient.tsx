@@ -4,9 +4,7 @@ import { useMemo, useState } from "react";
 import { simuler } from "@/lib/pricing/engine";
 import { FORMULES, type Formule } from "@/lib/pricing/grille";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
-import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
+import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 
 export default function PlaygroundClient({ library }: { library: LibraryPhoto[] }) {
   const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
@@ -15,7 +13,7 @@ export default function PlaygroundClient({ library }: { library: LibraryPhoto[] 
   const [distance, setDistance] = useState("250");
   const [monteMeubles, setMonteMeubles] = useState(false);
 
-  const totalVolume = round2(photos.reduce((s, p) => s + p.volume_m3, 0));
+  const totalVolume = volumePhotos(photos);
 
   const quote = useMemo(() => {
     if (photos.length === 0) return null;

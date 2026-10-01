@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
-import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
+import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import FormulesClient from "@/components/pricing/FormulesClient";
 import { InstantResult, Comparateur } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
@@ -235,7 +235,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
 
   const volume = f.volMode === "explicit"
     ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
-    : (f.photos.length ? Math.round(f.photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100 : null);
+    : (f.photos.length ? volumePhotos(f.photos) : null);
 
   const dateOk = f.dateMode === "date" ? !!f.date : !!f.periode;
   const canSubmit = f.nom.trim() && /.+@.+\..+/.test(f.email) && f.departVille.trim() && f.arriveeVille.trim() && dateOk && volume != null;
@@ -1038,7 +1038,7 @@ function computeVolume(form: FormState): number | null {
   if (form.volumeMode === "explicit") { const v = parseFloat(form.explicitVolume); return isNaN(v) ? null : Math.round(v * 100) / 100; }
   if (form.volumeMode === "list") { if (form.items.length === 0) return null; return Math.round(form.items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100; }
   if (form.photos.length === 0) return null;
-  return Math.round(form.photos.reduce((s, p) => s + p.volume_m3, 0) * 100) / 100;
+  return volumePhotos(form.photos);
 }
 
 function validateStep(step: number, form: FormState): boolean {

@@ -10,12 +10,24 @@ export type AnalyzedPhotoBase = {
   objets: AnalyzedObjet[];
   volume_m3: number;
   previewUrl?: string;
+
+  /* Dédoublonnage : plusieurs photos d'une même pièce. */
+  groupe?: string;
+  doublon_de?: string;
+  doublon_raison?: string;
+  ignore?: boolean;
+  fusionne?: number;
+  objets_seuls?: AnalyzedObjet[];
 };
 export type AnalyzedPhoto = AnalyzedPhotoBase & { storage_path?: string };
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 export const sumVolume = (objets: AnalyzedObjet[]) =>
   round2(objets.reduce((s, o) => s + o.volume_m3, 0));
+
+/** Le volume retenu : les doublons d'une même pièce ne comptent pas. */
+export const volumePhotos = (photos: AnalyzedPhotoBase[]) =>
+  round2(photos.reduce((s, p) => s + (p.ignore ? 0 : p.volume_m3), 0));
 
 export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
   photo,
@@ -48,7 +60,7 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
     emit({ objets: photo.objets.map((o, i) => (i === idx ? { ...o, quantite: Math.max(1, q) } : o)) });
 
   return (
-    <div className="overflow-hidden rounded-[18px] bg-card">
+    <div className={`overflow-hidden rounded-[18px] bg-card ${photo.ignore ? "opacity-70" : ""}`}>
       {/* En-tête : vignette (cliquable pour agrandir) + pièce + total */}
       <div className="flex items-center gap-3 border-b border-line p-3">
         {photo.previewUrl ? (

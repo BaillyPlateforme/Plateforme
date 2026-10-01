@@ -7,6 +7,7 @@ import {
   AnalysisLoader,
   AnalysisError,
   sumVolume,
+  volumePhotos,
   type AnalyzedPhoto,
 } from "./PhotoAnalysisCard";
 
@@ -115,7 +116,34 @@ export default function PhotoAnalyzer({
     onChange(photos.filter((_, i) => i !== idx));
   }
 
-  const total = sumVolume(photos.flatMap((p) => p.objets));
+  // Le total ne retient pas les doublons : une pièce photographiée deux fois
+  // ne se déménage qu'une fois.
+  const total = volumePhotos(photos);
+
+  /**
+   * Défait un regroupement. Le modèle a pu se tromper — deux chambres qui se
+   * ressemblent, par exemple : chaque photo redevient alors indépendante et
+   * compte pour elle-même.
+   */
+  function separerGroupe(groupe: string) {
+    onChange(
+      photos.map((p) => {
+        if (p.groupe !== groupe) return p;
+        const objets = p.objets_seuls ?? p.objets;
+        return {
+          ...p,
+          objets,
+          volume_m3: sumVolume(objets),
+          groupe: undefined,
+          doublon_de: undefined,
+          doublon_raison: undefined,
+          ignore: undefined,
+          fusionne: undefined,
+          objets_seuls: undefined,
+        };
+      }),
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -210,12 +238,20 @@ export default function PhotoAnalyzer({
 
       {/* Résultats éditables */}
       {photos.map((p, i) => (
-        <PhotoAnalysisCard
-          key={i}
-          photo={p}
-          onChange={(next) => updatePhoto(i, next)}
-          onRemove={() => removePhoto(i)}
-        />
+        <div key={i} className="space-y-1.5">
+          {(p.ignore || p.fusionne) && (
+            <Bandeau
+              photo={p}
+              rang={p.doublon_de ? photos.findIndex((q) => q.storage_path === p.doublon_de) + 1 : 0}
+              onSeparer={() => p.groupe && separerGroupe(p.groupe)}
+            />
+          )}
+          <PhotoAnalysisCard
+            photo={p}
+            onChange={(next) => updatePhoto(i, next)}
+            onRemove={() => removePhoto(i)}
+          />
+        </div>
       ))}
 
       {showTotal && photos.length > 0 && (
@@ -223,6 +259,48 @@ export default function PhotoAnalyzer({
           <span>Volume total estimé</span>
           <span className="tabular-nums">{total.toFixed(1)} m³</span>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Le bandeau du dédoublonnage : il dit ce qui a été regroupé, pourquoi, et
+ * laisse défaire. Le client doit pouvoir comprendre pourquoi son volume n'est
+ * pas la somme de ses photos.
+ */
+function Bandeau({
+  photo,
+  rang,
+  onSeparer,
+}: {
+  photo: AnalyzedPhoto;
+  rang: number;
+  onSeparer: () => void;
+}) {
+  const doublon = !!photo.ignore;
+  return (
+    <div
+      className={`rounded-xl px-3.5 py-2.5 text-[12.5px] ${
+        doublon ? "bg-subtle text-ink-soft" : "bg-brand-soft text-brand-ink"
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="font-medium">
+          {doublon
+            ? `Même pièce que la photo ${rang || "précédente"} — non comptée dans le total`
+            : `Mobilier regroupé avec ${photo.fusionne} autre${(photo.fusionne ?? 0) > 1 ? "s" : ""} photo${(photo.fusionne ?? 0) > 1 ? "s" : ""} de la même pièce`}
+        </span>
+        <button
+          type="button"
+          onClick={onSeparer}
+          className="ml-auto shrink-0 font-medium underline underline-offset-2 transition hover:no-underline"
+        >
+          Ce n&apos;est pas la même pièce
+        </button>
+      </div>
+      {doublon && photo.doublon_raison && (
+        <p className="mt-1 leading-snug opacity-75">{photo.doublon_raison}</p>
       )}
     </div>
   );
