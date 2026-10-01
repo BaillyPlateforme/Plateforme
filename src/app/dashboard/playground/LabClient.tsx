@@ -68,7 +68,7 @@ export default function LabClient() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <p className="max-w-xl text-sm text-ink-soft">
             Ce Lab envoie des emails de test au <span className="font-medium text-ink">webhook n8n</span>, comme s&apos;ils
@@ -117,7 +117,7 @@ export default function LabClient() {
       </div>
 
       {/* Générateur aléatoire */}
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="eyebrow text-ink-soft">Générateur aléatoire</h3>
           <div className="inline-flex rounded-xl border border-line bg-subtle p-0.5 text-sm">
@@ -179,7 +179,7 @@ export default function LabClient() {
           </div>
 
           {/* Composer libre */}
-          <div className="mt-6 rounded-2xl border border-line bg-card p-5">
+          <div className="mt-6 rounded-[18px] bg-card p-5">
             <h3 className="eyebrow mb-3 text-ink-soft">Mail personnalisé</h3>
             <div className="space-y-2">
               <input value={cFrom} onChange={(e) => setCFrom(e.target.value)} placeholder="Expéditeur (email)" className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
@@ -195,7 +195,7 @@ export default function LabClient() {
         {/* Journal */}
         <div>
           <h3 className="eyebrow mb-3 text-ink-soft">Journal d&apos;envoi</h3>
-          <div className="rounded-2xl border border-line bg-card p-2">
+          <div className="rounded-[18px] bg-card p-2">
             {logs.length === 0 ? (
               <p className="p-4 text-center text-sm text-ink-soft">Aucun envoi pour l&apos;instant.</p>
             ) : (

@@ -56,7 +56,7 @@ export default function GrilleApercu() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-2">
             {FORMULES.map((f) => (
@@ -83,7 +83,7 @@ export default function GrilleApercu() {
         <GrilleTable formule={formule} />
       </div>
 
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <h4 className="eyebrow mb-4 text-ink-soft">Suppléments</h4>
         <div className="divide-y divide-line">
           {SUPPLEMENTS_LISTE.map((s) => (
@@ -101,7 +101,7 @@ export default function GrilleApercu() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <h4 className="eyebrow mb-4 text-ink-soft">Contenu des formules</h4>
         <PrestationsTable highlight={formule} />
       </div>

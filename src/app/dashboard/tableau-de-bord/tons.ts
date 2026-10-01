@@ -4,11 +4,11 @@
    valeur mais une référence — les couleurs arrivaient à `undefined`, et les
    barres se dessinaient en noir. */
 export const TONS = {
-  foret: "#1f7a4d",   /* le vert portant */
-  abricot: "#e8935f", /* le chaud de la maquette */
-  sauge: "#8fb79b",
-  ardoise: "#4e8f7e",
-  or: "#c9a227",
-  mousse: "#2f9e63",
-  brique: "#c4623f",
+  foret: "#615f68",   /* le gris de la marque — lisible de jour comme de nuit */
+  abricot: "#f5d033", /* le jaune de la marque */
+  sauge: "#9d9aa3",
+  ardoise: "#45434a",
+  or: "#e0b81a",
+  mousse: "#a98a00",
+  brique: "#615f68",
 };

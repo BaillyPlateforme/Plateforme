@@ -42,10 +42,10 @@ const SLIDES: Slide[] = [
     caption: "14 photos analysées · marge ± 8 %",
     body: (
       <div className="space-y-2 border-t border-white/15 pt-4">
-        <Bar label="Salon" value="11 m³" pct={34} color="#a7d9ba" />
-        <Bar label="Chambres" value="9 m³" pct={28} color="#cfe3d5" />
-        <Bar label="Cuisine" value="6 m³" pct={19} color="#f7c9a4" />
-        <Bar label="Divers, cartons" value="6 m³" pct={19} color="#a7d9ba" />
+        <Bar label="Salon" value="11 m³" pct={34} color="#f5d033" />
+        <Bar label="Chambres" value="9 m³" pct={28} color="#fff3bd" />
+        <Bar label="Cuisine" value="6 m³" pct={19} color="#fff3bd" />
+        <Bar label="Divers, cartons" value="6 m³" pct={19} color="#f5d033" />
       </div>
     ),
   },

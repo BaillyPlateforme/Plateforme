@@ -51,7 +51,7 @@ export default function AgendaClient({ events }: { events: Ev[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-serif text-2xl">
             {MONTHS[month]} {year}
@@ -103,7 +103,7 @@ export default function AgendaClient({ events }: { events: Ev[] }) {
       </div>
 
       {/* Liste du mois */}
-      <div className="rounded-2xl border border-line bg-card p-5">
+      <div className="rounded-[18px] bg-card p-5">
         <h3 className="eyebrow mb-4 text-ink-soft">Déménagements du mois ({monthEvents.length})</h3>
         {monthEvents.length === 0 ? (
           <p className="text-sm text-ink-soft">Aucun déménagement planifié ce mois-ci.</p>

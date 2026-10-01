@@ -20,7 +20,7 @@ export default function ClientProfileEditor({
   const [saved, setSaved] = useState(false);
 
   return (
-    <section className="h-fit rounded-2xl border border-line bg-card p-5">
+    <section className="h-fit rounded-[18px] bg-card p-5">
       <h3 className="eyebrow mb-4 text-ink-soft">Fiche client</h3>
       <div className="space-y-3">
         <Field label="Nom" value={nom} onChange={setNom} />

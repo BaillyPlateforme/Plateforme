@@ -408,7 +408,7 @@ function AnalyseTab({ detail }: { detail: Detail }) {
   const p = (evt.payload ?? {}) as QualifPayload;
   return (
     <div className="space-y-6">
-      <div className="grid items-center gap-5 rounded-2xl border border-line bg-card p-6 sm:grid-cols-[auto_1fr]">
+      <div className="grid items-center gap-5 rounded-[18px] bg-card p-6 sm:grid-cols-[auto_1fr]">
         <ScoreRing score={p.score} />
         <div>
           <div className="font-serif text-2xl">Note de qualification</div>

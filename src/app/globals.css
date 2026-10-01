@@ -1,87 +1,102 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Relevé sur la maquette ───────────────────────────────────────────
-     Un sol gris-vert à l'extérieur, une coque gris très clair posée dessus,
-     et des cartes blanches à l'intérieur. Le vert porte l'action, l'abricot
-     porte l'état actif.                                                   */
+  /* ── Palette de la marque, relevée sur demenagements-bailly.com ───────
+     Jaune #F5D033 et noir #1B1A18, gris #615F68. Le noir porte l'action et
+     la structure ; le jaune signale, met en avant et remplit. Le reste du
+     système — coque, cartes, coins, ombres — vient de la maquette.       */
 
   /* Surfaces */
-  --color-canvas: #dfe4da;       /* hors de la coque */
-  --color-canvas-haut: #eef0ec;
-  --color-shell: #f6f6f4;        /* le sol de la coque */
-  --color-paper: #f6f6f4;        /* même sol, pour les écrans */
+  --color-canvas: #e4e2dc;       /* hors de la coque */
+  --color-canvas-haut: #f1f0ec;
+  --color-shell: #f6f5f2;        /* le sol de l'application */
+  --color-paper: #f6f5f2;
   --color-card: #ffffff;
-  --color-subtle: #f4f4f1;       /* bandeaux d'en-tête, champs, pistes */
-  --color-ink: #1f2220;
-  --color-ink-soft: #8a8f8a;
-  --color-ink-mid: #4a4d4a;      /* libellés du menu au repos */
-  --color-line: #efeeec;
-  --color-line-strong: #e2e1dd;
+  --color-subtle: #f2f1ed;       /* bandeaux d'en-tête, champs, pistes */
+  --color-ink: #1b1a18;
+  --color-ink-soft: #615f68;     /* le gris de la marque — 6,2:1 sur blanc */
+  --color-ink-mid: #45434a;
+  --color-line: #e9e7e2;
+  --color-line-strong: #dad8d1;
 
-  /* Vert : action, confirmation, séries */
-  --color-accent: #1f6b45;
-  --color-accent-dark: #175436;
-  --color-accent-soft: #e7f5ec;
-  --color-accent-vif: #2e9e55;
+  /* Noir : boutons pleins, états actifs, séries principales */
+  --color-accent: #1b1a18;
+  --color-accent-dark: #000000;
+  --color-accent-soft: #f2f1ed;
+  --color-accent-vif: #f5d033;
 
-  /* Abricot : pastille du menu, tuiles chaudes, badges */
-  --color-peach: #eda175;
-  --color-peach-soft: #fbe7d7;
-  --color-peach-ink: #df8a4f;
+  /* Jaune de la marque : pastille du menu, tuiles, badges, jauges */
+  --color-brand: #f5d033;
+  --color-brand-mid: #e0b81a;
+  --color-brand-dark: #a98a00;
+  /* Le jaune ne se lit pas sur blanc : ce brun doré le remplace en texte. */
+  --color-brand-ink: #8a6f00;
+  --color-brand-soft: #fdf6d6;
 
-  /* Olive : le segment actif du sélecteur de période */
-  --color-olive: #6d8049;
+  /* Anciens noms conservés — ils désignent désormais le jaune. */
+  --color-peach: #f5d033;
+  --color-peach-soft: #fdf6d6;
+  --color-peach-ink: #8a6f00;
 
-  /* États */
-  --color-good: #2e9e55;
-  --color-good-soft: #e7f5ec;
-  --color-warn: #d79a46;
-  --color-warn-soft: #fbf0dc;
-  --color-danger: #d1544a;
+  /* Le segment retenu du sélecteur de période */
+  --color-olive: #1b1a18;
+
+  /* États : sémantiques, ils gardent leurs couleurs d'usage */
+  --color-good: #2e8b57;
+  --color-good-soft: #e7f3ec;
+  --color-warn: #a98a00;
+  --color-warn-soft: #fdf6d6;
+  --color-danger: #c6362c;
   --color-danger-soft: #fbeae8;
 
-  /* Séries de graphiques */
-  --chart-1: #2f6b4a;
-  --chart-2: #e8935f;
-  --chart-3: #8fb79b;
-  --chart-4: #141414;
-  --chart-5: #c9a227;
-  --chart-6: #4e8f7e;
-  --chart-7: #c4623f;
+  /* Séries de graphiques : noir, jaune, gris */
+  --chart-1: #1b1a18;
+  --chart-2: #f5d033;
+  --chart-3: #615f68;
+  --chart-4: #a98a00;
+  --chart-5: #9d9aa3;
+  --chart-6: #45434a;
+  --chart-7: #e0b81a;
 
   --font-sans: var(--font-rail);
   --font-serif: var(--font-rail);
 
   --radius: 1rem;
 
-  --shadow-sm: 0 1px 2px rgba(31, 40, 31, 0.04);
-  --shadow-md: 0 12px 32px -16px rgba(31, 40, 31, 0.2);
-  --shadow-coque: 0 24px 64px -34px rgba(26, 42, 29, 0.4);
+  --shadow-sm: 0 1px 2px rgba(27, 26, 24, 0.05);
+  --shadow-md: 0 12px 32px -16px rgba(27, 26, 24, 0.22);
+  --shadow-coque: 0 24px 64px -34px rgba(27, 26, 24, 0.4);
 }
 
 /* Le même système, de nuit. Les utilitaires lisent les variables : il suffit
    de les redéfinir plus bas dans la cascade pour que tout bascule. */
 :root[data-theme="dark"] {
-  --color-canvas: #101210;
-  --color-canvas-haut: #191c19;
-  --color-shell: #141714;
-  --color-paper: #141714;
-  --color-card: #1c201c;
-  --color-subtle: #242924;
-  --color-ink: #eef1ee;
-  --color-ink-soft: #929991;
-  --color-ink-mid: #c6ccc5;
-  --color-line: #2b302b;
-  --color-line-strong: #3a403a;
-  --color-accent: #35a06a;
-  --color-accent-dark: #2a8255;
-  --color-accent-soft: #15301f;
-  --color-peach-soft: #3b2a1c;
-  --color-peach-ink: #e8a06a;
-  --color-good-soft: #15301f;
-  --color-warn-soft: #332814;
+  --color-canvas: #0e0e0d;
+  --color-canvas-haut: #181714;
+  --color-shell: #141311;
+  --color-paper: #141311;
+  --color-card: #1e1d1a;
+  --color-subtle: #272521;
+  --color-ink: #f3f1ec;
+  --color-ink-soft: #9b98a1;
+  --color-ink-mid: #cbc8c2;
+  --color-line: #2e2c28;
+  --color-line-strong: #3e3b36;
+  --color-accent: #f5d033;       /* de nuit, c'est le jaune qui porte */
+  --color-accent-dark: #e0b81a;
+  --color-accent-soft: #3a3214;
+  --color-brand-ink: #f0cd4a;
+  --color-brand-soft: #3a3214;
+  --color-peach-soft: #3a3214;
+  --color-peach-ink: #f0cd4a;
+  --color-olive: #f5d033;
+  --color-good-soft: #15291d;
+  --color-warn-soft: #33290d;
   --color-danger-soft: #341c1a;
+  /* Le noir des séries disparaîtrait sur fond sombre. */
+  --chart-1: #f3f1ec;
+  --chart-4: #cbb14a;
+  --chart-6: #b8b4ad;
 }
 
 @layer base {
@@ -128,7 +143,7 @@ h2.font-serif {
 
 /* Signature : dégradé sur un mot-clé (titres, grands nombres) */
 .gradient-text {
-  background: linear-gradient(95deg, #1f7a4d 0%, #6aa36f 45%, #e8935f 100%);
+  background: linear-gradient(95deg, #1b1a18 0%, #a98a00 45%, #f5d033 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -139,12 +154,12 @@ h2.font-serif {
 .gradient-flow {
   background-image: linear-gradient(
     95deg,
-    #1f7a4d 0%,
-    #5f9c69 22%,
-    #e8935f 44%,
-    #5f9c69 66%,
-    #1f7a4d 88%,
-    #1f7a4d 100%
+    #f5d033 0%,
+    #e0b81a 22%,
+    #fff3bd 44%,
+    #e0b81a 66%,
+    #f5d033 88%,
+    #f5d033 100%
   );
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -158,12 +173,12 @@ h2.font-serif {
 .gradient-flow-light {
   background-image: linear-gradient(
     95deg,
-    #a7d9ba 0%,
-    #d5e9c8 22%,
-    #f7c9a4 44%,
-    #d5e9c8 66%,
-    #a7d9ba 88%,
-    #a7d9ba 100%
+    #f5d033 0%,
+    #ffe88a 22%,
+    #fffbe8 44%,
+    #ffe88a 66%,
+    #f5d033 88%,
+    #f5d033 100%
   );
   background-size: 300% 100%;
   -webkit-background-clip: text;
@@ -429,7 +444,7 @@ h2.font-serif {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05) 42%, rgba(31, 122, 77, 0.45));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05) 42%, rgba(245, 208, 51, 0.5));
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);

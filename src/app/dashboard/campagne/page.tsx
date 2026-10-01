@@ -148,7 +148,7 @@ export default function CampagnePage() {
   return (
     <div className="px-6 py-7 md:px-10">
       {/* ── Réglages du tirage ── */}
-      <div className="mb-6 rounded-2xl border border-line bg-card p-5">
+      <div className="mb-6 rounded-[18px] bg-card p-5">
         <div className="flex flex-wrap items-end gap-5">
           <Champ label="Devis à tirer" aide="jusqu'à 10">
             <input

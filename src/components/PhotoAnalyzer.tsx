@@ -121,7 +121,7 @@ export default function PhotoAnalyzer({
     <div className="space-y-5">
       {/* Galerie de la base — sélectionnable */}
       {library.length > 0 && (
-        <div className="rounded-2xl border border-line bg-card p-4">
+        <div className="rounded-[18px] bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="eyebrow text-ink-soft">Base de photos · {library.length}</h3>
             <div className="flex items-center gap-2">

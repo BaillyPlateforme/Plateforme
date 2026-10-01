@@ -105,8 +105,8 @@ function Contenu({ d }: { d: Donnees }) {
   const flux = useMemo(() => serie(requests, periode), [requests, periode]);
 
   const jauges = [
-    { label: "Demandes qualifiées", valeur: `${totalQualifiees}`, part: pct(totalQualifiees, totalRecues), ton: "var(--chart-2)" },
-    { label: "Demandes devisées", valeur: `${devis.length}`, part: pct(devis.length, requests.length), ton: "var(--color-accent-vif)", pointeur: true },
+    { label: "Demandes qualifiées", valeur: `${totalQualifiees}`, part: pct(totalQualifiees, totalRecues), ton: "var(--color-brand)" },
+    { label: "Demandes devisées", valeur: `${devis.length}`, part: pct(devis.length, requests.length), ton: "var(--color-accent)", pointeur: true },
     {
       label: "Volume déjà chiffré",
       valeur: `${nf.format(volQualifie.reduce((a, b) => a + b, 0))} m³`,
@@ -114,9 +114,9 @@ function Contenu({ d }: { d: Donnees }) {
         volQualifie.reduce((a, b) => a + b, 0),
         volQualifie.reduce((a, b) => a + b, 0) + volAttente.reduce((a, b) => a + b, 0),
       ),
-      ton: "var(--color-accent)",
+      ton: "var(--color-brand-dark)",
     },
-    { label: "Reste à traiter", valeur: `${totalRecues - totalQualifiees}`, part: pct(totalRecues - totalQualifiees, totalRecues), ton: "var(--chart-4)" },
+    { label: "Reste à traiter", valeur: `${totalRecues - totalQualifiees}`, part: pct(totalRecues - totalQualifiees, totalRecues), ton: "var(--color-ink-soft)" },
   ];
 
   const dernieres = [...requests]
@@ -133,14 +133,14 @@ function Contenu({ d }: { d: Donnees }) {
           <div key={t.label} className="rounded-[18px] bg-card p-5">
             <div className="flex items-start justify-between gap-3">
               <span
-                className="flex h-12 w-12 items-center justify-center rounded-full text-white ring-1 ring-white/15"
-                style={{ background: t.pastille }}
+                className="flex h-12 w-12 items-center justify-center rounded-full ring-1 ring-ink/10"
+                style={{ background: t.pastille, color: t.encre }}
               >
                 {ICONES[t.icone]}
               </span>
               <span
                 className="rounded-full px-3 py-1.5 text-[12px] font-medium"
-                style={{ background: t.fond, color: t.pastille }}
+                style={{ background: t.fond, color: t.badge }}
               >
                 {t.delta === null ? `${FENETRE} jours` : `${t.delta >= 0 ? "+" : ""}${t.delta} %`}
               </span>
@@ -191,7 +191,7 @@ function Contenu({ d }: { d: Donnees }) {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[26px] font-bold leading-none tnum">{totalQualifiees}</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-good-soft px-2.5 py-1 text-[12px] font-semibold text-good">
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[12px] font-semibold text-brand-ink">
               <IconFleche />
               {pct(totalQualifiees, totalRecues)} %
             </span>
@@ -214,7 +214,7 @@ function Contenu({ d }: { d: Donnees }) {
           <h2 className="text-[20px] font-bold tracking-tight">Les dernières demandes</h2>
           <Link
             href="/dashboard"
-            className="rounded-full border border-peach/50 bg-peach-soft/50 px-4 py-2 text-[12.5px] font-medium text-peach-ink transition hover:bg-peach-soft"
+            className="rounded-full border border-brand/60 bg-brand-soft/60 px-4 py-2 text-[12.5px] font-medium text-brand-ink transition hover:bg-brand-soft"
           >
             Tout ouvrir
           </Link>
@@ -409,7 +409,9 @@ function pct(part: number, tout: number) {
  */
 function Banniere({ demandes, devis }: { demandes: number; devis: number }) {
   return (
-    <section className="relative overflow-hidden rounded-[18px] bg-linear-to-r from-[#c2a062] via-[#7f9a56] to-[#3e7d45] px-7 py-7 text-white md:px-9 md:py-8">
+    <section className="relative overflow-hidden rounded-[18px] bg-[#1b1a18] px-7 py-7 text-white md:px-9 md:py-8">
+      <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-brand/25 blur-3xl" />
+      <div className="absolute inset-y-0 right-0 w-1/2 bg-linear-to-l from-brand/12 to-transparent" />
       <div className="relative flex flex-wrap items-center justify-between gap-8">
         <div className="min-w-0">
           <p className="text-[13.5px] text-white/85">
@@ -420,7 +422,7 @@ function Banniere({ demandes, devis }: { demandes: number; devis: number }) {
           </h2>
           <Link
             href="/dashboard?statut=new"
-            className="mt-6 inline-flex items-center rounded-xl bg-white px-5 py-2.5 text-[14px] font-semibold text-[#1f2220] transition hover:bg-white/90"
+            className="mt-6 inline-flex items-center rounded-xl bg-brand px-5 py-2.5 text-[14px] font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a]"
           >
             Ouvrir la file d&apos;attente
           </Link>
@@ -450,15 +452,15 @@ function Isometrie() {
       <path d="M130 30 240 92 130 154 20 92z" fill="#ffffff" fillOpacity="0.1" />
       <path d="M130 30 240 92 130 154 20 92z" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="1.5" />
 
-      {face(96, 46, 52, 22, "#e9f1e9", "#bcd2bb")}
-      {face(130, 64, 34, 22, "#ffffff", "#cfdfce")}
-      {face(164, 44, 58, 22, "#e9f1e9", "#bcd2bb")}
-      {face(130, 28, 22, 14, "#8fd3a4", "#3f9a63")}
+      {face(96, 46, 52, 22, "#f6f5f2", "#c9c6bd")}
+      {face(130, 64, 34, 22, "#ffffff", "#d6d3ca")}
+      {face(164, 44, 58, 22, "#f6f5f2", "#c9c6bd")}
+      {face(130, 28, 22, 14, "#f5d033", "#bb9d12")}
 
       {/* les rouages */}
       <g transform="translate(74 112)">
         <circle r="17" fill="#ffffff" fillOpacity="0.95" />
-        <circle r="7" fill="#3e7d45" />
+        <circle r="7" fill="#1b1a18" />
         {Array.from({ length: 8 }).map((_, i) => (
           <rect
             key={i}
@@ -474,14 +476,14 @@ function Isometrie() {
         ))}
       </g>
       <g transform="translate(108 132)">
-        <circle r="12" fill="#8fd3a4" />
-        <circle r="5" fill="#2e6b45" />
+        <circle r="12" fill="#f5d033" />
+        <circle r="5" fill="#1b1a18" />
         {Array.from({ length: 6 }).map((_, i) => (
-          <rect key={i} x="-2.5" y="-17" width="5" height="6" rx="1.2" fill="#8fd3a4" transform={`rotate(${i * 60})`} />
+          <rect key={i} x="-2.5" y="-17" width="5" height="6" rx="1.2" fill="#f5d033" transform={`rotate(${i * 60})`} />
         ))}
       </g>
 
-      <path d="M186 36c22 10 34 26 30 44" stroke="#9fe0b4" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 6" />
+      <path d="M186 36c22 10 34 26 30 44" stroke="#f5d033" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 6" />
     </svg>
   );
 }
@@ -513,7 +515,7 @@ function Jauge({
       <div className="relative mt-2.5">
         {pointeur && (
           <span
-            className="absolute top-3.5 z-10 -translate-x-1/2 rounded-md bg-ink px-2 py-1 text-[11px] font-semibold text-white"
+            className="absolute top-3.5 z-10 -translate-x-1/2 rounded-md bg-ink px-2 py-1 text-[11px] font-semibold text-[var(--color-card)]"
             style={{ left: `${Math.min(92, Math.max(8, part))}%` }}
           >
             {part} %
@@ -527,7 +529,7 @@ function Jauge({
         </div>
         {pointeur && (
           <span
-            className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--color-card)] bg-[var(--color-accent-vif)] shadow-sm"
+            className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--color-card)] bg-[var(--color-accent)] shadow-sm"
             style={{ left: `${part}%` }}
           />
         )}

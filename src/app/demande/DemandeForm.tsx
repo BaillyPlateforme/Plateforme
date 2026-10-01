@@ -158,7 +158,7 @@ export default function DemandeForm({ library, instant = false }: { library: Lib
 
 function BrandPanel({ heroUrl, children }: { heroUrl?: string; children?: React.ReactNode }) {
   return (
-    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-4 md:flex md:h-[calc(100dvh-2rem)] md:flex-col md:justify-between md:rounded-l-[26px]">
+    <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
       <div className="relative z-10 p-9">
         <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
         <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
@@ -201,7 +201,7 @@ function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
         )}
         <div className="absolute left-5 top-5 z-10 flex items-center gap-2.5">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/75 text-xl backdrop-blur-md">{icon}</span>
-          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#1f2220] backdrop-blur-md">{badge}</span>
+          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#1b1a18] backdrop-blur-md">{badge}</span>
         </div>
       </div>
 
@@ -228,12 +228,12 @@ function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[];
   return (
     <>
       <ModeSwitch current="form" />
-      <div className="p-2.5 md:p-4">
-        <div className="relative min-h-[calc(100dvh-1.25rem)] overflow-hidden rounded-[26px] bg-card text-ink shadow-[var(--shadow-coque)] md:min-h-[calc(100dvh-2rem)]">
-        <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-1.25rem)] max-w-6xl flex-col px-6 py-12 md:min-h-[calc(100dvh-2rem)] md:py-16">
+      <div>
+        <div className="relative min-h-dvh overflow-hidden bg-card text-ink">
+        <div className="relative z-10 mx-auto flex min-h-dvh max-w-6xl flex-col px-6 py-12 md:py-16">
           <header className="animate-fade-up">
             <div className="font-serif text-2xl font-semibold">Bailly</div>
-            <div className="eyebrow mt-4 text-accent">Demande de devis</div>
+            <div className="eyebrow mt-4 text-brand-ink">Demande de devis</div>
             <h1 className="mt-2 max-w-2xl font-serif text-4xl leading-[1.05] md:text-6xl">Comment souhaitez-vous procéder ?</h1>
             <p className="mt-3 text-ink-soft">Deux formules — à vous de choisir.</p>
           </header>
@@ -350,17 +350,17 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
         />
       )}
       <ModeSwitch current="form" />
-      <div className="p-2.5 md:p-4">
-        <div className="min-h-[calc(100dvh-1.25rem)] rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:grid md:min-h-[calc(100dvh-2rem)] md:grid-cols-[minmax(340px,420px)_1fr]">
+      <div>
+        <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         <BrandPanel heroUrl={library[0]?.url} />
-        <main className="flex min-h-[calc(100dvh-2rem)] flex-col">
+        <main className="flex min-h-dvh flex-col">
           <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
             <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
               ← Changer de type de devis
             </button>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="eyebrow text-accent">Devis express</div>
+                <div className="eyebrow text-brand-ink">Devis express</div>
                 <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Estimation rapide</h1>
                 <p className="mt-2 text-ink-soft">L&apos;essentiel pour un premier chiffrage — en deux minutes.</p>
               </div>
@@ -541,10 +541,10 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
         />
       )}
       <ModeSwitch current="form" />
-      <div className="p-2.5 md:p-4">
-        <div className="min-h-[calc(100dvh-1.25rem)] rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:grid md:min-h-[calc(100dvh-2rem)] md:grid-cols-[minmax(340px,420px)_1fr]">
+      <div>
+        <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         {/* Panneau visuel */}
-        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-4 md:flex md:h-[calc(100dvh-2rem)] md:flex-col md:justify-between md:rounded-l-[26px]">
+        <aside className="relative hidden overflow-hidden border-r border-line bg-subtle md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
           <div className="relative z-10 p-9">
             <div className="font-serif text-3xl font-semibold text-ink">Bailly</div>
             <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
@@ -585,7 +585,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
         </aside>
 
         {/* Contenu */}
-        <main className="flex min-h-[calc(100dvh-2rem)] flex-col">
+        <main className="flex min-h-dvh flex-col">
           <div className="sticky top-0 z-20 h-1 w-full bg-line">
             <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
@@ -595,7 +595,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
             </button>
             <div className="mb-8 flex items-start justify-between">
               <div>
-                <div className="eyebrow text-accent">Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}</div>
+                <div className="eyebrow text-brand-ink">Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}</div>
                 <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">{HEADERS[step].title}</h1>
                 <p className="mt-2 text-ink-soft">{HEADERS[step].sub}</p>
               </div>
@@ -1014,14 +1014,14 @@ function RecapCard({ form, volume }: { form: FormState; volume: number | null })
 
 function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume: number | null; heroUrl?: string; count?: number }) {
   return (
-    <div className="p-2.5 md:p-4">
-      <div className="relative min-h-[calc(100dvh-1.25rem)] overflow-hidden rounded-[26px] bg-card shadow-[var(--shadow-coque)] md:min-h-[calc(100dvh-2rem)]">
+    <div>
+      <div className="relative min-h-dvh overflow-hidden bg-card">
       {heroUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
       )}
       <div className="absolute inset-0 bg-card/80" />
-      <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-1.25rem)] max-w-lg flex-col items-center justify-center px-6 text-center md:min-h-[calc(100dvh-2rem)]">
+      <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center px-6 text-center">
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-5xl">{count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}</h1>

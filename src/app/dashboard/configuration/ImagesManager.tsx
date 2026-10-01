@@ -21,7 +21,7 @@ export default function ImagesManager({ library }: { library: LibraryPhoto[] }) 
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-card p-6">
+    <section className="rounded-[18px] bg-card p-6">
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h3 className="font-serif text-xl">Base de photos</h3>

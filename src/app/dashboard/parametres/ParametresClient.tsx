@@ -59,7 +59,7 @@ export default function ParametresClient({
   return (
     <div className="max-w-4xl space-y-6">
       {/* Brevo */}
-      <section className="rounded-2xl border border-line bg-card p-6">
+      <section className="rounded-[18px] bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="eyebrow text-ink-soft">Connexion Brevo (email & SMS)</h3>
           <span className={`flex items-center gap-1.5 text-xs font-medium ${brevoState.ok ? "text-good" : "text-warn"}`}>
@@ -122,7 +122,7 @@ export default function ParametresClient({
         </Card>
       </div>
 
-      <section className="rounded-2xl border border-line bg-card p-6">
+      <section className="rounded-[18px] bg-card p-6">
         <h3 className="eyebrow mb-3 text-ink-soft">Expérience formulaire</h3>
         <label className="flex cursor-pointer items-start gap-3">
           <input
@@ -151,7 +151,7 @@ export default function ParametresClient({
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-line bg-card p-6">
+    <section className="space-y-3 rounded-[18px] bg-card p-6">
       <h3 className="eyebrow mb-2 text-ink-soft">{title}</h3>
       {children}
     </section>

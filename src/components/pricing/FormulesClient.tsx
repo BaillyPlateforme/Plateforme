@@ -13,7 +13,7 @@ import { FORMULES, PRESTATIONS } from "@/lib/pricing/grille";
  */
 export default function FormulesClient() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card">
+    <div className="overflow-hidden rounded-[18px] bg-card">
       <div className="grid grid-cols-[1.6fr_repeat(3,minmax(0,1fr))] border-b border-line bg-subtle/60">
         <div className="px-4 py-3 text-[12px] font-medium text-ink-soft">Ce que nous prenons en charge</div>
         {FORMULES.map((f) => (

@@ -112,7 +112,7 @@ export default async function LoginPage({
         {/* Halo qui dérive lentement derrière les cartes. */}
         <div className="drift absolute -left-24 top-1/4 h-[460px] w-[460px] rounded-full bg-accent/25 blur-3xl" />
         <div
-          className="drift absolute -right-20 bottom-0 h-[380px] w-[380px] rounded-full bg-[#e8935f]/20 blur-3xl"
+          className="drift absolute -right-20 bottom-0 h-[380px] w-[380px] rounded-full bg-[#f5d033]/20 blur-3xl"
           style={{ animationDuration: "24s", animationDelay: "-8s" }}
         />
 
@@ -121,16 +121,16 @@ export default async function LoginPage({
             <DevisCarousel />
 
             <div className="grid grid-cols-2 gap-3">
-              <Feature color="#a7d9ba" icon={<IconInbox />} title="Demandes" d={400} dur="9s">
+              <Feature color="#f5d033" icon={<IconInbox />} title="Demandes" d={400} dur="9s">
                 Réception, tri et suivi des dossiers entrants.
               </Feature>
-              <Feature color="#cfe3d5" icon={<IconSparkle />} title="Photos" d={480} dur="7.5s">
+              <Feature color="#fff3bd" icon={<IconSparkle />} title="Photos" d={480} dur="7.5s">
                 Volume estimé à partir des photos du logement.
               </Feature>
-              <Feature color="#f7c9a4" icon={<IconDoc />} title="Devis" d={560} dur="10s">
+              <Feature color="#fff3bd" icon={<IconDoc />} title="Devis" d={560} dur="10s">
                 Chiffrage, grilles tarifaires et envoi au client.
               </Feature>
-              <Feature color="#a7d9ba" icon={<IconCalendar />} title="Agenda" d={640} dur="8.5s">
+              <Feature color="#f5d033" icon={<IconCalendar />} title="Agenda" d={640} dur="8.5s">
                 Plannings, équipes et camions par intervention.
               </Feature>
             </div>

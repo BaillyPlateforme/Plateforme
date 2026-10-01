@@ -76,7 +76,7 @@ export function KpiCard({
   sub?: string; series?: number[]; delta?: number; color?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line bg-card p-5">
+    <div className="relative overflow-hidden rounded-[18px] bg-card p-5">
       <div className="absolute left-0 top-5 h-8 w-1 rounded-r-full" style={{ background: color }} />
       <div className="pl-2.5">
         <div className="flex items-center justify-between gap-2">
@@ -202,7 +202,7 @@ export function Heatmap({ cells }: { cells: { date: string; value: number }[] })
   const max = Math.max(1, ...cells.map((c) => c.value));
   const weeks: { date: string; value: number }[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  const ramp = ["var(--color-subtle)", "#cfe3d5", "#8fb79b", "#3f9468", "#1f7a4d"];
+  const ramp = ["var(--color-subtle)", "#fff3bd", "#9d9aa3", "#45434a", "#1b1a18"];
   const level = (v: number) => (v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
   const jours = ["L", "M", "M", "J", "V", "S", "D"];
   return (

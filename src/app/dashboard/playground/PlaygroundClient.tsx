@@ -34,7 +34,7 @@ export default function PlaygroundClient({ library }: { library: LibraryPhoto[] 
 
       {/* Paramètres + devis */}
       <div className="space-y-4">
-        <div className="rounded-2xl border border-line bg-card p-5">
+        <div className="rounded-[18px] bg-card p-5">
           <div className="mb-4 flex items-baseline justify-between">
             <h3 className="eyebrow text-ink-soft">Chantier</h3>
             <span className="font-serif text-2xl">{totalVolume.toFixed(1)} m³</span>
@@ -65,7 +65,7 @@ export default function PlaygroundClient({ library }: { library: LibraryPhoto[] 
           </p>
         </div>
 
-        <div className="rounded-2xl border border-line bg-card p-5">
+        <div className="rounded-[18px] bg-card p-5">
           <h3 className="eyebrow mb-4 text-ink-soft">Devis estimé</h3>
           {quote ? (
             <table className="w-full text-sm">

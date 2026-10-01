@@ -28,7 +28,7 @@ export default function ClientsTable({ clients }: { clients: ClientSummary[] }) 
         placeholder="Rechercher un client…"
         className="mb-4 w-72 rounded-xl border border-line bg-card px-3.5 py-2 text-sm outline-none focus:border-accent"
       />
-      <div className="overflow-x-auto rounded-2xl border border-line bg-card">
+      <div className="overflow-x-auto rounded-[18px] bg-card">
         <table className="w-full text-sm">
           <thead className="border-b border-line text-left text-[11.5px] font-medium text-ink-soft">
             <tr>

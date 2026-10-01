@@ -119,7 +119,7 @@ export default function CompletionForm({
 
   if (done) {
     return (
-      <div className="mx-auto flex min-h-[calc(100dvh-2rem)] max-w-lg flex-col items-center justify-center px-6 text-center">
+      <div className="mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center px-6 text-center">
         <div className="animate-fade-up">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
           <h1 className="font-serif text-4xl">Merci !</h1>
@@ -132,7 +132,7 @@ export default function CompletionForm({
   const nbManque = Number(manque.volume) + Number(manque.depart) + Number(manque.arrivee);
 
   return (
-    <div className="mx-auto my-2.5 max-w-2xl rounded-[26px] bg-card px-5 py-12 shadow-[var(--shadow-coque)] md:my-4 md:px-8">
+    <div className="mx-auto min-h-dvh max-w-2xl bg-card px-5 py-12 md:px-8">
       <div className="font-serif text-3xl font-semibold">Bailly</div>
       <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
       <h1 className="mt-6 font-serif text-4xl leading-tight">
@@ -182,7 +182,7 @@ export default function CompletionForm({
         <h2 className="mb-1 font-serif text-2xl">Vos informations</h2>
         <p className="mb-4 text-sm text-ink-soft">Déjà renseignées — modifiez-les si besoin.</p>
 
-        <div className="space-y-6 rounded-2xl border border-line bg-card p-5">
+        <div className="space-y-6 rounded-[18px] bg-card p-5">
           {/* Contact */}
           <div>
             <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Contact</h3>

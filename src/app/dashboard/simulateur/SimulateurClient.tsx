@@ -201,7 +201,7 @@ export default function SimulateurClient() {
 
         {/* ---------------- Résultat ---------------- */}
         <div className="space-y-4">
-          <div className="rounded-2xl border border-line bg-card p-6">
+          <div className="rounded-[18px] bg-card p-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <div className="eyebrow text-ink-soft">Total TTC</div>
@@ -286,7 +286,7 @@ export default function SimulateurClient() {
           </div>
 
           {/* Lecture de la grille */}
-          <div className="rounded-2xl border border-line bg-card p-5">
+          <div className="rounded-[18px] bg-card p-5">
             <div className="mb-4 flex gap-1 border-b border-line">
               {(
                 [
@@ -327,7 +327,7 @@ export default function SimulateurClient() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-line bg-card p-5">
+    <div className="rounded-[18px] bg-card p-5">
       <h3 className="eyebrow mb-4 text-ink-soft">{title}</h3>
       {children}
     </div>

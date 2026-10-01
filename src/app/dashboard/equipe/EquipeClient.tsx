@@ -27,7 +27,7 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       {/* Liste */}
-      <div className="rounded-2xl border border-line bg-card">
+      <div className="rounded-[18px] bg-card">
         <table className="w-full text-sm">
           <thead className="border-b border-line text-left text-ink-soft">
             <tr>
@@ -89,7 +89,7 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
       </div>
 
       {/* Ajout */}
-      <div className="h-fit rounded-2xl border border-line bg-card p-5">
+      <div className="h-fit rounded-[18px] bg-card p-5">
         <h3 className="eyebrow mb-4 text-ink-soft">Ajouter un membre</h3>
         <div className="space-y-3">
           <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom"

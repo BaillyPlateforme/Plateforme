@@ -4,10 +4,10 @@ import Nav from "./Nav";
 import TopBar from "./TopBar";
 
 /**
- * La coque, telle que la maquette la pose : un sol gris très clair à coins
- * ronds, flottant sur le fond de la page, et dedans le menu en carte blanche
- * à gauche. Le défilement se fait à l'intérieur — le menu et la barre du haut
- * ne bougent jamais.
+ * La coque occupe toute la page : le sol gris très clair va d'un bord à
+ * l'autre, et le menu reste la carte blanche de la maquette, posée dessus.
+ * Le défilement se fait à l'intérieur — le menu et la barre du haut ne
+ * bougent jamais.
  */
 export default async function DashboardLayout({
   children,
@@ -29,8 +29,8 @@ export default async function DashboardLayout({
   }).format(new Date());
 
   return (
-    <div className="flex h-dvh p-3 md:p-5">
-      <div className="flex w-full overflow-hidden rounded-[28px] bg-shell shadow-[var(--shadow-coque)]">
+    <div className="flex h-dvh">
+      <div className="flex w-full overflow-hidden bg-shell">
         <div className="hidden shrink-0 py-5 pl-5 md:block">
           <Nav email={user?.email ?? ""} nouvelles={nouvelles} />
         </div>

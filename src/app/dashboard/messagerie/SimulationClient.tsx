@@ -44,7 +44,7 @@ export default function SimulationClient({ templates }: { templates: MessageTemp
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Composition */}
-      <div className="space-y-4 rounded-2xl border border-line bg-card p-6">
+      <div className="space-y-4 rounded-[18px] bg-card p-6">
         <h3 className="eyebrow text-ink-soft">Message à tester</h3>
 
         <div className="grid grid-cols-2 gap-3">
@@ -104,7 +104,7 @@ export default function SimulationClient({ templates }: { templates: MessageTemp
       </div>
 
       {/* Aperçu */}
-      <div className="rounded-2xl border border-line bg-card p-6">
+      <div className="rounded-[18px] bg-card p-6">
         <h3 className="eyebrow mb-4 text-ink-soft">Aperçu</h3>
         {channel === "email" ? (
           <div className="overflow-hidden rounded-xl border border-line">

@@ -35,7 +35,7 @@ export default function SiteHeader() {
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-accent text-white shadow-lg shadow-accent/25">
+          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand text-[#1b1a18]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
               <path d="M2 8h11v9H2zM13 11h4.5l3.5 3.5V17h-8z" strokeLinejoin="round" />
               <circle cx="6.5" cy="18.5" r="1.8" />
@@ -73,7 +73,7 @@ export default function SiteHeader() {
           </Link>
           <Link
             href="/demande"
-            className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-white shadow-lg shadow-accent/25 transition hover:bg-accent-dark"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-[13px] font-semibold text-[#1b1a18] shadow-lg shadow-black/20 transition hover:bg-[#e0b81a]"
           >
             Mon devis
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

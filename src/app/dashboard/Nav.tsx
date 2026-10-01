@@ -68,7 +68,7 @@ export default function Nav({
               aria-current={active ? "page" : undefined}
               className={`flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-[14.5px] transition ${
                 active
-                  ? "bg-peach-soft font-semibold text-peach-ink"
+                  ? "bg-brand font-semibold text-[#1b1a18]"
                   : "text-ink-mid hover:bg-subtle hover:text-ink"
               }`}
             >
@@ -102,19 +102,19 @@ export default function Nav({
  */
 function FileAttente({ nouvelles }: { nouvelles: number }) {
   return (
-    <div className="relative mt-4 overflow-hidden rounded-[18px] bg-linear-to-br from-[#c2a062] via-[#8a9a56] to-accent p-4 text-white">
-      <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-white/15 blur-2xl" />
+    <div className="relative mt-4 overflow-hidden rounded-[18px] bg-[#1b1a18] p-4 text-white">
+      <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-brand/30 blur-2xl" />
       <div className="relative">
         <div className="mb-3 flex items-center">
           {[0, 1, 2].map((i) => (
             <span
               key={i}
-              className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/70 bg-white/20 first:ml-0"
+              className="-ml-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#1b1a18] bg-brand text-[#1b1a18] first:ml-0"
             >
               <IconBoite />
             </span>
           ))}
-          <span className="-ml-2 flex h-8 items-center rounded-full border-2 border-white/70 bg-white/20 px-2 text-[11px] font-bold">
+          <span className="-ml-2 flex h-8 items-center rounded-full border-2 border-[#1b1a18] bg-brand px-2 text-[11px] font-bold text-[#1b1a18]">
             {nouvelles > 99 ? "99+" : nouvelles}
           </span>
         </div>
@@ -126,13 +126,13 @@ function FileAttente({ nouvelles }: { nouvelles: number }) {
         <div className="mt-3.5 flex gap-2">
           <Link
             href="/dashboard?statut=new"
-            className="flex-1 rounded-[10px] border border-white/55 py-1.5 text-center text-[12px] font-semibold transition hover:bg-white/15"
+            className="flex-1 rounded-[10px] border border-white/35 py-1.5 text-center text-[12px] font-semibold transition hover:bg-white/10"
           >
             Les traiter
           </Link>
           <Link
             href="/dashboard"
-            className="flex-1 rounded-[10px] bg-white py-1.5 text-center text-[12px] font-semibold text-[#1f2220] transition hover:bg-white/90"
+            className="flex-1 rounded-[10px] bg-brand py-1.5 text-center text-[12px] font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a]"
           >
             Tout voir
           </Link>
@@ -146,11 +146,11 @@ function FileAttente({ nouvelles }: { nouvelles: number }) {
 function Joyau() {
   return (
     <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden>
-      <path d="M16 2.5 28 9.3v13.4L16 29.5 4 22.7V9.3z" fill="#2e8b57" />
-      <path d="M16 2.5 28 9.3 16 16.1 4 9.3z" fill="#4aa772" />
-      <path d="M16 16.1v13.4L4 22.7V9.3z" fill="#1f6b45" />
-      <path d="M16 8.6 22.5 12v6.8L16 22.3 9.5 18.8V12z" fill="#ffffff" fillOpacity="0.92" />
-      <path d="M16 8.6 22.5 12 16 15.5 9.5 12z" fill="#dcebe1" />
+      <path d="M16 2.5 28 9.3v13.4L16 29.5 4 22.7V9.3z" fill="#1b1a18" />
+      <path d="M16 2.5 28 9.3 16 16.1 4 9.3z" fill="#f5d033" />
+      <path d="M16 16.1v13.4L4 22.7V9.3z" fill="#3a3730" />
+      <path d="M16 8.6 22.5 12v6.8L16 22.3 9.5 18.8V12z" fill="#ffffff" fillOpacity="0.95" />
+      <path d="M16 8.6 22.5 12 16 15.5 9.5 12z" fill="#f5d033" />
     </svg>
   );
 }

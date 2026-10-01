@@ -63,8 +63,8 @@ export default function TrajetMap({
       map = L.map(ref.current, { scrollWheelZoom: false, attributionControl: true });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
 
-      const green = "#2f9e63";
-      const indigo = "#1f7a4d";
+      const green = "#a98a00";
+      const indigo = "#1b1a18";
       L.circleMarker([a.lat, a.lon], { radius: 8, color: "#fff", weight: 2, fillColor: green, fillOpacity: 1 }).addTo(map).bindTooltip(`Départ · ${departVille ?? ""}`);
       L.circleMarker([b.lat, b.lon], { radius: 8, color: "#fff", weight: 2, fillColor: indigo, fillOpacity: 1 }).addTo(map).bindTooltip(`Arrivée · ${arriveeVille ?? ""}`);
 

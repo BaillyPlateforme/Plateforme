@@ -31,7 +31,7 @@ export default function FocusVue({ requests }: { requests: RequestRow[] }) {
             <Link
               key={r.id}
               href={`/dashboard/${r.id}`}
-              className="group flex flex-col rounded-2xl border border-line bg-card p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-md)]"
+              className="group flex flex-col rounded-[18px] bg-card p-5 transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-md)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

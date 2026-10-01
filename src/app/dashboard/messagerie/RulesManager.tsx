@@ -73,7 +73,7 @@ function RuleEditor({ kind, rule, isNew, templates, showCondition, defaultDest, 
   const compatible = templates.filter((t) => t.channel === f.channel);
 
   return (
-    <div className="rounded-2xl border border-line bg-card p-6">
+    <div className="rounded-[18px] bg-card p-6">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <input value={f.name} onChange={(e) => set("name", e.target.value)} className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 py-2 font-serif text-lg outline-none focus:border-accent" />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} className="accent-[var(--color-accent)]" />Active</label>

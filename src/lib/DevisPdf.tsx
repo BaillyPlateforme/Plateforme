@@ -4,11 +4,11 @@ import type { DevisRow, SettingsRow } from "@/lib/types";
 export type PdfTrajet = { depart: string | null; arrivee: string | null; volume: number | null; quand: string | null };
 
 const C = {
-  ink: "#15170f",
-  soft: "#6f736a",
-  sage: "#1f7a4d",
-  line: "#e2e4de",
-  cream: "#eef0ec",
+  ink: "#1b1a18",
+  soft: "#615f68",
+  sage: "#1b1a18",
+  line: "#e9e7e2",
+  cream: "#fdf6d6",
 };
 
 const s = StyleSheet.create({

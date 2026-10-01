@@ -50,7 +50,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Modèle & réglages */}
-      <section className="space-y-4 rounded-2xl border border-line bg-card p-6">
+      <section className="space-y-4 rounded-[18px] bg-card p-6">
         <h3 className="eyebrow text-ink-soft">Moteur d&apos;analyse</h3>
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Modèle Gemini</label>
@@ -90,7 +90,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
       </section>
 
       {/* Volumes de référence */}
-      <section className="rounded-2xl border border-line bg-card p-6">
+      <section className="rounded-[18px] bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="eyebrow text-ink-soft">Volumes de référence (m³)</h3>
           <button onClick={addRef} className="text-xs font-medium text-accent transition hover:text-accent-dark">
@@ -123,7 +123,7 @@ export default function AiConfigEditor({ config }: { config: AiConfig }) {
       </section>
 
       {/* Prompt */}
-      <section className="space-y-4 rounded-2xl border border-line bg-card p-6 lg:col-span-2">
+      <section className="space-y-4 rounded-[18px] bg-card p-6 lg:col-span-2">
         <h3 className="eyebrow text-ink-soft">Consignes (prompt système)</h3>
         <div>
           <label className="mb-1 block text-sm text-ink-soft">Introduction (avant les repères)</label>

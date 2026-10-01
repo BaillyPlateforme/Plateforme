@@ -49,7 +49,7 @@ export default function WorkflowBuilder({ rules, templates }: { rules: AlertRow[
   return (
     <div className="space-y-8">
       {/* Diagramme — tout sur une seule ligne : arrivée → traitement */}
-      <div className="overflow-x-auto rounded-2xl border border-line bg-card p-6">
+      <div className="overflow-x-auto rounded-[18px] bg-card p-6">
         <div className="flex min-w-max items-stretch gap-5">
           {/* Arrivée */}
           <div className="flex flex-col justify-center gap-3">

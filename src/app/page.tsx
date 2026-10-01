@@ -63,10 +63,10 @@ function Hero() {
       {/* Voiles : la photo descend derrière le texte sans l'assombrir d'un bloc. */}
       <div className="absolute inset-0 bg-ink/62" />
       <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/35 to-ink/92" />
-      <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#e8935f]/18" />
+      <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#f5d033]/18" />
       <div className="drift absolute -left-40 top-24 h-[520px] w-[520px] rounded-full bg-accent/25 blur-3xl" />
       <div
-        className="drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px] rounded-full bg-[#4e8f7e]/22 blur-3xl"
+        className="drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px] rounded-full bg-[#45434a]/22 blur-3xl"
         style={{ animationDuration: "26s", animationDelay: "-9s" }}
       />
 
@@ -174,7 +174,7 @@ function Porte({
       href={href}
       className={`edge-glow shine levitate group relative overflow-hidden rounded-[26px] border p-6 backdrop-blur-xl transition-colors sm:p-7 ${
         accent
-          ? "border-white/25 bg-linear-to-br from-accent/45 via-white/12 to-white/5 shadow-2xl shadow-accent/25 hover:from-accent/55"
+          ? "border-brand/35 bg-linear-to-br from-brand/28 via-white/12 to-white/5 shadow-2xl shadow-black/30 hover:from-brand/38"
           : "border-white/18 bg-linear-to-br from-white/16 via-white/8 to-white/4 shadow-2xl shadow-ink/35 hover:from-white/24"
       }`}
       style={{ ...delay(d), "--dur": dur, "--shine": "10s", "--shine-delay": `${d + 600}ms` } as CSSProperties}
@@ -263,7 +263,7 @@ function Parcours() {
     <section id="parcours" className="scroll-mt-20 bg-paper py-24 lg:py-32">
       <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
         <Reveal className="max-w-[46ch]">
-          <p className="eyebrow text-accent">Le parcours client</p>
+          <p className="eyebrow text-brand-ink">Le parcours client</p>
           <h2 className="font-serif mt-4 text-[34px] leading-[1.08] sm:text-[42px]">
             Quatre étapes, et le prix est là
           </h2>
@@ -319,7 +319,7 @@ function Formules() {
     <section id="formules" className="scroll-mt-20 border-y border-line bg-card py-24 lg:py-32">
       <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
         <Reveal className="max-w-[48ch]">
-          <p className="eyebrow text-accent">Nos formules</p>
+          <p className="eyebrow text-brand-ink">Nos formules</p>
           <h2 className="font-serif mt-4 text-[34px] leading-[1.08] sm:text-[42px]">
             Vous choisissez ce que vous nous confiez
           </h2>
@@ -338,12 +338,12 @@ function Formules() {
                 delay={i * 110}
                 className={`relative flex flex-col rounded-3xl border p-7 transition-shadow ${
                   vedette
-                    ? "border-accent bg-linear-to-b from-accent-soft to-card shadow-xl shadow-accent/10"
+                    ? "border-brand bg-linear-to-b from-brand-soft to-card shadow-xl shadow-black/5"
                     : "border-line bg-card hover:shadow-md"
                 }`}
               >
                 {vedette && (
-                  <span className="absolute -top-3 left-7 rounded-full bg-accent px-3 py-1 text-[11px] font-medium text-white">
+                  <span className="absolute -top-3 left-7 rounded-full bg-brand px-3 py-1 text-[11px] font-semibold text-[#1b1a18]">
                     Le plus choisi
                   </span>
                 )}
@@ -360,7 +360,7 @@ function Formules() {
                 <ul className="mt-6 flex-1 space-y-2.5">
                   {RESUME[f.key].map((l) => (
                     <li key={l} className="flex gap-2.5 text-[13.5px] leading-snug">
-                      <span className={vedette ? "text-accent" : "text-good"}>
+                      <span className={vedette ? "text-brand-ink" : "text-ink-soft"}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
                           <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
@@ -374,7 +374,7 @@ function Formules() {
                   href="/demande"
                   className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[13.5px] font-medium transition ${
                     vedette
-                      ? "bg-accent text-white shadow-lg shadow-accent/25 hover:bg-accent-dark"
+                      ? "bg-accent text-white shadow-lg shadow-black/15 hover:bg-accent-dark"
                       : "border border-line-strong bg-card hover:border-ink"
                   }`}
                 >
@@ -428,13 +428,13 @@ function Equipe() {
     <section id="equipe" className="grain relative scroll-mt-20 overflow-hidden bg-ink py-24 lg:py-32">
       <div className="drift absolute -right-32 top-0 h-[460px] w-[460px] rounded-full bg-accent/20 blur-3xl" />
       <div
-        className="drift absolute -left-40 bottom-0 h-[420px] w-[420px] rounded-full bg-[#4e8f7e]/18 blur-3xl"
+        className="drift absolute -left-40 bottom-0 h-[420px] w-[420px] rounded-full bg-[#45434a]/18 blur-3xl"
         style={{ animationDuration: "22s", animationDelay: "-6s" }}
       />
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-16 lg:px-10">
         <Reveal>
-          <p className="eyebrow text-[#8fb79b]">Réservé à l&apos;équipe</p>
+          <p className="eyebrow text-brand">Réservé à l&apos;équipe</p>
           <h2 className="font-serif mt-4 text-[34px] leading-[1.08] text-white sm:text-[42px]">
             Le <span className="gradient-flow-light">poste de pilotage</span>
           </h2>
@@ -446,7 +446,7 @@ function Equipe() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[13.5px] font-medium text-[#1f2220] transition hover:bg-white/90"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[13.5px] font-medium text-[#1b1a18] transition hover:bg-white/90"
             >
               Ouvrir l&apos;espace équipe
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -498,7 +498,7 @@ function Fin() {
       <Reveal className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-[32px] border border-line bg-card px-8 py-14 text-center sm:px-14">
           <div className="pointer-events-none absolute -left-24 -top-24 h-[280px] w-[280px] rounded-full bg-accent/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 -right-20 h-[300px] w-[300px] rounded-full bg-[#e8935f]/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-28 -right-20 h-[300px] w-[300px] rounded-full bg-[#f5d033]/10 blur-3xl" />
           <div className="relative">
             <h2 className="font-serif mx-auto max-w-[18ch] text-balance text-[32px] leading-[1.1] sm:text-[40px]">
               Combien coûte votre déménagement&nbsp;?

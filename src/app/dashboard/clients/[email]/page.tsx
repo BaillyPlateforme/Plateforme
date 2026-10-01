@@ -20,7 +20,7 @@ export default async function ClientPage({ params }: { params: Promise<{ email: 
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <section className="rounded-2xl border border-line bg-card p-5">
+          <section className="rounded-[18px] bg-card p-5">
             <h3 className="eyebrow mb-4 text-ink-soft">Demandes ({detail.requests.length})</h3>
             {detail.requests.length === 0 ? (
               <p className="text-sm text-ink-soft">Aucune demande.</p>
@@ -47,7 +47,7 @@ export default async function ClientPage({ params }: { params: Promise<{ email: 
             )}
           </section>
 
-          <section className="rounded-2xl border border-line bg-card p-5">
+          <section className="rounded-[18px] bg-card p-5">
             <h3 className="eyebrow mb-4 text-ink-soft">Devis ({devis.length})</h3>
             {devis.length === 0 ? (
               <p className="text-sm text-ink-soft">Aucun devis.</p>

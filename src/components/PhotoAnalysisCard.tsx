@@ -48,7 +48,7 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
     emit({ objets: photo.objets.map((o, i) => (i === idx ? { ...o, quantite: Math.max(1, q) } : o)) });
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card">
+    <div className="overflow-hidden rounded-[18px] bg-card">
       {/* En-tête : vignette (cliquable pour agrandir) + pièce + total */}
       <div className="flex items-center gap-3 border-b border-line p-3">
         {photo.previewUrl ? (
@@ -218,7 +218,7 @@ export function AnalysisLoader({ count, current, total }: { count: number; curre
   const pct = n > 0 ? Math.round(((cur - 1) / n) * 100) : 0;
 
   return (
-    <div className="rounded-2xl border border-line bg-card p-6">
+    <div className="rounded-[18px] bg-card p-6">
       <div className="flex items-center gap-3">
         <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-accent" />
         <div className="font-serif text-lg">

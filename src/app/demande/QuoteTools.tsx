@@ -98,14 +98,14 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
       <div className="mx-auto max-w-3xl animate-fade-up">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <div className="eyebrow text-accent">Votre proposition</div>
+          <div className="eyebrow text-brand-ink">Votre proposition</div>
           <h1 className="mt-2 font-serif text-4xl">Votre estimation est prête</h1>
           <p className="mt-2 text-sm text-ink-soft">Estimation établie selon les informations transmises.</p>
         </div>
 
         {devis ? (
           <>
-            <div className="mt-6 rounded-2xl border border-line bg-card p-6 shadow-sm">
+            <div className="mt-6 rounded-[18px] bg-card p-6 shadow-sm">
               <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <div className="text-base font-medium text-ink">{devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}</div>
@@ -139,7 +139,7 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
             )}
 
             {/* PDF complet */}
-            <div className="mt-6 overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
+            <div className="mt-6 overflow-hidden rounded-[18px] bg-card shadow-sm">
               <div className="flex items-center justify-between border-b border-line px-5 py-3">
                 <span className="font-serif text-lg">Votre estimation</span>
                 <a href={`/api/devis/${devis.id}/pdf`} target="_blank" rel="noreferrer" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">⬇ Télécharger le PDF</a>
@@ -148,7 +148,7 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
             </div>
           </>
         ) : (
-          <div className="mt-6 rounded-2xl border border-line bg-card p-8 text-center text-sm text-ink-soft">
+          <div className="mt-6 rounded-[18px] bg-card p-8 text-center text-sm text-ink-soft">
             Votre devis est en cours de finalisation — un conseiller vous l&apos;adresse par e-mail très vite.
           </div>
         )}
@@ -266,7 +266,7 @@ export function Comparateur({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm md:p-8">
-      <div className={`w-full ${simple ? "max-w-3xl" : "max-w-6xl"} rounded-2xl border border-line bg-paper p-6 shadow-[var(--shadow-md)]`}>
+      <div className={`w-full ${simple ? "max-w-3xl" : "max-w-6xl"} rounded-[18px] bg-subtle p-6 shadow-[var(--shadow-md)]`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-serif text-2xl">Comparer plusieurs scénarios</h2>

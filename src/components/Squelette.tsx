@@ -5,11 +5,11 @@ export function Squelette({ lignes = 6, titre = true }: { lignes?: number; titre
       {titre && (
         <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl border border-line bg-card" />
+            <div key={i} className="h-24 rounded-[18px] bg-card" />
           ))}
         </div>
       )}
-      <div className="space-y-3 rounded-2xl border border-line bg-card p-5">
+      <div className="space-y-3 rounded-[18px] bg-card p-5">
         {Array.from({ length: lignes }).map((_, i) => (
           <div key={i} className="flex items-center gap-4">
             <div className="h-4 w-40 rounded-full bg-subtle" />
@@ -27,7 +27,7 @@ export function SqueletteCartes({ n = 6 }: { n?: number }) {
   return (
     <div className="grid animate-pulse gap-5 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: n }).map((_, i) => (
-        <div key={i} className="h-52 rounded-2xl border border-line bg-card" />
+        <div key={i} className="h-52 rounded-[18px] bg-card" />
       ))}
     </div>
   );
