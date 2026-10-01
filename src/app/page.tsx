@@ -446,7 +446,7 @@ function Equipe() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[13.5px] font-medium text-ink transition hover:bg-white/90"
+              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[13.5px] font-medium text-[#1f2220] transition hover:bg-white/90"
             >
               Ouvrir l&apos;espace équipe
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

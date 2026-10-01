@@ -1,46 +1,51 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Système repris de la maquette Emedley ───────────────────────────
-     Un sol de verdure à l'extérieur, une coque blanche posée dessus, des
-     cartes blanches cerclées d'un filet très clair. Deux couleurs
-     portantes : un vert profond pour l'action, un abricot pour l'état
-     actif et les accents chauds. Coins généreux, ombres douces.        */
+  /* ── Relevé sur la maquette ───────────────────────────────────────────
+     Un sol gris-vert à l'extérieur, une coque gris très clair posée dessus,
+     et des cartes blanches à l'intérieur. Le vert porte l'action, l'abricot
+     porte l'état actif.                                                   */
 
   /* Surfaces */
-  --color-canvas: #bdd3b6;       /* le sol, hors de la coque */
-  --color-canvas-haut: #e4ede0;
-  --color-paper: #f6f8f4;        /* intérieur de la coque */
-  --color-card: #ffffff;         /* cartes */
-  --color-subtle: #f4f5f1;       /* en-têtes de tableau, champs, pastilles */
-  --color-ink: #1b1d1b;          /* texte principal */
-  --color-ink-soft: #787d77;     /* texte secondaire — 4,7:1 sur blanc */
-  --color-line: #ecedea;         /* filet des cartes et des lignes */
-  --color-line-strong: #dcdfd9;
+  --color-canvas: #dfe4da;       /* hors de la coque */
+  --color-canvas-haut: #eef0ec;
+  --color-shell: #f6f6f4;        /* le sol de la coque */
+  --color-paper: #f6f6f4;        /* même sol, pour les écrans */
+  --color-card: #ffffff;
+  --color-subtle: #f4f4f1;       /* bandeaux d'en-tête, champs, pistes */
+  --color-ink: #1f2220;
+  --color-ink-soft: #8a8f8a;
+  --color-ink-mid: #4a4d4a;      /* libellés du menu au repos */
+  --color-line: #efeeec;
+  --color-line-strong: #e2e1dd;
 
-  /* Vert : action, état actif, liens */
-  --color-accent: #1f7a4d;
-  --color-accent-dark: #17603b;
-  --color-accent-soft: #e6f2ea;
+  /* Vert : action, confirmation, séries */
+  --color-accent: #1f6b45;
+  --color-accent-dark: #175436;
+  --color-accent-soft: #e7f5ec;
+  --color-accent-vif: #2e9e55;
 
-  /* Abricot : la pastille du menu, les tuiles chaudes, les badges */
-  --color-peach: #e89a68;
-  --color-peach-soft: #fbe6d5;
-  --color-peach-ink: #b56a33;
+  /* Abricot : pastille du menu, tuiles chaudes, badges */
+  --color-peach: #eda175;
+  --color-peach-soft: #fbe7d7;
+  --color-peach-ink: #df8a4f;
+
+  /* Olive : le segment actif du sélecteur de période */
+  --color-olive: #6d8049;
 
   /* États */
-  --color-good: #2f9e63;
-  --color-good-soft: #e6f4ec;
-  --color-warn: #dda23f;
-  --color-warn-soft: #fbf1de;
-  --color-danger: #d9544a;
+  --color-good: #2e9e55;
+  --color-good-soft: #e7f5ec;
+  --color-warn: #d79a46;
+  --color-warn-soft: #fbf0dc;
+  --color-danger: #d1544a;
   --color-danger-soft: #fbeae8;
 
-  /* Séries de graphiques : la palette de la maquette, vert et abricot en tête */
-  --chart-1: #1f7a4d;
+  /* Séries de graphiques */
+  --chart-1: #2f6b4a;
   --chart-2: #e8935f;
   --chart-3: #8fb79b;
-  --chart-4: #1b1d1b;
+  --chart-4: #141414;
   --chart-5: #c9a227;
   --chart-6: #4e8f7e;
   --chart-7: #c4623f;
@@ -50,14 +55,38 @@
 
   --radius: 1rem;
 
-  --shadow-sm: 0 1px 2px rgba(28, 45, 30, 0.05);
-  --shadow-md: 0 10px 30px -14px rgba(28, 45, 30, 0.22);
-  --shadow-coque: 0 30px 80px -40px rgba(26, 52, 33, 0.45);
+  --shadow-sm: 0 1px 2px rgba(31, 40, 31, 0.04);
+  --shadow-md: 0 12px 32px -16px rgba(31, 40, 31, 0.2);
+  --shadow-coque: 0 24px 64px -34px rgba(26, 42, 29, 0.4);
+}
+
+/* Le même système, de nuit. Les utilitaires lisent les variables : il suffit
+   de les redéfinir plus bas dans la cascade pour que tout bascule. */
+:root[data-theme="dark"] {
+  --color-canvas: #101210;
+  --color-canvas-haut: #191c19;
+  --color-shell: #141714;
+  --color-paper: #141714;
+  --color-card: #1c201c;
+  --color-subtle: #242924;
+  --color-ink: #eef1ee;
+  --color-ink-soft: #929991;
+  --color-ink-mid: #c6ccc5;
+  --color-line: #2b302b;
+  --color-line-strong: #3a403a;
+  --color-accent: #35a06a;
+  --color-accent-dark: #2a8255;
+  --color-accent-soft: #15301f;
+  --color-peach-soft: #3b2a1c;
+  --color-peach-ink: #e8a06a;
+  --color-good-soft: #15301f;
+  --color-warn-soft: #332814;
+  --color-danger-soft: #341c1a;
 }
 
 @layer base {
   body {
-    background: linear-gradient(168deg, var(--color-canvas-haut) 0%, #d2e0cc 45%, var(--color-canvas) 100%);
+    background: linear-gradient(170deg, var(--color-canvas-haut) 0%, var(--color-canvas) 100%);
     background-attachment: fixed;
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;

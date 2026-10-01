@@ -201,7 +201,7 @@ function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
         )}
         <div className="absolute left-5 top-5 z-10 flex items-center gap-2.5">
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/75 text-xl backdrop-blur-md">{icon}</span>
-          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-ink backdrop-blur-md">{badge}</span>
+          <span className="rounded-full border border-white/50 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-[#1f2220] backdrop-blur-md">{badge}</span>
         </div>
       </div>
 
