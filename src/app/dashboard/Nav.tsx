@@ -49,7 +49,7 @@ export default function Nav({
         <span className="flex-1 truncate text-[19px] font-extrabold tracking-tight">Bailly</span>
         <Link
           href="/"
-          title="Retour au site"
+          title="Voir le formulaire client"
           onClick={onNaviguer}
           className="text-ink-soft transition hover:text-ink"
         >

@@ -9,6 +9,12 @@ import TopBar from "./TopBar";
  * Le défilement se fait à l'intérieur — le menu et la barre du haut ne
  * bougent jamais.
  */
+/** L'espace équipe reste hors des moteurs de recherche. */
+export const metadata = {
+  title: "Espace équipe — Bailly",
+  robots: { index: false, follow: false },
+};
+
 export default async function DashboardLayout({
   children,
 }: {

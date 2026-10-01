@@ -5,7 +5,6 @@ import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
-import ModeSwitch from "@/components/ModeSwitch";
 import FormulesClient from "@/components/pricing/FormulesClient";
 import { InstantResult, Comparateur } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
@@ -227,7 +226,6 @@ function BigCard({ onClick, img, icon, badge, title, desc, points, delay }: {
 function ModeChooser({ heroUrls, onSelect }: { heroUrls: (string | undefined)[]; onSelect: (m: "express" | "complet") => void }) {
   return (
     <>
-      <ModeSwitch current="form" />
       <div>
         <div className="relative min-h-dvh overflow-hidden bg-card text-ink">
         <div className="relative z-10 mx-auto flex min-h-dvh max-w-6xl flex-col px-6 py-12 md:py-16">
@@ -349,7 +347,6 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
       )}
-      <ModeSwitch current="form" />
       <div>
         <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         <BrandPanel heroUrl={library[0]?.url} />
@@ -540,7 +537,6 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
       )}
-      <ModeSwitch current="form" />
       <div>
         <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
         {/* Panneau visuel */}

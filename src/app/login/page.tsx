@@ -83,14 +83,9 @@ export default async function LoginPage({
           style={delay(620)}
         >
           <span>© {new Date().getFullYear()} Bailly Déménagement</span>
-          <div className="flex items-center gap-4">
-            <Link href="/demande" className="transition hover:text-ink">
-              Formulaire client
-            </Link>
-            <Link href="/" className="transition hover:text-ink">
-              Accueil
-            </Link>
-          </div>
+          <Link href="/" className="transition hover:text-ink">
+            Retour au formulaire client
+          </Link>
         </footer>
       </section>
 
