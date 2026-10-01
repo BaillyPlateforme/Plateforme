@@ -187,8 +187,14 @@ function BrandPanel({
       <div className="halo drift absolute -left-24 top-1/3 h-[380px] w-[380px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
 
       <div className="relative z-10 p-9">
-        <div className="font-serif text-[28px] font-bold leading-none text-white">Bailly</div>
-        <div className="eyebrow mt-2 text-white/60">Déménagement</div>
+        <Image
+          src="/marque/bailly-logo-blanc.svg"
+          alt="Bailly Déménagement"
+          width={200}
+          height={64}
+          priority
+          className="h-auto w-[190px]"
+        />
         <p className="mt-8 max-w-xs font-serif text-[23px] leading-snug text-white">
           Une question, un projet ? Nous vous{" "}
           <span className="gradient-flow-light">accompagnons</span> à chaque étape.

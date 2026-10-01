@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
@@ -44,10 +45,19 @@ export default function Nav({
 
   return (
     <div className="flex h-full w-[248px] flex-col rounded-[22px] bg-card px-4 py-5">
-      {/* La marque : le joyau et le nom, et le lien de sortie à droite. */}
+      {/* La marque : le logo de l'enseigne, et le lien de sortie à droite. */}
       <div className="mb-6 flex items-center gap-2.5 px-2">
-        <Joyau />
-        <span className="flex-1 truncate text-[19px] font-extrabold tracking-tight">Bailly</span>
+        <Image
+          src="/marque/bailly-symbole.svg"
+          alt="Bailly Déménagement"
+          width={32}
+          height={32}
+          className="shrink-0 rounded-[7px]"
+          priority
+        />
+        <span className="flex-1 truncate text-[19px] font-black uppercase tracking-tight">
+          Bailly
+        </span>
         <Link
           href="/"
           title="Voir le formulaire client"
@@ -143,18 +153,6 @@ function FileAttente({ nouvelles }: { nouvelles: number }) {
   );
 }
 
-/** Le joyau de la marque : l'hexagone facetté de la maquette, en vert. */
-function Joyau() {
-  return (
-    <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden>
-      <path d="M16 2.5 28 9.3v13.4L16 29.5 4 22.7V9.3z" fill="#1b1a18" />
-      <path d="M16 2.5 28 9.3 16 16.1 4 9.3z" fill="#f5d033" />
-      <path d="M16 16.1v13.4L4 22.7V9.3z" fill="#3a3730" />
-      <path d="M16 8.6 22.5 12v6.8L16 22.3 9.5 18.8V12z" fill="#ffffff" fillOpacity="0.95" />
-      <path d="M16 8.6 22.5 12 16 15.5 9.5 12z" fill="#f5d033" />
-    </svg>
-  );
-}
 
 const S = {
   width: 20,

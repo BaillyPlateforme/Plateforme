@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 
-// Une seule famille dans toute l'application, celle de la maquette : une
-// grotesque géométrique, large et ronde, qui tient aussi bien un libellé de
-// menu qu'un grand nombre.
-const jakarta = Plus_Jakarta_Sans({
+// La famille de la marque : le site de Bailly compose en Roboto, titres en
+// 600 et texte courant en 400. Une seule déclaration pour toute
+// l'application — voir charte-graphique/README.md.
+const roboto = Roboto({
   variable: "--font-rail",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: ["400", "500", "700", "900"],
   display: "swap",
 });
 
@@ -27,7 +27,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={`${jakarta.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="fr" className={`${roboto.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME }} />
       </head>

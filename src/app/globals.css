@@ -386,14 +386,23 @@ h2.font-serif {
   background: transparent;
   border-bottom: 1px solid transparent;
 }
-.site-header .site-title,
-.site-header .site-link,
-.site-header .site-sub {
-  color: rgba(255, 255, 255, 0.92);
-}
-.site-header .site-sub,
 .site-header .site-link {
   color: rgba(255, 255, 255, 0.68);
+}
+/* Le logo change de fichier selon le fond : blanc sur la photo, couleur une
+   fois l'en-tête posé. */
+.site-header .site-logo-clair {
+  opacity: 0;
+}
+.site-header.header-pose .site-logo-sombre {
+  opacity: 0;
+}
+.site-header.header-pose .site-logo-clair {
+  opacity: 1;
+}
+.site-logo-clair,
+.site-logo-sombre {
+  transition: opacity 0.3s;
 }
 .site-header .site-link:hover {
   color: #fff;
@@ -418,10 +427,6 @@ h2.font-serif {
   background: var(--color-card);
   border-bottom-color: var(--color-line);
 }
-.site-header.header-pose .site-title {
-  color: var(--color-ink);
-}
-.site-header.header-pose .site-sub,
 .site-header.header-pose .site-link {
   color: var(--color-ink-soft);
 }

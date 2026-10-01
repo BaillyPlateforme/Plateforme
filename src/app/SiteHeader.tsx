@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 
@@ -38,22 +39,23 @@ export default function SiteHeader({
       className="site-header fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300"
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
-        <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand text-[#1b1a18]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-              <path d="M2 8h11v9H2zM13 11h4.5l3.5 3.5V17h-8z" strokeLinejoin="round" />
-              <circle cx="6.5" cy="18.5" r="1.8" />
-              <circle cx="17.5" cy="18.5" r="1.8" />
-            </svg>
-          </span>
-          <span className="leading-none">
-            <span className="site-title block font-serif text-[17px] font-semibold tracking-tight">
-              Bailly
-            </span>
-            <span className="site-sub block text-[10.5px] uppercase tracking-[0.18em]">
-              Déménagement
-            </span>
-          </span>
+        {/* Deux fichiers pour deux fonds : le blanc sur la photo, le couleur
+            dès que l'en-tête se pose. */}
+        <Link href="/" className="relative block h-9 w-[150px] shrink-0" aria-label="Bailly Déménagement">
+          <Image
+            src="/marque/bailly-logo-blanc.svg"
+            alt="Bailly Déménagement"
+            fill
+            priority
+            className="site-logo-sombre object-contain object-left"
+          />
+          <Image
+            src="/marque/bailly-logo.svg"
+            alt=""
+            fill
+            aria-hidden
+            className="site-logo-clair object-contain object-left"
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 text-[13.5px] md:flex">
