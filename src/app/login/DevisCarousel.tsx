@@ -118,7 +118,7 @@ export default function DevisCarousel() {
       </div>
 
       <div
-        className="shine relative overflow-hidden rounded-3xl border border-white/25 bg-linear-to-br from-white/22 via-white/10 to-white/5 p-6 shadow-2xl shadow-ink/40 backdrop-blur-xl"
+        className="shine relative overflow-hidden rounded-3xl border border-white/25 bg-linear-to-br from-white/22 via-[#1b1a18]/65 to-[#1b1a18]/75 p-6 shadow-2xl shadow-black/45"
         style={{ "--shine": "9s" } as CSSProperties}
       >
         <div className="mb-3 flex items-center justify-between gap-3">

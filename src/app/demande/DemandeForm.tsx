@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
 import { Field, TextInput } from "./ui";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
@@ -184,7 +184,7 @@ function BrandPanel({
       <Image src="/login-interieur.jpg" alt="" fill priority sizes="420px" className="ken-burns object-cover" />
       <div className="absolute inset-0 bg-ink/72" />
       <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/45 to-ink/95" />
-      <div className="drift absolute -left-24 top-1/3 h-[380px] w-[380px] rounded-full bg-brand/20 blur-3xl" />
+      <div className="halo drift absolute -left-24 top-1/3 h-[380px] w-[380px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
 
       <div className="relative z-10 p-9">
         <div className="font-serif text-[28px] font-bold leading-none text-white">Bailly</div>
@@ -496,7 +496,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                       disabled={i > step}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[13.5px] transition ${
                         etat === "active"
-                          ? "bg-white/15 font-semibold text-white backdrop-blur-md"
+                          ? "bg-white/18 font-semibold text-white"
                           : etat === "done"
                             ? "text-white/85 hover:bg-white/10"
                             : "text-white/35"

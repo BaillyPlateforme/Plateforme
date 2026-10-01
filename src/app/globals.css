@@ -194,8 +194,8 @@ h2.font-serif {
 
 /* Apparition en cascade : le décalage se règle par --d. */
 @keyframes rise-blur {
-  from { opacity: 0; transform: translateY(16px); filter: blur(10px); }
-  to   { opacity: 1; transform: none; filter: blur(0); }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
 }
 .reveal {
   animation: rise-blur 0.85s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s) both;
@@ -282,8 +282,8 @@ h2.font-serif {
 
 /* Transitions du carrousel. */
 @keyframes slide-in {
-  from { opacity: 0; transform: translate3d(28px, 0, 0) scale(0.985); filter: blur(6px); }
-  to   { opacity: 1; transform: none; filter: blur(0); }
+  from { opacity: 0; transform: translate3d(28px, 0, 0) scale(0.985); }
+  to   { opacity: 1; transform: none; }
 }
 .slide-in {
   animation: slide-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -318,7 +318,6 @@ h2.font-serif {
   .slide-in {
     opacity: 1;
     transform: none;
-    filter: none;
   }
   .shine::after {
     display: none;
@@ -373,16 +372,13 @@ h2.font-serif {
 .on-scroll {
   opacity: 0;
   transform: translateY(22px);
-  filter: blur(8px);
 }
 .on-scroll.revealed {
   opacity: 1;
   transform: none;
-  filter: blur(0);
   transition:
     opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s),
-    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s),
-    filter 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s);
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s);
 }
 
 /* En-tête : transparent sur la photo, posé sur fond clair ensuite. */
@@ -410,9 +406,16 @@ h2.font-serif {
   border-color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.1);
 }
+/* La clé de l'espace équipe : presque effacée, lisible au survol. */
+.site-header .site-cle {
+  color: rgba(255, 255, 255, 0.38);
+}
+.site-header .site-cle:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.12);
+}
 .site-header.header-pose {
-  background: color-mix(in srgb, var(--color-card) 82%, transparent);
-  backdrop-filter: saturate(180%) blur(14px);
+  background: var(--color-card);
   border-bottom-color: var(--color-line);
 }
 .site-header.header-pose .site-title {
@@ -432,6 +435,13 @@ h2.font-serif {
 .site-header.header-pose .site-ghost:hover {
   border-color: var(--color-ink);
   background: transparent;
+}
+.site-header.header-pose .site-cle {
+  color: var(--color-line-strong);
+}
+.site-header.header-pose .site-cle:hover {
+  color: var(--color-ink);
+  background: var(--color-subtle);
 }
 
 /* Filet dégradé autour d'une carte : un fond en dégradé, un centre opaque. */
@@ -477,10 +487,17 @@ h2.font-serif {
   .on-scroll {
     opacity: 1;
     transform: none;
-    filter: none;
   }
   .scroll-cue,
   .revealed .draw-line {
     animation: none !important;
   }
+}
+
+/* Halo de lumière. Un dégradé radial s'éteint tout seul sur les bords : pas
+   besoin d'un filtre de flou, qui coûte cher et brouille ce qu'il y a dessous. */
+.halo {
+  pointer-events: none;
+  border-radius: 9999px;
+  background-image: radial-gradient(closest-side, var(--halo, rgba(255, 255, 255, 0.2)), transparent 78%);
 }

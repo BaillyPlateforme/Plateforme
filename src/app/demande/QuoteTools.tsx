@@ -265,7 +265,7 @@ export function Comparateur({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm md:p-8">
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-ink/65 p-4 md:p-8">
       <div className={`w-full ${simple ? "max-w-3xl" : "max-w-6xl"} rounded-[18px] bg-subtle p-6 shadow-[var(--shadow-md)]`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>

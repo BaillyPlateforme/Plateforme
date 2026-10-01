@@ -105,10 +105,10 @@ export default async function LoginPage({
         <div className="absolute inset-0 bg-linear-to-t from-ink/90 via-ink/25 to-ink/5" />
         <div className="absolute inset-0 bg-linear-to-bl from-accent/35 via-transparent to-transparent" />
         {/* Halo qui dérive lentement derrière les cartes. */}
-        <div className="drift absolute -left-24 top-1/4 h-[460px] w-[460px] rounded-full bg-accent/25 blur-3xl" />
+        <div className="halo drift absolute -left-24 top-1/4 h-[460px] w-[460px]" style={{ "--halo": "rgba(245,208,51,0.18)" } as CSSProperties} />
         <div
-          className="drift absolute -right-20 bottom-0 h-[380px] w-[380px] rounded-full bg-[#f5d033]/20 blur-3xl"
-          style={{ animationDuration: "24s", animationDelay: "-8s" }}
+          className="halo drift absolute -right-20 bottom-0 h-[380px] w-[380px]"
+          style={{ animationDuration: "24s", animationDelay: "-8s", "--halo": "rgba(245,208,51,0.24)" } as CSSProperties}
         />
 
         <Parallax className="relative z-10 mx-auto flex w-full max-w-[560px] flex-col justify-center p-12">
@@ -161,7 +161,7 @@ function Feature({
 }) {
   return (
     <div
-      className="shine levitate relative overflow-hidden rounded-3xl border border-white/20 bg-linear-to-br from-white/20 via-white/9 to-white/5 p-4 shadow-xl shadow-ink/30 backdrop-blur-xl transition-colors hover:from-white/28 hover:via-white/14"
+      className="shine levitate relative overflow-hidden rounded-3xl border border-white/20 bg-linear-to-br from-white/20 via-[#1b1a18]/65 to-[#1b1a18]/75 p-4 shadow-xl shadow-black/40 transition-colors hover:from-white/28"
       style={{ ...delay(d), "--dur": dur, "--shine": "11s", "--shine-delay": `${d}ms` } as CSSProperties}
     >
       <span

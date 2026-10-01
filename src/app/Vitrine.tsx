@@ -69,15 +69,15 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
       <div className="absolute inset-0 bg-ink/62" />
       <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/35 to-ink/92" />
       <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#f5d033]/18" />
-      <div className="drift absolute -left-40 top-24 h-[520px] w-[520px] rounded-full bg-accent/25 blur-3xl" />
+      <div className="halo drift absolute -left-40 top-24 h-[520px] w-[520px]" style={{ "--halo": "rgba(245,208,51,0.16)" } as CSSProperties} />
       <div
-        className="drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px] rounded-full bg-[#45434a]/22 blur-3xl"
-        style={{ animationDuration: "26s", animationDelay: "-9s" }}
+        className="halo drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px]"
+        style={{ animationDuration: "26s", animationDelay: "-9s", "--halo": "rgba(255,255,255,0.1)" } as CSSProperties}
       />
 
       <div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-1 flex-col justify-center px-6 pb-16 pt-[100px] lg:px-10 lg:pb-20">
         <div className="reveal max-w-fit" style={delay(60)}>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-[12px] text-white/85 backdrop-blur-md">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3.5 py-1.5 text-[12px] text-white/85">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
             Déménagements particuliers et entreprises
           </span>
@@ -178,10 +178,10 @@ function Porte({
     <button
       type="button"
       onClick={onClick}
-      className={`edge-glow shine levitate group relative overflow-hidden rounded-[26px] border p-6 text-left backdrop-blur-xl transition-colors sm:p-7 ${
+      className={`edge-glow shine levitate group relative overflow-hidden rounded-[26px] border p-6 text-left transition-colors sm:p-7 ${
         accent
-          ? "border-brand/35 bg-linear-to-br from-brand/28 via-white/12 to-white/5 shadow-2xl shadow-black/30 hover:from-brand/38"
-          : "border-white/18 bg-linear-to-br from-white/16 via-white/8 to-white/4 shadow-2xl shadow-ink/35 hover:from-white/24"
+          ? "border-brand/45 bg-linear-to-br from-brand/35 via-[#1b1a18]/70 to-[#1b1a18]/80 shadow-2xl shadow-black/40 hover:from-brand/45"
+          : "border-white/20 bg-linear-to-br from-white/18 via-[#1b1a18]/70 to-[#1b1a18]/80 shadow-2xl shadow-black/40 hover:from-white/26"
       }`}
       style={{ ...delay(d), "--dur": dur, "--shine": "10s", "--shine-delay": `${d + 600}ms` } as CSSProperties}
     >
@@ -434,10 +434,10 @@ const PROMESSES = [
 function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
     <section id="promesses" className="grain relative scroll-mt-20 overflow-hidden bg-ink py-24 lg:py-32">
-      <div className="drift absolute -right-32 top-0 h-[460px] w-[460px] rounded-full bg-brand/20 blur-3xl" />
+      <div className="halo drift absolute -right-32 top-0 h-[460px] w-[460px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
       <div
-        className="drift absolute -left-40 bottom-0 h-[420px] w-[420px] rounded-full bg-[#45434a]/25 blur-3xl"
-        style={{ animationDuration: "22s", animationDelay: "-6s" }}
+        className="halo drift absolute -left-40 bottom-0 h-[420px] w-[420px]"
+        style={{ animationDuration: "22s", animationDelay: "-6s", "--halo": "rgba(255,255,255,0.1)" } as CSSProperties}
       />
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-16 lg:px-10">
@@ -484,7 +484,7 @@ function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             <Reveal
               key={o.titre}
               delay={i * 70}
-              className="rounded-2xl border border-white/12 bg-white/7 p-5 backdrop-blur-md transition-colors hover:border-white/25 hover:bg-white/12"
+              className="rounded-2xl border border-white/12 bg-white/8 p-5 transition-colors hover:border-white/25 hover:bg-white/14"
             >
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white/90">
                 {o.icon}
@@ -506,8 +506,8 @@ function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
     <section className="bg-paper py-24 lg:py-28">
       <Reveal className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
         <div className="relative overflow-hidden rounded-[32px] border border-line bg-card px-8 py-14 text-center sm:px-14">
-          <div className="pointer-events-none absolute -left-24 -top-24 h-[280px] w-[280px] rounded-full bg-accent/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-28 -right-20 h-[300px] w-[300px] rounded-full bg-[#f5d033]/10 blur-3xl" />
+          <div className="halo absolute -left-24 -top-24 h-[280px] w-[280px]" style={{ "--halo": "rgba(27,26,24,0.08)" } as CSSProperties} />
+          <div className="halo absolute -bottom-28 -right-20 h-[300px] w-[300px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
           <div className="relative">
             <h2 className="font-serif mx-auto max-w-[18ch] text-balance text-[32px] leading-[1.1] sm:text-[40px]">
               Combien coûte votre déménagement&nbsp;?

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import { Aires, BarresEmpilees, BarresGroupees, Popularite } from "./Charts";
@@ -410,7 +410,7 @@ function pct(part: number, tout: number) {
 function Banniere({ demandes, devis }: { demandes: number; devis: number }) {
   return (
     <section className="relative overflow-hidden rounded-[18px] bg-[#1b1a18] px-7 py-7 text-white md:px-9 md:py-8">
-      <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-brand/25 blur-3xl" />
+      <div className="halo absolute -right-24 -top-24 h-80 w-80" style={{ "--halo": "rgba(245,208,51,0.3)" } as CSSProperties} />
       <div className="absolute inset-y-0 right-0 w-1/2 bg-linear-to-l from-brand/12 to-transparent" />
       <div className="relative flex flex-wrap items-center justify-between gap-8">
         <div className="min-w-0">

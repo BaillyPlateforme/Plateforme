@@ -35,7 +35,7 @@ export default function SiteHeader({
   return (
     <header
       ref={ref}
-      className="site-header fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-300"
+      className="site-header fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300"
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
         <Link href="/" className="flex items-center gap-3">
@@ -86,6 +86,21 @@ export default function SiteHeader({
               <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+
+          {/* L'accès de l'équipe : une clé sans libellé, à peine visible, qui
+              ne s'adresse qu'à ceux qui savent déjà qu'elle est là. */}
+          <Link
+            href="/login"
+            rel="nofollow"
+            title="Espace équipe"
+            aria-label="Espace équipe"
+            className="site-cle flex h-9 w-9 items-center justify-center rounded-full transition"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="15" r="4" />
+              <path d="m10.8 12.2 8.2-8.2M17 6l2 2M14 9l2 2" />
+            </svg>
+          </Link>
         </div>
       </div>
     </header>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
 
@@ -103,7 +104,7 @@ export default function Nav({
 function FileAttente({ nouvelles }: { nouvelles: number }) {
   return (
     <div className="relative mt-4 overflow-hidden rounded-[18px] bg-[#1b1a18] p-4 text-white">
-      <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full bg-brand/30 blur-2xl" />
+      <div className="halo absolute -right-10 -top-12 h-32 w-32" style={{ "--halo": "rgba(245,208,51,0.32)" } as CSSProperties} />
       <div className="relative">
         <div className="mb-3 flex items-center">
           {[0, 1, 2].map((i) => (
