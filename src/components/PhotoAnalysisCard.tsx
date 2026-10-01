@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { CATALOG } from "@/lib/catalog";
 
 // Carte d'analyse photo — composant partagé (formulaire + Playground).
-export type AnalyzedObjet = { label: string; quantite: number; volume_m3: number };
+export type AnalyzedObjet = {
+  label: string;
+  quantite: number;
+  volume_m3: number;
+  /** Déjà compté sur une autre photo de la même pièce : ne compte pas ici. */
+  doublon?: boolean;
+};
 export type AnalyzedPhotoBase = {
   piece: string;
   objets: AnalyzedObjet[];
@@ -15,19 +21,21 @@ export type AnalyzedPhotoBase = {
   groupe?: string;
   doublon_de?: string;
   doublon_raison?: string;
-  ignore?: boolean;
-  fusionne?: number;
-  objets_seuls?: AnalyzedObjet[];
 };
 export type AnalyzedPhoto = AnalyzedPhotoBase & { storage_path?: string };
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Le volume d'une photo : les meubles déjà vus ailleurs n'y comptent pas. */
 export const sumVolume = (objets: AnalyzedObjet[]) =>
-  round2(objets.reduce((s, o) => s + o.volume_m3, 0));
+  round2(objets.reduce((s, o) => s + (o.doublon ? 0 : o.volume_m3), 0));
 
-/** Le volume retenu : les doublons d'une même pièce ne comptent pas. */
+/** Le volume de tout un lot. Chaque photo porte déjà son volume net. */
 export const volumePhotos = (photos: AnalyzedPhotoBase[]) =>
-  round2(photos.reduce((s, p) => s + (p.ignore ? 0 : p.volume_m3), 0));
+  round2(photos.reduce((s, p) => s + p.volume_m3, 0));
+
+/** Combien de lignes sont écartées comme déjà comptées. */
+export const compteDoublons = (objets: AnalyzedObjet[]) =>
+  objets.filter((o) => o.doublon).length;
 
 export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
   photo,
@@ -58,9 +66,12 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
   };
   const setQty = (idx: number, q: number) =>
     emit({ objets: photo.objets.map((o, i) => (i === idx ? { ...o, quantite: Math.max(1, q) } : o)) });
+  // Le modèle a pu se tromper : on peut toujours remettre une ligne au compte.
+  const basculerDoublon = (idx: number) =>
+    emit({ objets: photo.objets.map((o, i) => (i === idx ? { ...o, doublon: !o.doublon } : o)) });
 
   return (
-    <div className={`overflow-hidden rounded-[18px] bg-card ${photo.ignore ? "opacity-70" : ""}`}>
+    <div className="overflow-hidden rounded-[18px] bg-card">
       {/* En-tête : vignette (cliquable pour agrandir) + pièce + total */}
       <div className="flex items-center gap-3 border-b border-line p-3">
         {photo.previewUrl ? (
@@ -83,17 +94,31 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
       {/* Lignes d'objets — pleine largeur */}
       <div className="divide-y divide-line/60">
         {photo.objets.map((o, idx) => (
-          <div key={idx} className="flex items-center gap-2 px-3 py-1.5">
+          <div key={idx} className={`flex items-center gap-2 px-3 py-1.5 ${o.doublon ? "bg-subtle/60" : ""}`}>
             <input value={o.label} onChange={(e) => setObjet(idx, "label", e.target.value)} placeholder="Objet"
-              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none transition hover:border-line focus:border-accent" />
-            <div className="flex shrink-0 items-center gap-1">
+              className={`min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm outline-none transition hover:border-line focus:border-accent ${
+                o.doublon ? "text-ink-soft line-through" : ""
+              }`} />
+            <button
+              type="button"
+              onClick={() => basculerDoublon(idx)}
+              title={o.doublon ? "Compter ce meuble ici" : "Déjà compté sur une autre photo"}
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10.5px] font-medium transition ${
+                o.doublon
+                  ? "bg-brand-soft text-brand-ink hover:bg-brand/40"
+                  : "text-transparent hover:bg-subtle hover:text-ink-soft"
+              }`}
+            >
+              {o.doublon ? "déjà compté" : "doublon ?"}
+            </button>
+            <div className={`flex shrink-0 items-center gap-1 ${o.doublon ? "opacity-45" : ""}`}>
               <button type="button" onClick={() => setQty(idx, o.quantite - 1)}
                 className="flex h-6 w-6 items-center justify-center rounded-md border border-line text-ink-soft transition hover:border-accent hover:text-accent">−</button>
               <span className="w-5 text-center text-sm tabular-nums">{o.quantite}</span>
               <button type="button" onClick={() => setQty(idx, o.quantite + 1)}
                 className="flex h-6 w-6 items-center justify-center rounded-md border border-line text-ink-soft transition hover:border-accent hover:text-accent">+</button>
             </div>
-            <div className="flex w-[84px] shrink-0 items-center justify-end gap-1 rounded-md border border-line bg-paper px-2 py-1">
+            <div className={`flex w-[84px] shrink-0 items-center justify-end gap-1 rounded-md border border-line bg-paper px-2 py-1 ${o.doublon ? "opacity-45" : ""}`}>
               <input type="number" step="0.1" min={0} value={o.volume_m3} onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
                 className="w-11 bg-transparent text-right text-sm outline-none" />
               <span className="text-[11px] text-ink-soft">m³</span>

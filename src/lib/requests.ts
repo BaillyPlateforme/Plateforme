@@ -29,8 +29,9 @@ function resolveVolume(volume: CreateRequestInput["volume"]): ResolvedVolume {
     return { volume_m3: round2(total), volume_method: "list", items: volume.items, photos: [] };
   }
   // 'ai' : volume = somme des volumes estimés par photo (déjà analysées).
-  // Les photos marquées comme doublons d'une même pièce ne comptent pas.
-  const total = volume.photos.reduce((sum, p) => sum + (p.ignore ? 0 : p.volume_m3), 0);
+  // Chaque photo porte déjà son volume net : les meubles vus sur une autre
+  // photo de la même pièce en ont été retirés.
+  const total = volume.photos.reduce((sum, p) => sum + p.volume_m3, 0);
   return { volume_m3: round2(total), volume_method: "ai", items: [], photos: volume.photos };
 }
 

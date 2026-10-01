@@ -8,6 +8,7 @@ import {
   AnalysisError,
   sumVolume,
   volumePhotos,
+  compteDoublons,
   type AnalyzedPhoto,
 } from "./PhotoAnalysisCard";
 
@@ -116,20 +117,20 @@ export default function PhotoAnalyzer({
     onChange(photos.filter((_, i) => i !== idx));
   }
 
-  // Le total ne retient pas les doublons : une pièce photographiée deux fois
-  // ne se déménage qu'une fois.
+  // Chaque photo porte déjà son volume net : le mobilier vu sur une autre
+  // photo de la même pièce en a été retiré.
   const total = volumePhotos(photos);
 
   /**
    * Défait un regroupement. Le modèle a pu se tromper — deux chambres qui se
-   * ressemblent, par exemple : chaque photo redevient alors indépendante et
-   * compte pour elle-même.
+   * ressemblent, par exemple : toutes les lignes écartées du groupe
+   * recomptent, et les photos redeviennent indépendantes.
    */
   function separerGroupe(groupe: string) {
     onChange(
       photos.map((p) => {
         if (p.groupe !== groupe) return p;
-        const objets = p.objets_seuls ?? p.objets;
+        const objets = p.objets.map((o) => ({ ...o, doublon: undefined }));
         return {
           ...p,
           objets,
@@ -137,9 +138,6 @@ export default function PhotoAnalyzer({
           groupe: undefined,
           doublon_de: undefined,
           doublon_raison: undefined,
-          ignore: undefined,
-          fusionne: undefined,
-          objets_seuls: undefined,
         };
       }),
     );
@@ -239,10 +237,11 @@ export default function PhotoAnalyzer({
       {/* Résultats éditables */}
       {photos.map((p, i) => (
         <div key={i} className="space-y-1.5">
-          {(p.ignore || p.fusionne) && (
+          {p.groupe && (
             <Bandeau
               photo={p}
-              rang={p.doublon_de ? photos.findIndex((q) => q.storage_path === p.doublon_de) + 1 : 0}
+              rang={photos.findIndex((q) => q.storage_path === p.doublon_de) + 1}
+              premiere={p.storage_path === p.doublon_de}
               onSeparer={() => p.groupe && separerGroupe(p.groupe)}
             />
           )}
@@ -265,41 +264,42 @@ export default function PhotoAnalyzer({
 }
 
 /**
- * Le bandeau du dédoublonnage : il dit ce qui a été regroupé, pourquoi, et
- * laisse défaire. Le client doit pouvoir comprendre pourquoi son volume n'est
- * pas la somme de ses photos.
+ * Le bandeau du dédoublonnage : il dit à quelle pièce la photo appartient, ce
+ * qui a été reconnu, et combien de meubles ne sont pas recomptés. Le client
+ * doit pouvoir comprendre pourquoi son volume n'est pas la somme de ses photos.
  */
 function Bandeau({
   photo,
   rang,
+  premiere,
   onSeparer,
 }: {
   photo: AnalyzedPhoto;
   rang: number;
+  premiere: boolean;
   onSeparer: () => void;
 }) {
-  const doublon = !!photo.ignore;
+  const n = compteDoublons(photo.objets);
   return (
-    <div
-      className={`rounded-xl px-3.5 py-2.5 text-[12.5px] ${
-        doublon ? "bg-subtle text-ink-soft" : "bg-brand-soft text-brand-ink"
-      }`}
-    >
+    <div className="rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] text-brand-ink">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium">
-          {doublon
-            ? `Même pièce que la photo ${rang || "précédente"} — non comptée dans le total`
-            : `Mobilier regroupé avec ${photo.fusionne} autre${(photo.fusionne ?? 0) > 1 ? "s" : ""} photo${(photo.fusionne ?? 0) > 1 ? "s" : ""} de la même pièce`}
+          {premiere
+            ? `Même pièce que les photos suivantes`
+            : `Même pièce que la photo ${rang || "précédente"}`}
+          {n > 0
+            ? ` — ${n} meuble${n > 1 ? "s" : ""} déjà compté${n > 1 ? "s" : ""} ailleurs, non recompté${n > 1 ? "s" : ""}`
+            : " — rien de commun à écarter ici"}
         </span>
         <button
           type="button"
           onClick={onSeparer}
           className="ml-auto shrink-0 font-medium underline underline-offset-2 transition hover:no-underline"
         >
-          Ce n&apos;est pas la même pièce
+          Tout recompter
         </button>
       </div>
-      {doublon && photo.doublon_raison && (
+      {photo.doublon_raison && (
         <p className="mt-1 leading-snug opacity-75">{photo.doublon_raison}</p>
       )}
     </div>

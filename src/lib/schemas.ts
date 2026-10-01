@@ -39,6 +39,8 @@ const objetSchema = z.object({
   label: z.string(),
   quantite: z.number().int().min(1),
   volume_m3: z.number().min(0),
+  /** Ce meuble a déjà été compté sur une autre photo de la même pièce. */
+  doublon: z.boolean().optional(),
 });
 
 export const photoAnalysisSchema = z.object({
@@ -47,22 +49,16 @@ export const photoAnalysisSchema = z.object({
   volume_m3: z.number().min(0),
 
   /* ── Dédoublonnage : plusieurs photos d'une même pièce ──────────────
-     Le mobilier d'une pièce photographiée sous deux angles ne doit être
-     compté qu'une fois. Le regroupement est réversible : la photo retenue
-     garde sa liste d'origine, et chaque doublon garde la sienne.        */
+     Trois photos d'un même salon montrent des choses différentes et des
+     choses communes. Seules les communes sont écartées : chaque photo
+     garde ce qu'elle est seule à montrer.                               */
 
   /** Identifiant du groupe « même pièce ». Absent si la photo est seule. */
   groupe: z.string().optional(),
-  /** Sur un doublon : le chemin de la photo qui porte le volume du groupe. */
+  /** Le chemin de la première photo du groupe. */
   doublon_de: z.string().optional(),
-  /** Ce que le modèle a reconnu de commun entre les deux photos. */
+  /** Ce que le modèle a reconnu de commun entre les photos. */
   doublon_raison: z.string().optional(),
-  /** Vrai sur un doublon : la photo ne compte pas dans le total. */
-  ignore: z.boolean().optional(),
-  /** Sur la photo retenue : combien de photos ont été regroupées avec elle. */
-  fusionne: z.number().int().min(0).optional(),
-  /** Sur la photo retenue : sa liste avant fusion, pour pouvoir défaire. */
-  objets_seuls: z.array(objetSchema).optional(),
 });
 
 // Une photo analysée = son analyse + son emplacement dans le Storage.

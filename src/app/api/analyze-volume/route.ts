@@ -22,12 +22,13 @@ type Analysee = { photo: ResultPhoto; base64: string; mimeType: string };
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
- * Regroupe les photos d'une même pièce.
+ * Regroupe les photos d'une même pièce et écarte le mobilier déjà compté.
  *
- * Le mobilier commun n'est compté qu'une fois : la première photo du groupe
- * porte la liste fusionnée — pour chaque meuble, la vue qui en montre le plus
- * — et les autres sont marquées « doublon », conservées mais hors du total.
- * Chacune garde sa propre liste : le regroupement se défait d'un clic.
+ * Chaque photo garde son inventaire complet et reste visible. Seules les
+ * LIGNES qui désignent un meuble déjà listé sur une photo précédente du groupe
+ * sont marquées : elles restent affichées, mais ne comptent plus. Ce qu'une
+ * photo est seule à montrer est conservé — c'est tout l'intérêt du second
+ * angle.
  */
 async function regrouper(
   results: PromiseSettledResult<Analysee>[],
@@ -39,7 +40,13 @@ async function regrouper(
   let groupes: GroupePieces[] = [];
   try {
     groupes = await detecterDoublons(
-      ok.map((r) => ({ base64: r.value.base64, mimeType: r.value.mimeType })),
+      ok.map((r) => ({
+        base64: r.value.base64,
+        mimeType: r.value.mimeType,
+        inventaire: r.value.photo.objets.map(
+          (o) => `${o.label} (×${o.quantite}, ${o.volume_m3} m³)`,
+        ),
+      })),
       cfg,
     );
   } catch {
@@ -50,21 +57,23 @@ async function regrouper(
 
   groupes.forEach((g, n) => {
     const membres = g.photos.map((i) => ok[i].value.photo);
-    const [retenue, ...doublons] = membres;
     const id = `${Date.now().toString(36)}-${n}`;
 
-    retenue.groupe = id;
-    retenue.objets_seuls = retenue.objets;
-    retenue.objets = fusionnerObjets(membres.map((m) => m.objets));
-    retenue.volume_m3 = round2(retenue.objets.reduce((s, o) => s + o.volume_m3, 0));
-    retenue.fusionne = doublons.length;
-    if (g.piece) retenue.piece = g.piece;
+    membres.forEach((m) => {
+      m.groupe = id;
+      m.doublon_de = membres[0].storage_path;
+      m.doublon_raison = g.raison;
+      if (g.piece) m.piece = g.piece;
+    });
 
-    doublons.forEach((d) => {
-      d.groupe = id;
-      d.doublon_de = retenue.storage_path;
-      d.doublon_raison = g.raison;
-      d.ignore = true;
+    // Les lignes déjà vues ailleurs : marquées, pas supprimées.
+    g.deja_vus.forEach(({ photo, ligne }) => {
+      const cible = ok[photo]?.value.photo.objets[ligne];
+      if (cible) cible.doublon = true;
+    });
+
+    membres.forEach((m) => {
+      m.volume_m3 = round2(m.objets.reduce((s, o) => s + (o.doublon ? 0 : o.volume_m3), 0));
     });
   });
 
@@ -79,22 +88,6 @@ function aplatir(results: PromiseSettledResult<Analysee>[]): PromiseSettledResul
   );
 }
 
-/**
- * Deux vues d'un même canapé ne font pas deux canapés : pour chaque meuble on
- * garde la vue qui en compte le plus, jamais la somme. Un meuble visible sur
- * une seule des photos est conservé — c'est tout l'intérêt du second angle.
- */
-function fusionnerObjets(listes: ResultPhoto["objets"][]): ResultPhoto["objets"] {
-  const par = new Map<string, ResultPhoto["objets"][number]>();
-  for (const liste of listes) {
-    for (const o of liste) {
-      const cle = o.label.trim().toLowerCase();
-      const deja = par.get(cle);
-      if (!deja || o.quantite > deja.quantite) par.set(cle, { ...o });
-    }
-  }
-  return [...par.values()];
-}
 
 // POST /api/analyze-volume
 // - multipart/form-data (champ "photos") : upload + analyse (formulaire)
@@ -209,9 +202,7 @@ function collect(results: PromiseSettledResult<ResultPhoto>[]) {
     return NextResponse.json({ error: "Analyse impossible", details: errors }, { status: 502 });
   }
 
-  const total_volume_m3 = round2(
-    photos.reduce((s, p) => s + (p.ignore ? 0 : p.volume_m3), 0),
-  );
+  const total_volume_m3 = round2(photos.reduce((s, p) => s + p.volume_m3, 0));
 
   return NextResponse.json({ photos, total_volume_m3, errors }, { status: 200 });
 }
