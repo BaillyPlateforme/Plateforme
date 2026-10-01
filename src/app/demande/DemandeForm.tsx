@@ -148,8 +148,17 @@ const DEMO: FormState = {
 
 /* ============================ Sélecteur de devis ============================ */
 
-export default function DemandeForm({ library, instant = false }: { library: LibraryPhoto[]; instant?: boolean }) {
-  const [mode, setMode] = useState<null | "express" | "complet">(null);
+export default function DemandeForm({
+  library,
+  instant = false,
+  modeInitial = null,
+}: {
+  library: LibraryPhoto[];
+  instant?: boolean;
+  /** Choisi depuis l'accueil : on entre alors directement dans le parcours. */
+  modeInitial?: null | "express" | "complet";
+}) {
+  const [mode, setMode] = useState<null | "express" | "complet">(modeInitial);
   if (mode === null) return <ModeChooser heroUrls={library.map((l) => l.url)} onSelect={setMode} />;
   if (mode === "express") return <ExpressForm library={library} onBack={() => setMode(null)} instant={instant} />;
   return <CompleteForm library={library} onBack={() => setMode(null)} instant={instant} />;

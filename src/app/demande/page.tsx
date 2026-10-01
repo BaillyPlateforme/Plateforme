@@ -1,20 +1,25 @@
-import { redirect } from "next/navigation";
+import DemandeForm from "./DemandeForm";
+import { listLibraryPhotos } from "@/lib/library";
+import { getSettings } from "@/lib/settings";
 
-/**
- * L'ancienne adresse du formulaire. Elle reste en place — des e-mails et des
- * modèles la portent — et renvoie vers l'accueil, qui est désormais le
- * formulaire lui-même. Les paramètres suivent.
- */
+export const metadata = {
+  title: "Demande de devis — Bailly Déménagement",
+};
+
+export const dynamic = "force-dynamic";
+
 export default async function DemandePage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
-  const params = new URLSearchParams();
-  for (const [cle, valeur] of Object.entries(await searchParams)) {
-    if (typeof valeur === "string") params.set(cle, valeur);
-    else if (Array.isArray(valeur)) valeur.forEach((v) => params.append(cle, v));
-  }
-  const q = params.toString();
-  redirect(q ? `/?${q}` : "/");
+  const { mode } = await searchParams;
+  // L'accueil envoie ici avec le parcours déjà choisi ; sans cela, on commence
+  // par la page de choix.
+  const modeInitial = mode === "express" || mode === "complet" ? mode : null;
+
+  const [library, settings] = await Promise.all([listLibraryPhotos(), getSettings()]);
+  return (
+    <DemandeForm library={library} instant={settings.resultat_instantane} modeInitial={modeInitial} />
+  );
 }
