@@ -224,15 +224,16 @@ export function simuler(input: SimulationInput): Simulation {
   const valeur = Math.max(0, input.valeur_declaree || 0);
   const niveau = input.garantie ?? (valeur > 0 ? "standard" : null);
   if (valeur > 0 && niveau) {
-    const { franchise, niveaux } = SUPPLEMENTS.garantie;
-    const g = niveaux[niveau];
+    const g = SUPPLEMENTS.garantie.niveaux[niveau];
     supplements.push({
       label: g.label,
       detail: `${nb(g.taux * 100)} % de ${nb(valeur)} € déclarés`,
       amount: r2(valeur * g.taux),
     });
     mentions.push(g.texte);
-    if (niveau === "standard") mentions.push(`Franchise de ${franchise} € par sinistre.`);
+    mentions.push(
+      g.franchise > 0 ? `Franchise de ${g.franchise} € par sinistre.` : "Sans franchise.",
+    );
   }
 
   mentions.push("Frais de stationnement : sur justificatif.");
@@ -306,6 +307,9 @@ export function entreeDepuisDemande(req: RequestRow): SimulationInput {
     portage_arrivee_m: portage("arrivee"),
     monte_meubles: services.monte_meuble ? 1 : 0,
     etages_sans_ascenseur: etages,
+    // Chaque objet de 80 à 150 kg déclaré vaut un supplément ; le piano aussi.
+    charges_lourdes: Array.isArray(raw.charges_lourdes) ? raw.charges_lourdes.length : 0,
+    pianos: raw.piano === true ? 1 : 0,
     valeur_declaree: valeurDeclaree(raw.valeur_mobilier),
     garantie: raw.assurance === "luxe" ? "luxe" : raw.assurance === "standard" ? "standard" : null,
     // Le voyage spécial ne s'applique plus tout seul : le commercial le pose.
@@ -324,9 +328,10 @@ export function estimerDemande(req: RequestRow): Simulation {
   if (req.distance_km == null) {
     sim.alertes.push("Distance non renseignée : tarif de la tranche 0 à 50 km appliqué par défaut.");
   }
-  if (raw.articles_lourds === true) {
+  if (raw.articles_lourds === true && !Array.isArray(raw.charges_lourdes)) {
+    // Demande d'avant la saisie ligne par ligne : rien à compter automatiquement.
     sim.alertes.push(
-      `Objets lourds signalés : charge lourde ${SUPPLEMENTS.chargeLourde.prix} € l'unité, piano ${SUPPLEMENTS.piano.prix} €, à ajouter selon le relevé.`,
+      `Objets lourds signalés sans détail : charge lourde ${SUPPLEMENTS.chargeLourde.prix} € l'unité, à ajouter selon le relevé.`,
     );
   }
 

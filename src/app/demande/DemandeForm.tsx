@@ -53,7 +53,7 @@ type FormState = {
   societe: string;
   demenagement: "complet" | "partiel" | "";
   articles_lourds: YN;
-  articles_lourds_detail: string;
+  charges_lourdes: { label: string; poids: string }[];
   piano: YN;
   periode: string;
   // Étapes 2/3
@@ -98,12 +98,12 @@ const GARANTIES: [string, string, string][] = [
   [
     "standard",
     "Garantie dommages standard",
-    "Garantie avec tableau de vétusté pour le mobilier. Franchise de 150 € par sinistre.",
+    "Garantie avec tableau de vétusté pour le mobilier. Franchise de 300 € par sinistre.",
   ],
   [
     "luxe",
     "Garantie dommages Luxe",
-    "Garantie en valeur de remplacement à l'identique et sans vétusté.",
+    "Garantie en valeur de remplacement à l'identique et sans vétusté. Sans franchise.",
   ],
 ];
 const PRESTATIONS: { key: keyof FormState["prestations"]; label: string }[] = [
@@ -128,7 +128,7 @@ const emptyAddress: Address = {
 
 const initial: FormState = {
   type_client: "particulier", prenom: "", nom: "", tel: "", email: "",
-  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", articles_lourds_detail: "", piano: "", periode: "",
+  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", charges_lourdes: [], piano: "", periode: "",
   depart: { ...emptyAddress }, arrivee: { ...emptyAddress },
   prestations: { fragile: "", embNonFragile: "", debNonFragile: "", demontage: "", transport: "" },
   emballage: { ikea: "", ikeaPrecision: "", anciens: "", anciensPrecision: "", specifiques: "", specifiquesPrecision: "" },
@@ -140,7 +140,7 @@ const DEMO: FormState = {
   ...initial,
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
-  articles_lourds: "non", articles_lourds_detail: "", piano: "non", periode: "",
+  articles_lourds: "non", charges_lourdes: [], piano: "non", periode: "",
   depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
@@ -667,13 +667,10 @@ function VousStep({ form, patch }: StepProps) {
         <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
       </Field>
       {form.articles_lourds === "oui" && (
-        <Field label="Lesquels, et quel poids ?" hint="pour prévoir le portage">
-          <TextInput
-            value={form.articles_lourds_detail}
-            onChange={(e) => patch({ articles_lourds_detail: e.target.value })}
-            placeholder="Cave à vin ≈ 120 kg, frigo américain ≈ 110 kg"
-          />
-        </Field>
+        <ChargesLourdes
+          lignes={form.charges_lourdes}
+          onChange={(charges_lourdes) => patch({ charges_lourdes })}
+        />
       )}
       <Field
         label="Avez-vous un piano ?"
@@ -700,10 +697,7 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
       <p className="-mt-3 text-xs text-ink-soft">
         Adresse introuvable dans la liste ? Saisissez-la telle quelle, puis <span className="font-medium text-ink">choisissez au moins la ville ci-dessous</span> — cela suffit pour calculer la distance.
       </p>
-      <Field
-        label="Distance entre le stationnement du camion et la porte d'entrée"
-        hint="en mètres — au-delà de 20 m, un portage s'ajoute"
-      >
+      <Field label="Distance entre le stationnement du camion et la porte d'entrée" hint="en mètres">
         <TextInput
           type="number"
           value={a.portage_m}
@@ -741,7 +735,6 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
           <Field label="Surface habitable" hint="m²"><TextInput type="number" min={0} value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
         </div>
         <div className="mt-3 space-y-3">
-          <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
           {etageNum > 0 ? (
             <>
               <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
@@ -756,6 +749,7 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
           ) : (
             <p className="text-xs text-ink-soft">Renseignez un étage pour préciser l&apos;ascenseur et l&apos;accès par escalier.</p>
           )}
+          <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
         </div>
       </div>
 
@@ -767,67 +761,188 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
             <Field label="Type de difficulté d'accès"><TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" /></Field>
           )}
           <FieldRow label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></FieldRow>
+          {a.stationnement === "oui" && (
+            <p className="rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] leading-snug text-brand-ink">
+              Des frais de stationnement peuvent être appliqués par votre mairie. Le cas échéant,
+              ils vous seront refacturés à l&apos;euro près, sur justificatif.
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
+/**
+ * Les trois formules, en colonnes à choisir.
+ *
+ * Céline : « je trouve qu'il faut changer cette étape et faire des colonnes,
+ * le client sélectionne celle qu'il choisit — comme pour le choix d'une
+ * catégorie d'avion. Je trouve ça plus lisible. » Les cases service par
+ * service restent accessibles en dessous, pour ajuster.
+ */
+const FORMULES_FORM: {
+  key: "eco" | "standard" | "luxe";
+  titre: string;
+  tagline: string;
+  points: string[];
+  prestations: FormState["prestations"];
+}[] = [
+  {
+    key: "eco",
+    titre: "Économique",
+    tagline: "Vous emballez, nous transportons",
+    points: ["Démontage et remontage du mobilier", "Véhicule et personnel spécialisé", "Vous faites vos cartons"],
+    prestations: { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
+  },
+  {
+    key: "standard",
+    titre: "Standard",
+    tagline: "Nous emballons le fragile",
+    points: ["Emballage et déballage du fragile", "Démontage et remontage du mobilier", "Vous faites le non fragile"],
+    prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
+  },
+  {
+    key: "luxe",
+    titre: "Premium",
+    tagline: "Vous n'avez rien à toucher",
+    points: ["Emballage et déballage de tout", "Démontage et remontage du mobilier", "Rangement à l'arrivée"],
+    prestations: { fragile: "bailly", embNonFragile: "bailly", debNonFragile: "bailly", demontage: "bailly", transport: "moi" },
+  },
+];
+
 function PrestationsStep({ form, patch }: StepProps) {
-  const [comparatif, setComparatif] = useState(false);
+  const [detail, setDetail] = useState(false);
+  const transportSeul = form.prestations.transport === "bailly";
+
+  // La formule retenue se lit dans les cases : elle reste juste même si le
+  // client ajuste une ligne à la main ensuite.
+  const choisie = transportSeul
+    ? null
+    : FORMULES_FORM.find((f) =>
+        (Object.keys(f.prestations) as (keyof FormState["prestations"])[]).every(
+          (k) => f.prestations[k] === form.prestations[k],
+        ),
+      )?.key ?? null;
 
   return (
-    <div className="space-y-2.5">
-      {/* Les trois formules sur une page, à la demande du client. */}
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {FORMULES_FORM.map((f) => {
+          const active = choisie === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => patch({ prestations: { ...f.prestations } })}
+              aria-pressed={active}
+              className={`flex flex-col rounded-2xl border p-4 text-left transition ${
+                active
+                  ? "border-brand bg-brand-soft/60 shadow-sm"
+                  : "border-line bg-card hover:border-line-strong"
+              }`}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[15px] font-semibold">{f.titre}</span>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+                    active ? "border-brand bg-brand text-[#1b1a18]" : "border-line-strong text-transparent"
+                  }`}
+                >
+                  ✓
+                </span>
+              </span>
+              <span className="mt-1 block text-[12.5px] text-ink-soft">{f.tagline}</span>
+              <ul className="mt-3 space-y-1.5">
+                {f.points.map((pt) => (
+                  <li key={pt} className="flex gap-2 text-[12.5px] leading-snug text-ink">
+                    <span className="text-brand-ink">·</span>
+                    {pt}
+                  </li>
+                ))}
+              </ul>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() =>
+          patch({
+            prestations: transportSeul
+              ? { ...FORMULES_FORM[1].prestations }
+              : { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "moi", transport: "bailly" },
+          })
+        }
+        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+          transportSeul ? "border-brand bg-brand-soft/60" : "border-line bg-card hover:border-line-strong"
+        }`}
+      >
+        <span>
+          <span className="block text-sm font-medium">Transport de meubles uniquement</span>
+          <span className="block text-[12.5px] text-ink-soft">
+            Ni emballage, ni démontage — vous préparez tout, nous chargeons.
+          </span>
+        </span>
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
+            transportSeul ? "border-brand bg-brand text-[#1b1a18]" : "border-line-strong text-transparent"
+          }`}
+        >
+          ✓
+        </span>
+      </button>
+
       <div className="rounded-xl border border-line bg-card">
         <button
           type="button"
-          onClick={() => setComparatif((v) => !v)}
+          onClick={() => setDetail((v) => !v)}
           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
         >
           <span>
-            <span className="block text-sm font-medium">Nos trois formules</span>
+            <span className="block text-sm font-medium">Le détail, service par service</span>
             <span className="block text-[12.5px] text-ink-soft">
-              Éco, Standard, Premium — ce que chacune comprend
+              Pour ajuster une ligne, ou comparer ce que comprend chaque formule
             </span>
           </span>
-          <span className="text-sm text-accent">{comparatif ? "Masquer" : "Comparer"}</span>
+          <span className="text-sm text-brand-ink">{detail ? "Masquer" : "Ouvrir"}</span>
         </button>
-        {comparatif && (
-          <div className="border-t border-line p-3">
-            <FormulesClient />
+        {detail && (
+          <div className="space-y-2.5 border-t border-line p-3">
+            {PRESTATIONS.map((p) => {
+              // Transporter les meubles seuls exclut tout emballage et tout
+              // démontage : les quatre lignes du dessus n'ont plus de sens.
+              const eteinte = transportSeul && p.key !== "transport";
+              return (
+                <div
+                  key={p.key}
+                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 transition ${eteinte ? "pointer-events-none opacity-40" : ""}`}
+                  aria-disabled={eteinte}
+                >
+                  <div className="text-sm font-medium">
+                    {p.label}
+                    {eteinte && (
+                      <span className="ml-2 text-[11.5px] font-normal text-ink-soft">
+                        sans objet : vous n&apos;avez demandé que le transport
+                      </span>
+                    )}
+                  </div>
+                  <Choice
+                    small
+                    options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]}
+                    value={eteinte ? "moi" : form.prestations[p.key]}
+                    onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })}
+                  />
+                </div>
+              );
+            })}
+            <div className="pt-1">
+              <FormulesClient />
+            </div>
           </div>
         )}
       </div>
-
-      {PRESTATIONS.map((p) => {
-        // Transporter les meubles seuls exclut tout emballage et tout démontage :
-        // les quatre lignes du dessus n'ont plus de sens, on les éteint.
-        const transportSeul = form.prestations.transport === "bailly";
-        const eteinte = transportSeul && p.key !== "transport";
-        return (
-          <div
-            key={p.key}
-            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 transition ${eteinte ? "pointer-events-none opacity-40" : ""}`}
-            aria-disabled={eteinte}
-          >
-            <div className="text-sm font-medium">
-              {p.label}
-              {eteinte && (
-                <span className="ml-2 text-[11.5px] font-normal text-ink-soft">
-                  sans objet : vous n&apos;avez demandé que le transport
-                </span>
-              )}
-            </div>
-            <Choice
-              small
-              options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]}
-              value={eteinte ? "moi" : form.prestations[p.key]}
-              onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })}
-            />
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -948,14 +1063,127 @@ function ListMode({ form, patch }: StepProps) {
   );
 }
 
+/**
+ * Les objets de 80 à 150 kg, un par ligne.
+ *
+ * Céline : « si le client a un frigo à 100 kg et un billard à 300 kg, on doit
+ * pouvoir ajouter plusieurs fois le supplément de charges lourdes ». Un champ
+ * libre ne le permettait pas : chaque ligne vaut désormais un supplément.
+ */
+function ChargesLourdes({
+  lignes,
+  onChange,
+}: {
+  lignes: { label: string; poids: string }[];
+  onChange: (l: { label: string; poids: string }[]) => void;
+}) {
+  const liste = lignes.length ? lignes : [{ label: "", poids: "" }];
+  const set = (i: number, champ: "label" | "poids", v: string) =>
+    onChange(liste.map((l, n) => (n === i ? { ...l, [champ]: v } : l)));
+
+  return (
+    <Field label="Lesquels, et quel poids ?" hint="un objet par ligne">
+      <div className="space-y-2">
+        {liste.map((l, i) => (
+          // Une grille, pas un flex : TextInput impose `w-full`, qui écrasait
+          // toute largeur posée sur l'élément lui-même.
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_130px_40px] items-center gap-2">
+            <TextInput
+              value={l.label}
+              onChange={(e) => set(i, "label", e.target.value)}
+              placeholder="Billard"
+            />
+            <TextInput
+              value={l.poids}
+              onChange={(e) => set(i, "poids", e.target.value)}
+              placeholder="120 kg"
+            />
+            {liste.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => onChange(liste.filter((_, n) => n !== i))}
+                title="Retirer cette ligne"
+                className="h-10 rounded-xl border border-line text-ink-soft transition hover:border-danger hover:text-danger"
+              >
+                ×
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...liste, { label: "", poids: "" }])}
+        className="mt-2 text-sm font-medium text-brand-ink transition hover:text-ink"
+      >
+        + Ajouter un objet
+      </button>
+    </Field>
+  );
+}
+
 /* ---------- Récap + succès ---------- */
+
+/**
+ * L'adresse en une ligne, sans répéter la ville.
+ *
+ * L'autocomplétion renvoie un libellé qui contient déjà le code postal et la
+ * commune : les recoller derrière affichait « 12 rue des Lilas, 69003 Lyon,
+ * 69003 Lyon ».
+ */
+function adresseLisible(a: Address) {
+  const fin = [a.code_postal, a.ville].filter(Boolean).join(" ");
+  const base = a.adresse.trim();
+  if (!base) return fin || "non renseignée";
+  return fin && !aplatirTexte(base).includes(aplatirTexte(fin)) ? `${base}, ${fin}` : base;
+}
+
+function aplatirTexte(t: string) {
+  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Ce qui pèse sur la manutention : étage, ascenseur, portage, accès camion. */
+function accesLisible(a: Address) {
+  const bouts: string[] = [];
+  const etage = parseInt(a.etage, 10);
+  if (!isNaN(etage)) bouts.push(etage === 0 ? "rez-de-chaussée" : `${etage}${etage === 1 ? "er" : "e"} étage`);
+  if (a.duplex === "oui") bouts.push("duplex");
+  if (!isNaN(etage) && etage > 0) bouts.push(a.ascenseur === "oui" ? "avec ascenseur" : "sans ascenseur");
+  const portage = parseInt(a.portage_m, 10);
+  if (!isNaN(portage) && portage > 0) bouts.push(`portage ${portage} m`);
+  if (a.difficulte_acces === "oui") bouts.push(`accès difficile${a.type_difficulte ? ` (${a.type_difficulte})` : ""}`);
+  if (a.stationnement === "oui") bouts.push("autorisation de stationnement");
+  return bouts.length ? bouts.join(" · ") : "rien de particulier";
+}
+
+/** Les objets lourds déclarés, ligne à ligne, et le piano. */
+function lourdsLisible(form: FormState) {
+  const bouts = form.charges_lourdes
+    .filter((l) => l.label.trim())
+    .map((l) => (l.poids.trim() ? `${l.label.trim()} (${l.poids.trim()})` : l.label.trim()));
+  if (form.piano === "oui") bouts.push("piano");
+  return bouts.length ? bouts.join(" · ") : "aucun";
+}
+
+function garantieLisible(form: FormState) {
+  const g = GARANTIES.find(([v]) => v === form.assurance);
+  if (!g) return "à définir";
+  const valeur = form.valeur_mobilier ? ` · mobilier déclaré ${form.valeur_mobilier}` : "";
+  return `${g[1]}${valeur}`;
+}
 
 function RecapCard({ form, volume }: { form: FormState; volume: number | null }) {
   const presta = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
   const rows: [string, string][] = [
     ["Client", `${[form.prenom, form.nom].filter(Boolean).join(" ")} · ${form.email}${form.tel ? " · " + form.tel : ""}`],
-    ["Départ", `${form.depart.adresse}, ${form.depart.code_postal} ${form.depart.ville}`],
-    ["Arrivée", `${form.arrivee.adresse}, ${form.arrivee.code_postal} ${form.arrivee.ville}`],
+    ["Départ", adresseLisible(form.depart)],
+    ["Arrivée", adresseLisible(form.arrivee)],
+    ["Accès au départ", accesLisible(form.depart)],
+    ["Accès à l'arrivée", accesLisible(form.arrivee)],
+    ["Objets lourds", lourdsLisible(form)],
+    ["Garantie", garantieLisible(form)],
     ["Prise en charge Bailly", presta],
     ["Période", form.periode || "à définir"],
     ["Volume", volume != null ? `${volume} m³` : "non renseigné"],
@@ -964,7 +1192,8 @@ function RecapCard({ form, volume }: { form: FormState; volume: number | null })
     <div className="overflow-hidden rounded-xl border border-line bg-card">
       {rows.map(([k, v]) => (
         <div key={k} className="grid grid-cols-[150px_1fr] gap-4 border-b border-line px-4 py-2.5 text-sm last:border-0">
-          <span className="text-ink-soft">{k}</span><span className="truncate text-ink">{v}</span>
+          <span className="text-ink-soft">{k}</span>
+          <span className="text-ink">{v}</span>
         </div>
       ))}
     </div>
@@ -1092,7 +1321,10 @@ function buildPayload(form: FormState) {
     mutation_pro: form.mutation_pro === "oui",
     valeur_mobilier: form.valeur_mobilier || undefined,
     articles_lourds: form.articles_lourds === "oui",
-    articles_lourds_detail: form.articles_lourds_detail || undefined,
+    charges_lourdes:
+      form.articles_lourds === "oui"
+        ? form.charges_lourdes.filter((l) => l.label.trim()).map((l) => ({ label: l.label.trim(), poids: l.poids.trim() || undefined }))
+        : undefined,
     piano: form.piano === "oui",
     commentaire: form.commentaire || undefined,
     prestations: form.prestations as unknown as Record<string, string>,

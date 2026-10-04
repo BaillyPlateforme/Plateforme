@@ -153,15 +153,39 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
           </div>
         )}
 
-        {onNewQuote && (
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {/* La phrase de fin, et ce qu'il faut faire pour aller plus loin. */}
+        <div className="mt-6 overflow-hidden rounded-[18px] bg-card p-6 text-center shadow-sm sm:p-8">
+          <h3 className="font-serif text-[22px] leading-snug">Et maintenant ?</h3>
+          <p className="mx-auto mt-3 max-w-[58ch] text-[14px] leading-relaxed text-ink-soft">
+            Cette estimation est établie sur notre grille tarifaire, à partir de ce que vous avez
+            renseigné. Elle vaut pour un déménagement dans des conditions normales d&apos;accès ;
+            un conseiller la confirme après échange avec vous — par téléphone ou lors d&apos;une
+            visite technique, gratuite et sans engagement.
+          </p>
+          <p className="mx-auto mt-3 max-w-[58ch] text-[14px] leading-relaxed text-ink-soft">
+            Si cette proposition vous intéresse, le plus simple est de nous appeler : nous bloquons
+            votre date, et vous recevez un devis ferme sous 24 heures ouvrées.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="tel:+33169103520"
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+            >
+              01 69 10 35 20
+            </a>
             {onNewQuote && (
-              <button onClick={onNewQuote} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">
+              <button
+                onClick={onNewQuote}
+                className="rounded-xl border border-line-strong bg-card px-5 py-2.5 text-sm font-medium transition hover:border-ink"
+              >
                 Demander un nouveau devis
               </button>
             )}
           </div>
-        )}
+          <p className="mt-5 text-[12px] text-ink-soft">
+            Estimation indicative, valable 30 jours — elle ne vaut pas devis contractuel.
+          </p>
+        </div>
       </div>
     </div>
   );

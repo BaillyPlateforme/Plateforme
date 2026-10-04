@@ -97,6 +97,11 @@ export const createRequestSchema = z.object({
   assurance: z.enum(["standard", "luxe"]).optional(),
   articles_lourds: z.boolean().optional(),
   articles_lourds_detail: z.string().optional(),
+  /* Un objet de 80 à 150 kg par ligne : chacun vaut un supplément de charge
+     lourde, et le client en déclare autant qu'il en a. */
+  charges_lourdes: z
+    .array(z.object({ label: z.string(), poids: z.string().optional() }))
+    .optional(),
   piano: z.boolean().optional(),
   commentaire: z.string().optional(),
   prestations: z.record(z.string(), z.string()).optional(),

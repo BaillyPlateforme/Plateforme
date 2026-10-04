@@ -11,6 +11,16 @@ function shortContext(ctx: string): string {
 }
 
 // Autocomplétion d'adresses via la Base Adresse Nationale (api-adresse.data.gouv.fr — gratuit, sans clé).
+/** Réduit un libellé à sa forme comparable : sans accent, sans ponctuation. */
+function aplatir(texte: string) {
+  return texte
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export function AddressInput({
   value,
   onChange,
@@ -56,7 +66,13 @@ export function AddressInput({
           .filter((p) => {
             // Une commune se distingue par son nom ET son code postal : Paris 11e
             // et Paris 15e restent deux entrées, Massy répété n'en fait qu'une.
-            const cle = kind === "municipality" ? `${p.ville}|${p.code_postal}` : p.label;
+            // Pour une adresse, c'est le libellé qui compte — mais comparé à la
+            // casse, aux accents et à la ponctuation près : l'API renvoie
+            // « 12 Rue des Lilas » et « 12 rue des lilas » comme deux entrées.
+            const cle =
+              kind === "municipality"
+                ? `${aplatir(p.ville)}|${p.code_postal}`
+                : `${aplatir(p.label)}|${p.code_postal}`;
             if (vues.has(cle)) return false;
             vues.add(cle);
             return true;

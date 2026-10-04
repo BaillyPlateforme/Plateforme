@@ -170,15 +170,17 @@ export const SUPPLEMENTS = {
    * assureurs font la différence. Les deux niveaux, dans ses mots :
    */
   garantie: {
-    franchise: 150,
     niveaux: {
       standard: {
         taux: 0.005,
+        franchise: 300,
         label: "Garantie dommages standard",
         texte: "Garantie avec tableau de vétusté pour le mobilier.",
       },
       luxe: {
+        // Pas de franchise sur la Luxe : c'est son argument.
         taux: 0.008,
+        franchise: 0,
         label: "Garantie dommages Luxe",
         texte: "Garantie en valeur de remplacement à l'identique et sans vétusté.",
       },

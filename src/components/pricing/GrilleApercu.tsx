@@ -39,12 +39,12 @@ const SUPPLEMENTS_LISTE: { label: string; base: string; prix: string }[] = [
   },
   {
     label: SUPPLEMENTS.garantie.niveaux.standard.label,
-    base: `${SUPPLEMENTS.garantie.niveaux.standard.texte} Franchise ${SUPPLEMENTS.garantie.franchise} €.`,
+    base: `${SUPPLEMENTS.garantie.niveaux.standard.texte} Franchise ${SUPPLEMENTS.garantie.niveaux.standard.franchise} €.`,
     prix: `${(SUPPLEMENTS.garantie.niveaux.standard.taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée`,
   },
   {
     label: SUPPLEMENTS.garantie.niveaux.luxe.label,
-    base: SUPPLEMENTS.garantie.niveaux.luxe.texte,
+    base: `${SUPPLEMENTS.garantie.niveaux.luxe.texte} Sans franchise.`,
     prix: `${(SUPPLEMENTS.garantie.niveaux.luxe.taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée`,
   },
   { label: "Frais de stationnement", base: "formalités de stationnement", prix: "sur justificatif" },
