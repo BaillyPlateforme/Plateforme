@@ -15,12 +15,18 @@ const INTRO: Record<Tab, string> = {
   Simulation: "Testez le rendu et l'envoi réel d'un email ou d'un SMS.",
 };
 
+export type Coordonnees = { nom?: string | null; email?: string | null; tel?: string | null };
+
 export default function MessagerieTabs({
   templates,
   rules,
+  base,
+  entreprise,
 }: {
   templates: MessageTemplate[];
   rules: AlertRow[];
+  base?: string;
+  entreprise?: Coordonnees;
 }) {
   const [tab, setTab] = useState<Tab>("Templates");
 
@@ -37,7 +43,7 @@ export default function MessagerieTabs({
       </div>
       <p className="mb-6 text-sm text-ink-soft">{INTRO[tab]}</p>
 
-      {tab === "Templates" && <TemplatesManager templates={templates} />}
+      {tab === "Templates" && <TemplatesManager templates={templates} base={base} entreprise={entreprise} />}
       {tab === "Alertes" && (
         <RulesManager kind="alerte" rules={rules} templates={templates}
           showCondition defaultDest="custom" addLabel="Nouvelle alerte"

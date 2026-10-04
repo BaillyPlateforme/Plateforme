@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
 import { renderTemplate, type AlertRow, type MessageContext, type MessageTemplate } from "@/lib/messaging";
+import { rendreEmail, type LigneEstimation } from "@/lib/email-render";
+import { estimationDeLaDemande } from "@/lib/estimation-pdf";
 
 export async function listAlerts(): Promise<AlertRow[]> {
   const supabase = createServiceClient();
@@ -102,13 +104,44 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         if (a.channel === "sms") {
           await sendBrevoSms({ to, content: contenu, sender: settings.sms_sender });
         } else {
-          const sujet = renderTemplate(tpl.sujet || tpl.name, fullCtx);
+          // L'estimation sert deux fois : ses lignes nourrissent le bloc de
+          // détail, et son PDF part en pièce jointe si le modèle le demande.
+          const veutPdf = tpl.options?.piece_jointe === "estimation";
+          const estimation =
+            veutPdf || /\{\{\s*bloc_estimation\s*\}\}/.test(tpl.contenu)
+              ? await estimationDeLaDemande(ctx.request_id as string | undefined)
+              : null;
+
+          const base = (settings.base_url || "").replace(/\/$/, "");
+          const { sujet, html } = rendreEmail(tpl, {
+            vars: {
+              ...fullCtx,
+              entreprise_tel: settings.entreprise_tel,
+              entreprise_email: settings.entreprise_email,
+              lien_estimation:
+                estimation && base ? `${base}/api/devis/${estimation.devisId}/pdf` : "",
+              reference: fullCtx.reference ?? estimation?.reference ?? "",
+              validite: fullCtx.validite ?? estimation?.validite ?? "",
+            },
+            lignes: estimation?.lignes as LigneEstimation[] | undefined,
+            base,
+            entreprise: {
+              nom: settings.entreprise_nom ?? undefined,
+              email: settings.entreprise_email ?? undefined,
+              tel: settings.entreprise_tel ?? undefined,
+            },
+          });
+
           await sendBrevoEmail({
             to,
             subject: sujet,
-            html: contenu.replace(/\n/g, "<br>"),
+            html,
             senderName: settings.entreprise_nom,
             senderEmail: settings.entreprise_email,
+            attachments:
+              veutPdf && estimation?.pdfBase64
+                ? [{ name: `estimation-${estimation.reference}.pdf`, contentBase64: estimation.pdfBase64 }]
+                : undefined,
           });
         }
       } catch (e) {

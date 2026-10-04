@@ -25,6 +25,8 @@ export async function sendBrevoEmail(input: {
   html: string;
   senderName?: string | null;
   senderEmail?: string | null;
+  /** Pièces jointes, déjà encodées en base64 — l'estimation en PDF, surtout. */
+  attachments?: { name: string; contentBase64: string }[];
 }) {
   if (!env.brevoApiKey()) throw new Error("Clé Brevo absente");
   const res = await fetch(`${BREVO}/smtp/email`, {
@@ -38,6 +40,9 @@ export async function sendBrevoEmail(input: {
       to: [{ email: input.to }],
       subject: input.subject,
       htmlContent: input.html,
+      ...(input.attachments?.length
+        ? { attachment: input.attachments.map((a) => ({ name: a.name, content: a.contentBase64 })) }
+        : {}),
     }),
   });
   if (!res.ok) throw new Error(`Brevo email ${res.status} : ${await res.text()}`);
