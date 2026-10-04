@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { checkBrevo, sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
 import { getSettings } from "@/lib/settings";
-import type { Channel, RuleKind } from "@/lib/messaging";
+import { TEL_AGENCE, type Channel, type RuleKind } from "@/lib/messaging";
+import { habillerTexte } from "@/lib/email-render";
 
 export interface AlertInput {
   name: string;
@@ -48,7 +49,14 @@ export async function sendTest(channel: Channel, to: string, message: string, su
       await sendBrevoEmail({
         to,
         subject: subject || "Test — Bailly Déménagement",
-        html: (message || "Ceci est un email de test.").replace(/\n/g, "<br>"),
+        html: habillerTexte(subject || "Test — Bailly Déménagement", message || "Ceci est un e-mail de test.", {
+          base: (settings.base_url || "").replace(/\/$/, ""),
+          entreprise: {
+            nom: settings.entreprise_nom ?? undefined,
+            email: settings.entreprise_email ?? undefined,
+            tel: settings.entreprise_tel || TEL_AGENCE,
+          },
+        }),
         senderName: settings.entreprise_nom,
         senderEmail: settings.entreprise_email,
       });

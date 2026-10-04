@@ -90,12 +90,20 @@ export async function ingestEmail(body: IncomingEmail) {
     manque_arrivee,
   };
 
-  await fireEvent("demande_recue", ctx);
   if (incomplet) {
+    await fireEvent("demande_recue", ctx);
     await fireEvent("demande_incomplete", ctx);
   } else {
+    // L'estimation d'abord : le message qui suit peut alors la porter.
+    let echec: unknown = null;
+    try {
+      if (req) await qualifyRequest(req.id);
+    } catch (e) {
+      echec = e;
+    }
+    await fireEvent("demande_recue", ctx);
     await fireEvent("demande_complete", ctx);
-    if (req) await qualifyRequest(req.id);
+    if (echec) throw echec;
   }
 
   return { id: req?.id, completion_token: token, incomplet };

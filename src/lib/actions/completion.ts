@@ -3,6 +3,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { contexteDemande } from "@/lib/messaging";
 import { qualifyRequest } from "@/lib/qualification";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
 import type { RequestRow } from "@/lib/types";
@@ -70,26 +71,31 @@ export async function completeRequest(token: string, input: CompletionInput) {
 
   await supabase.from("request_events").insert({ request_id: before.id, type: "completed", payload: { rempli } });
 
+  // Désormais complète → qualification (devis + analyse notée), avant le
+  // message : il part alors avec l'estimation.
+  const apres = { ...before, ...update } as typeof before;
+  const nowComplete = apres.volume_m3 != null && apres.depart_ville && apres.arrivee_ville;
+  let echec: unknown = null;
+  if (nowComplete) {
+    try {
+      await qualifyRequest(before.id);
+    } catch (e) {
+      echec = e;
+    }
+  }
+
   // Déclenche les workflows liés à la complétion (mails/SMS configurables).
   const settings = await getSettings();
   await fireEvent("demande_completee", {
     request_id: before.id,
     source: before.source,
-    client_nom: (update.client_nom as string) ?? before.client_nom,
+    client_nom: apres.client_nom,
     client_email: before.client_email,
-    client_tel: (update.client_tel as string) ?? before.client_tel,
-    ville_depart: (update.depart_ville as string) ?? before.depart_ville,
-    ville_arrivee: (update.arrivee_ville as string) ?? before.arrivee_ville,
-    volume: (update.volume_m3 as number) ?? before.volume_m3,
+    client_tel: apres.client_tel,
+    ...contexteDemande(apres),
     entreprise_nom: settings.entreprise_nom,
   });
-
-  // Désormais complète → qualification (devis + analyse notée).
-  const nowComplete =
-    (update.volume_m3 ?? before.volume_m3) != null &&
-    (update.depart_ville ?? before.depart_ville) &&
-    (update.arrivee_ville ?? before.arrivee_ville);
-  if (nowComplete) await qualifyRequest(before.id);
+  if (echec) throw echec;
 
   return { ok: true };
 }

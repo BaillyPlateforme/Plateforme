@@ -128,6 +128,32 @@ export default function ChoixFormule({
 
   const choisir = (i: number) => onChange({ ...CLASSES[i].prestations });
 
+  /** Ce que le choix veut dire, quel qu'il soit — y compris quand il n'y en a pas. */
+  const resume: { icone: NomIcone; titre: string; texte: string } =
+    index >= 0
+      ? {
+          icone: CLASSES[index].icone,
+          titre: `Formule ${NOM[CLASSES[index].key]} retenue`,
+          texte: `${compte(LIGNES, CLASSES[index].key)} gestes sur ${TOTAL} pris en charge par nos équipes. ${CLASSES[index].reste}`,
+        }
+      : choix === "transport"
+        ? {
+            icone: "camion",
+            titre: "Transport seul retenu",
+            texte: "Vous préparez tout : nous chargeons, transportons et déchargeons.",
+          }
+        : choix === "carte"
+          ? {
+              icone: "reglages",
+              titre: "Formule sur mesure",
+              texte: "Vos choix à la carte sont enregistrés, ligne par ligne.",
+            }
+          : {
+              icone: "info",
+              titre: "Aucune formule retenue pour l'instant",
+              texte: "Cliquez sur une colonne du tableau pour choisir la vôtre.",
+            };
+
   /** La place d'une colonne dans le tableau, en retrait de la marge des onglets. */
   const colonne = (i: number): CSSProperties => ({
     left: `calc(var(--lab) + (100% - var(--lab)) / 3 * ${i} + var(--marge))`,
@@ -142,7 +168,11 @@ export default function ChoixFormule({
         className="bloc reveal relative overflow-clip rounded-[28px] border border-line bg-card [--lab:34%] [--marge:3px] sm:[--marge:6px] lg:[--lab:36%] xl:[--lab:40%]"
       >
         {/* ── L'en-tête : la photo, et les trois classes posées dessus ── */}
-        <div className="grain relative overflow-hidden rounded-t-[27px] bg-[#1b1a18]">
+        {/* « clip », pas « hidden » : un cadre en overflow hidden reste défilable
+            par programme. Le bas des onglets y dépasse de 12 px ; au premier
+            focus, le navigateur faisait défiler l'en-tête pour les montrer en
+            entier, et tout sautait de 12 px. Un cadre « clip » ne défile jamais. */}
+        <div className="grain relative overflow-clip rounded-t-[27px] bg-[#1b1a18]">
           <Image
             src="/login-interieur.jpg"
             alt=""
@@ -308,7 +338,7 @@ export default function ChoixFormule({
                         Identique dans les trois formules.
                       </p>
                     ) : (
-                      lignes.map((l, rang) => (
+                      lignes.map((l) => (
                         <div
                           key={l.label}
                           className={`${GRILLE} items-stretch border-t border-line/70 transition-colors duration-150 hover:bg-subtle/70`}
@@ -323,7 +353,7 @@ export default function ChoixFormule({
                               onMouseEnter={() => setSurvol(i)}
                               className="flex cursor-pointer items-center justify-center py-2"
                             >
-                              <Cellule acteur={l[k]} retenue={index === i} rang={rang} />
+                              <Cellule acteur={l[k]} retenue={index === i} />
                             </div>
                           ))}
                         </div>
@@ -368,26 +398,27 @@ export default function ChoixFormule({
         </div>
       </div>
 
-      {/* ── Ce que le choix veut dire, en une phrase ── */}
-      {index >= 0 && (
-        <div
-          key={CLASSES[index].key}
-          className="animate-step-in flex items-center gap-4 rounded-[22px] border border-brand bg-brand-soft px-4 py-4 sm:px-5"
+      {/* ── Ce que le choix veut dire, en une phrase ──
+          Le bandeau est toujours présent, à hauteur constante : s'il
+          n'apparaissait qu'au premier clic, il repoussait tout ce qui suit. */}
+      <div
+        aria-live="polite"
+        className={`flex min-h-[86px] items-center gap-4 rounded-[22px] border px-4 py-4 transition-colors duration-300 sm:px-5 ${
+          choix ? "border-brand bg-brand-soft" : "border-dashed border-line-strong bg-transparent"
+        }`}
+      >
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-colors duration-300 ${
+            choix ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-soft"
+          }`}
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand">
-            <Icone nom={CLASSES[index].icone} taille={20} />
-          </span>
-          <div className="min-w-0">
-            <div className="text-[15px] font-semibold leading-tight">
-              Formule {NOM[CLASSES[index].key]} retenue
-            </div>
-            <div className="mt-1 text-[13px] leading-snug text-ink-mid">
-              {compte(LIGNES, CLASSES[index].key)} gestes sur {TOTAL} pris en charge par nos équipes.{" "}
-              {CLASSES[index].reste}
-            </div>
-          </div>
+          <Icone nom={resume.icone} taille={20} />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[15px] font-semibold leading-tight">{resume.titre}</div>
+          <div className="mt-1 text-[13px] leading-snug text-ink-mid">{resume.texte}</div>
         </div>
-      )}
+      </div>
 
       {/* ── La quatrième voie : le transport, et rien d'autre ── */}
       <button
@@ -518,7 +549,16 @@ function Onglet({
 }) {
   const n = compte(LIGNES, classe.key);
   return (
-    <div className="relative px-[var(--marge)]">
+    // L'onglet monte par une translation, jamais par sa hauteur : agrandir la
+    // carte au survol poussait tout le tableau de quelques pixels, et l'écran
+    // tremblait dès que la souris passait d'une formule à l'autre. La place
+    // est réservée une fois pour toutes ; le bas de la carte, plus long de
+    // 12 px, est coupé par l'en-tête tant qu'elle n'est pas retenue.
+    <div
+      className={`relative px-[var(--marge)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        actif ? "" : "sm:translate-y-3 sm:hover:translate-y-2"
+      }`}
+    >
       {classe.vedette && (
         <span
           className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] shadow-lg shadow-black/30 transition-colors duration-300 sm:text-[9.5px] ${
@@ -533,10 +573,10 @@ function Onglet({
         role="radio"
         aria-checked={actif}
         onClick={onClick}
-        className={`group relative flex w-full flex-col overflow-hidden rounded-[18px] border px-2.5 pb-3 text-left transition-[padding,background-color,border-color,box-shadow,opacity,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:brightness-95 sm:rounded-b-none sm:border-b-0 sm:px-3.5 sm:pb-5 xl:px-4 ${
+        className={`group relative flex w-full flex-col overflow-hidden rounded-[18px] border px-2.5 pb-3 pt-4 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white transition-[background-color,border-color,box-shadow,opacity,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:brightness-95 sm:rounded-b-none sm:border-b-0 sm:px-3.5 sm:pb-8 sm:pt-5 xl:px-4 ${
           actif
-            ? "border-[#ffe680] bg-linear-to-b from-[#ffe45e] via-brand to-[#efc52b] pt-4 text-[#1b1a18] shadow-[0_-20px_54px_-14px_rgba(245,208,51,0.7)] sm:pt-8"
-            : `border-white/18 bg-linear-to-b from-white/18 to-white/6 pt-4 text-white hover:from-white/28 hover:to-white/12 sm:pt-5 sm:hover:pt-6 ${
+            ? "border-[#ffe680] bg-linear-to-b from-[#ffe45e] via-brand to-[#efc52b] text-[#1b1a18] shadow-[0_-20px_54px_-14px_rgba(245,208,51,0.7)]"
+            : `border-white/18 bg-linear-to-b from-white/18 to-white/6 text-white hover:from-white/28 hover:to-white/12 ${
                 attenue ? "opacity-80 hover:opacity-100" : ""
               }`
         }`}
@@ -555,7 +595,7 @@ function Onglet({
           {NOM[classe.key]}
         </span>
         <span
-          className={`mt-1 hidden min-h-[2.6em] text-[12px] leading-snug sm:block ${
+          className={`mt-1 hidden min-h-[2.75em] text-[12px] leading-snug sm:block ${
             actif ? "text-[#1b1a18]/75" : "text-white/70"
           }`}
         >
@@ -600,7 +640,7 @@ function Onglet({
 }
 
 /** Une case du tableau : la coche de Bailly, ou « Vous ». */
-function Cellule({ acteur, retenue, rang }: { acteur: Acteur; retenue: boolean; rang: number }) {
+function Cellule({ acteur, retenue }: { acteur: Acteur; retenue: boolean }) {
   if (acteur !== "Bailly")
     return (
       <span className={`text-[11.5px] font-medium ${retenue ? "text-ink" : "text-ink-soft/70"}`}>Vous</span>
@@ -609,11 +649,11 @@ function Cellule({ acteur, retenue, rang }: { acteur: Acteur; retenue: boolean; 
     <span
       role="img"
       aria-label="Pris en charge par Bailly"
+      // La couleur change, rien ne bouge : trente-cinq coches qui rebondissent
+      // à chaque clic faisaient vibrer toute la colonne.
       className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-300 ${
-        retenue ? "coche-pop coche-retenue" : "bg-brand text-[#1b1a18]"
+        retenue ? "coche-retenue" : "bg-brand text-[#1b1a18]"
       }`}
-      // Les coches de la colonne retenue rebondissent en cascade, de haut en bas.
-      style={retenue ? { animationDelay: `${Math.min(rang, 10) * 24}ms` } : undefined}
     >
       <Icone nom="check" taille={13} trait={3.2} />
     </span>

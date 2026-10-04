@@ -8,6 +8,7 @@ import {
   TEMPLATE_BLOCS,
   TEMPLATE_VARIABLES,
   eventLabel,
+  pieceJointeDuModele,
 } from "@/lib/messaging";
 import { saveTemplate, deleteTemplate } from "@/lib/actions/templates";
 import { rendreEmail } from "@/lib/email-render";
@@ -79,7 +80,9 @@ function TemplateEditor({
     event: template.event,
     sujet: template.sujet ?? "",
     contenu: template.contenu,
-    piece_jointe: (template.options?.piece_jointe ?? "") as "" | "estimation",
+    // Celle qui s'applique vraiment : sans réglage, un message qui montre
+    // l'estimation la joint.
+    piece_jointe: (pieceJointeDuModele(template) ?? "") as "" | "estimation",
     active: template.active,
   } : empty);
   const [pending, start] = useTransition();
@@ -240,11 +243,11 @@ const EXEMPLE = {
   ville_arrivee: "Toulouse",
   volume: 30,
   distance: 540,
-  date: "15/11/2026",
-  formule: "Standard",
+  date: "2026-11-15",
+  formule: "standard",
   reference: "DEV-2026-0042",
-  montant_ht: "1 800,00 €",
-  montant_ttc: "2 160,00 €",
+  montant_ht: 1800,
+  montant_ttc: 2160,
   validite: "15/12/2026",
   entreprise_nom: "Bailly Déménagement",
   entreprise_tel: "01 69 10 35 20",
@@ -270,7 +273,7 @@ function Apercu({
   base,
   entreprise,
 }: {
-  modele: { name: string; sujet: string; contenu: string };
+  modele: { name: string; sujet: string; contenu: string; piece_jointe?: "" | "estimation" };
   base?: string;
   entreprise?: { nom?: string | null; email?: string | null; tel?: string | null };
 }) {
@@ -287,6 +290,7 @@ function Apercu({
       lignes: LIGNES_EXEMPLE,
       base,
       entreprise: coord,
+      pieceJointe: modele.piece_jointe === "estimation",
     },
   );
 

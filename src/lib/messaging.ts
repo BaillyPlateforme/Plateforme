@@ -31,6 +31,24 @@ export const PIECES_JOINTES: { key: "" | "estimation"; label: string; aide: stri
   },
 ];
 
+/** Le standard de l'agence, quand les réglages n'en donnent pas. */
+export const TEL_AGENCE = "01 69 10 35 20";
+
+/**
+ * La pièce jointe d'un modèle.
+ *
+ * Un choix explicite de l'équipe gagne toujours. Sans choix — la colonne
+ * `options` n'existe pas encore, ou le modèle n'a jamais été réglé — un
+ * message qui montre l'estimation la joint : c'est ce qu'attend le client.
+ */
+export function pieceJointeDuModele(tpl: {
+  contenu: string;
+  options?: TemplateOptions | null;
+}): "estimation" | null {
+  if (tpl.options && tpl.options.piece_jointe !== undefined) return tpl.options.piece_jointe ?? null;
+  return /\{\{\s*bloc_estimation\s*\}\}/.test(tpl.contenu) ? "estimation" : null;
+}
+
 export type RuleKind = "workflow" | "alerte";
 
 export interface AlertRow {
@@ -80,6 +98,7 @@ export const TEMPLATE_VARIABLES: { token: string; label: string; groupe: string 
   { token: "{{date}}", label: "Date souhaitée", groupe: "Déménagement" },
   { token: "{{formule}}", label: "Formule retenue", groupe: "Déménagement" },
 
+  { token: "{{titre_demande}}", label: "Titre adapté : accusé de réception, ou estimation dès qu'elle existe", groupe: "Estimation" },
   { token: "{{reference}}", label: "Référence de l'estimation", groupe: "Estimation" },
   { token: "{{montant_ttc}}", label: "Montant TTC", groupe: "Estimation" },
   { token: "{{montant_ht}}", label: "Montant HT", groupe: "Estimation" },
@@ -101,14 +120,40 @@ export const TEMPLATE_VARIABLES: { token: string; label: string; groupe: string 
  * ce que le message contient sans écrire une ligne de HTML.
  */
 export const TEMPLATE_BLOCS: { token: string; label: string; aide: string }[] = [
-  { token: "{{bloc_recapitulatif}}", label: "Récapitulatif du déménagement", aide: "Trajet, volume, date, formule." },
-  { token: "{{bloc_estimation}}", label: "Détail de l'estimation", aide: "Les lignes du chiffrage, HT, TVA et TTC." },
-  { token: "{{bouton_estimation}}", label: "Bouton « Voir mon estimation »", aide: "Renvoie vers l'estimation en ligne." },
+  { token: "{{bloc_recapitulatif}}", label: "Carte du déménagement", aide: "Départ, arrivée, distance, volume, période, formule." },
+  { token: "{{bloc_estimation}}", label: "Carte de l'estimation", aide: "Les lignes du chiffrage, le total HT, et le TTC en grand. Rien ne s'affiche tant que l'estimation n'existe pas." },
+  { token: "{{bouton_estimation}}", label: "Bouton « Voir mon estimation »", aide: "Ouvre l'estimation en PDF." },
   { token: "{{bouton_completer}}", label: "Bouton « Compléter ma demande »", aide: "Renvoie vers le formulaire de complétion." },
-  { token: "{{bloc_contact}}", label: "Encadré « Nous contacter »", aide: "Téléphone et adresse de l'agence." },
+  { token: "{{bloc_suite}}", label: "Étapes « Et maintenant ? »", aide: "Ce qui se passe ensuite, en trois étapes numérotées." },
+  { token: "{{bloc_contact}}", label: "Carte « Une question ? »", aide: "Téléphone et adresse de l'agence." },
 ];
 
 export type MessageContext = Record<string, string | number | boolean | null | undefined>;
+
+/**
+ * Ce qu'une demande apporte aux messages : le trajet, le volume, la période,
+ * la distance et la formule. Réuni ici pour que tous les événements disent la
+ * même chose — l'accusé, l'estimation, le devis.
+ */
+export function contexteDemande(r: {
+  depart_ville?: string | null;
+  arrivee_ville?: string | null;
+  volume_m3?: number | null;
+  date_souhaitee?: string | null;
+  flexibilite?: string | null;
+  distance_km?: number | null;
+  formule?: string | null;
+}): MessageContext {
+  return {
+    ville_depart: r.depart_ville ?? null,
+    ville_arrivee: r.arrivee_ville ?? null,
+    volume: r.volume_m3 ?? null,
+    // Une date du calendrier, ou la période dite par le client dans ses mots.
+    date: r.date_souhaitee ?? r.flexibilite ?? null,
+    distance: r.distance_km ?? null,
+    formule: r.formule ?? null,
+  };
+}
 
 // Remplace {{variable}} par les valeurs du contexte.
 export function renderTemplate(text: string, ctx: MessageContext): string {

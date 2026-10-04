@@ -2,9 +2,17 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
-import { renderTemplate, type AlertRow, type MessageContext, type MessageTemplate } from "@/lib/messaging";
-import { rendreEmail, type LigneEstimation } from "@/lib/email-render";
-import { estimationDeLaDemande } from "@/lib/estimation-pdf";
+import {
+  TEL_AGENCE,
+  pieceJointeDuModele,
+  renderTemplate,
+  type AlertRow,
+  type MessageContext,
+  type MessageTemplate,
+} from "@/lib/messaging";
+import { rendreEmail, variablesCalculees, type LigneEstimation } from "@/lib/email-render";
+import { modeleEffectif } from "@/lib/email-defauts";
+import { estimationDeLaDemande, type EstimationPourEmail } from "@/lib/estimation-pdf";
 
 export async function listAlerts(): Promise<AlertRow[]> {
   const supabase = createServiceClient();
@@ -26,6 +34,16 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
 
     const settings = await getSettings();
     const fullCtx: MessageContext = { entreprise_nom: settings.entreprise_nom, ...ctx };
+    const base = (settings.base_url || "").replace(/\/$/, "");
+
+    // L'estimation de la demande, cherchée une fois pour toutes les règles de
+    // l'événement. Tout e-mail en profite : ses montants, sa référence et son
+    // lien deviennent des variables, ses lignes nourrissent le bloc de détail.
+    let estimation: EstimationPourEmail | null | undefined;
+    const lireEstimation = async () =>
+      estimation !== undefined
+        ? estimation
+        : (estimation = await estimationDeLaDemande(ctx.request_id as string | undefined));
 
     for (const a of alerts as (AlertRow & { template: MessageTemplate | null })[]) {
       if (a.montant_min != null && Number(ctx.montant_ttc ?? 0) < Number(a.montant_min)) continue;
@@ -33,7 +51,8 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       if (a.condition_champ && !ctx[`manque_${a.condition_champ}`]) continue;
       // Condition "source" : ne déclenche que pour formulaire ou mail.
       if (a.condition_source && ctx.source !== a.condition_source) continue;
-      const tpl = a.template;
+      // Un modèle resté à son texte d'origine part dans sa version complète.
+      const tpl = a.template ? modeleEffectif(a.template) : null;
       const to = !tpl
         ? null
         : a.destinataire === "custom"
@@ -66,8 +85,23 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       // recevait donc deux fois le même message. Plutôt que de dépendre du
       // réglage des règles, on refuse d'envoyer deux fois le même modèle au
       // même destinataire à moins de deux minutes d'intervalle.
+      // Les variables de l'e-mail : celles de l'événement, complétées par
+      // l'estimation quand elle existe. L'objet en dépend — il doit donc être
+      // calculé avec elles, ici comme à l'envoi.
+      const est = a.channel === "email" ? await lireEstimation() : null;
+      const varsEmail: MessageContext = variablesCalculees({
+        ...fullCtx,
+        entreprise_tel: settings.entreprise_tel || TEL_AGENCE,
+        entreprise_email: settings.entreprise_email,
+        reference: fullCtx.reference ?? est?.reference ?? "",
+        validite: fullCtx.validite ?? est?.validite ?? "",
+        montant_ttc: fullCtx.montant_ttc ?? est?.montant_ttc,
+        montant_ht: fullCtx.montant_ht ?? est?.montant_ht,
+        lien_estimation: est && base ? `${base}/api/devis/${est.devisId}/pdf` : "",
+      });
+
       const sujetPrevu =
-        a.channel === "sms" ? `[SMS] ${tpl.name}` : renderTemplate(tpl.sujet || tpl.name, fullCtx);
+        a.channel === "sms" ? `[SMS] ${tpl.name}` : renderTemplate(tpl.sujet || tpl.name, varsEmail);
       const { data: dejaEnvoye } = await supabase
         .from("emails")
         .select("id")
@@ -96,7 +130,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         continue;
       }
 
-      const contenu = renderTemplate(tpl.contenu, fullCtx);
+      const contenu = renderTemplate(tpl.contenu, a.channel === "email" ? varsEmail : fullCtx);
       let status: "envoye" | "echec" = "envoye";
       let erreur: string | null = null;
 
@@ -104,32 +138,21 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         if (a.channel === "sms") {
           await sendBrevoSms({ to, content: contenu, sender: settings.sms_sender });
         } else {
-          // L'estimation sert deux fois : ses lignes nourrissent le bloc de
-          // détail, et son PDF part en pièce jointe si le modèle le demande.
-          const veutPdf = tpl.options?.piece_jointe === "estimation";
-          const estimation =
-            veutPdf || /\{\{\s*bloc_estimation\s*\}\}/.test(tpl.contenu)
-              ? await estimationDeLaDemande(ctx.request_id as string | undefined)
-              : null;
+          // Le PDF n'est rendu que si le modèle le joint — par choix de
+          // l'équipe, ou par défaut dès que le message montre l'estimation.
+          const pdf =
+            est && pieceJointeDuModele(tpl) === "estimation" ? await est.pdf() : undefined;
 
-          const base = (settings.base_url || "").replace(/\/$/, "");
           const { sujet, html } = rendreEmail(tpl, {
-            vars: {
-              ...fullCtx,
-              entreprise_tel: settings.entreprise_tel,
-              entreprise_email: settings.entreprise_email,
-              lien_estimation:
-                estimation && base ? `${base}/api/devis/${estimation.devisId}/pdf` : "",
-              reference: fullCtx.reference ?? estimation?.reference ?? "",
-              validite: fullCtx.validite ?? estimation?.validite ?? "",
-            },
-            lignes: estimation?.lignes as LigneEstimation[] | undefined,
+            vars: varsEmail,
+            lignes: est?.lignes as LigneEstimation[] | undefined,
             base,
             entreprise: {
               nom: settings.entreprise_nom ?? undefined,
               email: settings.entreprise_email ?? undefined,
-              tel: settings.entreprise_tel ?? undefined,
+              tel: settings.entreprise_tel || TEL_AGENCE,
             },
+            pieceJointe: !!pdf,
           });
 
           await sendBrevoEmail({
@@ -139,9 +162,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
             senderName: settings.entreprise_nom,
             senderEmail: settings.entreprise_email,
             attachments:
-              veutPdf && estimation?.pdfBase64
-                ? [{ name: `estimation-${estimation.reference}.pdf`, contentBase64: estimation.pdfBase64 }]
-                : undefined,
+              pdf && est ? [{ name: `estimation-${est.reference}.pdf`, contentBase64: pdf }] : undefined,
           });
         }
       } catch (e) {

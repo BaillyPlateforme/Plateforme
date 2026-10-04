@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { contexteDemande } from "@/lib/messaging";
 import { qualifyRequest } from "@/lib/qualification";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
@@ -151,23 +152,30 @@ export async function createRequest(
     client_nom: created.client_nom,
     client_email: created.client_email,
     client_tel: created.client_tel,
-    ville_depart: created.depart_ville,
-    ville_arrivee: created.arrivee_ville,
-    volume: created.volume_m3,
-    date: created.date_souhaitee,
+    ...contexteDemande(created),
     lien_completion: lien,
     manque_volume,
     manque_depart,
     manque_arrivee,
   };
 
-  await fireEvent("demande_recue", ctx);
   if (incomplet) {
+    await fireEvent("demande_recue", ctx);
     await fireEvent("demande_incomplete", ctx);
   } else {
+    // Demande complète → qualification (devis + analyse notée), AVANT les
+    // messages. L'accusé de réception partait jusqu'ici sans l'estimation,
+    // qui n'existait pas encore : le client recevait trois phrases, et jamais
+    // son prix. Une qualification qui échoue n'empêche pas le message de partir.
+    let echec: unknown = null;
+    try {
+      await qualifyRequest(created.id);
+    } catch (e) {
+      echec = e;
+    }
+    await fireEvent("demande_recue", ctx);
     await fireEvent("demande_complete", ctx);
-    // Demande complète → qualification (devis + analyse notée).
-    await qualifyRequest(created.id);
+    if (echec) throw echec;
   }
 
   return created;

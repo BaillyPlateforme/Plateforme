@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { estimerDemande } from "@/lib/pricing/engine";
 import { fireEvent } from "@/lib/alerts";
+import { contexteDemande } from "@/lib/messaging";
 import type { DevisStatus, RequestRow } from "@/lib/types";
 
 function devisCtx(d: {
@@ -12,16 +13,17 @@ function devisCtx(d: {
   montant_ttc: number; montant_ht: number;
 }, req?: RequestRow | null) {
   return {
+    // L'identifiant de la demande : c'est par lui que le message retrouve le
+    // devis à joindre, et que l'envoi s'inscrit dans l'historique de la fiche.
+    request_id: req?.id ?? null,
+    source: req?.source ?? null,
     reference: d.reference,
     client_nom: d.client_nom,
     client_email: d.client_email,
     client_tel: req?.client_tel ?? null,
     montant_ttc: d.montant_ttc,
     montant_ht: d.montant_ht,
-    ville_depart: req?.depart_ville ?? null,
-    ville_arrivee: req?.arrivee_ville ?? null,
-    volume: req?.volume_m3 ?? null,
-    date: req?.date_souhaitee ?? null,
+    ...contexteDemande(req ?? {}),
   };
 }
 

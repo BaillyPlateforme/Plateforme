@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { estimerDemande } from "@/lib/pricing/engine";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { contexteDemande } from "@/lib/messaging";
 import type { RequestRow } from "@/lib/types";
 
 // ─────────────────────────────────────────────────────────────
@@ -242,7 +243,7 @@ export async function qualifyRequest(requestId: string): Promise<QualifResult | 
       request_id: req.id, source: req.source, reference,
       client_nom: req.client_nom, client_email: req.client_email, client_tel: req.client_tel,
       montant_ttc: quote.ttc, montant_ht: quote.ht,
-      ville_depart: req.depart_ville, ville_arrivee: req.arrivee_ville, volume: req.volume_m3,
+      ...contexteDemande(req),
     });
   }
 

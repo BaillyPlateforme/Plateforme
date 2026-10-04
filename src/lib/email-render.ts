@@ -1,11 +1,15 @@
 import {
   bouton,
+  carteContact,
+  cartePrix,
+  carteTrajet,
   echapper,
-  encadre,
+  etapes,
+  mention,
   mettreEnPage,
   paragraphe,
+  salutation,
   sousTitre,
-  tableau,
 } from "@/lib/email-layout";
 import { renderTemplate, type MessageContext } from "@/lib/messaging";
 
@@ -17,13 +21,54 @@ export interface ContexteRendu {
   vars: MessageContext;
   /** Le détail du chiffrage, pour le bloc d'estimation. */
   lignes?: LigneEstimation[];
-  /** L'adresse du site, pour les liens et le logo. */
+  /** L'adresse du site, pour les liens, le logo et la photo. */
   base?: string;
   entreprise?: { nom?: string; email?: string; tel?: string };
+  /** L'estimation part en pièce jointe : le message le dit. */
+  pieceJointe?: boolean;
 }
 
 const eur = (n: number) =>
-  `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  `${n
+    .toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    // Certaines boîtes n'ont pas l'espace fine insécable de fr-FR dans leur police.
+    .replace(/[  ]/g, " ")} €`;
+
+/** Un montant, qu'il arrive en nombre (3468) ou déjà écrit (« 3 468,00 € »). */
+function montant(v: unknown): string {
+  if (v == null || v === "") return "";
+  if (typeof v === "number") return eur(v);
+  const s = String(v).trim();
+  return /^-?\d+([.,]\d+)?$/.test(s) ? eur(parseFloat(s.replace(",", "."))) : s;
+}
+
+/** « 2026-11-15 » devient « 15 novembre 2026 » ; tout autre texte reste tel quel. */
+function quand(v: unknown): string {
+  if (v == null || v === "") return "";
+  const s = String(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return s;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+const FORMULES: Record<string, string> = { eco: "Économique", standard: "Standard", luxe: "Premium" };
+
+/**
+ * Les variables que le rendu calcule lui-même.
+ *
+ * `titre_demande` change selon que l'estimation existe ou non : un même modèle
+ * sert d'accusé de réception tant qu'elle n'est pas chiffrée, et d'envoi
+ * d'estimation dès qu'elle l'est.
+ */
+export function variablesCalculees(vars: MessageContext): MessageContext {
+  return {
+    titre_demande: vars.montant_ttc
+      ? "Votre estimation de déménagement"
+      : "Nous avons bien reçu votre demande",
+    ...vars,
+  };
+}
 
 /**
  * Transforme le texte d'un modèle en e-mail HTML complet.
@@ -34,21 +79,32 @@ const eur = (n: number) =>
  */
 export function rendreEmail(
   modele: { sujet?: string | null; contenu: string; name: string },
-  ctx: ContexteRendu,
+  contexte: ContexteRendu,
 ): { sujet: string; html: string } {
-  const sujet = renderTemplate(modele.sujet || modele.name, ctx.vars);
+  const ctx = { ...contexte, vars: variablesCalculees(contexte.vars) };
+  const v = ctx.vars;
+  const sujet = renderTemplate(modele.sujet || modele.name, v);
   // Le découpage se fait sur le texte BRUT : les jetons de bloc doivent être
   // reconnus avant que la substitution des variables ne les efface.
   const corps = assembler(modele.contenu, ctx);
 
+  // L'en-tête reprend l'objet, sans le nom de l'entreprise que le logo dit déjà.
+  const nom = String(v.entreprise_nom ?? ctx.entreprise?.nom ?? "");
+  const titre = nom && sujet.endsWith(nom) ? sujet.slice(0, -nom.length).replace(/\s*[—–-]\s*$/, "") : sujet;
+
+  const trajet = [v.ville_depart, v.ville_arrivee].filter(Boolean).join(" → ");
+  const puces = [trajet, v.volume ? `${v.volume} m³` : "", quand(v.date)].filter(Boolean) as string[];
+
   return {
     sujet,
     html: mettreEnPage({
-      titre: sujet,
+      titre: titre || sujet,
       corps,
       apercu: premiereLigne(modele.contenu, ctx),
       base: ctx.base,
       entreprise: ctx.entreprise,
+      surtitre: v.reference ? `Estimation ${v.reference}` : "Votre déménagement",
+      puces,
     }),
   };
 }
@@ -63,7 +119,8 @@ function assembler(texte: string, ctx: ContexteRendu): string {
       // Les variables sont remplacées ici, puis échappées : un nom de client
       // n'est pas du HTML, et ne doit pas pouvoir en devenir.
       const lignes = paragrapheEnCours.map((l) => echapper(renderTemplate(l, ctx.vars)));
-      morceaux.push(paragraphe(lignes.join("<br>")));
+      const premier = morceaux.length === 0 && lignes.length === 1 && /^bonjour\b/i.test(lignes[0]);
+      morceaux.push(premier ? salutation(lignes[0]) : paragraphe(lignes.join("<br>")));
       paragrapheEnCours = [];
     }
   };
@@ -99,30 +156,35 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
 
   switch (ligne) {
     case "{{bloc_recapitulatif}}": {
-      const lignes: [string, string][] = [];
-      const trajet = [v.ville_depart, v.ville_arrivee].filter(Boolean).join(" → ");
-      if (trajet) lignes.push(["Trajet", trajet]);
-      if (v.distance) lignes.push(["Distance", `${v.distance} km`]);
-      if (v.volume) lignes.push(["Volume à déménager", `${v.volume} m³`]);
-      if (v.date) lignes.push(["Date souhaitée", String(v.date)]);
-      if (v.formule) lignes.push(["Formule", String(v.formule)]);
-      return lignes.length ? sousTitre("Votre déménagement") + tableau(lignes) : "";
+      const reperes: [string, string][] = [];
+      if (v.distance) reperes.push(["Distance", `${v.distance} km`]);
+      if (v.volume) reperes.push(["Volume", `${v.volume} m³`]);
+      if (v.date) reperes.push(["Période", quand(v.date)]);
+      if (v.formule) reperes.push(["Formule", FORMULES[String(v.formule)] ?? String(v.formule)]);
+      return carteTrajet({
+        depart: v.ville_depart ? String(v.ville_depart) : undefined,
+        arrivee: v.ville_arrivee ? String(v.ville_arrivee) : undefined,
+        reperes,
+      });
     }
 
     case "{{bloc_estimation}}": {
-      const lignes = (ctx.lignes ?? []).map(
-        (l) => [l.label, eur(l.amount)] as [string, string],
-      );
-      if (v.montant_ht) lignes.push(["Total HT", String(v.montant_ht)]);
-      if (!lignes.length && !v.montant_ttc) return "";
+      const lignes = (ctx.lignes ?? []).map((l) => [l.label, eur(l.amount)] as [string, string]);
+      const ttc = montant(v.montant_ttc);
+      if (!lignes.length && !ttc) return "";
       return (
         sousTitre("Votre estimation") +
-        tableau(lignes, v.montant_ttc ? { total: ["Total TTC", String(v.montant_ttc)] } : undefined) +
-        (v.validite
-          ? paragraphe(
-              `<span style="color:#615f68;font-size:13px;">Estimation valable jusqu'au ${echapper(String(v.validite))}. Elle ne constitue pas un devis contractuel.</span>`,
-            )
-          : "")
+        paragraphe(
+          "Établie sur notre grille tarifaire, à partir des informations que vous nous avez transmises" +
+            (ctx.pieceJointe ? ". Vous la retrouvez en pièce jointe, au format PDF." : "."),
+        ) +
+        cartePrix({
+          lignes,
+          ht: montant(v.montant_ht) || undefined,
+          ttc: ttc || undefined,
+          validite: v.validite ? String(v.validite) : undefined,
+        }) +
+        mention("Estimation indicative : elle ne constitue pas un devis contractuel.")
       );
     }
 
@@ -132,20 +194,31 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
     case "{{bouton_completer}}":
       return lien("lien_completion") ? bouton("Compléter ma demande", lien("lien_completion")) : "";
 
-    case "{{bloc_contact}}": {
-      const tel = String(v.entreprise_tel ?? "");
-      const mail = String(v.entreprise_email ?? "");
-      if (!tel && !mail) return "";
-      return encadre(
-        `<strong>Une question ?</strong><br>` +
-          [
-            tel ? `Appelez-nous au <a href="tel:${tel.replace(/\s/g, "")}" style="color:#1b1a18;">${echapper(tel)}</a>` : "",
-            mail ? `ou écrivez à <a href="mailto:${mail}" style="color:#1b1a18;">${echapper(mail)}</a>` : "",
-          ]
-            .filter(Boolean)
-            .join(" "),
+    case "{{bloc_suite}}":
+      // La première étape dit où en est le dossier : l'estimation est faite,
+      // ou elle est en cours. Les deux suivantes ne changent pas.
+      return (
+        sousTitre("Et maintenant ?") +
+        etapes([
+          v.montant_ttc
+            ? [
+                "Un conseiller vous appelle",
+                "Il confirme l'estimation avec vous, par téléphone ou lors d'une visite technique, gratuite et sans engagement.",
+              ]
+            : [
+                "Nous étudions votre demande",
+                "Un conseiller reprend vos informations et établit votre estimation.",
+              ],
+          ["Vous recevez un devis ferme", "Sous 24 heures ouvrées après votre accord."],
+          ["Nous bloquons votre date", "Équipes et camions sont réservés dès que le devis est signé."],
+        ])
       );
-    }
+
+    case "{{bloc_contact}}":
+      return carteContact({
+        tel: v.entreprise_tel ? String(v.entreprise_tel) : undefined,
+        mail: v.entreprise_email ? String(v.entreprise_email) : undefined,
+      });
 
     default:
       return null;
@@ -154,9 +227,27 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
 
 /** La ligne d'aperçu que les boîtes affichent à côté de l'objet. */
 function premiereLigne(texte: string, ctx: ContexteRendu): string {
-  const ligne = texte
+  const lignes = texte
     .split("\n")
     .map((l) => l.trim())
-    .find((l) => l && !l.startsWith("{{"));
+    .filter((l) => l && !l.startsWith("{{"));
+  // « Bonjour Camille, » ne dit rien : l'aperçu prend la phrase d'après.
+  const ligne = lignes.find((l) => !/^bonjour\b/i.test(l)) ?? lignes[0];
   return ligne ? renderTemplate(ligne, ctx.vars).slice(0, 140) : "";
+}
+
+/**
+ * Habille un texte libre — un message écrit à la main par l'équipe, un envoi
+ * de test. Sans variables ni blocs à interpréter : le texte part tel quel,
+ * mais dans la même mise en page que les messages automatiques.
+ */
+export function habillerTexte(
+  sujet: string,
+  texte: string,
+  reglages: { base?: string; entreprise?: { nom?: string; email?: string; tel?: string } },
+): string {
+  return rendreEmail(
+    { name: sujet, sujet, contenu: texte },
+    { vars: { entreprise_nom: reglages.entreprise?.nom }, base: reglages.base, entreprise: reglages.entreprise },
+  ).html;
 }

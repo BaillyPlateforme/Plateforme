@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { sendBrevoEmail } from "@/lib/brevo";
+import { habillerTexte } from "@/lib/email-render";
+import { TEL_AGENCE } from "@/lib/messaging";
 
 export interface EmailInput {
   destinataire: string;
@@ -24,7 +26,14 @@ export async function sendEmail(input: EmailInput) {
     await sendBrevoEmail({
       to: input.destinataire,
       subject: input.sujet,
-      html: input.corps.replace(/\n/g, "<br>"),
+      html: habillerTexte(input.sujet, input.corps, {
+        base: (settings.base_url || "").replace(/\/$/, ""),
+        entreprise: {
+          nom: settings.entreprise_nom ?? undefined,
+          email: settings.entreprise_email ?? undefined,
+          tel: settings.entreprise_tel || TEL_AGENCE,
+        },
+      }),
       senderName: settings.entreprise_nom,
       senderEmail: settings.entreprise_email,
     });
