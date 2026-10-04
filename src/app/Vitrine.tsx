@@ -1,18 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import Reveal from "./Reveal";
 import SiteHeader from "./SiteHeader";
-import { FORMULES, PRESTATIONS, TRANCHES_DISTANCE, TVA_DEFAUT } from "@/lib/pricing/grille";
-
+import { Icone, type NomIcone } from "./demande/ui";
+import { FORMULES, PRESTATIONS, TRANCHES_DISTANCE, TVA_DEFAUT, type Formule } from "@/lib/pricing/grille";
 
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
 /* Le nombre de gestes pris en charge par Bailly, formule par formule : il est
    lu dans la grille plutôt que recopié, pour ne jamais mentir sur la page. */
 const LIGNES = PRESTATIONS.flatMap((c) => c.lignes);
-const COMPTE = {
+const TOTAL = LIGNES.length;
+const COMPTE: Record<Formule, number> = {
   eco: LIGNES.filter((l) => l.eco === "Bailly").length,
   standard: LIGNES.filter((l) => l.standard === "Bailly").length,
   luxe: LIGNES.filter((l) => l.luxe === "Bailly").length,
@@ -21,8 +22,10 @@ const COMPTE = {
 // embarqué par le serveur, qui ne la met pas toujours.
 const PORTEE_KM = String(TRANCHES_DISTANCE[TRANCHES_DISTANCE.length - 1].max).replace(
   /\B(?=(\d{3})+(?!\d))/g,
-  "\u2009",
+  " ",
 );
+
+const AGENCE = { lien: "tel:+33169103520", numero: "01 69 10 35 20" };
 
 /** Ce que choisit le visiteur : l'un des deux parcours de devis. */
 export type Parcours = "express" | "complet";
@@ -51,11 +54,26 @@ export default function Vitrine({
   );
 }
 
+/** La flèche d'un bouton, dans son rond. */
+function Fleche({ sombre = false }: { sombre?: boolean }) {
+  return (
+    <span
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform duration-300 group-hover:translate-x-0.5 ${
+        sombre ? "bg-[#1b1a18] text-brand" : "bg-brand text-[#1b1a18]"
+      }`}
+    >
+      <Icone nom="droite" taille={16} trait={2.4} />
+    </span>
+  );
+}
+
 /* ─────────────────────────── Héros ─────────────────────────── */
 
+/* Les noirs du héros sont écrits en dur : il reste sombre quel que soit le
+   thème, là où `bg-ink` s'éclaircirait de nuit. */
 function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section className="grain relative flex min-h-[100svh] flex-col overflow-hidden bg-ink">
+    <section className="grain relative flex min-h-[100svh] flex-col overflow-hidden bg-[#1b1a18]">
       <Image
         src="/login-interieur.jpg"
         alt=""
@@ -65,71 +83,86 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
         className="ken-burns object-cover object-center"
       />
 
-      {/* Voiles : la photo descend derrière le texte sans l'assombrir d'un bloc. */}
-      <div className="absolute inset-0 bg-ink/62" />
-      <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/35 to-ink/92" />
-      <div className="absolute inset-0 bg-linear-to-tr from-accent/30 via-transparent to-[#f5d033]/18" />
-      <div className="halo drift absolute -left-40 top-24 h-[520px] w-[520px]" style={{ "--halo": "rgba(245,208,51,0.16)" } as CSSProperties} />
-      <div
-        className="halo drift absolute -right-32 bottom-[-120px] h-[460px] w-[460px]"
-        style={{ animationDuration: "26s", animationDelay: "-9s", "--halo": "rgba(255,255,255,0.1)" } as CSSProperties}
-      />
+      {/* Voiles : la photo reste présente, le texte se lit sans effort. Le
+          voile de gauche assoit le titre ; celui du bas, les chiffres. */}
+      <div className="absolute inset-0 bg-[#1b1a18]/66" />
+      <div className="absolute inset-0 bg-linear-to-r from-[#1b1a18]/85 via-[#1b1a18]/35 to-transparent" />
+      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/70 via-transparent to-[#1b1a18]/95" />
+      <div className="halo drift absolute -left-40 top-24 h-[520px] w-[520px]" style={{ "--halo": "rgba(245,208,51,0.18)" } as CSSProperties} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-1 flex-col justify-center px-6 pb-16 pt-[100px] lg:px-10 lg:pb-20">
-        <div className="reveal max-w-fit" style={delay(60)}>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/15 px-3.5 py-1.5 text-[12px] text-white/85">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
-            Déménagements particuliers et entreprises
-          </span>
+      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] flex-1 items-center gap-12 px-6 pb-12 pt-[112px] lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14 lg:px-10 lg:pb-14">
+        <div>
+          <div className="reveal max-w-fit" style={delay(60)}>
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-3.5 py-1.5 text-[12.5px] font-medium text-white">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
+              Déménagements particuliers et entreprises
+            </span>
+          </div>
+
+          <h1
+            className="font-serif reveal mt-6 text-balance text-[44px] text-white sm:text-[56px] xl:text-[66px]"
+            style={delay(160)}
+          >
+            Votre déménagement, <span className="gradient-flow-light">chiffré tout de suite</span>
+          </h1>
+
+          <p
+            className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-white/85 sm:text-[18px]"
+            style={delay(260)}
+          >
+            Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
+            tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
+            au centime près.
+          </p>
+
+          <ul className="reveal mt-8 flex flex-wrap gap-x-7 gap-y-3" style={delay(360)}>
+            {["Sans engagement", "Estimation immédiate", "Réponse sous 24 h ouvrées"].map((t) => (
+              <li key={t} className="flex items-center gap-2.5 text-[14.5px] font-medium text-white">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[#1b1a18]">
+                  <Icone nom="check" taille={11} trait={3.4} />
+                </span>
+                {t}
+              </li>
+            ))}
+          </ul>
         </div>
-
-        <h1
-          className="font-serif reveal mt-6 max-w-[16ch] text-balance text-[44px] leading-[1.02] text-white sm:text-[56px] lg:text-[64px]"
-          style={delay(160)}
-        >
-          Votre déménagement, <span className="gradient-flow-light">chiffré tout de suite</span>
-        </h1>
-
-        <p
-          className="reveal mt-5 max-w-[54ch] text-[16px] leading-relaxed text-white/75 sm:text-[17.5px]"
-          style={delay(260)}
-        >
-          Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
-          tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
-          au centime près.
-        </p>
 
         {/* Les deux parcours de devis : le rapide et le détaillé. */}
-        <div className="mt-9 grid gap-4 md:mt-11 md:grid-cols-2 md:gap-5">
-          <Porte
-            onClick={() => onChoisir("express")}
-            d={380}
-            dur="8s"
-            accent
-            eyebrow="≈ 2 minutes"
-            title="Devis express"
-            desc="Une estimation rapide, sans détour. De quoi savoir tout de suite à quoi vous en tenir."
-            points={["Vos coordonnées", "Trajet départ → arrivée", "Volume : saisie ou photos"]}
-            icon={<IconEclair />}
-            cta="Commencer le devis express"
-          />
-          <Porte
-            onClick={() => onChoisir("complet")}
-            d={480}
-            dur="9.5s"
-            eyebrow="Sur mesure"
-            title="Devis complet"
-            desc="Le dossier détaillé, pour un devis au plus juste : vos accès, vos prestations, vos garanties."
-            points={["Conditions d'accès complètes", "Prestations et emballage", "Garantie et inventaire"]}
-            icon={<IconDoc />}
-            cta="Commencer le devis complet"
-          />
+        <div>
+          <p className="eyebrow reveal mb-4 text-white/70" style={delay(300)}>
+            Choisissez votre devis
+          </p>
+          <div className="space-y-4">
+            <Porte
+              onClick={() => onChoisir("express")}
+              d={380}
+              accent
+              icone="eclair"
+              duree="≈ 2 minutes"
+              titre="Devis express"
+              desc="Une estimation rapide, sans détour. De quoi savoir tout de suite à quoi vous en tenir."
+              points={["Vos coordonnées", "Votre trajet", "Volume : saisie ou photos"]}
+              cta="Commencer le devis express"
+            />
+            <Porte
+              onClick={() => onChoisir("complet")}
+              d={480}
+              icone="liste"
+              duree="Sur mesure"
+              titre="Devis complet"
+              desc="Le dossier détaillé, pour un devis au plus juste : vos accès, vos prestations, vos garanties."
+              points={["Conditions d'accès", "Prestations et formule", "Garantie et inventaire"]}
+              cta="Commencer le devis complet"
+            />
+          </div>
         </div>
+      </div>
 
-        {/* Bandeau de chiffres, posé sous les deux portes. */}
+      {/* Bandeau de chiffres, au pied du héros. */}
+      <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pb-12 lg:px-10">
         <div
-          className="reveal mt-9 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-white/12 pt-6 sm:grid-cols-4"
-          style={delay(660)}
+          className="reveal grid grid-cols-2 gap-x-8 gap-y-6 border-t border-white/18 pt-7 sm:grid-cols-4"
+          style={delay(620)}
         >
           <Chiffre valeur="3 min" legende="pour une estimation complète" />
           <Chiffre valeur="3" legende="formules, de l'économique au premium" />
@@ -137,90 +170,80 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
           <Chiffre valeur="1 grille" legende="même tarif en ligne et au bureau" />
         </div>
       </div>
-
-      <a
-        href="#parcours"
-        aria-label="Voir la suite"
-        className="scroll-cue relative z-10 mx-auto mb-7 hidden text-white/70 transition hover:text-white lg:block"
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-          <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
     </section>
   );
 }
 
+/**
+ * Une porte d'entrée vers un devis.
+ *
+ * Une carte pleine, pas un verre dépoli : posé sur la photo, un fond
+ * translucide laissait passer les fenêtres derrière le texte, et un reflet
+ * balayait les lignes. Ici le texte est noir sur un aplat — jaune pour le
+ * parcours rapide, blanc pour le détaillé — et l'action est un vrai bouton.
+ */
 function Porte({
   onClick,
-  eyebrow,
-  title,
+  accent,
+  icone,
+  duree,
+  titre,
   desc,
   points,
-  icon,
   cta,
-  accent,
   d,
-  dur,
 }: {
   onClick: () => void;
-  eyebrow: string;
-  title: string;
+  accent?: boolean;
+  icone: NomIcone;
+  duree: string;
+  titre: string;
   desc: string;
   points: string[];
-  icon: ReactNode;
   cta: string;
-  accent?: boolean;
   d: number;
-  dur: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`edge-glow shine levitate group relative overflow-hidden rounded-[26px] border p-6 text-left transition-colors sm:p-7 ${
-        accent
-          ? "border-brand/45 bg-linear-to-br from-brand/35 via-[#1b1a18]/70 to-[#1b1a18]/80 shadow-2xl shadow-black/40 hover:from-brand/45"
-          : "border-white/20 bg-linear-to-br from-white/18 via-[#1b1a18]/70 to-[#1b1a18]/80 shadow-2xl shadow-black/40 hover:from-white/26"
+      className={`reveal group relative block w-full rounded-[26px] p-6 text-left text-[#1b1a18] shadow-[0_36px_70px_-36px_rgba(0,0,0,0.9)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_46px_80px_-36px_rgba(0,0,0,0.95)] active:translate-y-0 sm:p-7 ${
+        accent ? "bg-linear-to-br from-[#ffe668] via-brand to-[#efc52b]" : "bg-[#fbfaf7]"
       }`}
-      style={{ ...delay(d), "--dur": dur, "--shine": "10s", "--shine-delay": `${d + 600}ms` } as CSSProperties}
+      style={delay(d)}
     >
-      <div className="flex items-start justify-between gap-4">
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/12 text-white">
-          {icon}
+      <span className="flex items-center justify-between gap-4">
+        <span className="flex min-w-0 items-center gap-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand sm:h-12 sm:w-12 sm:rounded-2xl">
+            <Icone nom={icone} taille={20} />
+          </span>
+          <span className="font-serif block text-[21px] leading-none sm:text-[28px]">{titre}</span>
         </span>
-        <span className="eyebrow text-white/55">{eyebrow}</span>
-      </div>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] sm:px-3 sm:py-1.5 sm:text-[11.5px] ${
+            accent ? "bg-[#1b1a18] text-brand" : "bg-[#1b1a18]/8 text-[#1b1a18]"
+          }`}
+        >
+          {duree}
+        </span>
+      </span>
 
-      <h2 className="font-serif mt-5 text-[25px] leading-tight text-white sm:text-[27px]">{title}</h2>
-      <p className="mt-2.5 text-[13.5px] leading-relaxed text-white/72">{desc}</p>
+      <span className="mt-5 block text-[15.5px] leading-relaxed text-[#1b1a18]/80">{desc}</span>
 
-      <ul className="mt-5 space-y-2">
+      <span className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
         {points.map((p) => (
-          <li key={p} className="flex items-center gap-2.5 text-[13px] text-white/82">
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+          <span key={p} className="flex items-center gap-2 text-[14px] font-medium">
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand">
+              <Icone nom="check" taille={10} trait={3.6} />
             </span>
             {p}
-          </li>
+          </span>
         ))}
-      </ul>
+      </span>
 
-      <span className="mt-7 inline-flex items-center gap-2 text-[13.5px] font-medium text-white">
+      <span className="mt-6 inline-flex h-12 items-center gap-3 rounded-full bg-[#1b1a18] pl-5 pr-1.5 text-[14.5px] font-semibold text-white">
         {cta}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          className="transition-transform duration-300 group-hover:translate-x-1.5"
-        >
-          <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Fleche />
       </span>
     </button>
   );
@@ -229,38 +252,62 @@ function Porte({
 function Chiffre({ valeur, legende }: { valeur: string; legende: string }) {
   return (
     <div>
-      <div className="font-serif text-[27px] leading-none text-white sm:text-[30px]">{valeur}</div>
-      <div className="mt-2 text-[11.5px] leading-snug text-white/58">{legende}</div>
+      <div className="font-serif text-[30px] leading-none text-white sm:text-[34px]">{valeur}</div>
+      <div className="mt-2.5 text-[13.5px] leading-snug text-white/70">{legende}</div>
     </div>
+  );
+}
+
+/* ─────────────────────────── En-tête de section ─────────────────────────── */
+
+function Entete({
+  surtitre,
+  titre,
+  texte,
+  sombre = false,
+}: {
+  surtitre: string;
+  titre: React.ReactNode;
+  texte: string;
+  sombre?: boolean;
+}) {
+  return (
+    <Reveal className="max-w-[54ch]">
+      <p className={`eyebrow ${sombre ? "text-brand" : "text-brand-ink"}`}>{surtitre}</p>
+      <h2 className={`font-serif mt-4 text-balance text-[36px] sm:text-[46px] ${sombre ? "text-white" : ""}`}>
+        {titre}
+      </h2>
+      <p className={`mt-5 text-[16.5px] leading-relaxed ${sombre ? "text-white/78" : "text-ink-soft"}`}>{texte}</p>
+    </Reveal>
   );
 }
 
 /* ─────────────────────────── Parcours client ─────────────────────────── */
 
-const ETAPES = [
+const ETAPES: { titre: string; texte: string; icone: NomIcone }[] = [
   {
     titre: "Vous décrivez",
     texte:
       "Adresses, volume, étages, ascenseur, distance de portage. Chaque réponse pèse dans le prix — rien n'est demandé pour rien.",
-    icon: <IconForm />,
+    icone: "crayon",
   },
   {
     titre: "Les photos font le volume",
     texte:
       "Pièce par pièce, vos photos donnent une estimation du volume à déménager. Les doublons sont écartés.",
-    icon: <IconCamera />,
+    icone: "photo",
   },
   {
     titre: "Le prix s'affiche",
     texte:
       "Transport, monte-meubles, portage, garanties : chaque ligne est détaillée, et les trois formules sont comparées côte à côte.",
-    icon: <IconEuro />,
+    icone: "euro",
   },
   {
     titre: "Un commercial reprend la main",
     texte:
       "Votre demande arrive dans le poste de pilotage. Un devis ferme vous est envoyé, sur la base de ce que vous avez rempli.",
-    icon: <IconSend />,
+    icone: "tel",
   },
 ];
 
@@ -268,49 +315,48 @@ function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
     <section id="parcours" className="scroll-mt-20 bg-paper py-24 lg:py-32">
       <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
-        <Reveal className="max-w-[46ch]">
-          <p className="eyebrow text-brand-ink">Le parcours client</p>
-          <h2 className="font-serif mt-4 text-[34px] leading-[1.08] sm:text-[42px]">
-            Quatre étapes, et le prix est là
-          </h2>
-          <p className="mt-5 text-[15.5px] leading-relaxed text-ink-soft">
-            Pas de rappel obligatoire, pas de visite pour savoir combien ça coûte. Le calcul est
-            le nôtre, appliqué sur place, avec le détail de chaque ligne.
-          </p>
-        </Reveal>
+        <Entete
+          surtitre="Le parcours client"
+          titre={
+            <>
+              Quatre étapes, et <span className="gradient-text">le prix est là</span>
+            </>
+          }
+          texte="Pas de rappel obligatoire, pas de visite pour savoir combien ça coûte. Le calcul est le nôtre, appliqué sur place, avec le détail de chaque ligne."
+        />
 
-        <div className="mt-14 grid gap-px overflow-hidden rounded-3xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {ETAPES.map((e, i) => (
-            <Reveal key={e.titre} delay={i * 90} className="group flex flex-col bg-card p-7 transition-colors hover:bg-subtle/60">
+            <Reveal
+              as="li"
+              key={e.titre}
+              delay={i * 90}
+              className="bloc group flex flex-col rounded-[26px] border border-line bg-card p-7"
+            >
               <div className="flex items-center justify-between">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-soft text-accent transition-transform duration-500 group-hover:-translate-y-0.5">
-                  {e.icon}
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-ink transition-colors duration-300 group-hover:bg-[#1b1a18] group-hover:text-brand">
+                  <Icone nom={e.icone} taille={21} />
                 </span>
-                <span className="font-serif text-[30px] leading-none text-line-strong">
+                <span className="font-serif text-[42px] leading-none text-line-strong transition-colors duration-300 group-hover:text-brand-mid">
                   {String(i + 1).padStart(2, "0")}
                 </span>
               </div>
-              <h3 className="mt-6 text-[16px] font-medium">{e.titre}</h3>
-              <p className="mt-2.5 flex-1 text-[13.5px] leading-relaxed text-ink-soft">{e.texte}</p>
-              <div className="mt-auto pt-7">
-                <div className="draw-line h-px w-full bg-linear-to-r from-accent/60 to-transparent" />
-              </div>
+              <h3 className="mt-7 text-[18px] font-semibold leading-snug tracking-[-0.01em]">{e.titre}</h3>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">{e.texte}</p>
             </Reveal>
           ))}
-        </div>
+        </ol>
 
-        <Reveal delay={220} className="mt-10 flex flex-wrap items-center gap-4">
+        <Reveal delay={220} className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
           <button
             type="button"
             onClick={() => onChoisir("express")}
-            className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[14px] font-medium text-white shadow-lg shadow-accent/25 transition hover:bg-accent-dark"
+            className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-ink pl-6 pr-2 text-[15px] font-semibold text-shell shadow-[0_18px_34px_-18px_rgba(27,26,24,0.8)] transition active:scale-[0.98]"
           >
             Demander mon estimation
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-              <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Fleche />
           </button>
-          <span className="text-[13px] text-ink-soft">
+          <span className="text-[14px] text-ink-soft">
             Sans engagement · réponse d&apos;un commercial sous 24 h ouvrées
           </span>
         </Reveal>
@@ -321,88 +367,9 @@ function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
 /* ─────────────────────────── Formules ─────────────────────────── */
 
-function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
-  return (
-    <section id="formules" className="scroll-mt-20 border-y border-line bg-card py-24 lg:py-32">
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
-        <Reveal className="max-w-[48ch]">
-          <p className="eyebrow text-brand-ink">Nos formules</p>
-          <h2 className="font-serif mt-4 text-[34px] leading-[1.08] sm:text-[42px]">
-            Vous choisissez ce que vous nous confiez
-          </h2>
-          <p className="mt-5 text-[15.5px] leading-relaxed text-ink-soft">
-            Trois niveaux de prise en charge, du carton que vous faites vous-même au
-            déménagement où vous n&apos;avez rien à toucher.
-          </p>
-        </Reveal>
+const ICONE_FORMULE: Record<Formule, NomIcone> = { eco: "carton", standard: "verre", luxe: "couronne" };
 
-        <div className="mt-14 grid gap-5 lg:grid-cols-3">
-          {FORMULES.map((f, i) => {
-            const vedette = f.key === "standard";
-            return (
-              <Reveal
-                key={f.key}
-                delay={i * 110}
-                className={`relative flex flex-col rounded-3xl border p-7 transition-shadow ${
-                  vedette
-                    ? "border-brand bg-linear-to-b from-brand-soft to-card shadow-xl shadow-black/5"
-                    : "border-line bg-card hover:shadow-md"
-                }`}
-              >
-                {vedette && (
-                  <span className="absolute -top-3 left-7 rounded-full bg-brand px-3 py-1 text-[11px] font-semibold text-[#1b1a18]">
-                    Le plus choisi
-                  </span>
-                )}
-                <h3 className="font-serif text-[24px] leading-none">{f.label}</h3>
-                <p className="mt-3 min-h-[44px] text-[13.5px] leading-relaxed text-ink-soft">
-                  {f.description}
-                </p>
-
-                <div className="mt-6 flex items-baseline gap-2 border-t border-line pt-6">
-                  <span className="font-serif text-[40px] leading-none tnum">{COMPTE[f.key]}</span>
-                  <span className="text-[13px] text-ink-soft">gestes pris en charge</span>
-                </div>
-
-                <ul className="mt-6 flex-1 space-y-2.5">
-                  {RESUME[f.key].map((l) => (
-                    <li key={l} className="flex gap-2.5 text-[13.5px] leading-snug">
-                      <span className={vedette ? "text-brand-ink" : "text-ink-soft"}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6">
-                          <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </span>
-                      {l}
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  type="button"
-                  onClick={() => onChoisir("complet")}
-                  className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-[13.5px] font-medium transition ${
-                    vedette
-                      ? "bg-accent text-white shadow-lg shadow-black/15 hover:bg-accent-dark"
-                      : "border border-line-strong bg-card hover:border-ink"
-                  }`}
-                >
-                  Estimer avec cette formule
-                </button>
-              </Reveal>
-            );
-          })}
-        </div>
-
-        <Reveal delay={260} className="mt-8 text-[12.5px] text-ink-soft">
-          Prix établis au volume et à la distance, sur notre grille. Suppléments détaillés ligne
-          par ligne sur le devis : portage, monte-meubles, charges lourdes, garanties. TVA {TVA_DEFAUT} %.
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-const RESUME: Record<string, string[]> = {
+const RESUME: Record<Formule, string[]> = {
   eco: [
     "Vous emballez, nous chargeons et remontons",
     "Démontage et remontage des meubles courants",
@@ -420,77 +387,178 @@ const RESUME: Record<string, string[]> = {
   ],
 };
 
-/* ─────────────────────────── Espace équipe ─────────────────────────── */
+function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
+  return (
+    <section id="formules" className="scroll-mt-20 border-y border-line bg-card py-24 lg:py-32">
+      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
+        <Entete
+          surtitre="Nos formules"
+          titre={
+            <>
+              Vous choisissez ce que <span className="gradient-text">vous nous confiez</span>
+            </>
+          }
+          texte="Trois niveaux de prise en charge, du carton que vous faites vous-même au déménagement où vous n'avez rien à toucher."
+        />
 
-const PROMESSES = [
-  { titre: "Un prix tout de suite", texte: "Pas d'attente, pas de rappel obligatoire pour connaître le montant.", icon: <IconEclair /> },
-  { titre: "La grille du commercial", texte: "Le calcul en ligne est le nôtre, au centime près.", icon: <IconSlider /> },
-  { titre: "Le volume par la photo", texte: "Pièce par pièce, vos photos estiment ce qu'il y a à déménager.", icon: <IconSparkle /> },
-  { titre: "Chaque ligne détaillée", texte: "Transport, portage, monte-meubles, garanties : rien n'est caché.", icon: <IconDoc /> },
-  { titre: "Sans engagement", texte: "Vous gardez l'estimation et vous nous rappelez quand vous voulez.", icon: <IconUsers /> },
-  { titre: "Une date tenue", texte: "Équipes et camions sont réservés dès l'accord sur le devis.", icon: <IconCalendar /> },
+        <div className="mt-16 grid items-stretch gap-5 lg:grid-cols-3">
+          {FORMULES.map((f, i) => {
+            // La formule la plus choisie passe en noir : elle se détache des
+            // deux autres sans qu'il faille la désigner d'une flèche.
+            const vedette = f.key === "standard";
+            return (
+              <Reveal
+                key={f.key}
+                delay={i * 110}
+                className={`relative flex flex-col rounded-[28px] border p-7 sm:p-8 ${
+                  vedette
+                    ? "border-[#1b1a18] bg-[#1b1a18] text-white shadow-[0_40px_70px_-40px_rgba(27,26,24,0.9)] lg:-my-3"
+                    : "bloc border-line bg-paper"
+                }`}
+              >
+                {vedette && (
+                  <span className="absolute -top-3.5 left-8 rounded-full bg-brand px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#1b1a18]">
+                    Le plus choisi
+                  </span>
+                )}
+                <div className="flex items-center gap-3.5">
+                  <span
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                      vedette ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
+                    }`}
+                  >
+                    <Icone nom={ICONE_FORMULE[f.key]} taille={21} />
+                  </span>
+                  <h3 className="font-serif text-[26px] leading-none">{f.label}</h3>
+                </div>
+                <p className={`mt-5 min-h-[52px] text-[15.5px] leading-relaxed ${vedette ? "text-white/78" : "text-ink-soft"}`}>
+                  {f.description}
+                </p>
+
+                <div className={`mt-6 border-t pt-6 ${vedette ? "border-white/15" : "border-line-strong"}`}>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`font-serif text-[46px] leading-none tnum ${vedette ? "text-brand" : ""}`}>
+                      {COMPTE[f.key]}
+                    </span>
+                    <span className={`text-[14px] ${vedette ? "text-white/70" : "text-ink-soft"}`}>
+                      gestes pris en charge sur {TOTAL}
+                    </span>
+                  </div>
+                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${vedette ? "bg-white/15" : "bg-line-strong"}`}>
+                    <div
+                      className={`draw-line h-full rounded-full ${vedette ? "bg-brand" : "bg-ink"}`}
+                      style={{ width: `${(COMPTE[f.key] / TOTAL) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <ul className="mt-7 flex-1 space-y-3.5">
+                  {RESUME[f.key].map((l) => (
+                    <li key={l} className="flex gap-3 text-[15px] leading-snug">
+                      <span
+                        className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                          vedette ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
+                        }`}
+                      >
+                        <Icone nom="check" taille={11} trait={3.4} />
+                      </span>
+                      {l}
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  type="button"
+                  onClick={() => onChoisir("complet")}
+                  className={`group mt-9 inline-flex h-[52px] items-center justify-between gap-3 rounded-full pl-6 pr-2 text-[15px] font-semibold transition active:scale-[0.98] ${
+                    vedette ? "bg-brand text-[#1b1a18]" : "bg-ink text-shell"
+                  }`}
+                >
+                  Estimer avec cette formule
+                  <Fleche sombre={vedette} />
+                </button>
+              </Reveal>
+            );
+          })}
+        </div>
+
+        <Reveal delay={260} className="mt-10 max-w-[90ch] text-[14px] leading-relaxed text-ink-soft">
+          Prix établis au volume et à la distance, sur notre grille. Suppléments détaillés ligne
+          par ligne sur le devis : portage, monte-meubles, charges lourdes, garanties. TVA {TVA_DEFAUT} %.
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── Ce qui change ─────────────────────────── */
+
+const PROMESSES: { titre: string; texte: string; icone: NomIcone }[] = [
+  { titre: "Un prix tout de suite", texte: "Pas d'attente, pas de rappel obligatoire pour connaître le montant.", icone: "eclair" },
+  { titre: "La grille du commercial", texte: "Le calcul en ligne est le nôtre, au centime près.", icone: "reglages" },
+  { titre: "Le volume par la photo", texte: "Pièce par pièce, vos photos estiment ce qu'il y a à déménager.", icone: "photo" },
+  { titre: "Chaque ligne détaillée", texte: "Transport, portage, monte-meubles, garanties : rien n'est caché.", icone: "liste" },
+  { titre: "Sans engagement", texte: "Vous gardez l'estimation et vous nous rappelez quand vous voulez.", icone: "bouclier" },
+  { titre: "Une date tenue", texte: "Équipes et camions sont réservés dès l'accord sur le devis.", icone: "calendrier" },
 ];
 
 function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section id="promesses" className="grain relative scroll-mt-20 overflow-hidden bg-ink py-24 lg:py-32">
-      <div className="halo drift absolute -right-32 top-0 h-[460px] w-[460px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
+    <section id="promesses" className="grain relative scroll-mt-20 overflow-hidden bg-[#1b1a18] py-24 lg:py-32">
+      <div className="halo drift absolute -right-32 top-0 h-[460px] w-[460px]" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
       <div
         className="halo drift absolute -left-40 bottom-0 h-[420px] w-[420px]"
-        style={{ animationDuration: "22s", animationDelay: "-6s", "--halo": "rgba(255,255,255,0.1)" } as CSSProperties}
+        style={{ animationDuration: "22s", animationDelay: "-6s", "--halo": "rgba(255,255,255,0.08)" } as CSSProperties}
       />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,420px)_1fr] lg:gap-16 lg:px-10">
-        <Reveal>
-          <p className="eyebrow text-brand">Ce qui change</p>
-          <h2 className="font-serif mt-4 text-[34px] leading-[1.08] text-white sm:text-[42px]">
-            Un déménagement <span className="gradient-flow-light">sans zone d&apos;ombre</span>
-          </h2>
-          <p className="mt-5 text-[15.5px] leading-relaxed text-white/70">
-            Vous savez ce que vous payez, et pourquoi. Le devis reprend ligne par ligne ce que
-            vous avez rempli — rien ne s&apos;ajoute en cours de route.
-          </p>
+      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,400px)_1fr] lg:gap-16 lg:px-10">
+        <div>
+          <Entete
+            sombre
+            surtitre="Ce qui change"
+            titre={
+              <>
+                Un déménagement <span className="gradient-flow-light">sans zone d&apos;ombre</span>
+              </>
+            }
+            texte="Vous savez ce que vous payez, et pourquoi. Le devis reprend ligne par ligne ce que vous avez rempli — rien ne s'ajoute en cours de route."
+          />
 
-          <div className="mt-9 flex flex-wrap gap-3">
+          <Reveal delay={120} className="mt-9 flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => onChoisir("express")}
-              className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-[13.5px] font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a]"
+              className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-brand pl-6 pr-2 text-[15px] font-semibold text-[#1b1a18] transition active:scale-[0.98]"
             >
               Faire mon estimation
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <Fleche sombre />
             </button>
             <a
               href="#formules"
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-5 py-3 text-[13.5px] font-medium text-white transition hover:border-white/60 hover:bg-white/10"
+              className="inline-flex h-[52px] items-center rounded-full border border-white/30 px-6 text-[15px] font-semibold text-white transition hover:border-white/70 hover:bg-white/10"
             >
               Voir les formules
             </a>
-          </div>
+          </Reveal>
 
-          <p className="mt-6 flex items-center gap-2 text-[11.5px] text-white/50">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="4" y="10" width="16" height="11" rx="2" />
-              <path d="M8 10V7a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-            </svg>
+          <Reveal delay={180} as="p" className="mt-7 flex items-center gap-2.5 text-[13px] text-white/65">
+            <Icone nom="bouclier" taille={15} />
             Vos données restent chez nous · hébergement en Europe
-          </p>
-        </Reveal>
+          </Reveal>
+        </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid content-start gap-4 sm:grid-cols-2">
           {PROMESSES.map((o, i) => (
             <Reveal
               key={o.titre}
               delay={i * 70}
-              className="rounded-2xl border border-white/12 bg-white/8 p-5 transition-colors hover:border-white/25 hover:bg-white/14"
+              className="rounded-[22px] border border-white/14 bg-white/[0.07] p-6 transition-colors duration-300 hover:border-brand/50 hover:bg-white/[0.11]"
             >
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white/90">
-                {o.icon}
+              <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-brand text-[#1b1a18]">
+                <Icone nom={o.icone} taille={20} />
               </span>
-              <p className="mt-4 text-[14px] font-medium text-white">{o.titre}</p>
-              <p className="mt-1.5 text-[12px] leading-snug text-white/60">{o.texte}</p>
+              <p className="mt-5 text-[17px] font-semibold leading-snug text-white">{o.titre}</p>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-white/75">{o.texte}</p>
             </Reveal>
           ))}
         </div>
@@ -503,39 +571,49 @@ function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
 function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section className="bg-paper py-24 lg:py-28">
-      <Reveal className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
-        <div className="relative overflow-hidden rounded-[32px] border border-line bg-card px-8 py-14 text-center sm:px-14">
-          <div className="halo absolute -left-24 -top-24 h-[280px] w-[280px]" style={{ "--halo": "rgba(27,26,24,0.08)" } as CSSProperties} />
-          <div className="halo absolute -bottom-28 -right-20 h-[300px] w-[300px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
-          <div className="relative">
-            <h2 className="font-serif mx-auto max-w-[18ch] text-balance text-[32px] leading-[1.1] sm:text-[40px]">
-              Combien coûte votre déménagement&nbsp;?
-            </h2>
-            <p className="mx-auto mt-5 max-w-[52ch] text-[15px] leading-relaxed text-ink-soft">
-              La réponse tient en trois minutes. Vous gardez le devis, vous nous rappelez quand
-              vous voulez.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => onChoisir("express")}
-                className="inline-flex items-center gap-2 rounded-full bg-accent px-7 py-3.5 text-[14px] font-medium text-white shadow-lg shadow-accent/25 transition hover:bg-accent-dark"
-              >
-                Faire mon estimation
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => onChoisir("complet")}
-                className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-7 py-3.5 text-[14px] font-medium transition hover:border-ink"
-              >
-                Devis complet
-              </button>
-            </div>
+    <section className="bg-paper px-6 py-20 lg:px-10 lg:py-24">
+      <Reveal className="grain relative mx-auto w-full max-w-[1200px] overflow-hidden rounded-[36px] bg-[#1b1a18] px-7 py-16 text-center sm:px-14 sm:py-20">
+        <Image src="/login-interieur.jpg" alt="" fill sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover object-center" />
+        <div className="absolute inset-0 bg-[#1b1a18]/76" />
+        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/70 via-[#1b1a18]/30 to-[#1b1a18]/92" />
+        <div
+          className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
+          style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties}
+        />
+
+        <div className="relative z-10">
+          <p className="eyebrow text-brand">Votre estimation</p>
+          <h2 className="font-serif mx-auto mt-4 max-w-[17ch] text-balance text-[36px] text-white sm:text-[52px]">
+            Combien coûte votre <span className="gradient-flow-light">déménagement</span>&nbsp;?
+          </h2>
+          <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed text-white/82">
+            La réponse tient en trois minutes. Vous gardez le devis, vous nous rappelez quand
+            vous voulez.
+          </p>
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => onChoisir("express")}
+              className="group inline-flex h-14 items-center gap-3 rounded-full bg-brand pl-7 pr-2.5 text-[15.5px] font-semibold text-[#1b1a18] shadow-[0_22px_44px_-18px_rgba(245,208,51,0.75)] transition active:scale-[0.98]"
+            >
+              Faire mon estimation
+              <Fleche sombre />
+            </button>
+            <button
+              type="button"
+              onClick={() => onChoisir("complet")}
+              className="inline-flex h-14 items-center rounded-full border border-white/35 px-7 text-[15.5px] font-semibold text-white transition hover:border-white/80 hover:bg-white/10"
+            >
+              Devis complet
+            </button>
           </div>
+          <a
+            href={AGENCE.lien}
+            className="mt-8 inline-flex items-center gap-2.5 text-[14.5px] text-white/75 transition hover:text-white"
+          >
+            <Icone nom="tel" taille={15} />
+            Ou appelez-nous : <span className="font-semibold text-white">{AGENCE.numero}</span>
+          </a>
         </div>
       </Reveal>
     </section>
@@ -545,124 +623,72 @@ function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 /* ─────────────────────────── Pied de page ─────────────────────────── */
 
 function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) => void }) {
+  const lien = "text-[14.5px] text-white/75 transition hover:text-white";
   return (
-    <footer className="border-t border-line bg-card">
-      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 py-9 text-[12.5px] text-ink-soft sm:flex-row sm:items-center sm:justify-between lg:px-10">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-white">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-              <path d="M2 8h11v9H2zM13 11h4.5l3.5 3.5V17h-8z" strokeLinejoin="round" />
-              <circle cx="6.5" cy="18.5" r="1.8" />
-              <circle cx="17.5" cy="18.5" r="1.8" />
-            </svg>
-          </span>
-          <span className="text-ink">Bailly Déménagement</span>
+    <footer className="bg-[#1b1a18] text-white">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-6 py-14 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] lg:px-10">
+        <div>
+          <Image
+            src="/marque/bailly-logo-blanc.svg"
+            alt="Bailly Déménagement"
+            width={200}
+            height={64}
+            className="h-auto w-[170px]"
+          />
+          <p className="mt-5 text-[16px] font-medium text-brand">Déménagez où vous voulez&nbsp;!</p>
+          <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-white/60">
+            Membre FIDI et IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <button type="button" onClick={() => onChoisir("express")} className="transition hover:text-ink">
-            Devis express
-          </button>
-          <button type="button" onClick={() => onChoisir("complet")} className="transition hover:text-ink">
-            Devis complet
-          </button>
-          <a href="#formules" className="transition hover:text-ink">
-            Nos formules
+
+        <div>
+          <p className="eyebrow text-white/50">Votre devis</p>
+          <ul className="mt-4 space-y-3">
+            <li>
+              <button type="button" onClick={() => onChoisir("express")} className={lien}>
+                Devis express
+              </button>
+            </li>
+            <li>
+              <button type="button" onClick={() => onChoisir("complet")} className={lien}>
+                Devis complet
+              </button>
+            </li>
+            <li>
+              <a href="#formules" className={lien}>
+                Nos formules
+              </a>
+            </li>
+            <li>
+              <a href="#parcours" className={lien}>
+                Comment ça marche
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <p className="eyebrow text-white/50">Nous joindre</p>
+          <a href={AGENCE.lien} className="font-serif mt-4 block text-[26px] leading-none text-white transition hover:text-brand">
+            {AGENCE.numero}
+          </a>
+          <a
+            href="https://www.demenagements-bailly.com/"
+            target="_blank"
+            rel="noreferrer"
+            className={`mt-4 inline-block ${lien}`}
+          >
+            demenagements-bailly.com
           </a>
         </div>
-        <span>© {annee} Bailly Déménagement</span>
+      </div>
+
+      <div className="border-t border-white/10">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-6 text-[13px] text-white/50 lg:px-10">
+          <span>© {annee} Bailly Déménagement · BD Moving Group</span>
+          <span>Estimations indicatives, sans valeur de devis contractuel.</span>
+        </div>
       </div>
     </footer>
-  );
-}
-
-/* ─────────────────────────── Icônes ─────────────────────────── */
-
-const S = {
-  width: 18,
-  height: 18,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.7,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-} as const;
-
-function IconSparkle() {
-  return (
-    <svg {...S}>
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-    </svg>
-  );
-}
-function IconEclair() {
-  return (
-    <svg {...S}>
-      <path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z" />
-    </svg>
-  );
-}
-function IconDoc() {
-  return (
-    <svg {...S}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6M8 13h8M8 17h5" />
-    </svg>
-  );
-}
-function IconForm() {
-  return (
-    <svg {...S} width={19} height={19}>
-      <rect x="4" y="3" width="16" height="18" rx="2.2" />
-      <path d="M8 8h8M8 12h8M8 16h4" />
-    </svg>
-  );
-}
-function IconCamera() {
-  return (
-    <svg {...S} width={19} height={19}>
-      <path d="M3 8.5A2 2 0 0 1 5 6.5h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <circle cx="12" cy="13" r="3.4" />
-    </svg>
-  );
-}
-function IconEuro() {
-  return (
-    <svg {...S} width={19} height={19}>
-      <path d="M17 6.5A6.2 6.2 0 0 0 7.2 9M17 17.5A6.2 6.2 0 0 1 7.2 15M4 10.5h8M4 13.5h8" />
-    </svg>
-  );
-}
-function IconSend() {
-  return (
-    <svg {...S} width={19} height={19}>
-      <path d="M21 3 10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8z" />
-    </svg>
-  );
-}
-function IconSlider() {
-  return (
-    <svg {...S} width={16} height={16}>
-      <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
-      <circle cx="16" cy="7" r="2.2" />
-      <circle cx="10" cy="17" r="2.2" />
-    </svg>
-  );
-}
-function IconCalendar() {
-  return (
-    <svg {...S} width={16} height={16}>
-      <rect x="3" y="4.5" width="18" height="17" rx="2" />
-      <path d="M16 2.5v4M8 2.5v4M3 10h18" />
-    </svg>
-  );
-}
-function IconUsers() {
-  return (
-    <svg {...S} width={16} height={16}>
-      <path d="M16 20v-1.6a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20" />
-      <circle cx="9" cy="7.5" r="3.4" />
-      <path d="M22 20v-1.6a4 4 0 0 0-3-3.87M16.5 4.2a4 4 0 0 1 0 6.6" />
-    </svg>
   );
 }

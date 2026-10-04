@@ -18,7 +18,13 @@ import {
   Zone,
   type NomIcone,
 } from "./ui";
-import ChoixFormule, { LIGNES_CARTE, nomFormule, type Prestations } from "./Formules";
+import ChoixFormule, {
+  LIGNES_CARTE,
+  PRESTATIONS_PAR_DEFAUT,
+  formuleRetenue,
+  nomFormule,
+  type Prestations,
+} from "./Formules";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur } from "./QuoteTools";
@@ -606,12 +612,11 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
         ? "Indiquez la ville de départ"
         : !f.arriveeVille.trim()
           ? "Indiquez la ville d'arrivée"
-          : !dateOk
-            ? "Indiquez quand vous souhaitez déménager"
-            : volume == null
-              ? "Renseignez le volume à déménager"
-              : null;
-  const faits = [coordOk, trajetOk, dateOk, volume != null].filter(Boolean).length;
+          : volume == null
+            ? "Renseignez le volume à déménager"
+            : null;
+  // La date ne bloque plus : sans elle, on retient « je ne sais pas encore ».
+  const faits = [coordOk, trajetOk, volume != null].filter(Boolean).length;
 
   async function submit() {
     setSubmitting(true);
@@ -627,7 +632,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
           arrivee: { ville: f.arriveeVille || undefined },
           date_souhaitee: f.dateMode === "date" ? (f.date || undefined) : undefined,
-          flexibilite: f.dateMode === "date" ? undefined : f.periode || undefined,
+          flexibilite: dateOk ? (f.dateMode === "date" ? undefined : f.periode) : PERIODE_PAR_DEFAUT,
           distance_km: distanceKm ?? undefined,
           volume: volumePayload,
           type_client: "particulier",
@@ -678,7 +683,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           />
         }
         etiquette="Devis express"
-        progression={8 + (faits / 4) * 92}
+        progression={8 + (faits / 3) * 92}
         onBack={onBack}
         barre={
           <>
@@ -741,7 +746,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
 
           <Bloc icone="calendrier" titre="Votre date" sous="Une date, une période, ou vos propres mots." delai={140}>
             <ChampPeriode
-              label="Quand souhaitez-vous déménager ? *"
+              label="Quand souhaitez-vous déménager ?"
               mode={f.dateMode}
               valeur={f.dateMode === "date" ? f.date : f.periode}
               onChange={(dateMode, v) =>
@@ -825,6 +830,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   }, []);
 
   const manquant = manque(step, form);
+  const annonce = manquant ? null : annonceDefauts(step, form);
 
   async function submit() {
     setSubmitting(true);
@@ -905,6 +911,8 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
             <div className="min-w-0 flex-1">
               {manquant ? (
                 <Manque>{manquant}</Manque>
+              ) : annonce ? (
+                <Manque>{annonce}</Manque>
               ) : (
                 <div className="hidden items-center gap-3 sm:flex">
                   <div className="flex items-center gap-1.5">
@@ -926,7 +934,16 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
             {derniere ? (
               <Bouton onClick={submit} disabled={submitting}>{submitting ? "Envoi…" : "Envoyer ma demande"}</Bouton>
             ) : (
-              <Bouton onClick={() => setStep((s) => s + 1)} disabled={manquant !== null}>Continuer</Bouton>
+              <Bouton
+                onClick={() => {
+                  // Les questions laissées sans réponse prennent leur valeur par défaut.
+                  setForm((f) => ({ ...f, ...defauts(step, f) }));
+                  setStep((s) => s + 1);
+                }}
+                disabled={manquant !== null}
+              >
+                Continuer
+              </Bouton>
             )}
           </>
         }
@@ -982,7 +999,7 @@ function VousStep({ form, patch }: StepProps) {
             <Field label={entreprise ? "Interlocuteur" : "Prénom"} hint={entreprise ? "facultatif" : undefined}>
               <TextInput icone="user" value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" autoComplete="given-name" />
             </Field>
-            <Field label={entreprise ? "Nom de l'interlocuteur" : "Nom"} hint={entreprise ? "facultatif" : undefined}>
+            <Field label={entreprise ? "Nom de l'interlocuteur" : "Nom *"} hint={entreprise ? "facultatif" : undefined}>
               <TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" autoComplete="family-name" />
             </Field>
           </div>
@@ -998,7 +1015,7 @@ function VousStep({ form, patch }: StepProps) {
           <Ligne label="Déménagement complet ou partiel ?">
             <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
           </Ligne>
-          <Ligne label="S'agit-il d'une mutation professionnelle ? *">
+          <Ligne label="S'agit-il d'une mutation professionnelle ?">
             <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
           </Ligne>
           {!entreprise && form.mutation_pro === "oui" && (
@@ -1011,7 +1028,7 @@ function VousStep({ form, patch }: StepProps) {
         </div>
         <div className="mt-2 border-t border-line pt-5">
           <ChampPeriode
-            label="Période souhaitée *"
+            label="Période souhaitée"
             mode={form.periode_mode}
             valeur={form.periode}
             onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
@@ -1027,7 +1044,7 @@ function VousStep({ form, patch }: StepProps) {
               {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
             </div>
           </Field>
-          <Field groupe label="Garantie dommages souhaitée *">
+          <Field groupe label="Garantie dommages souhaitée">
             <div className="grid gap-3 sm:grid-cols-2">
               {GARANTIES.map((g) => (
                 <CarteChoix
@@ -1086,7 +1103,7 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
       >
         <div className="space-y-5">
           <div>
-            <Field label={`Adresse ${depart ? "de départ" : "d'arrivée"} *`}>
+            <Field label={`Adresse ${depart ? "de départ" : "d'arrivée"}`}>
               <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris"
                 onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
                 onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
@@ -1710,15 +1727,81 @@ function manque(step: number, form: FormState): string | null {
       if (!/.+@.+\..+/.test(form.email)) return "Indiquez un e-mail valide";
       return null;
     }
+    // La ville est le minimum : sans elle, ni distance ni prix.
     case 1:
-      return form.depart.adresse.trim() || form.depart.ville.trim() ? null : "Indiquez l'adresse de départ, ou au moins la ville";
+      return form.depart.ville.trim() ? null : "Indiquez la ville de départ";
     case 2:
-      return form.arrivee.adresse.trim() || form.arrivee.ville.trim() ? null : "Indiquez l'adresse d'arrivée, ou au moins la ville";
+      return form.arrivee.ville.trim() ? null : "Indiquez la ville d'arrivée";
     case 5:
       return computeVolume(form) != null ? null : "Renseignez le volume à déménager";
     default:
       return null;
   }
+}
+
+/** La période retenue quand le client n'en donne pas. */
+const PERIODE_PAR_DEFAUT = "Je ne sais pas encore";
+
+/**
+ * Les réponses retenues pour le client quand il passe une question.
+ *
+ * Le minimum est obligatoire — qui il est, d'où il part, où il va, quel
+ * volume. Tout le reste est facultatif : une question laissée sans réponse
+ * prend, au moment de continuer, sa valeur la plus courante. Le client
+ * avance sans être bloqué, et le récapitulatif lui montre ce qui a été retenu.
+ */
+function defauts(step: number, form: FormState): Partial<FormState> {
+  switch (step) {
+    case 0: {
+      const p: Partial<FormState> = {};
+      if (!form.demenagement) p.demenagement = "complet";
+      if (!form.mutation_pro) p.mutation_pro = "non";
+      if (!form.assurance) p.assurance = "standard";
+      if (!form.articles_lourds) p.articles_lourds = "non";
+      if (!form.piano) p.piano = "non";
+      if (!form.periode) {
+        p.periode_mode = "suggestion";
+        p.periode = PERIODE_PAR_DEFAUT;
+      }
+      return p;
+    }
+    case 1:
+    case 2: {
+      const cle = step === 1 ? "depart" : "arrivee";
+      const a = form[cle];
+      const d: Partial<Address> = {};
+      if (!a.etage) d.etage = "0";
+      if (!a.duplex) d.duplex = "non";
+      if (!a.ascenseur) d.ascenseur = "non";
+      if (a.ascenseur === "oui" && !a.passage_ascenseur) d.passage_ascenseur = "oui";
+      if (!a.passage_escalier) d.passage_escalier = "oui";
+      if (!a.difficulte_acces) d.difficulte_acces = "non";
+      if (!a.stationnement) d.stationnement = "non";
+      return Object.keys(d).length ? ({ [cle]: { ...a, ...d } } as Partial<FormState>) : {};
+    }
+    case 3:
+      return formuleRetenue(form.prestations) === null ? { prestations: { ...PRESTATIONS_PAR_DEFAUT } } : {};
+    default:
+      return {};
+  }
+}
+
+/** Ce que la barre du bas annonce quand des réponses vont être complétées. */
+function annonceDefauts(step: number, form: FormState): string | null {
+  const patch = defauts(step, form);
+  if (step === 3) return patch.prestations ? "Sans choix de votre part, la formule Standard sera retenue." : null;
+  let n = 0;
+  if (step === 1 || step === 2) {
+    const cle = step === 1 ? "depart" : "arrivee";
+    const apres = patch[cle];
+    if (apres) n = (Object.keys(apres) as (keyof Address)[]).filter((k) => apres[k] !== form[cle][k]).length;
+  } else {
+    n = Object.keys(patch).filter((k) => k !== "periode_mode").length;
+  }
+  if (n === 0) return null;
+  return n === 1
+    ? "1 question sans réponse : la valeur par défaut sera retenue."
+    : `${n} questions sans réponse : les valeurs par défaut seront retenues.`;
 }
 
 function buildPayload(form: FormState) {

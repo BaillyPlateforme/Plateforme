@@ -63,6 +63,9 @@ const CLASSES: Classe[] = [
   },
 ];
 
+/** La formule retenue pour le client quand il n'en choisit aucune : la plus choisie. */
+export const PRESTATIONS_PAR_DEFAUT: Prestations = { ...CLASSES[1].prestations };
+
 const CLES = CLASSES.map((c) => c.key);
 const NOM = Object.fromEntries(FORMULES.map((f) => [f.key, f.label])) as Record<Formule, string>;
 
@@ -495,10 +498,12 @@ export default function ChoixFormule({
         >
           <div className="overflow-hidden" inert={!carte}>
             <div className="divide-y divide-line border-t border-line px-4 sm:px-5">
-              {LIGNES_CARTE.map((p) => {
+              {/* Le transport seul a déjà sa carte juste au-dessus : il n'est pas
+                  répété ici. Restent les quatre services qu'on peut reprendre. */}
+              {LIGNES_CARTE.filter((p) => p.key !== "transport").map((p) => {
                 // Transporter les meubles seuls exclut tout emballage et tout
-                // démontage : les quatre lignes du dessus n'ont plus de sens.
-                const eteinte = transportSeul && p.key !== "transport";
+                // démontage : ces lignes n'ont alors plus de sens.
+                const eteinte = transportSeul;
                 return (
                   <div
                     key={p.key}
