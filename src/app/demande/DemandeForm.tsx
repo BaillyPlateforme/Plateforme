@@ -15,6 +15,7 @@ import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 type YN = "oui" | "non" | "";
 type Presta = "moi" | "bailly" | "";
 type Demontage = "possible" | "imperatif" | "";
+type PeriodeMode = "date" | "suggestion" | "libre";
 type VolumeMode = "explicit" | "list" | "ai";
 type ListItem = { label: string; quantite: number; volume_unitaire_m3: number };
 
@@ -56,6 +57,7 @@ type FormState = {
   charges_lourdes: { label: string; poids: string }[];
   piano: YN;
   periode: string;
+  periode_mode: PeriodeMode;
   // Étapes 2/3
   depart: Address;
   arrivee: Address;
@@ -128,7 +130,7 @@ const emptyAddress: Address = {
 
 const initial: FormState = {
   type_client: "particulier", prenom: "", nom: "", tel: "", email: "",
-  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", charges_lourdes: [], piano: "", periode: "",
+  valeur_mobilier: "", assurance: "", mutation_pro: "", societe: "", demenagement: "", articles_lourds: "", charges_lourdes: [], piano: "", periode: "", periode_mode: "date",
   depart: { ...emptyAddress }, arrivee: { ...emptyAddress },
   prestations: { fragile: "", embNonFragile: "", debNonFragile: "", demontage: "", transport: "" },
   emballage: { ikea: "", ikeaPrecision: "", anciens: "", anciensPrecision: "", specifiques: "", specifiquesPrecision: "" },
@@ -140,7 +142,7 @@ const DEMO: FormState = {
   ...initial,
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
-  articles_lourds: "non", charges_lourdes: [], piano: "non", periode: "",
+  articles_lourds: "non", charges_lourdes: [], piano: "non", periode: "2026-11-15", periode_mode: "date",
   depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
@@ -221,7 +223,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState({
     nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
-    dateMode: "date" as "date" | "periode", date: "", periode: "",
+    dateMode: "date" as PeriodeMode, date: "", periode: "",
     volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
   });
   const [submitting, setSubmitting] = useState(false);
@@ -260,7 +262,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
           arrivee: { ville: f.arriveeVille || undefined },
           date_souhaitee: f.dateMode === "date" ? (f.date || undefined) : undefined,
-          flexibilite: f.dateMode === "periode" ? (f.periode || undefined) : undefined,
+          flexibilite: f.dateMode === "date" ? undefined : f.periode || undefined,
           distance_km: distanceKm ?? undefined,
           volume: volumePayload,
           type_client: "particulier",
@@ -278,7 +280,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   if (done) {
     return instant ? (
       <InstantResult requestId={done} volume={volume} count={doneCount}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", dateMode: "date", date: "", periode: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", dateMode: "date" as PeriodeMode, date: "", periode: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
       />
     ) : (
       <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} count={doneCount} />
@@ -344,12 +346,30 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
               )}
               <div>
                 <div className="mb-2 text-sm font-medium">Quand souhaitez-vous déménager ? *</div>
-                <div className="mb-3 w-full sm:w-80">
-                  <Choice options={[["date", "Une date précise"], ["periode", "Une période"]]} value={f.dateMode} onChange={(v) => set({ dateMode: v as "date" | "periode" })} />
+                <div className="mb-3">
+                  <Choice
+                    options={[
+                      ["date", "Une date précise"],
+                      ["suggestion", "Une période"],
+                      ["libre", "Je précise moi-même"],
+                    ]}
+                    value={f.dateMode}
+                    onChange={(v) => set({ dateMode: v as PeriodeMode, date: "", periode: "" })}
+                  />
                 </div>
-                {f.dateMode === "date" ? (
+                {f.dateMode === "date" && (
                   <TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
-                ) : (
+                )}
+                {f.dateMode === "suggestion" && (
+                  <div className="flex flex-wrap gap-2">
+                    {PERIODES.map((p) => (
+                      <Pill key={p} active={f.periode === p} onClick={() => set({ periode: p })}>
+                        {p}
+                      </Pill>
+                    ))}
+                  </div>
+                )}
+                {f.dateMode === "libre" && (
                   <TextInput
                     value={f.periode}
                     onChange={(e) => set({ periode: e.target.value })}
@@ -678,7 +698,11 @@ function VousStep({ form, patch }: StepProps) {
       >
         <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
       </Field>
-      <Field label="Période souhaitée *"><TextInput type="date" value={form.periode} onChange={(e) => patch({ periode: e.target.value })} /></Field>
+      <PeriodeSouhaitee
+        mode={form.periode_mode}
+        valeur={form.periode}
+        onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
+      />
     </div>
   );
 }
@@ -686,7 +710,6 @@ function VousStep({ form, patch }: StepProps) {
 function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "arrivee" }) {
   const a = form[which];
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
-  const etageNum = parseInt(a.etage || "0", 10) || 0;
   return (
     <div className="space-y-6">
       <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`} hint="Tapez et choisissez dans la liste (adresse & distance automatiques)">
@@ -734,22 +757,19 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
           <Field label="Étage" hint="0 = RDC"><TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" /></Field>
           <Field label="Surface habitable" hint="m²"><TextInput type="number" min={0} value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
         </div>
+        {/* Toutes les questions restent posées. Les masquer tant qu'un étage
+            n'était pas saisi donnait un bloc à moitié vide, et le client ne
+            savait pas ce qu'on attendait de lui. */}
         <div className="mt-3 space-y-3">
-          {etageNum > 0 ? (
-            <>
-              <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
-              {a.ascenseur === "oui" && (
-                <div className="grid grid-cols-1 gap-3 pl-1">
-                  <Field label="Taille de l'ascenseur (nb de personnes)"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
-                  <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
-                </div>
-              )}
-              <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
-            </>
-          ) : (
-            <p className="text-xs text-ink-soft">Renseignez un étage pour préciser l&apos;ascenseur et l&apos;accès par escalier.</p>
-          )}
           <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
+          <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
+          {a.ascenseur === "oui" && (
+            <div className="grid grid-cols-1 gap-3 border-l-2 border-line pl-3">
+              <Field label="Taille de l'ascenseur" hint="nombre de personnes"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
+              <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
+            </div>
+          )}
+          <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
         </div>
       </div>
 
@@ -1124,6 +1144,72 @@ function ChargesLourdes({
   );
 }
 
+/** Les périodes qu'un client propose de lui-même, dans ses mots. */
+const PERIODES = [
+  "Dès que possible",
+  "Ce mois-ci",
+  "Le mois prochain",
+  "Dans 2 à 3 mois",
+  "Dans plus de 3 mois",
+  "Je ne sais pas encore",
+];
+
+/**
+ * Quand le client veut déménager.
+ *
+ * Trois façons de répondre, parce qu'un déménagement se cale rarement sur une
+ * date : certains en ont une, d'autres une fourchette, d'autres une condition
+ * (« après la vente »). Forcer le calendrier faisait saisir n'importe quoi.
+ */
+function PeriodeSouhaitee({
+  mode,
+  valeur,
+  onChange,
+}: {
+  mode: PeriodeMode;
+  valeur: string;
+  onChange: (mode: PeriodeMode, valeur: string) => void;
+}) {
+  return (
+    <Field label="Période souhaitée *">
+      <div className="space-y-3">
+        <Choice
+          small
+          options={[
+            ["date", "Une date précise"],
+            ["suggestion", "Une période"],
+            ["libre", "Je précise moi-même"],
+          ]}
+          value={mode}
+          onChange={(v) => onChange(v as PeriodeMode, "")}
+        />
+
+        {mode === "date" && (
+          <TextInput type="date" value={valeur} onChange={(e) => onChange("date", e.target.value)} />
+        )}
+
+        {mode === "suggestion" && (
+          <div className="flex flex-wrap gap-2">
+            {PERIODES.map((p) => (
+              <Pill key={p} active={valeur === p} onClick={() => onChange("suggestion", p)}>
+                {p}
+              </Pill>
+            ))}
+          </div>
+        )}
+
+        {mode === "libre" && (
+          <TextInput
+            value={valeur}
+            onChange={(e) => onChange("libre", e.target.value)}
+            placeholder="Entre le 15 et le 30 novembre, dès que la vente est signée…"
+          />
+        )}
+      </div>
+    </Field>
+  );
+}
+
 /* ---------- Récap + succès ---------- */
 
 /**
@@ -1313,7 +1399,8 @@ function buildPayload(form: FormState) {
   return {
     client: { nom: [form.prenom, form.nom].filter(Boolean).join(" ") || form.email, email: form.email, tel: form.tel || undefined },
     depart: toAddr(form.depart), arrivee: toAddr(form.arrivee),
-    date_souhaitee: form.periode || undefined,
+    date_souhaitee: form.periode_mode === "date" ? form.periode || undefined : undefined,
+    flexibilite: form.periode_mode === "date" ? undefined : form.periode || undefined,
     formule, services, volume,
     type_client: form.type_client,
     assurance: form.assurance || undefined,

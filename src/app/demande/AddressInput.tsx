@@ -11,6 +11,16 @@ function shortContext(ctx: string): string {
 }
 
 // Autocomplétion d'adresses via la Base Adresse Nationale (api-adresse.data.gouv.fr — gratuit, sans clé).
+/** Le texte principal d'une suggestion : l'adresse entière, ou la commune. */
+function intitule(p: Place, kind: "address" | "municipality") {
+  return kind === "municipality" ? p.ville || p.label : p.label || p.ville;
+}
+
+/** Exactement ce que la liste montre pour une suggestion, sous forme comparable. */
+function affichage(p: Place, kind: "address" | "municipality") {
+  return [aplatir(intitule(p, kind)), p.code_postal, aplatir(shortContext(p.context))].join("|");
+}
+
 /** Réduit un libellé à sa forme comparable : sans accent, sans ponctuation. */
 function aplatir(texte: string) {
   return texte
@@ -64,15 +74,9 @@ export function AddressInput({
         const vues = new Set<string>();
         const places = brut
           .filter((p) => {
-            // Une commune se distingue par son nom ET son code postal : Paris 11e
-            // et Paris 15e restent deux entrées, Massy répété n'en fait qu'une.
-            // Pour une adresse, c'est le libellé qui compte — mais comparé à la
-            // casse, aux accents et à la ponctuation près : l'API renvoie
-            // « 12 Rue des Lilas » et « 12 rue des lilas » comme deux entrées.
-            const cle =
-              kind === "municipality"
-                ? `${aplatir(p.ville)}|${p.code_postal}`
-                : `${aplatir(p.label)}|${p.code_postal}`;
+            // On dédoublonne sur ce que la liste AFFICHE : deux lignes
+            // identiques à l'œil sont un doublon, quoi qu'en dise l'API.
+            const cle = affichage(p, kind);
             if (vues.has(cle)) return false;
             vues.add(cle);
             return true;
@@ -81,7 +85,7 @@ export function AddressInput({
 
         setSugg(places);
         setActive(0);
-        setOpen(places.length > 0);
+        setOpen(places.length > 0 && box.current?.contains(document.activeElement) === true);
       } catch { setSugg([]); }
     }, 250);
     return () => clearTimeout(t);
@@ -128,9 +132,14 @@ export function AddressInput({
                 onClick={() => choose(p)}
                 className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition ${i === active ? "bg-accent text-white" : "text-ink hover:bg-subtle"}`}
               >
-                <span className="truncate text-sm font-medium">{p.ville || p.label}</span>
+                <span className="truncate text-sm font-medium">
+                  {intitule(p, kind)}
+                </span>
                 <span className={`shrink-0 text-xs tabular-nums ${i === active ? "text-white/80" : "text-ink-soft"}`}>
-                  {[p.code_postal, shortContext(p.context)].filter(Boolean).join(" · ")}
+                  {/* L'adresse porte déjà son code postal : on ne le répète pas. */}
+                  {(kind === "municipality" ? [p.code_postal, shortContext(p.context)] : [shortContext(p.context)])
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               </button>
             </li>
