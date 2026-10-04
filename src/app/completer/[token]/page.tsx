@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
 import { getRequestByToken } from "@/lib/completion";
 import { listLibraryPhotos } from "@/lib/library";
 import CompletionForm from "./CompletionForm";
+import LienExpire from "./LienExpire";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Compléter ma demande — Bailly" };
@@ -9,7 +9,9 @@ export const metadata = { title: "Compléter ma demande — Bailly" };
 export default async function CompleterPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const req = await getRequestByToken(token);
-  if (!req) notFound();
+  // Un lien de complétion ne sert qu'une fois : après validation, il n'existe
+  // plus. Le client qui reclique mérite mieux qu'une page d'erreur.
+  if (!req) return <LienExpire />;
   const library = await listLibraryPhotos();
 
   return (

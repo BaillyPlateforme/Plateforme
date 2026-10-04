@@ -581,6 +581,8 @@ function eventLabel(type: string): string {
     message: "Message envoyé",
     incomplete: "Demande incomplète",
     completed: "Demande complétée",
+    rappel: "Demande de rappel",
+    analysis: "Analyse de la demande",
   };
   return map[type] ?? type;
 }

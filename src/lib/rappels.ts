@@ -27,14 +27,61 @@ export interface CarteRappel extends RappelRow {
   volume_m3: number | null;
 }
 
+/*
+ * Où vivent les rappels.
+ *
+ * Dans l'historique de la demande (`request_events`), sous le type « rappel » :
+ * une ligne par demande de rappel, dont la charge porte le statut, la priorité
+ * et le montant. Une table dédiée avait été prévue par migration ; elle n'a
+ * jamais été créée en base, et chaque clic sur « Être rappelé » échouait donc
+ * en silence. L'historique existe depuis le premier jour : s'appuyer dessus
+ * fait marcher le bouton sans rien avoir à installer.
+ */
+const TYPE = "rappel";
+const OUVERTS: StatutRappel[] = ["a_rappeler", "en_cours"];
+
+type Charge = {
+  statut?: StatutRappel;
+  priorite?: number;
+  montant_ttc?: number | null;
+  devis_id?: string | null;
+  creneau?: string | null;
+  note?: string | null;
+  /** Dernier changement de statut. */
+  maj?: string;
+};
+
+type Evenement = { id: string; request_id: string; payload: Charge | null; created_at: string };
+
+function versRappel(e: Evenement): RappelRow {
+  const c = e.payload ?? {};
+  return {
+    id: e.id,
+    request_id: e.request_id,
+    devis_id: c.devis_id ?? null,
+    statut: c.statut ?? "a_rappeler",
+    priorite: c.priorite ?? 0,
+    montant_ttc: c.montant_ttc ?? null,
+    creneau: c.creneau ?? null,
+    note: c.note ?? null,
+    created_at: e.created_at,
+    updated_at: c.maj ?? e.created_at,
+  };
+}
+
 export async function listRappels(): Promise<CarteRappel[]> {
   const supabase = createServiceClient();
-  const { data } = await supabase
-    .from("rappels")
-    .select("*")
-    .order("priorite", { ascending: false })
+  const { data, error } = await supabase
+    .from("request_events")
+    .select("id, request_id, payload, created_at")
+    .eq("type", TYPE)
     .order("created_at", { ascending: true });
-  const rappels = (data ?? []) as RappelRow[];
+  if (error) throw new Error(error.message);
+
+  // On rappelle d'abord ce qui pèse : priorité décroissante, puis ancienneté.
+  const rappels = ((data ?? []) as Evenement[])
+    .map(versRappel)
+    .sort((a, b) => b.priorite - a.priorite || +new Date(a.created_at) - +new Date(b.created_at));
   if (rappels.length === 0) return [];
 
   const { data: demandes } = await supabase
@@ -74,6 +121,17 @@ export async function creerRappel(requestId: string, creneau?: string | null) {
     .maybeSingle();
   if (!req) throw new Error("Demande introuvable");
 
+  // Une demande n'a qu'un rappel ouvert à la fois : un client qui reclique ne
+  // doit pas créer une seconde carte, et ce n'est pas une erreur à lui montrer.
+  const { data: existants, error: lecture } = await supabase
+    .from("request_events")
+    .select("id, request_id, payload, created_at")
+    .eq("request_id", requestId)
+    .eq("type", TYPE);
+  if (lecture) throw new Error(lecture.message);
+  const ouvert = ((existants ?? []) as Evenement[]).map(versRappel).find((r) => OUVERTS.includes(r.statut));
+  if (ouvert) return { deja: true as const, rappel: ouvert };
+
   const { data: devis } = await supabase
     .from("devis")
     .select("id, montant_ttc")
@@ -83,34 +141,36 @@ export async function creerRappel(requestId: string, creneau?: string | null) {
     .maybeSingle();
 
   const r = req as Partial<RequestRow>;
-  const { data, error } = await supabase
-    .from("rappels")
-    .insert({
-      request_id: requestId,
-      devis_id: devis?.id ?? null,
-      priorite: Math.max(0, Math.min(100, Math.round(r.score_potentiel ?? 0))),
-      montant_ttc: devis?.montant_ttc ?? r.estimation_prix ?? null,
-      creneau: creneau || null,
-      statut: "a_rappeler",
-    })
-    .select()
-    .single();
+  const charge: Charge = {
+    statut: "a_rappeler",
+    priorite: Math.max(0, Math.min(100, Math.round(r.score_potentiel ?? 0))),
+    montant_ttc: devis?.montant_ttc ?? r.estimation_prix ?? null,
+    devis_id: devis?.id ?? null,
+    creneau: creneau || null,
+    note: null,
+  };
 
-  // L'index unique refuse un second rappel ouvert : le client a simplement
-  // cliqué deux fois, ce n'est pas une erreur à lui montrer.
-  if (error && error.code === "23505") return { deja: true as const };
+  const { data, error } = await supabase
+    .from("request_events")
+    .insert({ request_id: requestId, type: TYPE, payload: charge })
+    .select("id, request_id, payload, created_at")
+    .single();
   if (error) throw new Error(error.message);
 
-  await supabase.from("request_events").insert({
-    request_id: requestId,
-    type: "rappel",
-    payload: { statut: "a_rappeler", priorite: (data as RappelRow).priorite, creneau: creneau || null },
-  });
-
-  return { deja: false as const, rappel: data as RappelRow };
+  return { deja: false as const, rappel: versRappel(data as Evenement) };
 }
 
 export async function changerStatutRappel(id: string, statut: StatutRappel) {
   const supabase = createServiceClient();
-  await supabase.from("rappels").update({ statut }).eq("id", id);
+  const { data } = await supabase
+    .from("request_events")
+    .select("payload")
+    .eq("id", id)
+    .eq("type", TYPE)
+    .maybeSingle();
+  if (!data) return;
+  await supabase
+    .from("request_events")
+    .update({ payload: { ...((data.payload as Charge) ?? {}), statut, maj: new Date().toISOString() } })
+    .eq("id", id);
 }

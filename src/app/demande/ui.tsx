@@ -535,6 +535,7 @@ export function Bloc({
   sous,
   children,
   delai = 0,
+  etiquette,
 }: {
   icone: NomIcone;
   titre: string;
@@ -542,20 +543,37 @@ export function Bloc({
   children: ReactNode;
   /** Décalage de l'entrée, en millisecondes : les blocs arrivent en cascade. */
   delai?: number;
+  /** Une mention à droite du titre : « À compléter », « Renseigné ». */
+  etiquette?: { texte: string; fait?: boolean };
 }) {
+  const mention = `shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.08em] transition-colors duration-300 ${
+    etiquette?.fait ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
+  }`;
+  const pastille = etiquette && (
+    <>
+      {etiquette.fait && <Icone nom="check" taille={10} trait={3.6} />}
+      {etiquette.texte}
+    </>
+  );
+
   return (
     <section
       className="bloc reveal rounded-[26px] border border-line bg-card p-5 sm:p-7"
       style={{ "--d": `${delai}ms` } as CSSProperties}
     >
-      <header className="mb-6 flex items-center gap-3.5">
+      {/* L'icône s'aligne sur le haut du texte : centrée, elle flottait au milieu
+          d'un titre replié sur trois lignes au téléphone. */}
+      <header className="mb-6 flex items-start gap-3.5">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-brand-soft text-brand-ink">
           <Icone nom={icone} taille={20} />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1 pt-0.5">
+          {/* Au téléphone, la mention passe au-dessus du titre plutôt qu'à côté. */}
+          {etiquette && <span className={`mb-2 inline-flex sm:hidden ${mention}`}>{pastille}</span>}
           <h2 className="text-[17px] font-semibold leading-tight tracking-[-0.01em]">{titre}</h2>
           {sous && <p className="mt-1 text-[13px] leading-snug text-ink-soft">{sous}</p>}
         </div>
+        {etiquette && <span className={`hidden sm:inline-flex ${mention}`}>{pastille}</span>}
       </header>
       {children}
     </section>

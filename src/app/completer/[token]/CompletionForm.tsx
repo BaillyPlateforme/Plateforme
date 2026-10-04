@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
+import Image from "next/image";
+import { useState, type CSSProperties } from "react";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
-import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
+import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { completeRequest } from "@/lib/actions/completion";
-
-type Mode = "explicit" | "list" | "ai";
+import { AddressInput } from "@/app/demande/AddressInput";
+import { BrandPanel, Bouton, Cadre, Erreur, Manque, Titre, delai } from "@/app/demande/cadre";
+import { Bloc, CarteChoix, Field, Icone, TextInput, YesNo, type NomIcone } from "@/app/demande/ui";
+import {
+  ListeMeubles,
+  MODES_VOLUME,
+  SaisieVolume,
+  volumeDe,
+  type ListItem,
+  type VolumeMode,
+} from "@/app/demande/volume";
 
 type Addr = {
   adresse: string | null;
@@ -26,7 +35,8 @@ type Data = {
   arrivee: Addr;
 };
 
-type AddrState = { adresse: string; code_postal: string; ville: string; etage: string; ascenseur: boolean };
+/** L'ascenseur en trois états : oui, non, ou pas encore dit. */
+type AddrState = { adresse: string; code_postal: string; ville: string; etage: string; ascenseur: "oui" | "non" | "" };
 
 function toState(a: Addr): AddrState {
   return {
@@ -34,10 +44,21 @@ function toState(a: Addr): AddrState {
     code_postal: a.code_postal ?? "",
     ville: a.ville ?? "",
     etage: a.etage != null ? String(a.etage) : "",
-    ascenseur: !!a.ascenseur,
+    ascenseur: a.ascenseur == null ? "" : a.ascenseur ? "oui" : "non",
   };
 }
 
+/**
+ * La page « Complétez votre demande ».
+ *
+ * Le client y arrive par le lien d'un message : il manque une ville ou un
+ * volume pour chiffrer. Elle reprend la coque du formulaire de devis — le
+ * même panneau, les mêmes cartes, la même barre d'action — pour qu'il
+ * retrouve l'écran qu'il a quitté, et non un formulaire de secours.
+ *
+ * Ce qui manque est demandé en premier ; ce qui est déjà connu reste
+ * modifiable en dessous.
+ */
 export default function CompletionForm({
   token,
   library,
@@ -47,51 +68,49 @@ export default function CompletionForm({
   library: LibraryPhoto[];
   data: Data;
 }) {
+  // Ce qui manquait à l'ouverture de la page : c'est ce qu'on demande.
   const manque = {
-    volume: data.volume_m3 == null,
     depart: !data.depart.ville,
     arrivee: !data.arrivee.ville,
+    // Un volume nul n'en est pas un : il a été semé à zéro faute de mieux.
+    volume: data.volume_m3 == null || data.volume_m3 <= 0,
   };
 
-  // Contact
   const [nom, setNom] = useState(data.client_nom ?? "");
   const [tel, setTel] = useState(data.client_tel ?? "");
-  const [date, setDate] = useState(data.date_souhaitee ?? "");
+  const [date, setDate] = useState(data.date_souhaitee ? data.date_souhaitee.slice(0, 10) : "");
 
-  // Adresses (objets éditables)
   const [depart, setDepart] = useState<AddrState>(toState(data.depart));
   const [arrivee, setArrivee] = useState<AddrState>(toState(data.arrivee));
   const patchDepart = (p: Partial<AddrState>) => setDepart((s) => ({ ...s, ...p }));
   const patchArrivee = (p: Partial<AddrState>) => setArrivee((s) => ({ ...s, ...p }));
 
-  // Volume
-  const [mode, setMode] = useState<Mode>("explicit");
+  const [mode, setMode] = useState<VolumeMode>("explicit");
   const [explicitVolume, setExplicitVolume] = useState("");
-  const [items, setItems] = useState<{ label: string; quantite: number; volume_unitaire_m3: number }[]>([]);
+  const [items, setItems] = useState<ListItem[]>([]);
   const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const volume =
-    mode === "explicit"
-      ? isNaN(parseFloat(explicitVolume)) ? null : Math.round(parseFloat(explicitVolume) * 100) / 100
-      : mode === "list"
-        ? items.length ? Math.round(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100 : null
-        : photos.length ? volumePhotos(photos) : null;
+  const volume = volumeDe(mode, explicitVolume, items, photos);
 
-  const canSubmit =
-    (!manque.volume || volume != null) &&
-    (!manque.depart || depart.ville.trim()) &&
-    (!manque.arrivee || arrivee.ville.trim());
+  // Les points à compléter, et où ils en sont.
+  const points: { cle: string; label: string; fait: boolean }[] = [
+    ...(manque.depart ? [{ cle: "depart", label: "Ville de départ", fait: depart.ville.trim().length > 0 }] : []),
+    ...(manque.arrivee ? [{ cle: "arrivee", label: "Ville d'arrivée", fait: arrivee.ville.trim().length > 0 }] : []),
+    ...(manque.volume ? [{ cle: "volume", label: "Volume à déménager", fait: volume != null && volume > 0 }] : []),
+  ];
+  const restant = points.filter((p) => !p.fait);
+  const etat = (cle: string) => points.find((p) => p.cle === cle)?.fait ?? false;
 
   const addrPayload = (a: AddrState) => ({
     ville: a.ville || undefined,
     adresse: a.adresse || undefined,
     code_postal: a.code_postal || undefined,
     etage: a.etage === "" ? null : Number(a.etage),
-    ascenseur: a.ascenseur,
+    ascenseur: a.ascenseur === "" ? undefined : a.ascenseur === "oui",
   });
 
   async function submit() {
@@ -99,7 +118,7 @@ export default function CompletionForm({
     setError(null);
     try {
       const r = await completeRequest(token, {
-        volume_m3: volume,
+        volume_m3: manque.volume ? volume : null,
         volume_method: volume != null && manque.volume ? mode : null,
         photos: mode === "ai" && manque.volume ? (photos as never) : undefined,
         items: mode === "list" && manque.volume ? items : undefined,
@@ -117,262 +136,304 @@ export default function CompletionForm({
     }
   }
 
-  if (done) {
-    return (
-      <div className="mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center px-6 text-center">
-        <div className="animate-fade-up">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <h1 className="font-serif text-4xl">Merci !</h1>
-          <p className="mt-3 text-ink-soft">Votre demande est complétée{volume != null ? ` (~${volume} m³)` : ""}. Nos experts reviennent vers vous très vite.</p>
-        </div>
-      </div>
-    );
-  }
+  if (done) return <Merci volume={manque.volume ? volume : data.volume_m3} email={data.client_email} />;
 
-  const nbManque = Number(manque.volume) + Number(manque.depart) + Number(manque.arrivee);
+  const prenom = (data.client_nom ?? "").trim().split(/\s+/)[0] ?? "";
+  const volumeConnu = manque.volume ? volume : data.volume_m3;
+  const trajet =
+    depart.ville.trim() && arrivee.ville.trim()
+      ? `${depart.ville.trim()} → ${arrivee.ville.trim()}`
+      : depart.ville.trim() || arrivee.ville.trim() || null;
+  const modeActif = MODES_VOLUME.find((m) => m.key === mode) ?? MODES_VOLUME[0];
+  let rang = 0;
+  const suivant = () => rang++ * 70;
 
   return (
-    <div className="mx-auto min-h-dvh max-w-2xl bg-card px-5 py-12 md:px-8">
-      <div className="font-serif text-3xl font-semibold">Bailly</div>
-      <div className="eyebrow mt-1 text-ink-soft">Déménagement</div>
-      <h1 className="mt-6 font-serif text-4xl leading-tight">
-        {data.client_nom ? `${data.client_nom}, complétez votre demande` : "Complétez votre demande"}
-      </h1>
-      <p className="mt-2 text-ink-soft">Vérifiez vos informations et renseignez ce qu&apos;il manque pour finaliser votre estimation.</p>
-
-      {/* ===== À COMPLÉTER — mis en avant, en haut ===== */}
-      {nbManque > 0 && (
-        <section className="mt-8 rounded-2xl border-2 border-warn/45 bg-warn-soft/70 p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-warn">À compléter</span>
-            {manque.volume && <MissingChip label="Volume à déménager" />}
-            {manque.depart && <MissingChip label="Adresse de départ" />}
-            {manque.arrivee && <MissingChip label="Adresse d'arrivée" />}
+    <Cadre
+      panneau={
+        <BrandPanel
+          milieu={<Points points={points} />}
+          recap={[
+            ["Trajet", trajet],
+            ["Volume", volumeConnu != null && volumeConnu > 0 ? `${volumeConnu} m³` : null],
+            ["Période", date ? dateLisible(date) : null],
+          ]}
+        />
+      }
+      etiquette={restant.length ? `${restant.length} à compléter` : "Tout est prêt"}
+      progression={points.length ? 12 + ((points.length - restant.length) / points.length) * 88 : 100}
+      barre={
+        <>
+          <div className="min-w-0 flex-1">
+            {restant.length ? (
+              <Manque>Il manque : {restant.map((p) => p.label.toLowerCase()).join(", ")}</Manque>
+            ) : (
+              <p className="text-right text-[12.5px] text-ink-soft sm:text-left">
+                Tout y est — vous pouvez valider votre demande.
+              </p>
+            )}
           </div>
+          <Bouton onClick={submit} disabled={restant.length > 0 || submitting}>
+            {submitting ? "Envoi…" : "Valider ma demande"}
+          </Bouton>
+        </>
+      }
+    >
+      <Titre
+        pastille={restant.length ? restant.length : <Icone nom="check" taille={11} trait={3.4} />}
+        texte={restant.length ? "à compléter" : "Tout est prêt"}
+        eyebrow="Votre demande"
+        avant={prenom ? `${prenom}, ` : ""}
+        accent={prenom ? "complétez" : "Complétez"}
+        apres=" votre demande"
+        sub="Il ne manque que quelques informations pour établir votre estimation. Cela vous prendra moins de deux minutes."
+      />
 
-          <div className="space-y-6">
-            {manque.depart && (
-              <AddressFields title="Adresse de départ" v={depart} on={patchDepart} requireVille />
-            )}
-            {manque.arrivee && (
-              <AddressFields title="Adresse d'arrivée" v={arrivee} on={patchArrivee} requireVille />
-            )}
-            {manque.volume && (
-              <div>
-                <h3 className="mb-3 font-serif text-lg">Votre volume à déménager</h3>
-                <VolumePicker
-                  mode={mode}
-                  setMode={setMode}
-                  explicitVolume={explicitVolume}
-                  setExplicitVolume={setExplicitVolume}
-                  items={items}
-                  setItems={setItems}
-                  photos={photos}
-                  setPhotos={setPhotos}
-                  library={library}
+      <div className="space-y-5">
+        {/* ── Ce qui manque, d'abord ── */}
+        {manque.depart && (
+          <BlocAdresse
+            icone="pin"
+            titre="Votre adresse de départ"
+            sous="La ville suffit pour calculer la distance ; l'adresse précise affine l'estimation."
+            v={depart}
+            on={patchDepart}
+            delai={suivant()}
+            etiquette={{ texte: etat("depart") ? "Renseigné" : "À compléter", fait: etat("depart") }}
+            villeRequise
+          />
+        )}
+        {manque.arrivee && (
+          <BlocAdresse
+            icone="maison"
+            titre="Votre adresse d'arrivée"
+            sous="La ville suffit pour calculer la distance ; l'adresse précise affine l'estimation."
+            v={arrivee}
+            on={patchArrivee}
+            delai={suivant()}
+            etiquette={{ texte: etat("arrivee") ? "Renseigné" : "À compléter", fait: etat("arrivee") }}
+            villeRequise
+          />
+        )}
+        {manque.volume && (
+          <>
+            <div className="reveal grid gap-3 sm:grid-cols-3" style={delai(suivant())}>
+              {MODES_VOLUME.map((m) => (
+                <CarteChoix
+                  key={m.key}
+                  active={mode === m.key}
+                  onClick={() => setMode(m.key)}
+                  icone={m.icone}
+                  titre={m.titre}
+                  texte={m.texte}
                 />
-              </div>
+              ))}
+            </div>
+            <div key={mode}>
+              <Bloc
+                icone={modeActif.icone}
+                titre="Votre volume à déménager"
+                sous={modeActif.texte}
+                delai={suivant()}
+                etiquette={{ texte: etat("volume") ? "Renseigné" : "À compléter", fait: etat("volume") }}
+              >
+                {mode === "explicit" && <SaisieVolume valeur={explicitVolume} onChange={setExplicitVolume} />}
+                {mode === "list" && <ListeMeubles items={items} onChange={setItems} />}
+                {mode === "ai" && <PhotoAnalyzer library={library} photos={photos} onChange={setPhotos} />}
+              </Bloc>
+            </div>
+          </>
+        )}
+
+        {/* ── Ce qui est déjà connu, modifiable ── */}
+        <Bloc
+          icone="user"
+          titre="Vos informations"
+          sous="Déjà renseignées — corrigez-les si besoin."
+          delai={suivant()}
+        >
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nom">
+                <TextInput icone="user" value={nom} onChange={(e) => setNom(e.target.value)} autoComplete="name" />
+              </Field>
+              <Field label="Téléphone">
+                <TextInput icone="tel" type="tel" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="06 12 34 56 78" autoComplete="tel" />
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {data.client_email && (
+                <Field label="E-mail" hint="non modifiable">
+                  <TextInput icone="mail" value={data.client_email} readOnly className="bg-subtle text-ink-soft" />
+                </Field>
+              )}
+              <Field label="Date souhaitée" hint="facultatif">
+                <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+            </div>
+            {!manque.volume && (
+              <p className="flex items-center gap-2.5 rounded-[18px] bg-subtle px-4 py-3 text-[14px]">
+                <Icone nom="carton" taille={17} className="shrink-0 text-ink-soft" />
+                <span>
+                  Volume déjà estimé : <span className="font-semibold">{data.volume_m3} m³</span>
+                </span>
+              </p>
             )}
           </div>
-        </section>
-      )}
+        </Bloc>
 
-      {/* ===== VOS INFORMATIONS — récapitulatif éditable ===== */}
-      <section className="mt-8">
-        <h2 className="mb-1 font-serif text-2xl">Vos informations</h2>
-        <p className="mb-4 text-sm text-ink-soft">Déjà renseignées — modifiez-les si besoin.</p>
-
-        <div className="space-y-6 rounded-[18px] bg-card p-5">
-          {/* Contact */}
-          <div>
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Contact</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input label="Nom" value={nom} onChange={setNom} />
-              <Input label="Téléphone" value={tel} onChange={setTel} placeholder="06 12 34 56 78" />
-              {data.client_email && (
-                <div className="sm:col-span-2 text-sm text-ink-soft">
-                  Email : <span className="text-ink">{data.client_email}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Adresses déjà connues */}
-          {!manque.depart && <AddressFields title="Adresse de départ" v={depart} on={patchDepart} />}
-          {!manque.arrivee && <AddressFields title="Adresse d'arrivée" v={arrivee} on={patchArrivee} />}
-
-          {/* Date */}
-          <div>
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Date souhaitée</h3>
-            <input
-              type="date"
-              value={date ? date.slice(0, 10) : ""}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-accent sm:w-64"
-            />
-          </div>
-
-          {/* Volume déjà connu */}
-          {!manque.volume && (
-            <div>
-              <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-soft">Volume</h3>
-              <p className="text-sm text-ink">~{data.volume_m3} m³ <span className="text-ink-soft">(déjà estimé)</span></p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
-
-      <div className="mt-8 flex items-center justify-between border-t border-line pt-6">
-        <span className="text-sm text-ink-soft">
-          {manque.volume ? (volume != null ? `Volume : ${volume} m³` : "Renseignez le volume") : ""}
-        </span>
-        <button
-          onClick={submit}
-          disabled={!canSubmit || submitting}
-          className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {submitting ? "Envoi…" : "Valider ma demande"}
-        </button>
+        {!manque.depart && (
+          <BlocAdresse icone="pin" titre="Votre adresse de départ" sous="Déjà renseignée — corrigez-la si besoin." v={depart} on={patchDepart} delai={suivant()} />
+        )}
+        {!manque.arrivee && (
+          <BlocAdresse icone="maison" titre="Votre adresse d'arrivée" sous="Déjà renseignée — corrigez-la si besoin." v={arrivee} on={patchArrivee} delai={suivant()} />
+        )}
       </div>
+
+      {error && <Erreur>{error}</Erreur>}
+    </Cadre>
+  );
+}
+
+/** « 2026-11-15 » devient « 15 novembre 2026 ». */
+function dateLisible(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+/** Dans le panneau : ce qu'il reste à donner, coché à mesure que c'est fait. */
+function Points({ points }: { points: { cle: string; label: string; fait: boolean }[] }) {
+  if (points.length === 0)
+    return (
+      <p className="max-w-[22ch] text-[15px] leading-relaxed text-white/75">
+        Votre demande est complète : vérifiez vos informations, puis validez.
+      </p>
+    );
+  return (
+    <div>
+      <p className="eyebrow text-white/55">Il nous manque</p>
+      <ol className="mt-5 space-y-4">
+        {points.map((p, i) => (
+          <li key={p.cle} className="flex items-center gap-4">
+            <span
+              className={`flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-300 ${
+                p.fait
+                  ? "bg-brand text-[#1b1a18]"
+                  : "border border-white/28 bg-[#22211e] text-white/70"
+              }`}
+            >
+              {p.fait ? <Icone nom="check" taille={13} trait={3.2} className="coche-pop" /> : i + 1}
+            </span>
+            <span className="min-w-0">
+              <span className={`block text-[14px] leading-tight ${p.fait ? "text-white/85" : "font-semibold text-white"}`}>
+                {p.label}
+              </span>
+              <span className="mt-1 block text-[11.5px] leading-tight text-white/50">
+                {p.fait ? "Renseigné" : "À compléter"}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
 
-function MissingChip({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-warn/60 bg-white/70 px-3 py-1 text-xs font-medium text-warn">
-      <span className="h-1.5 w-1.5 rounded-full bg-warn-soft/700" />
-      {label}
-    </span>
-  );
-}
-
-function AddressFields({
-  title,
+/** Une adresse : la rue, la ville, l'étage et l'ascenseur. */
+function BlocAdresse({
+  icone,
+  titre,
+  sous,
   v,
   on,
-  requireVille,
+  delai: retard,
+  etiquette,
+  villeRequise = false,
 }: {
-  title: string;
+  icone: NomIcone;
+  titre: string;
+  sous: string;
   v: AddrState;
   on: (p: Partial<AddrState>) => void;
-  requireVille?: boolean;
+  delai: number;
+  etiquette?: { texte: string; fait?: boolean };
+  villeRequise?: boolean;
 }) {
   return (
-    <div>
-      <h3 className="mb-3 font-serif text-lg">{title}</h3>
-      <div className="grid gap-3 sm:grid-cols-6">
-        <div className="sm:col-span-4">
-          <Input label="Adresse" value={v.adresse} onChange={(x) => on({ adresse: x })} placeholder="12 rue…" />
+    <Bloc icone={icone} titre={titre} sous={sous} delai={retard} etiquette={etiquette}>
+      <div className="space-y-5">
+        <Field label="Adresse" hint="facultatif">
+          <AddressInput
+            kind="address"
+            value={v.adresse}
+            placeholder="12 rue de la République, Paris"
+            onChange={(x) => on({ adresse: x })}
+            onSelect={(p) => on({ adresse: p.label, ville: p.ville, code_postal: p.code_postal })}
+          />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <Field label="Code postal">
+            <TextInput value={v.code_postal} onChange={(e) => on({ code_postal: e.target.value })} placeholder="69003" inputMode="numeric" />
+          </Field>
+          <Field label={villeRequise ? "Ville *" : "Ville"} hint="choisissez dans la liste">
+            <AddressInput
+              kind="municipality"
+              value={v.ville}
+              placeholder="Lyon"
+              onChange={(x) => on({ ville: x })}
+              onSelect={(p) => on({ ville: p.ville, code_postal: p.code_postal })}
+            />
+          </Field>
         </div>
-        <div className="sm:col-span-2">
-          <Input label="Code postal" value={v.code_postal} onChange={(x) => on({ code_postal: x })} placeholder="69003" />
+        <div className="grid items-end gap-4 sm:grid-cols-2">
+          <Field label="Étage" hint="0 = RDC">
+            <TextInput type="number" min={0} value={v.etage} onChange={(e) => on({ etage: e.target.value.replace(/[^\d]/g, "") })} placeholder="0" />
+          </Field>
+          <Field groupe label="Ascenseur ?">
+            <YesNo value={v.ascenseur} onChange={(x) => on({ ascenseur: x })} />
+          </Field>
         </div>
-        <div className="sm:col-span-4">
-          <Input label={requireVille ? "Ville *" : "Ville"} value={v.ville} onChange={(x) => on({ ville: x })} placeholder="Lyon" highlight={requireVille} />
-        </div>
-        <div className="sm:col-span-2">
-          <Input label="Étage" value={v.etage} onChange={(x) => on({ etage: x.replace(/[^\d]/g, "") })} placeholder="0" />
-        </div>
-        <label className="flex items-center gap-2 text-sm sm:col-span-6">
-          <input type="checkbox" checked={v.ascenseur} onChange={(e) => on({ ascenseur: e.target.checked })} className="accent-[var(--color-accent)]" />
-          Ascenseur
-        </label>
       </div>
-    </div>
+    </Bloc>
   );
 }
 
-function VolumePicker({
-  mode, setMode, explicitVolume, setExplicitVolume, items, setItems, photos, setPhotos, library,
-}: {
-  mode: Mode; setMode: (m: Mode) => void;
-  explicitVolume: string; setExplicitVolume: (v: string) => void;
-  items: { label: string; quantite: number; volume_unitaire_m3: number }[];
-  setItems: (v: { label: string; quantite: number; volume_unitaire_m3: number }[]) => void;
-  photos: AnalyzedPhoto[]; setPhotos: (v: AnalyzedPhoto[]) => void;
-  library: LibraryPhoto[];
-}) {
+/** L'écran de fin : sur le décor de la vitrine, comme la confirmation d'un devis. */
+function Merci({ volume, email }: { volume: number | null; email: string | null }) {
   return (
-    <div>
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {([["explicit", "Je connais", "mon volume"], ["list", "Je liste", "mes meubles"], ["ai", "J'envoie", "des photos"]] as const).map(([m, a, b]) => (
-          <button key={m} type="button" onClick={() => setMode(m)}
-            className={`rounded-xl border px-3 py-3 text-left transition ${mode === m ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}>
-            <div className="font-serif text-base leading-tight">{a}</div>
-            <div className="text-xs text-ink-soft">{b}</div>
-          </button>
-        ))}
+    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
+      <div aria-hidden className="absolute inset-0">
+        <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
+        <div className="absolute inset-0 bg-[#1b1a18]/70" />
+        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/40 to-[#1b1a18]/95" />
+        <div
+          className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
+          style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties}
+        />
       </div>
 
-      {mode === "explicit" && (
-        <div className="space-y-3">
-          <input type="number" min={0} step="0.5" value={explicitVolume} onChange={(e) => setExplicitVolume(e.target.value)} placeholder="Volume estimé en m³"
-            className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent" />
-          <div className="flex flex-wrap gap-2">
-            {LOGEMENT_HINTS.map((h) => (
-              <button key={h.label} type="button" onClick={() => setExplicitVolume(String(h.volume))}
-                className="rounded-full border border-line bg-card px-3 py-1.5 text-sm transition hover:border-accent hover:text-accent">{h.label} · ~{h.volume} m³</button>
-            ))}
-          </div>
+      <div className="relative z-10 w-full max-w-lg text-center">
+        <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+          <Icone nom="check" taille={28} trait={3} className="coche-pop" />
         </div>
-      )}
-      {mode === "list" && <ListPicker items={items} setItems={setItems} />}
-      {mode === "ai" && <PhotoAnalyzer library={library} photos={photos} onChange={setPhotos} />}
-    </div>
-  );
-}
-
-function Input({ label, value, onChange, placeholder, highlight }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; highlight?: boolean }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        className={`w-full rounded-xl border bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent ${highlight && !value ? "border-warn/60 bg-warn-soft/60" : "border-line"}`} />
-    </label>
-  );
-}
-
-function ListPicker({ items, setItems }: { items: { label: string; quantite: number; volume_unitaire_m3: number }[]; setItems: (v: typeof items) => void }) {
-  const total = items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0);
-  const groupes = [...new Set(CATALOG.map((c) => c.groupe))];
-  const add = (label: string) => {
-    const p = CATALOG.find((c) => c.label === label); if (!p) return;
-    const i = items.findIndex((it) => it.label === label);
-    if (i >= 0) { const cp = [...items]; cp[i] = { ...cp[i], quantite: cp[i].quantite + 1 }; setItems(cp); }
-    else setItems([...items, { label, quantite: 1, volume_unitaire_m3: p.volume }]);
-  };
-  const setQty = (i: number, q: number) => { if (q <= 0) return setItems(items.filter((_, idx) => idx !== i)); const cp = [...items]; cp[i] = { ...cp[i], quantite: q }; setItems(cp); };
-  return (
-    <div className="space-y-4">
-      {groupes.map((g) => (
-        <div key={g}>
-          <div className="mb-1.5 text-sm font-medium text-ink-soft">{g}</div>
-          <div className="flex flex-wrap gap-1.5">
-            {CATALOG.filter((c) => c.groupe === g).map((c) => (
-              <button key={c.label} type="button" onClick={() => add(c.label)} className="rounded-full border border-line bg-card px-2.5 py-1 text-xs transition hover:border-accent hover:text-accent">+ {c.label}</button>
-            ))}
-          </div>
-        </div>
-      ))}
-      {items.length > 0 && (
-        <div className="rounded-xl border border-line bg-card">
-          {items.map((it, i) => (
-            <div key={it.label} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2 last:border-0">
-              <span className="flex-1 truncate text-sm">{it.label}</span>
-              <div className="flex items-center gap-1.5">
-                <button type="button" onClick={() => setQty(i, it.quantite - 1)} className="h-6 w-6 rounded-md border border-line text-ink-soft">−</button>
-                <span className="w-6 text-center text-sm tabular-nums">{it.quantite}</span>
-                <button type="button" onClick={() => setQty(i, it.quantite + 1)} className="h-6 w-6 rounded-md border border-line text-ink-soft">+</button>
-              </div>
-              <span className="w-16 text-right text-sm tabular-nums">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</span>
-            </div>
-          ))}
-          <div className="flex items-center justify-between px-4 py-2.5 font-medium"><span>Total</span><span className="tabular-nums">{total.toFixed(1)} m³</span></div>
-        </div>
-      )}
+        <h1 className="font-serif reveal mt-7 text-balance text-[40px] text-white sm:text-[52px]" style={delai(80)}>
+          Merci, c&apos;est <span className="gradient-flow-light">complet</span>
+        </h1>
+        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/75" style={delai(160)}>
+          Votre demande est complétée{volume != null && volume > 0 ? ` (~${volume} m³)` : ""}.{" "}
+          {email
+            ? "Votre estimation vous est envoyée par e-mail, et nos experts reviennent vers vous très vite."
+            : "Nos experts reviennent vers vous très vite."}
+        </p>
+        <a
+          href="tel:+33169103520"
+          className="reveal mt-8 inline-flex h-12 items-center gap-2.5 rounded-full border border-white/30 px-6 text-[14.5px] font-semibold text-white transition hover:border-white/70 hover:bg-white/10"
+          style={delai(240)}
+        >
+          <Icone nom="tel" taille={15} />
+          01 69 10 35 20
+        </a>
+      </div>
     </div>
   );
 }

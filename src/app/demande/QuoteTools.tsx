@@ -269,24 +269,7 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
             Si cette proposition vous intéresse, le plus simple est de nous appeler : nous bloquons
             votre date, et vous recevez un devis ferme sous 24 heures ouvrées.
           </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <BoutonRappel requestId={requestId} />
-            <a
-              href="tel:+33169103520"
-              className="inline-flex h-12 items-center gap-2 rounded-full border border-line-strong px-5 text-[14px] font-semibold transition hover:border-ink"
-            >
-              <Icone nom="tel" taille={15} />
-              01 69 10 35 20
-            </a>
-            {onNewQuote && (
-              <button
-                onClick={onNewQuote}
-                className="inline-flex h-12 items-center rounded-full px-4 text-[14px] font-medium text-ink-soft transition hover:text-ink"
-              >
-                Demander un nouveau devis
-              </button>
-            )}
-          </div>
+          <ActionsFin requestId={requestId} onNewQuote={onNewQuote} />
           <p className="mt-6 text-[12px] text-ink-soft">
             Estimation indicative, valable 30 jours — elle ne vaut pas devis contractuel.
           </p>
@@ -305,47 +288,100 @@ function Puce({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * « Être rappelé ».
+ * Les actions de fin : être rappelé, appeler, ou refaire un devis.
  *
  * Le client n'a pas toujours envie d'appeler. Un clic suffit : la demande
  * remonte dans le tableau des rappels de l'équipe, classée par potentiel.
+ * Le bouton tourne un instant, puis laisse la place à une confirmation —
+ * sans elle, le client ne sait pas si son clic a été pris en compte.
  */
-function BoutonRappel({ requestId }: { requestId: string }) {
+function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?: () => void }) {
   const [etat, setEtat] = useState<"repos" | "envoi" | "fait" | "echec">("repos");
 
   async function demander() {
     setEtat("envoi");
     try {
-      const res = await fetch("/api/rappels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request_id: requestId }),
-      });
+      // Le chargement dure au moins une seconde : une réponse trop rapide
+      // passerait pour un clic sans effet.
+      const [res] = await Promise.all([
+        fetch("/api/rappels", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ request_id: requestId }),
+        }),
+        new Promise((r) => setTimeout(r, 1000)),
+      ]);
       setEtat(res.ok ? "fait" : "echec");
     } catch {
       setEtat("echec");
     }
   }
 
-  if (etat === "fait") {
-    return (
-      <span className="animate-step-in inline-flex h-12 items-center gap-2 rounded-full bg-good-soft px-5 text-[14px] font-semibold text-good">
-        <Icone nom="check" taille={15} trait={3} className="coche-pop" />
-        Nous vous rappelons très vite
-      </span>
-    );
-  }
-
   return (
-    <button
-      type="button"
-      onClick={demander}
-      disabled={etat === "envoi"}
-      className="inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] shadow-[0_14px_28px_-14px_rgba(245,208,51,0.9)] transition hover:bg-[#e0b81a] active:scale-[0.98] disabled:opacity-60"
-    >
-      <Icone nom="tel" taille={15} trait={2.2} />
-      {etat === "envoi" ? "…" : etat === "echec" ? "Réessayer" : "Être rappelé"}
-    </button>
+    <>
+      {etat === "fait" && (
+        <div
+          role="status"
+          className="animate-step-in mx-auto mt-7 flex max-w-[30rem] items-center gap-4 rounded-[20px] border border-brand bg-brand-soft px-5 py-4 text-left"
+        >
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand">
+            <span className="onde absolute inset-0 rounded-full" />
+            <Icone nom="check" taille={20} trait={3} className="coche-pop" />
+          </span>
+          <span>
+            <span className="block text-[15.5px] font-semibold leading-tight">C&apos;est bien noté</span>
+            <span className="mt-1 block text-[14px] leading-snug text-ink-mid">
+              Nos équipes vous recontacteront au plus vite.
+            </span>
+          </span>
+        </div>
+      )}
+
+      <div className={`flex flex-wrap items-center justify-center gap-3 ${etat === "fait" ? "mt-5" : "mt-7"}`}>
+        {etat !== "fait" && (
+          <button
+            type="button"
+            onClick={demander}
+            disabled={etat === "envoi"}
+            aria-busy={etat === "envoi"}
+            className="inline-flex h-12 min-w-[168px] items-center justify-center gap-2.5 rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] shadow-[0_14px_28px_-14px_rgba(245,208,51,0.9)] transition hover:bg-[#e0b81a] active:scale-[0.98] disabled:cursor-wait disabled:hover:bg-brand"
+          >
+            {etat === "envoi" ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1b1a18]/25 border-t-[#1b1a18]" />
+                Un instant…
+              </>
+            ) : (
+              <>
+                <Icone nom="tel" taille={15} trait={2.2} />
+                {etat === "echec" ? "Réessayer" : "Être rappelé"}
+              </>
+            )}
+          </button>
+        )}
+        <a
+          href="tel:+33169103520"
+          className="inline-flex h-12 items-center gap-2 rounded-full border border-line-strong px-5 text-[14px] font-semibold transition hover:border-ink"
+        >
+          <Icone nom="tel" taille={15} />
+          01 69 10 35 20
+        </a>
+        {onNewQuote && (
+          <button
+            onClick={onNewQuote}
+            className="inline-flex h-12 items-center rounded-full px-4 text-[14px] font-medium text-ink-soft transition hover:text-ink"
+          >
+            Demander un nouveau devis
+          </button>
+        )}
+      </div>
+
+      {etat === "echec" && (
+        <p role="alert" className="animate-step-in mt-4 text-[13.5px] text-danger">
+          Votre demande n&apos;a pas pu être enregistrée. Réessayez, ou appelez-nous directement.
+        </p>
+      )}
+    </>
   );
 }
 
