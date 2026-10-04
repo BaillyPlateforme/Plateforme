@@ -205,6 +205,9 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
         <View style={s.hero} fixed={false}>
           <FondHero />
           <View style={s.heroContenu}>
+            {/* Le composant Image de react-pdf n'a pas d'attribut alt : il
+                produit un PDF, pas du HTML. */}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image src={logo} style={s.logo} />
             <View style={{ marginTop: 16, flexDirection: "row", alignItems: "flex-end" }}>
               <View style={{ flex: 1 }}>

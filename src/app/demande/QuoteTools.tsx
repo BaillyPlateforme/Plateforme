@@ -167,16 +167,17 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
             votre date, et vous recevez un devis ferme sous 24 heures ouvrées.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <BoutonRappel requestId={requestId} />
             <a
               href="tel:+33169103520"
-              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
+              className="rounded-xl border border-line-strong bg-card px-5 py-2.5 text-sm font-medium transition hover:border-ink"
             >
               01 69 10 35 20
             </a>
             {onNewQuote && (
               <button
                 onClick={onNewQuote}
-                className="rounded-xl border border-line-strong bg-card px-5 py-2.5 text-sm font-medium transition hover:border-ink"
+                className="rounded-xl px-5 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink"
               >
                 Demander un nouveau devis
               </button>
@@ -188,6 +189,49 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * « Être rappelé ».
+ *
+ * Le client n'a pas toujours envie d'appeler. Un clic suffit : la demande
+ * remonte dans le tableau des rappels de l'équipe, classée par potentiel.
+ */
+function BoutonRappel({ requestId }: { requestId: string }) {
+  const [etat, setEtat] = useState<"repos" | "envoi" | "fait" | "echec">("repos");
+
+  async function demander() {
+    setEtat("envoi");
+    try {
+      const res = await fetch("/api/rappels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: requestId }),
+      });
+      setEtat(res.ok ? "fait" : "echec");
+    } catch {
+      setEtat("echec");
+    }
+  }
+
+  if (etat === "fait") {
+    return (
+      <span className="rounded-xl bg-good-soft px-5 py-2.5 text-sm font-medium text-good">
+        ✓ Nous vous rappelons très vite
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={demander}
+      disabled={etat === "envoi"}
+      className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a] disabled:opacity-60"
+    >
+      {etat === "envoi" ? "…" : etat === "echec" ? "Réessayer" : "Être rappelé"}
+    </button>
   );
 }
 

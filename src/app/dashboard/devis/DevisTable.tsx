@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
+import ApercuDevis from "@/components/ApercuDevis";
 import Link from "next/link";
 import type { DevisRow, DevisStatus } from "@/lib/types";
 import { updateDevisStatus, deleteDevis } from "@/lib/actions/devis";
@@ -17,6 +18,8 @@ const ORDER: DevisStatus[] = ["brouillon", "envoye", "accepte", "refuse", "expir
 export default function DevisTable({ devis }: { devis: DevisRow[] }) {
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
+  // Un seul aperçu ouvert à la fois : chaque PDF est un rendu serveur.
+  const [apercu, setApercu] = useState<string | null>(null);
 
   const rows = devis.filter(
     (d) =>
@@ -57,7 +60,8 @@ export default function DevisTable({ devis }: { devis: DevisRow[] }) {
           </thead>
           <tbody className="divide-y divide-line/70">
             {rows.map((d) => (
-              <tr key={d.id} className="hover:bg-accent-soft/20">
+              <Fragment key={d.id}>
+              <tr className="hover:bg-accent-soft/20">
                 <td className="px-4 py-3">
                   {d.request_id ? (
                     <Link href={`/dashboard/${d.request_id}`} className="font-medium hover:text-accent">
@@ -97,12 +101,12 @@ export default function DevisTable({ devis }: { devis: DevisRow[] }) {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-3">
-                    <a
-                      href={`/api/devis/${d.id}/pdf`}
+                    <button
+                      onClick={() => setApercu((v) => (v === d.id ? null : d.id))}
                       className="text-xs font-medium text-accent transition hover:text-accent-dark"
                     >
-                      Télécharger PDF
-                    </a>
+                      {apercu === d.id ? "Masquer" : "Aperçu"}
+                    </button>
                     <button
                       onClick={() => start(() => deleteDevis(d.id))}
                       disabled={pending}
@@ -113,6 +117,14 @@ export default function DevisTable({ devis }: { devis: DevisRow[] }) {
                   </div>
                 </td>
               </tr>
+              {apercu === d.id && (
+                <tr>
+                  <td colSpan={7} className="bg-paper px-4 py-4">
+                    <ApercuDevis devisId={d.id} reference={d.reference} ouvert hauteur={640} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

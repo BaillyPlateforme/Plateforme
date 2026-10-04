@@ -14,6 +14,7 @@ export const ITEMS: Item[] = [
   { href: "/dashboard", label: "Demandes", icon: <IconInbox /> },
   { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
   { href: "/dashboard/clients", label: "Clients", icon: <IconCard /> },
+  { href: "/dashboard/rappels", label: "Rappels", icon: <IconTelephone /> },
   { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
   { href: "/dashboard/statistiques", label: "Statistiques", icon: <IconTrend /> },
   { href: "/dashboard/messagerie", label: "Messagerie", icon: <IconMail /> },
@@ -177,6 +178,7 @@ function IconGrid() { return <svg {...S}><rect x="3" y="3" width="7.5" height="7
 function IconInbox() { return <svg {...S}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>; }
 function IconDoc() { return <svg {...S}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></svg>; }
 function IconCard() { return <svg {...S}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><circle cx="8.5" cy="11" r="2" /><path d="M5.5 16c.6-1.4 1.8-2 3-2s2.4.6 3 2M14.5 10h4M14.5 13.5h3" /></svg>; }
+function IconTelephone() { return <svg {...S}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.4 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" /></svg>; }
 function IconCalendar() { return <svg {...S}><rect x="3" y="4.5" width="18" height="17" rx="2.5" /><path d="M16 2.5v4M8 2.5v4M3 10h18" /></svg>; }
 function IconTrend() { return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M7.5 14.5 10.5 11l2.5 2.5 3.5-4.5" /></svg>; }
 function IconMail() { return <svg {...S}><rect x="2.5" y="4.5" width="19" height="15" rx="2.5" /><path d="m21 7-9 5.5L3 7" /></svg>; }

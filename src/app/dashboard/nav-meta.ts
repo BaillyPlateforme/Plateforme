@@ -4,6 +4,7 @@ export const META: Record<string, { titre: string; sous?: string }> = {
   "/dashboard/tableau-de-bord": { titre: "Tableau de bord", sous: "L'activité en un coup d'œil" },
   "/dashboard/devis": { titre: "Devis", sous: "Chiffrages établis et envoyés" },
   "/dashboard/clients": { titre: "Clients", sous: "Historique par adresse e-mail" },
+  "/dashboard/rappels": { titre: "Rappels", sous: "Les clients qui demandent qu'on les rappelle" },
   "/dashboard/agenda": { titre: "Agenda", sous: "Interventions et disponibilités" },
   "/dashboard/statistiques": { titre: "Statistiques", sous: "Analyse complète du flux de demandes" },
   "/dashboard/simulateur": { titre: "Simulateur de chiffrage", sous: "Le moteur qui chiffre les demandes, en direct" },

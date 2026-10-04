@@ -1,5 +1,6 @@
 "use client";
 
+import ApercuDevis from "@/components/ApercuDevis";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { RequestStatus } from "@/lib/types";
@@ -318,14 +319,9 @@ function DevisTab({ detail }: { detail: Detail }) {
             {statusLabel[devis.status] ?? devis.status}
             {devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}
           </div>
-          <a
-            href={`/api/devis/${devis.id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark"
-          >
-            ⬇ Télécharger le devis PDF
-          </a>
+          <div className="mt-4">
+            <ApercuDevis devisId={devis.id} reference={devis.reference} ouvert hauteur={560} />
+          </div>
           <p className="mt-3 text-[11px] text-ink-soft">Généré automatiquement à la qualification de la demande.</p>
         </Card>
       </div>
