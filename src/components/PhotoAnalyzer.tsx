@@ -164,7 +164,7 @@ export default function PhotoAnalyzer({
                 type="button"
                 onClick={analyzeSelection}
                 disabled={selected.size === 0 || analyzing}
-                className="rounded-xl bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
+                className="inline-flex h-9 items-center rounded-full bg-ink px-4 text-[12.5px] font-semibold text-shell transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 Analyser la sélection ({selected.size})
               </button>
@@ -178,15 +178,15 @@ export default function PhotoAnalyzer({
                   type="button"
                   key={p.path}
                   onClick={() => toggleSelect(p.path)}
-                  className={`group relative aspect-square overflow-hidden rounded-xl border-2 transition ${
-                    on ? "border-accent" : "border-transparent hover:border-line-strong"
+                  className={`group relative aspect-square overflow-hidden rounded-[14px] border-2 transition duration-200 active:scale-95 ${
+                    on ? "border-brand shadow-[0_0_0_3px_rgba(245,208,51,0.35)]" : "border-transparent hover:border-line-strong"
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt="" className="h-full w-full object-cover" />
                   <span
                     className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs transition ${
-                      on ? "bg-accent text-white" : "bg-white/70 text-transparent group-hover:text-ink-soft"
+                      on ? "bg-brand text-[#1b1a18]" : "bg-white/70 text-transparent group-hover:text-[#615f68]"
                     }`}
                   >
                     ✓
@@ -221,7 +221,7 @@ export default function PhotoAnalyzer({
             type="button"
             onClick={analyzeUpload}
             disabled={analyzing}
-            className="mt-3 w-full rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50"
+            className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-ink px-5 text-[14px] font-semibold text-shell transition active:scale-[0.99] disabled:opacity-50"
           >
             Analyser {previews.length} photo{previews.length > 1 ? "s" : ""}
           </button>

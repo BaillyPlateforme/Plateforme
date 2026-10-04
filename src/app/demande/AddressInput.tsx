@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Icone } from "./ui";
 
 export type Place = { label: string; ville: string; code_postal: string; context: string; lat: number; lon: number };
 
@@ -120,22 +121,29 @@ export function AddressInput({
         }}
         placeholder={placeholder}
         autoComplete="off"
-        className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+        className="champ pl-11"
       />
+      <span className="pointer-events-none absolute left-4 top-6 -translate-y-1/2 text-ink-soft">
+        <Icone nom="pin" taille={17} />
+      </span>
       {open && sugg.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-line bg-card shadow-[var(--shadow-md)]">
+        <ul className="animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
           {sugg.map((p, i) => (
             <li key={i}>
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(p)}
-                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition ${i === active ? "bg-accent text-white" : "text-ink hover:bg-subtle"}`}
+                onMouseEnter={() => setActive(i)}
+                className={`flex w-full items-center justify-between gap-3 rounded-[12px] px-3 py-2.5 text-left transition-colors duration-150 ${i === active ? "bg-ink text-shell" : "text-ink"}`}
               >
-                <span className="truncate text-sm font-medium">
-                  {intitule(p, kind)}
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className={i === active ? "coche-or shrink-0" : "shrink-0 text-ink-soft"}>
+                    <Icone nom="pin" taille={15} />
+                  </span>
+                  <span className="truncate text-[14px] font-medium">{intitule(p, kind)}</span>
                 </span>
-                <span className={`shrink-0 text-xs tabular-nums ${i === active ? "text-white/80" : "text-ink-soft"}`}>
+                <span className={`shrink-0 text-xs tabular-nums ${i === active ? "opacity-70" : "text-ink-soft"}`}>
                   {/* L'adresse porte déjà son code postal : on ne le répète pas. */}
                   {(kind === "municipality" ? [p.code_postal, shortContext(p.context)] : [shortContext(p.context)])
                     .filter(Boolean)

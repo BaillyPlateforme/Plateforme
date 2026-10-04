@@ -226,10 +226,17 @@ export function PhotoDropzone({
   subtitle?: string;
 }) {
   return (
-    <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-line-strong bg-card px-6 py-7 text-center transition hover:border-accent">
+    <label className="group block cursor-pointer rounded-[22px] border-2 border-dashed border-line-strong bg-subtle/60 px-6 py-8 text-center transition-colors duration-200 hover:border-ink hover:bg-brand-soft">
       <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-      <div className="font-serif text-lg">{title}</div>
-      <div className="mt-1 text-sm text-ink-soft">{subtitle}</div>
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] border border-line bg-card text-ink-mid transition-colors duration-200 group-hover:border-[#1b1a18] group-hover:bg-[#1b1a18] group-hover:text-brand">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <path d="m17 8-5-5-5 5" />
+          <path d="M12 3v12" />
+        </svg>
+      </span>
+      <div className="mt-3.5 text-[15.5px] font-semibold">{title}</div>
+      <div className="mt-1 text-[13px] text-ink-soft">{subtitle}</div>
     </label>
   );
 }

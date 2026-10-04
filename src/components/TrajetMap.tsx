@@ -38,6 +38,7 @@ export default function TrajetMap({
   arriveeCoord,
   height = 380,
   distanceKm,
+  nu = false,
 }: {
   departVille: string | null;
   arriveeVille: string | null;
@@ -45,6 +46,8 @@ export default function TrajetMap({
   arriveeCoord?: Pt | null;
   height?: number;
   distanceKm?: number | null;
+  /** Sans cadre ni coins : la carte est déjà posée dans une carte. */
+  nu?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
@@ -105,7 +108,7 @@ export default function TrajetMap({
   }, [departVille, arriveeVille]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line" style={{ height }}>
+    <div className={`relative overflow-hidden ${nu ? "" : "rounded-2xl border border-line"}`} style={{ height }}>
       <div ref={ref} className="h-full w-full" />
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-subtle/60 text-sm text-ink-soft">Chargement de la carte…</div>
@@ -116,7 +119,8 @@ export default function TrajetMap({
         </div>
       )}
       {status === "ok" && (
-        <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-xl border border-line bg-card/95 px-3 py-1.5 text-xs shadow-sm">
+        // À droite : à gauche, les boutons de zoom de la carte passaient dessus.
+        <div className="pointer-events-none absolute right-3 top-3 z-[500] max-w-[calc(100%-4.5rem)] truncate rounded-full border border-line bg-card px-3.5 py-1.5 text-xs shadow-md">
           {proche ? (
             <>
               <span className="font-medium">{departVille ?? "?"}</span>

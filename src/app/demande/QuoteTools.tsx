@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useState, type CSSProperties } from "react";
 import TrajetMap from "@/components/TrajetMap";
+import { Icone } from "./ui";
 
 /* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
 
@@ -57,105 +59,206 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
   }, []);
 
   if (!ready) {
+    const tour = 2 * Math.PI * 52;
     return (
-      <Shell>
+      <Scene>
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-2xl">📄</div>
-          <h1 className="font-serif text-3xl">{count > 1 ? "Génération de vos estimations…" : "Génération de votre estimation…"}</h1>
-          <p className="mt-2 h-5 text-sm text-ink-soft transition-all">{STEPS[msg]}</p>
-          <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-subtle">
-            <div className="h-full rounded-full bg-accent transition-all duration-200 ease-out" style={{ width: `${progress}%` }} />
+          <div className="relative mx-auto h-28 w-28">
+            <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="6" />
+              <circle
+                cx="60"
+                cy="60"
+                r="52"
+                fill="none"
+                stroke="#f5d033"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={tour}
+                strokeDashoffset={tour * (1 - progress / 100)}
+                className="transition-[stroke-dashoffset] duration-300 ease-out"
+              />
+            </svg>
+            <span className="font-serif absolute inset-0 flex items-center justify-center text-[27px] text-white tnum">
+              {progress}
+              <span className="ml-0.5 text-[14px] text-white/55">%</span>
+            </span>
           </div>
-          <p className="mt-6 text-xs text-ink-soft">Encore quelques secondes…</p>
+          <h1 className="font-serif mt-8 text-balance text-[30px] text-white sm:text-[36px]">
+            {count > 1 ? "Génération de vos estimations…" : "Génération de votre estimation…"}
+          </h1>
+          <ul className="mx-auto mt-8 max-w-[19rem] space-y-3.5 text-left">
+            {STEPS.map((texte, i) => {
+              const etat = i < msg ? "fait" : i === msg ? "cours" : "attente";
+              return (
+                <li
+                  key={texte}
+                  className={`flex items-center gap-3 text-[14px] transition-colors duration-500 ${
+                    etat === "attente" ? "text-white/35" : etat === "cours" ? "text-white" : "text-white/70"
+                  }`}
+                >
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                      etat === "fait"
+                        ? "bg-brand text-[#1b1a18]"
+                        : etat === "cours"
+                          ? "border-2 border-brand"
+                          : "border border-white/25"
+                    }`}
+                  >
+                    {etat === "fait" && <Icone nom="check" taille={11} trait={3.4} className="coche-pop" />}
+                    {etat === "cours" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />}
+                  </span>
+                  {texte.replace(/…$/, "")}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-8 text-[12.5px] text-white/50">Encore quelques secondes…</p>
         </div>
-      </Shell>
+      </Scene>
     );
   }
 
   // Plusieurs demandes (via le comparateur) : confirmation sans détailler chaque prix.
   if (count > 1) {
     return (
-      <Shell>
-        <div className="w-full max-w-md animate-fade-up text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <h1 className="font-serif text-4xl">Vos {count} estimations sont prêtes</h1>
-          <p className="mt-3 text-ink-soft">Nous vous adressons une estimation pour chaque scénario par e-mail.</p>
-          <p className="mt-4 text-sm text-ink-soft">
+      <Scene>
+        <div className="w-full max-w-lg text-center">
+          <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+            <Icone nom="check" taille={28} trait={3} className="coche-pop" />
+          </div>
+          <h1 className="font-serif reveal mt-7 text-balance text-[36px] text-white sm:text-[46px]">
+            Vos {count} estimations sont prêtes
+          </h1>
+          <p className="reveal mt-4 text-[15.5px] leading-relaxed text-white/72">
+            Nous vous adressons une estimation pour chaque scénario par e-mail.
+          </p>
+          <p className="reveal mx-auto mt-3 max-w-[46ch] text-[14px] leading-relaxed text-white/60">
             Cette estimation vous convient ? Contactez-nous pour la transformer en devis ferme —
             nous revenons vers vous sous 24 h ouvrées.
           </p>
           {onNewQuote && (
-            <button onClick={onNewQuote} className="mt-6 rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white transition hover:bg-accent-dark">Faire une nouvelle demande</button>
+            <button
+              onClick={onNewQuote}
+              className="reveal mt-8 inline-flex h-12 items-center rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a] active:scale-[0.98]"
+            >
+              Faire une nouvelle demande
+            </button>
           )}
         </div>
-      </Shell>
+      </Scene>
     );
   }
 
   // Devis unique : on affiche le montant, le résumé et le PDF complet.
   return (
-    <div className="min-h-screen bg-paper px-5 py-12 md:px-8">
-      <div className="mx-auto max-w-3xl animate-fade-up">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <div className="eyebrow text-brand-ink">Votre proposition</div>
-          <h1 className="mt-2 font-serif text-4xl">Votre estimation est prête</h1>
-          <p className="mt-2 text-sm text-ink-soft">Estimation établie selon les informations transmises.</p>
+    <div className="min-h-dvh bg-paper">
+      <section className="grain relative overflow-hidden bg-[#1b1a18] px-5 pb-32 pt-10 sm:pb-36 sm:pt-12">
+        <Decor />
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <Image
+            src="/marque/bailly-logo-blanc.svg"
+            alt="Bailly Déménagement"
+            width={200}
+            height={64}
+            priority
+            className="mx-auto h-auto w-[150px]"
+          />
+          <div className="reveal mx-auto mt-9 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_9px_rgba(245,208,51,0.18)]">
+            <Icone nom="check" taille={24} trait={3} className="coche-pop" />
+          </div>
+          <p className="eyebrow reveal mt-6 text-brand">Votre proposition</p>
+          <h1 className="font-serif reveal mt-3 text-balance text-[36px] text-white sm:text-[50px]">
+            Votre estimation <span className="gradient-flow-light">est prête</span>
+          </h1>
+          <p className="reveal mt-3 text-[15px] text-white/70">Estimation établie selon les informations transmises.</p>
         </div>
+      </section>
 
+      <div className="relative z-10 mx-auto -mt-24 max-w-3xl space-y-5 px-5 pb-16 sm:-mt-28">
         {devis ? (
           <>
-            <div className="mt-6 rounded-[18px] bg-card p-6 shadow-sm">
-              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <div className="text-base font-medium text-ink">{devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}</div>
-                  <div className="mt-0.5 text-xs text-ink-soft">
-                    {devis.volume_m3 != null ? `~${devis.volume_m3} m³ · ` : ""}Estimation {devis.reference}{devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}
+            <div className="bloc reveal overflow-hidden rounded-[26px] border border-line bg-card">
+              <div className="flex flex-wrap items-end justify-between gap-5 p-6 sm:p-8">
+                <div className="min-w-0">
+                  <div className="eyebrow text-brand-ink">Votre trajet</div>
+                  <div className="font-serif mt-2 text-[22px] leading-tight sm:text-[26px]">
+                    {devis.ville_depart ?? "?"} → {devis.ville_arrivee ?? "?"}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {devis.volume_m3 != null && <Puce>~{devis.volume_m3} m³</Puce>}
+                    <Puce>Estimation {devis.reference}</Puce>
+                    {devis.valid_until && (
+                      <Puce>valable jusqu&apos;au {new Date(devis.valid_until).toLocaleDateString("fr-FR")}</Puce>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-ink-soft">Total estimé</div>
-                  <div className="font-serif text-4xl text-accent">{euro(devis.montant_ttc)} <span className="text-base text-ink-soft">TTC</span></div>
+                  <div className="text-[12px] text-ink-soft">Total estimé</div>
+                  <div className="font-serif mt-1 text-[42px] leading-none tnum sm:text-[54px]">
+                    {euro(devis.montant_ttc)}
+                    <span className="ml-2 text-[15px] font-medium text-ink-soft">TTC</span>
+                  </div>
                 </div>
               </div>
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-line/70">
+              <table className="w-full text-[14px]">
+                <tbody>
                   {(devis.lignes ?? []).map((l, i) => (
-                    <tr key={i}><td className="py-2 text-ink-soft">{l.label}</td><td className="py-2 text-right tabular-nums">{l.amount.toFixed(2)} €</td></tr>
+                    <tr key={i} className="border-t border-line/70">
+                      <td className="px-6 py-3 text-ink-mid sm:px-8">{l.label}</td>
+                      <td className="whitespace-nowrap px-6 py-3 text-right tnum sm:px-8">{l.amount.toFixed(2)} €</td>
+                    </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="border-t border-line"><td className="py-2 text-ink-soft">Total HT</td><td className="py-2 text-right tabular-nums">{devis.montant_ht.toFixed(2)} €</td></tr>
-                  <tr><td className="py-1 text-ink-soft">TVA</td><td className="py-1 text-right tabular-nums">{devis.montant_tva.toFixed(2)} €</td></tr>
+                <tfoot className="bg-subtle">
+                  <tr className="border-t border-line">
+                    <td className="px-6 pb-1 pt-3.5 text-ink-soft sm:px-8">Total HT</td>
+                    <td className="px-6 pb-1 pt-3.5 text-right tnum sm:px-8">{devis.montant_ht.toFixed(2)} €</td>
+                  </tr>
+                  <tr>
+                    <td className="px-6 pb-3.5 pt-1 text-ink-soft sm:px-8">TVA</td>
+                    <td className="px-6 pb-3.5 pt-1 text-right tnum sm:px-8">{devis.montant_tva.toFixed(2)} €</td>
+                  </tr>
                 </tfoot>
               </table>
             </div>
 
             {/* Carte du trajet */}
             {(devis.ville_depart || devis.ville_arrivee) && (
-              <div className="mt-6">
-                <TrajetMap departVille={devis.ville_depart} arriveeVille={devis.ville_arrivee} height={280} />
+              <div className="bloc overflow-hidden rounded-[26px] border border-line bg-card">
+                <TrajetMap nu departVille={devis.ville_depart} arriveeVille={devis.ville_arrivee} height={300} />
               </div>
             )}
 
             {/* PDF complet */}
-            <div className="mt-6 overflow-hidden rounded-[18px] bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b border-line px-5 py-3">
-                <span className="font-serif text-lg">Votre estimation</span>
-                <a href={`/api/devis/${devis.id}/pdf`} target="_blank" rel="noreferrer" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark">⬇ Télécharger le PDF</a>
+            <div className="bloc overflow-hidden rounded-[26px] border border-line bg-card">
+              <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5 sm:px-6">
+                <span className="font-serif text-[18px]">Votre estimation</span>
+                <a
+                  href={`/api/devis/${devis.id}/pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-[13px] font-semibold text-shell transition active:scale-[0.98]"
+                >
+                  <span className="coche-or">
+                    <Icone nom="telecharger" taille={15} trait={2.2} />
+                  </span>
+                  Télécharger le PDF
+                </a>
               </div>
               <iframe src={`/api/devis/${devis.id}/pdf`} title="Devis" className="h-[640px] w-full" />
             </div>
           </>
         ) : (
-          <div className="mt-6 rounded-[18px] bg-card p-8 text-center text-sm text-ink-soft">
+          <div className="bloc rounded-[26px] border border-line bg-card p-8 text-center text-[14px] text-ink-soft">
             Votre devis est en cours de finalisation — un conseiller vous l&apos;adresse par e-mail très vite.
           </div>
         )}
 
         {/* La phrase de fin, et ce qu'il faut faire pour aller plus loin. */}
-        <div className="mt-6 overflow-hidden rounded-[18px] bg-card p-6 text-center shadow-sm sm:p-8">
-          <h3 className="font-serif text-[22px] leading-snug">Et maintenant ?</h3>
+        <div className="bloc overflow-hidden rounded-[26px] border border-line bg-card p-6 text-center sm:p-9">
+          <h3 className="font-serif text-[24px] leading-snug">Et maintenant ?</h3>
           <p className="mx-auto mt-3 max-w-[58ch] text-[14px] leading-relaxed text-ink-soft">
             Cette estimation est établie sur notre grille tarifaire, à partir de ce que vous avez
             renseigné. Elle vaut pour un déménagement dans des conditions normales d&apos;accès ;
@@ -166,29 +269,38 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
             Si cette proposition vous intéresse, le plus simple est de nous appeler : nous bloquons
             votre date, et vous recevez un devis ferme sous 24 heures ouvrées.
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <BoutonRappel requestId={requestId} />
             <a
               href="tel:+33169103520"
-              className="rounded-xl border border-line-strong bg-card px-5 py-2.5 text-sm font-medium transition hover:border-ink"
+              className="inline-flex h-12 items-center gap-2 rounded-full border border-line-strong px-5 text-[14px] font-semibold transition hover:border-ink"
             >
+              <Icone nom="tel" taille={15} />
               01 69 10 35 20
             </a>
             {onNewQuote && (
               <button
                 onClick={onNewQuote}
-                className="rounded-xl px-5 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink"
+                className="inline-flex h-12 items-center rounded-full px-4 text-[14px] font-medium text-ink-soft transition hover:text-ink"
               >
                 Demander un nouveau devis
               </button>
             )}
           </div>
-          <p className="mt-5 text-[12px] text-ink-soft">
+          <p className="mt-6 text-[12px] text-ink-soft">
             Estimation indicative, valable 30 jours — elle ne vaut pas devis contractuel.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function Puce({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-subtle px-2.5 py-1 text-[12px] font-medium text-ink-mid">
+      {children}
+    </span>
   );
 }
 
@@ -217,8 +329,9 @@ function BoutonRappel({ requestId }: { requestId: string }) {
 
   if (etat === "fait") {
     return (
-      <span className="rounded-xl bg-good-soft px-5 py-2.5 text-sm font-medium text-good">
-        ✓ Nous vous rappelons très vite
+      <span className="animate-step-in inline-flex h-12 items-center gap-2 rounded-full bg-good-soft px-5 text-[14px] font-semibold text-good">
+        <Icone nom="check" taille={15} trait={3} className="coche-pop" />
+        Nous vous rappelons très vite
       </span>
     );
   }
@@ -228,15 +341,37 @@ function BoutonRappel({ requestId }: { requestId: string }) {
       type="button"
       onClick={demander}
       disabled={etat === "envoi"}
-      className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a] disabled:opacity-60"
+      className="inline-flex h-12 items-center gap-2 rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] shadow-[0_14px_28px_-14px_rgba(245,208,51,0.9)] transition hover:bg-[#e0b81a] active:scale-[0.98] disabled:opacity-60"
     >
+      <Icone nom="tel" taille={15} trait={2.2} />
       {etat === "envoi" ? "…" : etat === "echec" ? "Réessayer" : "Être rappelé"}
     </button>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen items-center justify-center bg-paper px-6 py-16">{children}</div>;
+/** Le décor sombre de la vitrine : la photo, ses voiles et le halo doré. */
+function Decor() {
+  return (
+    <div aria-hidden className="absolute inset-0">
+      <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
+      <div className="absolute inset-0 bg-[#1b1a18]/72" />
+      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/88 via-[#1b1a18]/45 to-[#1b1a18]/95" />
+      <div
+        className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
+        style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties}
+      />
+    </div>
+  );
+}
+
+/** Un écran entier posé sur le décor : l'attente, puis la confirmation. */
+function Scene({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
+      <Decor />
+      <div className="relative z-10 flex w-full justify-center">{children}</div>
+    </div>
+  );
 }
 
 /* ---------- Comparateur de scénarios (sans prix) ---------- */

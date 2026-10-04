@@ -1,19 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
-import { Field, TextInput } from "./ui";
+import {
+  Bloc,
+  CarteChoix,
+  Choice,
+  Field,
+  Icone,
+  Ligne,
+  Option,
+  Pill,
+  Selecteur,
+  TextInput,
+  YesNo,
+  Zone,
+  type NomIcone,
+} from "./ui";
+import ChoixFormule, { LIGNES_CARTE, nomFormule, type Prestations } from "./Formules";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
-import FormulesClient from "@/components/pricing/FormulesClient";
 import { InstantResult, Comparateur } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 
 /* ============================ Types ============================ */
 
 type YN = "oui" | "non" | "";
-type Presta = "moi" | "bailly" | "";
 type Demontage = "possible" | "imperatif" | "";
 type PeriodeMode = "date" | "suggestion" | "libre";
 type VolumeMode = "explicit" | "list" | "ai";
@@ -62,7 +75,7 @@ type FormState = {
   depart: Address;
   arrivee: Address;
   // Étape 4
-  prestations: { fragile: Presta; embNonFragile: Presta; debNonFragile: Presta; demontage: Presta; transport: Presta };
+  prestations: Prestations;
   // Étape 5
   emballage: {
     ikea: Demontage; ikeaPrecision: string;
@@ -82,44 +95,86 @@ type FormState = {
 
 const STEPS = ["Vous", "Départ", "Arrivée", "Prestations", "Emballage", "Inventaire", "Commentaires"] as const;
 
-const HEADERS: { eyebrow: string; title: string; sub: string }[] = [
-  { eyebrow: "Informations personnelles", title: "Parlez-nous de vous", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
-  { eyebrow: "Adresse de départ", title: "D'où partez-vous ?", sub: "L'adresse et les conditions d'accès actuelles." },
-  { eyebrow: "Adresse d'arrivée", title: "Où allez-vous ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
-  { eyebrow: "Prestations", title: "Que devons-nous prendre en charge ?", sub: "Vous choisissez, nous nous occupons du reste." },
-  { eyebrow: "Prestation d'emballage", title: "Vos meubles à démonter", sub: "Pour préparer au mieux le démontage et le remontage." },
-  { eyebrow: "Inventaire", title: "Quel volume à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
-  { eyebrow: "Commentaires", title: "Un dernier mot ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
+/** Ce que chaque étape demande, dit en trois mots sous son nom. */
+const SOUS_ETAPES = [
+  "Coordonnées et projet",
+  "Adresse et accès",
+  "Adresse et accès",
+  "Votre formule",
+  "Meubles à démonter",
+  "Volume à déménager",
+  "Relecture et envoi",
 ];
 
-const TYPES_LOGEMENT = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison", "Local"];
+/** Le titre de chaque étape, avec le mot que le dégradé met en avant. */
+const HEADERS: { eyebrow: string; avant: string; accent: string; apres: string; sub: string }[] = [
+  { eyebrow: "Informations personnelles", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
+  { eyebrow: "Adresse de départ", avant: "D'où ", accent: "partez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès actuelles." },
+  { eyebrow: "Adresse d'arrivée", avant: "Où ", accent: "allez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
+  { eyebrow: "Prestations", avant: "Que devons-nous ", accent: "prendre en charge", apres: " ?", sub: "Trois formules, comparées ligne par ligne. Vous choisissez, nous nous occupons du reste." },
+  { eyebrow: "Prestation d'emballage", avant: "Vos meubles à ", accent: "démonter", apres: "", sub: "Pour préparer au mieux le démontage et le remontage." },
+  { eyebrow: "Inventaire", avant: "Quel ", accent: "volume", apres: " à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
+  { eyebrow: "Commentaires", avant: "Un dernier ", accent: "mot", apres: " ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
+];
+
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 // Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
 // et le Luxe rembourse à l'identique — pas à neuf.
-const GARANTIES: [string, string, string][] = [
-  [
-    "standard",
-    "Garantie dommages standard",
-    "Garantie avec tableau de vétusté pour le mobilier. Franchise de 300 € par sinistre.",
-  ],
-  [
-    "luxe",
-    "Garantie dommages Luxe",
-    "Garantie en valeur de remplacement à l'identique et sans vétusté. Sans franchise.",
-  ],
-];
-const PRESTATIONS: { key: keyof FormState["prestations"]; label: string }[] = [
-  { key: "fragile", label: "Emballage et déballage du fragile" },
-  { key: "embNonFragile", label: "Emballage du non fragile" },
-  { key: "debNonFragile", label: "Déballage du non fragile" },
-  { key: "demontage", label: "Démontage et remontage du mobilier" },
-  { key: "transport", label: "Transport de meubles uniquement" },
+const GARANTIES: { key: "standard" | "luxe"; titre: string; texte: string; badge: string }[] = [
+  {
+    key: "standard",
+    titre: "Garantie dommages standard",
+    texte: "Garantie avec tableau de vétusté pour le mobilier.",
+    badge: "Franchise de 300 € par sinistre",
+  },
+  {
+    key: "luxe",
+    titre: "Garantie dommages Luxe",
+    texte: "Garantie en valeur de remplacement à l'identique et sans vétusté.",
+    badge: "Sans franchise",
+  },
 ];
 const PAYS = [
   "France", "Belgique", "Suisse", "Luxembourg", "Allemagne", "Espagne", "Italie", "Portugal",
   "Royaume-Uni", "Pays-Bas", "Irlande", "Autriche", "Danemark", "Suède", "Norvège", "Pologne",
   "Maroc", "Tunisie", "Algérie", "États-Unis", "Canada", "Australie", "Autre",
 ];
+
+const MEUBLES: {
+  key: "ikea" | "anciens" | "specifiques";
+  precKey: "ikeaPrecision" | "anciensPrecision" | "specifiquesPrecision";
+  titre: string;
+  sous: string;
+  icone: NomIcone;
+  exemple: string;
+}[] = [
+  {
+    key: "ikea",
+    precKey: "ikeaPrecision",
+    titre: "Meubles type IKEA, Conforama…",
+    sous: "Les meubles en kit, montés chez vous.",
+    icone: "cle",
+    exemple: "Armoire trois portes, lit avec tiroirs…",
+  },
+  {
+    key: "anciens",
+    precKey: "anciensPrecision",
+    titre: "Meubles anciens",
+    sous: "Armoires, buffets, meubles de famille.",
+    icone: "sablier",
+    exemple: "Armoire normande, buffet deux corps…",
+  },
+  {
+    key: "specifiques",
+    precKey: "specifiquesPrecision",
+    titre: "Meubles spécifiques",
+    sous: "Sur mesure, design ou de grandes dimensions.",
+    icone: "regle",
+    exemple: "Dressing sur mesure, lit mezzanine, bibliothèque murale…",
+  },
+];
+
+const AGENCE = { lien: "tel:+33169103520", numero: "01 69 10 35 20" };
 
 const emptyAddress: Address = {
   adresse: "", complement: "", ville: "", region: "", code_postal: "", pays: "France",
@@ -149,6 +204,14 @@ const DEMO: FormState = {
   volumeMode: "explicit", explicitVolume: "30",
 };
 
+const EXPRESS_VIDE = {
+  nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
+  dateMode: "date" as PeriodeMode, date: "", periode: "",
+  volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
+};
+
+const delai = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
+
 /* ============================ Sélecteur de devis ============================ */
 
 export default function DemandeForm({
@@ -169,84 +232,386 @@ export default function DemandeForm({
   return <CompleteForm library={library} onBack={onQuitter} instant={instant} />;
 }
 
+/* ============================ La coque ============================ */
+
 /**
  * Le panneau de gauche, dans le langage de la vitrine : la photo d'intérieur
  * assombrie, le halo doré, le texte en blanc. Le milieu est laissé au
- * parcours — les étapes du devis complet, rien pour l'express.
+ * parcours ; en bas, la demande se remplit sous les yeux du client.
+ *
+ * Les noirs sont écrits en dur : le panneau reste sombre quel que soit le
+ * thème, là où `bg-ink` s'éclaircirait de nuit.
  */
 function BrandPanel({
   milieu,
-  bas,
+  recap,
 }: {
-  milieu?: React.ReactNode;
-  bas?: React.ReactNode;
+  milieu: ReactNode;
+  recap: [string, string | null][];
 }) {
   return (
-    <aside className="grain relative hidden overflow-hidden bg-ink md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:justify-between">
-      <Image src="/login-interieur.jpg" alt="" fill priority sizes="420px" className="ken-burns object-cover" />
-      <div className="absolute inset-0 bg-ink/72" />
-      <div className="absolute inset-0 bg-linear-to-b from-ink/85 via-ink/45 to-ink/95" />
-      <div className="halo drift absolute -left-24 top-1/3 h-[380px] w-[380px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
+    <aside className="grain relative hidden overflow-hidden bg-[#1b1a18] lg:sticky lg:top-0 lg:block lg:h-dvh">
+      {/* Le décor a son propre cadre : next/image refuse un parent « sticky ». */}
+      <div aria-hidden className="absolute inset-0">
+        <Image src="/login-interieur.jpg" alt="" fill priority sizes="380px" className="ken-burns object-cover" />
+        <div className="absolute inset-0 bg-[#1b1a18]/78" />
+        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/55 to-[#1b1a18]/95" />
+        <div className="halo drift absolute -left-24 top-1/3 h-[380px] w-[380px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
+      </div>
 
-      <div className="relative z-10 p-9">
+      <div className="relative z-10 flex h-full flex-col overflow-y-auto px-7 py-8 [scrollbar-width:none] xl:px-9">
         <Image
           src="/marque/bailly-logo-blanc.svg"
           alt="Bailly Déménagement"
           width={200}
           height={64}
           priority
-          className="h-auto w-[190px]"
+          className="h-auto w-[150px] shrink-0 xl:w-[170px]"
         />
-        <p className="mt-8 max-w-xs font-serif text-[23px] leading-snug text-white">
+        <p className="font-serif mt-6 max-w-xs text-[19px] leading-snug text-white xl:text-[21px] [@media(max-height:840px)]:hidden">
           Une question, un projet ? Nous vous{" "}
           <span className="gradient-flow-light">accompagnons</span> à chaque étape.
         </p>
-      </div>
 
-      {milieu && <div className="relative z-10 px-6">{milieu}</div>}
+        <div className="my-auto py-6">{milieu}</div>
 
-      <div className="relative z-10 p-9">
-        <div className="border-t border-white/15 pt-5 text-[13px] text-white/65">
-          {bas ?? "Échangez avec nos experts pour un accompagnement sur mesure."}
+        <div className="edge-glow relative shrink-0 rounded-[22px] bg-linear-to-br from-white/16 via-white/7 to-white/4 p-4 xl:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="eyebrow text-white/55">Votre demande</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-white/50">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
+              en direct
+            </span>
+          </div>
+          <dl className="mt-3.5 space-y-2.5">
+            {recap.map(([cle, valeur]) => (
+              <div key={cle} className="flex items-baseline justify-between gap-4">
+                <dt className="shrink-0 text-[12px] text-white/55">{cle}</dt>
+                <dd
+                  key={valeur ?? "vide"}
+                  className={`min-w-0 truncate text-right text-[13px] font-medium ${
+                    valeur ? "animate-step-in text-white" : "text-white/28"
+                  }`}
+                >
+                  {valeur ?? "—"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <a
+            href={AGENCE.lien}
+            className="mt-4 flex items-center justify-between gap-3 border-t border-white/12 pt-3.5 text-[12px] text-white/60 transition hover:text-white"
+          >
+            <span>Une question ?</span>
+            <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+              <Icone nom="tel" taille={13} />
+              {AGENCE.numero}
+            </span>
+          </a>
         </div>
       </div>
     </aside>
   );
 }
 
+/** Les sept étapes, sur un rail qui se remplit de jaune à mesure qu'on avance. */
+function Frise({ step, onAller }: { step: number; onAller: (i: number) => void }) {
+  return (
+    <ol className="relative">
+      <span aria-hidden className="absolute bottom-[26px] left-[15px] top-[26px] w-px bg-white/15" />
+      <span
+        aria-hidden
+        className="absolute left-[15px] top-[26px] w-px bg-brand transition-[height] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ height: `calc((100% - 52px) * ${step / (STEPS.length - 1)})` }}
+      />
+      {STEPS.map((label, i) => {
+        const etat = i === step ? "active" : i < step ? "done" : "todo";
+        return (
+          <li key={label}>
+            <button
+              type="button"
+              onClick={() => i < step && onAller(i)}
+              disabled={i > step}
+              aria-current={etat === "active" ? "step" : undefined}
+              className={`relative flex w-full items-center gap-4 rounded-2xl py-2 pr-3 text-left transition-colors duration-200 ${
+                etat === "done" ? "hover:bg-white/8" : ""
+              }`}
+            >
+              <span
+                className={`relative z-10 flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-[background-color,box-shadow,color] duration-300 ${
+                  etat === "active"
+                    ? "bg-brand text-[#1b1a18] shadow-[0_0_0_5px_rgba(245,208,51,0.24)]"
+                    : etat === "done"
+                      ? "bg-brand text-[#1b1a18]"
+                      : "border border-white/28 bg-[#22211e] text-white/60"
+                }`}
+              >
+                {etat === "done" ? <Icone nom="check" taille={13} trait={3.2} /> : i + 1}
+              </span>
+              <span className="min-w-0">
+                <span
+                  className={`block text-[14px] leading-tight ${
+                    etat === "active" ? "font-semibold text-white" : etat === "done" ? "text-white/88" : "text-white/55"
+                  }`}
+                >
+                  {label}
+                </span>
+                <span className={`mt-1 block text-[11.5px] leading-tight ${etat === "todo" ? "text-white/38" : "text-white/55"}`}>
+                  {SOUS_ETAPES[i]}
+                </span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
+/** Ce que promet le devis express, à la place des étapes. */
+function PromessesExpress() {
+  const lignes: [NomIcone, string, string][] = [
+    ["eclair", "Deux minutes", "Quatre questions, pas une de plus."],
+    ["euro", "Le prix tout de suite", "Calculé sur notre grille, celle du commercial."],
+    ["bouclier", "Sans engagement", "Vous gardez l'estimation, et vous nous rappelez quand vous voulez."],
+  ];
+  return (
+    <ul className="space-y-5">
+      {lignes.map(([icone, titre, texte]) => (
+        <li key={titre} className="flex gap-3.5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-white/18 bg-white/10 text-brand">
+            <Icone nom={icone} taille={18} />
+          </span>
+          <span>
+            <span className="block text-[14px] font-semibold text-white">{titre}</span>
+            <span className="mt-1 block text-[12.5px] leading-snug text-white/55">{texte}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Le cadre commun aux deux parcours : le panneau à gauche, la progression en
+ * haut, le contenu, et la barre d'action qui reste collée en bas de l'écran.
+ */
+function Cadre({
+  panneau,
+  etiquette,
+  progression,
+  onBack,
+  large = false,
+  barre,
+  children,
+}: {
+  panneau: ReactNode;
+  /** Où l'on en est, pour le bandeau du téléphone. */
+  etiquette: string;
+  progression: number;
+  onBack: () => void;
+  /** Le comparateur de formules demande plus de place que les autres étapes. */
+  large?: boolean;
+  barre: ReactNode;
+  children: ReactNode;
+}) {
+  const largeur = large ? "max-w-[1060px]" : "max-w-[860px]";
+  return (
+    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
+      {panneau}
+
+      <main className="relative flex min-h-dvh min-w-0 flex-col">
+        <div className="sticky top-0 z-40 h-[3px] w-full bg-line">
+          <div
+            className="h-full rounded-r-full bg-linear-to-r from-brand-mid to-brand shadow-[0_0_12px_rgba(245,208,51,0.85)] transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            style={{ width: `${progression}%` }}
+          />
+        </div>
+
+        {/* Une lueur dorée dans l'angle, comme sur la vitrine. */}
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[480px] overflow-hidden">
+          <div className="halo absolute -right-48 -top-56 h-[640px] w-[640px]" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
+        </div>
+
+        {/* Sur téléphone, le panneau disparaît : il en reste le logo et l'étape. */}
+        <div className="relative z-10 flex items-center justify-between gap-3 bg-[#1b1a18] px-5 py-3 lg:hidden">
+          <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={120} height={38} priority className="h-7 w-auto" />
+          <span className="text-[12px] font-medium text-white/70">{etiquette}</span>
+        </div>
+
+        <div className={`relative z-10 mx-auto w-full flex-1 px-5 pb-14 pt-6 sm:px-8 lg:px-12 lg:pt-9 ${largeur}`}>
+          <div className="flex items-center justify-between gap-4">
+            <button
+              type="button"
+              onClick={onBack}
+              className="group inline-flex h-9 items-center gap-2 rounded-full border border-line-strong bg-card px-3.5 text-[12.5px] font-medium text-ink-mid transition hover:border-ink hover:text-ink"
+            >
+              <Icone nom="gauche" taille={14} trait={2.2} className="transition-transform duration-300 group-hover:-translate-x-0.5" />
+              Accueil
+            </button>
+            <a href={AGENCE.lien} className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft transition hover:text-ink">
+              <Icone nom="tel" taille={14} />
+              <span className="hidden sm:inline">Besoin d&apos;aide ?</span>
+              <span className="font-semibold text-ink">{AGENCE.numero}</span>
+            </a>
+          </div>
+          {children}
+        </div>
+
+        <div className="sticky bottom-0 z-30 border-t border-line bg-card shadow-[0_-22px_44px_-32px_rgba(27,26,24,0.45)]">
+          <div className={`mx-auto flex w-full items-center gap-3 px-5 py-3 sm:gap-4 sm:px-8 lg:px-12 ${largeur}`}>{barre}</div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/** Le titre d'une page : la pastille, le surtitre, et un mot pris dans le dégradé. */
+function Titre({
+  pastille,
+  texte,
+  eyebrow,
+  avant,
+  accent,
+  apres,
+  sub,
+}: {
+  pastille: ReactNode;
+  texte: string;
+  eyebrow: string;
+  avant: string;
+  accent: string;
+  apres: string;
+  sub: string;
+}) {
+  return (
+    <header className="mb-8 mt-7 sm:mb-9 sm:mt-9">
+      <div className="reveal flex flex-wrap items-center gap-3">
+        <span className="inline-flex items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-[11.5px] font-semibold text-shell">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10.5px] font-bold text-[#1b1a18]">
+            {pastille}
+          </span>
+          {texte}
+        </span>
+        <span className="eyebrow text-brand-ink">{eyebrow}</span>
+      </div>
+      <h1 className="font-serif reveal mt-4 text-balance text-[34px] sm:text-[44px] xl:text-[50px]" style={delai(60)}>
+        {avant}
+        <span className="gradient-text">{accent}</span>
+        {apres}
+      </h1>
+      <p className="reveal mt-3.5 max-w-[60ch] text-[15px] leading-relaxed text-ink-soft sm:text-[16px]" style={delai(120)}>
+        {sub}
+      </p>
+    </header>
+  );
+}
+
+/** Le bouton d'action : noir, avec sa flèche dans un rond jaune. */
+function Bouton({
+  children,
+  onClick,
+  disabled,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="group inline-flex h-12 shrink-0 items-center gap-3 rounded-full bg-ink pl-5 pr-1.5 text-[14px] font-semibold text-shell shadow-[0_16px_30px_-16px_rgba(27,26,24,0.8)] transition-[box-shadow,transform,opacity] duration-200 hover:shadow-[0_20px_36px_-14px_rgba(27,26,24,0.85)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none sm:pl-6"
+    >
+      {children}
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-[#1b1a18] transition-transform duration-300 group-hover:translate-x-0.5 group-disabled:translate-x-0">
+        <Icone nom="droite" taille={16} trait={2.4} />
+      </span>
+    </button>
+  );
+}
+
+function Erreur({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-6 flex items-start gap-2.5 rounded-[18px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13.5px] text-danger">
+      <Icone nom="info" taille={16} className="mt-0.5 shrink-0" />
+      {children}
+    </div>
+  );
+}
+
+/** Ce qui manque pour avancer, dit en clair au lieu d'un bouton grisé muet. */
+function Manque({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-center justify-end gap-2 text-right text-[12.5px] leading-snug text-ink-soft sm:justify-start sm:text-left">
+      <Icone nom="info" taille={15} className="hidden shrink-0 sm:block" />
+      {children}
+    </p>
+  );
+}
 
 /* ============================ Devis express ============================ */
 
 function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
   const [compare, setCompare] = useState(false);
   const [doneCount, setDoneCount] = useState(1);
-  const [f, setF] = useState({
-    nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
-    dateMode: "date" as PeriodeMode, date: "", periode: "",
-    volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
-  });
+  const [f, setF] = useState(EXPRESS_VIDE);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [departCoord, setDepartCoord] = useState<Place | null>(null);
   const [arriveeCoord, setArriveeCoord] = useState<Place | null>(null);
-  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
 
+  // La distance appartient à un couple de villes : dès qu'une ville change,
+  // la clé ne correspond plus et l'ancienne distance cesse de s'afficher.
+  const cleTrajet =
+    departCoord && arriveeCoord
+      ? `${departCoord.lat},${departCoord.lon}|${arriveeCoord.lat},${arriveeCoord.lon}`
+      : null;
   useEffect(() => {
-    if (!departCoord || !arriveeCoord) { setDistanceKm(null); return; }
+    if (!cleTrajet || !departCoord || !arriveeCoord) return;
     let cancelled = false;
-    roadDistanceKm(departCoord, arriveeCoord).then((km) => { if (!cancelled) setDistanceKm(km); });
+    roadDistanceKm(departCoord, arriveeCoord).then((km) => {
+      if (!cancelled) setTrajet({ cle: cleTrajet, km });
+    });
     return () => { cancelled = true; };
-  }, [departCoord, arriveeCoord]);
+  }, [cleTrajet, departCoord, arriveeCoord]);
+  const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
+
+  // Le raccourci de démonstration, déclenché par ?demo=1. Différé d'un tour :
+  // le premier rendu doit être le même côté serveur et côté navigateur.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
+      setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", date: "2026-11-15", volMode: "explicit", explicitVolume: "30" }));
+    }, 0);
+    return () => clearTimeout(id);
+  }, []);
 
   const volume = f.volMode === "explicit"
     ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
     : (f.photos.length ? volumePhotos(f.photos) : null);
 
+  const coordOk = f.nom.trim().length > 0 && /.+@.+\..+/.test(f.email);
+  const trajetOk = f.departVille.trim().length > 0 && f.arriveeVille.trim().length > 0;
   const dateOk = f.dateMode === "date" ? !!f.date : !!f.periode;
-  const canSubmit = f.nom.trim() && /.+@.+\..+/.test(f.email) && f.departVille.trim() && f.arriveeVille.trim() && dateOk && volume != null;
+  const manque = !f.nom.trim()
+    ? "Indiquez votre nom"
+    : !coordOk
+      ? "Indiquez un e-mail valide"
+      : !f.departVille.trim()
+        ? "Indiquez la ville de départ"
+        : !f.arriveeVille.trim()
+          ? "Indiquez la ville d'arrivée"
+          : !dateOk
+            ? "Indiquez quand vous souhaitez déménager"
+            : volume == null
+              ? "Renseignez le volume à déménager"
+              : null;
+  const faits = [coordOk, trajetOk, dateOk, volume != null].filter(Boolean).length;
 
   async function submit() {
     setSubmitting(true);
@@ -280,12 +645,14 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   if (done) {
     return instant ? (
       <InstantResult requestId={done} volume={volume} count={doneCount}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setF({ nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", dateMode: "date" as PeriodeMode, date: "", periode: "", volMode: "explicit", explicitVolume: "", photos: [] }); setDepartCoord(null); setArriveeCoord(null); setDistanceKm(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); }}
       />
     ) : (
-      <SuccessScreen id={done} volume={volume} heroUrl={library[0]?.url} count={doneCount} />
+      <SuccessScreen id={done} volume={volume} count={doneCount} />
     );
   }
+
+  const quand = f.dateMode === "date" ? (f.date ? dateLisible(f.date) : null) : f.periode || null;
 
   return (
     <>
@@ -298,119 +665,110 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
       )}
-      <div>
-        <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
-        <BrandPanel />
-        <main className="flex min-h-dvh flex-col">
-          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
-            <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
-              ← Revenir au choix du devis
-            </button>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="eyebrow text-brand-ink">Devis express</div>
-                <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">Estimation rapide</h1>
-                <p className="mt-2 text-ink-soft">L&apos;essentiel pour un premier chiffrage — en deux minutes.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => set({ nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", volMode: "explicit", explicitVolume: "30" })}
-                className="ml-4 hidden shrink-0 rounded-full border border-line-strong bg-card px-3.5 py-2 text-xs font-medium transition hover:border-ink sm:block"
-              >
-                ⚡ Devis express
-              </button>
-            </div>
-
-            <div className="mt-8 space-y-6">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Nom *"><TextInput value={f.nom} onChange={(e) => set({ nom: e.target.value })} placeholder="Camille Durand" /></Field>
-                <Field label="E-mail *"><TextInput type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille@email.fr" /></Field>
-                <Field label="Téléphone"><TextInput value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Ville de départ *" hint="Commencez à taper, choisissez dans la liste">
-                  <AddressInput kind="municipality" value={f.departVille} placeholder="Lyon"
-                    onChange={(v) => { set({ departVille: v }); setDepartCoord(null); }}
-                    onSelect={(p) => { set({ departVille: p.ville, departCP: p.code_postal }); setDepartCoord(p); }} />
-                </Field>
-                <Field label="Ville d'arrivée *" hint="Commencez à taper, choisissez dans la liste">
-                  <AddressInput kind="municipality" value={f.arriveeVille} placeholder="Toulouse"
-                    onChange={(v) => { set({ arriveeVille: v }); setArriveeCoord(null); }}
-                    onSelect={(p) => { set({ arriveeVille: p.ville }); setArriveeCoord(p); }} />
-                </Field>
-              </div>
-              {distanceKm != null && (
-                <div className="rounded-xl border border-line bg-subtle/60 px-4 py-2.5 text-sm">
-                  📍 Distance estimée : <span className="font-semibold text-ink">{distanceKm} km</span> <span className="text-ink-soft">(trajet routier)</span>
-                </div>
+      <Cadre
+        panneau={
+          <BrandPanel
+            milieu={<PromessesExpress />}
+            recap={[
+              ["Trajet", trajetLisible(f.departVille, f.arriveeVille)],
+              ["Distance", distanceKm != null ? `${distanceKm} km` : null],
+              ["Quand", quand],
+              ["Volume", volume != null ? `${volume} m³` : null],
+            ]}
+          />
+        }
+        etiquette="Devis express"
+        progression={8 + (faits / 4) * 92}
+        onBack={onBack}
+        barre={
+          <>
+            <div className="min-w-0 flex-1">
+              {manque ? (
+                <Manque>{manque}</Manque>
+              ) : (
+                <p className="text-right text-[12.5px] text-ink-soft sm:text-left">
+                  Tout y est — <span className="font-semibold text-ink">{volume} m³</span> à déménager.
+                </p>
               )}
-              <div>
-                <div className="mb-2 text-sm font-medium">Quand souhaitez-vous déménager ? *</div>
-                <div className="mb-3">
-                  <Choice
-                    options={[
-                      ["date", "Une date précise"],
-                      ["suggestion", "Une période"],
-                      ["libre", "Je précise moi-même"],
-                    ]}
-                    value={f.dateMode}
-                    onChange={(v) => set({ dateMode: v as PeriodeMode, date: "", periode: "" })}
-                  />
-                </div>
-                {f.dateMode === "date" && (
-                  <TextInput type="date" value={f.date} onChange={(e) => set({ date: e.target.value })} />
-                )}
-                {f.dateMode === "suggestion" && (
-                  <div className="flex flex-wrap gap-2">
-                    {PERIODES.map((p) => (
-                      <Pill key={p} active={f.periode === p} onClick={() => set({ periode: p })}>
-                        {p}
-                      </Pill>
-                    ))}
-                  </div>
-                )}
-                {f.dateMode === "libre" && (
-                  <TextInput
-                    value={f.periode}
-                    onChange={(e) => set({ periode: e.target.value })}
-                    placeholder="Courant mars, entre le 10 et le 20 avril, avant l'été…"
-                  />
-                )}
-              </div>
-
-              <div>
-                <div className="mb-2 text-sm font-medium">Volume à déménager *</div>
-                <div className="mb-4 w-full sm:w-80">
-                  <Choice options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
-                </div>
-                {f.volMode === "explicit" ? (
-                  <div className="space-y-3">
-                    <TextInput type="number" min={0} step="0.5" value={f.explicitVolume} onChange={(e) => set({ explicitVolume: e.target.value })} placeholder="Volume estimé en m³" />
-                    <div className="flex flex-wrap gap-2">
-                      {LOGEMENT_HINTS.map((h) => <Pill key={h.label} active={false} onClick={() => set({ explicitVolume: String(h.volume) })}>{h.label} · ~{h.volume} m³</Pill>)}
-                    </div>
-                  </div>
-                ) : (
-                  <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} />
-                )}
-              </div>
             </div>
+            <Bouton onClick={submit} disabled={manque !== null || submitting}>
+              {submitting ? "Envoi…" : "Obtenir mon estimation"}
+            </Bouton>
+          </>
+        }
+      >
+        <Titre
+          pastille={<Icone nom="eclair" taille={11} trait={2.4} />}
+          texte="2 minutes"
+          eyebrow="Devis express"
+          avant="Estimation "
+          accent="rapide"
+          apres=""
+          sub="L'essentiel pour un premier chiffrage — en deux minutes."
+        />
 
-            {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
-
-            <div className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
-              <span className="text-sm text-ink-soft">{volume != null ? `Volume estimé : ${volume} m³` : "Renseignez le volume"}</span>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={submit} disabled={!canSubmit || submitting}
-                  className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">
-                  {submitting ? "Envoi…" : "Obtenir mon estimation"}
-                </button>
-              </div>
+        <div className="space-y-5">
+          <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous envoyer l'estimation.">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Nom *"><TextInput icone="user" value={f.nom} onChange={(e) => set({ nom: e.target.value })} placeholder="Camille Durand" autoComplete="name" /></Field>
+              <Field label="E-mail *"><TextInput icone="mail" type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille@email.fr" autoComplete="email" /></Field>
+              <Field label="Téléphone"><TextInput icone="tel" type="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" autoComplete="tel" /></Field>
             </div>
-          </div>
-        </main>
+          </Bloc>
+
+          <Bloc icone="route" titre="Votre trajet" sous="Commencez à taper, puis choisissez la ville dans la liste." delai={70}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Ville de départ *">
+                <AddressInput kind="municipality" value={f.departVille} placeholder="Lyon"
+                  onChange={(v) => { set({ departVille: v }); setDepartCoord(null); }}
+                  onSelect={(p) => { set({ departVille: p.ville, departCP: p.code_postal }); setDepartCoord(p); }} />
+              </Field>
+              <Field label="Ville d'arrivée *">
+                <AddressInput kind="municipality" value={f.arriveeVille} placeholder="Toulouse"
+                  onChange={(v) => { set({ arriveeVille: v }); setArriveeCoord(null); }}
+                  onSelect={(p) => { set({ arriveeVille: p.ville }); setArriveeCoord(p); }} />
+              </Field>
+            </div>
+            {distanceKm != null && (
+              <div className="animate-step-in mt-4 inline-flex max-w-full items-center gap-2.5 rounded-full bg-ink py-2 pl-3 pr-4 text-[12.5px] text-shell">
+                <span className="coche-or"><Icone nom="route" taille={15} /></span>
+                <span className="truncate">
+                  {f.departVille} → {f.arriveeVille} · <span className="font-semibold">{distanceKm} km</span> par la route
+                </span>
+              </div>
+            )}
+          </Bloc>
+
+          <Bloc icone="calendrier" titre="Votre date" sous="Une date, une période, ou vos propres mots." delai={140}>
+            <ChampPeriode
+              label="Quand souhaitez-vous déménager ? *"
+              mode={f.dateMode}
+              valeur={f.dateMode === "date" ? f.date : f.periode}
+              onChange={(dateMode, v) =>
+                set(dateMode === "date" ? { dateMode, date: v, periode: "" } : { dateMode, date: "", periode: v })
+              }
+              exemple="Courant mars, entre le 10 et le 20 avril, avant l'été…"
+            />
+          </Bloc>
+
+          <Bloc icone="carton" titre="Votre volume" sous="Saisissez-le, ou laissez vos photos l'estimer." delai={210}>
+            <Field groupe label="Volume à déménager *">
+              <div className="sm:max-w-md">
+                <Choice plein options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
+              </div>
+            </Field>
+            <div key={f.volMode} className="animate-step-in mt-4">
+              {f.volMode === "explicit" ? (
+                <SaisieVolume valeur={f.explicitVolume} onChange={(explicitVolume) => set({ explicitVolume })} />
+              ) : (
+                <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} />
+              )}
+            </div>
+          </Bloc>
         </div>
-      </div>
+
+        {error && <Erreur>{error}</Erreur>}
+      </Cadre>
     </>
   );
 }
@@ -424,41 +782,49 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   const [done, setDone] = useState<string | null>(null);
   const [doneCount, setDoneCount] = useState(1);
   const [compare, setCompare] = useState(false);
-  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const totalVolume = useMemo(() => computeVolume(form), [form]);
 
+  // La distance appartient à un couple d'adresses : dès qu'une adresse change,
+  // la clé ne correspond plus et l'ancienne distance cesse de s'afficher.
+  const d = form.depart, a = form.arrivee;
+  const cleTrajet =
+    d.lat != null && d.lon != null && a.lat != null && a.lon != null
+      ? `${d.lat},${d.lon}|${a.lat},${a.lon}`
+      : null;
   useEffect(() => {
-    const d = form.depart, a = form.arrivee;
-    if (d.lat != null && d.lon != null && a.lat != null && a.lon != null) {
-      let cancelled = false;
-      roadDistanceKm({ lat: d.lat, lon: d.lon }, { lat: a.lat, lon: a.lon }).then((km) => { if (!cancelled) setDistanceKm(km); });
-      return () => { cancelled = true; };
-    }
-    setDistanceKm(null);
-  }, [form.depart, form.arrivee]);
+    if (!cleTrajet) return;
+    const [dep, arr] = cleTrajet.split("|").map((c) => {
+      const [lat, lon] = c.split(",").map(Number);
+      return { lat, lon };
+    });
+    let cancelled = false;
+    roadDistanceKm(dep, arr).then((km) => {
+      if (!cancelled) setTrajet({ cle: cleTrajet, km });
+    });
+    return () => { cancelled = true; };
+  }, [cleTrajet]);
+  const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
 
   // À chaque changement d'étape, on remonte en haut de la page.
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
-  const heroUrl = library[0]?.url;
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
-  // Raccourci de démonstration. L'ancien bouton portait le libellé « Devis
-  // express » en plein parcours complet : le client n'y comprenait rien, et
-  // ça ne menait pas au devis express. Il est retiré ; le raccourci reste
-  // accessible par ?demo=1 pour les démonstrations.
-  function fillDemo() { setForm(DEMO); setStep(STEPS.length - 1); }
 
   // Le raccourci de démonstration, déclenché par ?demo=1. Différé d'un tour :
   // le premier rendu doit être le même côté serveur et côté navigateur.
   useEffect(() => {
     const id = setTimeout(() => {
-      if (new URLSearchParams(window.location.search).get("demo") === "1") fillDemo();
+      if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
+      setForm(DEMO);
+      setStep(STEPS.length - 1);
     }, 0);
     return () => clearTimeout(id);
   }, []);
-  const canNext = validateStep(step, form);
+
+  const manquant = manque(step, form);
 
   async function submit() {
     setSubmitting(true);
@@ -478,13 +844,15 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   if (done) {
     return instant ? (
       <InstantResult requestId={done} volume={totalVolume} count={doneCount}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setDistanceKm(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setTrajet(null); }}
       />
     ) : (
-      <SuccessScreen id={done} volume={totalVolume} heroUrl={heroUrl} count={doneCount} />
+      <SuccessScreen id={done} volume={totalVolume} count={doneCount} />
     );
   }
-  const progress = ((step + 1) / STEPS.length) * 100;
+
+  const entete = HEADERS[step];
+  const derniere = step === STEPS.length - 1;
 
   return (
     <>
@@ -506,109 +874,84 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
           onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
         />
       )}
-      <div>
-        <div className="min-h-dvh bg-card md:grid md:grid-cols-[minmax(340px,420px)_1fr]">
-        {/* Panneau visuel — les étapes, posées sur le héros de la vitrine */}
-        <BrandPanel
-          milieu={
-            <ol className="space-y-1">
-              {STEPS.map((label, i) => {
-                const etat = i === step ? "active" : i < step ? "done" : "todo";
-                return (
-                  <li key={label}>
-                    <button
-                      type="button"
-                      onClick={() => i < step && setStep(i)}
-                      disabled={i > step}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[13.5px] transition ${
-                        etat === "active"
-                          ? "bg-white/18 font-semibold text-white"
-                          : etat === "done"
-                            ? "text-white/85 hover:bg-white/10"
-                            : "text-white/35"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                          etat === "active"
-                            ? "bg-brand text-[#1b1a18]"
-                            : etat === "done"
-                              ? "bg-white/20 text-white"
-                              : "border border-white/25 text-white/40"
-                        }`}
-                      >
-                        {etat === "done" ? "✓" : i + 1}
-                      </span>
-                      {label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          }
-          bas={
-            <div className="flex items-end justify-between gap-4">
-              <p className="max-w-[12rem]">Un commercial reprend la main dès l&apos;envoi.</p>
-              <div className="text-right">
-                <div className="eyebrow text-white/50">Volume estimé</div>
-                <div className="font-serif text-[28px] leading-none text-white">
-                  {totalVolume ?? "—"}
-                  <span className="ml-1 text-[15px] text-white/60">m³</span>
-                </div>
-                {distanceKm != null && (
-                  <div className="mt-1.5 text-[11.5px] text-white/55">{distanceKm} km de trajet</div>
-                )}
-              </div>
-            </div>
-          }
-        />
-
-        {/* Contenu */}
-        <main className="flex min-h-dvh flex-col">
-          <div className="sticky top-0 z-20 h-1 w-full bg-line">
-            <div className="h-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-5 py-10 md:px-12 md:py-14">
-            <button type="button" onClick={onBack} className="mb-4 self-start text-xs font-medium text-ink-soft transition hover:text-ink">
-              ← Revenir au choix du devis
+      <Cadre
+        panneau={
+          <BrandPanel
+            milieu={<Frise step={step} onAller={setStep} />}
+            recap={[
+              ["Trajet", trajetLisible(form.depart.ville, form.arrivee.ville)],
+              ["Distance", distanceKm != null ? `${distanceKm} km` : null],
+              ["Formule", nomFormule(form.prestations)],
+              ["Volume", totalVolume != null ? `${totalVolume} m³` : null],
+            ]}
+          />
+        }
+        etiquette={`Étape ${step + 1} / ${STEPS.length} · ${STEPS[step]}`}
+        progression={((step + 1) / STEPS.length) * 100}
+        onBack={onBack}
+        large={step === 3}
+        barre={
+          <>
+            <button
+              type="button"
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              disabled={step === 0 || submitting}
+              aria-label="Étape précédente"
+              className="inline-flex h-12 shrink-0 items-center gap-2 rounded-full border border-line-strong px-4 text-[13.5px] font-medium text-ink-mid transition hover:border-ink hover:text-ink disabled:pointer-events-none disabled:opacity-0 sm:px-5"
+            >
+              <Icone nom="gauche" taille={15} trait={2.2} />
+              <span className="hidden sm:inline">Retour</span>
             </button>
-            <div className="mb-8 flex items-start justify-between">
-              <div>
-                <div className="eyebrow text-brand-ink">Étape {step + 1} / {STEPS.length} · {HEADERS[step].eyebrow}</div>
-                <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">{HEADERS[step].title}</h1>
-                <p className="mt-2 text-ink-soft">{HEADERS[step].sub}</p>
-              </div>
-            </div>
-
-            <div key={step} className="animate-step-in flex-1">
-              {step === 0 && <VousStep form={form} patch={patch} />}
-              {step === 1 && <AddressStep which="depart" form={form} patch={patch} />}
-              {step === 2 && <AddressStep which="arrivee" form={form} patch={patch} />}
-              {step === 3 && <PrestationsStep form={form} patch={patch} />}
-              {step === 4 && <EmballageStep form={form} patch={patch} />}
-              {step === 5 && <VolumeStep form={form} patch={patch} library={library} />}
-              {step === 6 && <CommentairesStep form={form} patch={patch} volume={totalVolume} />}
-            </div>
-
-            {error && <div className="mt-6 rounded-xl border border-accent/40 bg-accent-soft/50 px-4 py-3 text-sm text-accent-dark">{error}</div>}
-
-            <div className="mt-10 flex items-center justify-between border-t border-line pt-6">
-              <button type="button" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0 || submitting}
-                className="rounded-xl px-4 py-2.5 text-sm font-medium text-ink-soft transition hover:text-ink disabled:opacity-40">← Retour</button>
-              {step < STEPS.length - 1 ? (
-                <button type="button" onClick={() => setStep((s) => s + 1)} disabled={!canNext}
-                  className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:cursor-not-allowed disabled:opacity-40">Enregistrer et continuer</button>
+            <div className="min-w-0 flex-1">
+              {manquant ? (
+                <Manque>{manquant}</Manque>
               ) : (
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={submit} disabled={submitting}
-                    className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-50">{submitting ? "Envoi…" : "Envoyer ma demande"}</button>
+                <div className="hidden items-center gap-3 sm:flex">
+                  <div className="flex items-center gap-1.5">
+                    {STEPS.map((label, i) => (
+                      <span
+                        key={label}
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          i === step ? "w-6 bg-ink" : i < step ? "w-1.5 bg-brand-mid" : "w-1.5 bg-line-strong"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[12.5px] text-ink-soft">
+                    Étape {step + 1} sur {STEPS.length}
+                  </span>
                 </div>
               )}
             </div>
-          </div>
-        </main>
+            {derniere ? (
+              <Bouton onClick={submit} disabled={submitting}>{submitting ? "Envoi…" : "Envoyer ma demande"}</Bouton>
+            ) : (
+              <Bouton onClick={() => setStep((s) => s + 1)} disabled={manquant !== null}>Continuer</Bouton>
+            )}
+          </>
+        }
+      >
+        <div key={step}>
+          <Titre
+            pastille={step + 1}
+            texte={`Étape ${step + 1} sur ${STEPS.length}`}
+            eyebrow={entete.eyebrow}
+            avant={entete.avant}
+            accent={entete.accent}
+            apres={entete.apres}
+            sub={entete.sub}
+          />
+          {step === 0 && <VousStep form={form} patch={patch} />}
+          {step === 1 && <AddressStep which="depart" form={form} patch={patch} />}
+          {step === 2 && <AddressStep which="arrivee" form={form} patch={patch} />}
+          {step === 3 && <ChoixFormule value={form.prestations} onChange={(prestations) => patch({ prestations })} />}
+          {step === 4 && <EmballageStep form={form} patch={patch} />}
+          {step === 5 && <VolumeStep form={form} patch={patch} library={library} />}
+          {step === 6 && <CommentairesStep form={form} patch={patch} volume={totalVolume} onModifier={setStep} />}
         </div>
-      </div>
+
+        {error && <Erreur>{error}</Erreur>}
+      </Cadre>
     </>
   );
 }
@@ -618,91 +961,114 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
 type StepProps = { form: FormState; patch: (p: Partial<FormState>) => void };
 
 function VousStep({ form, patch }: StepProps) {
+  const entreprise = form.type_client === "entreprise";
   return (
-    <div className="space-y-6">
-      <Field label="Vous êtes *">
-        <Choice options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
-      </Field>
-      {form.type_client === "entreprise" ? (
-        <>
-          <Field label="Raison sociale *">
-            <TextInput
-              value={form.societe}
-              onChange={(e) => patch({ societe: e.target.value })}
-              placeholder="Transports Dubois SARL"
-            />
+    <div className="space-y-5">
+      <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous envoyer l'estimation et vous rappeler.">
+        <div className="space-y-5">
+          <Field groupe label="Vous êtes *">
+            <div className="sm:max-w-xs">
+              <Choice plein options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
+            </div>
           </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Interlocuteur" hint="facultatif">
-              <TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" />
+          {entreprise && (
+            <div className="animate-step-in">
+              <Field label="Raison sociale *">
+                <TextInput icone="immeuble" value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Transports Dubois SARL" autoComplete="organization" />
+              </Field>
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={entreprise ? "Interlocuteur" : "Prénom"} hint={entreprise ? "facultatif" : undefined}>
+              <TextInput icone="user" value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" autoComplete="given-name" />
             </Field>
-            <Field label="Nom de l'interlocuteur" hint="facultatif">
-              <TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" />
+            <Field label={entreprise ? "Nom de l'interlocuteur" : "Nom"} hint={entreprise ? "facultatif" : undefined}>
+              <TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" autoComplete="family-name" />
             </Field>
           </div>
-        </>
-      ) : (
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Prénom"><TextInput value={form.prenom} onChange={(e) => patch({ prenom: e.target.value })} placeholder="Camille" /></Field>
-          <Field label="Nom"><TextInput value={form.nom} onChange={(e) => patch({ nom: e.target.value })} placeholder="Durand" /></Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Téléphone *"><TextInput icone="tel" type="tel" value={form.tel} onChange={(e) => patch({ tel: e.target.value })} placeholder="06 12 34 56 78" autoComplete="tel" /></Field>
+            <Field label="E-mail *"><TextInput icone="mail" type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="camille.durand@email.fr" autoComplete="email" /></Field>
+          </div>
         </div>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Téléphone *"><TextInput value={form.tel} onChange={(e) => patch({ tel: e.target.value })} placeholder="06 12 34 56 78" /></Field>
-        <Field label="E-mail *"><TextInput type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="camille.durand@email.fr" /></Field>
-      </div>
-      <Field label="Estimation de la valeur du mobilier" hint="facultatif">
-        <div className="flex flex-wrap gap-2">
-          {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
+      </Bloc>
+
+      <Bloc icone="calendrier" titre="Votre projet" sous="Le cadre de votre déménagement, et la période visée." delai={70}>
+        <div>
+          <Ligne label="Déménagement complet ou partiel ?">
+            <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
+          </Ligne>
+          <Ligne label="S'agit-il d'une mutation professionnelle ? *">
+            <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
+          </Ligne>
+          {!entreprise && form.mutation_pro === "oui" && (
+            <div className="animate-step-in pb-4">
+              <Field label="De quelle société s'agit-il ?">
+                <TextInput icone="immeuble" value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" />
+              </Field>
+            </div>
+          )}
         </div>
-      </Field>
-      <Field label="Garantie dommages souhaitée *">
-        <div className="space-y-2">
-          {GARANTIES.map(([v, titre, explication]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => patch({ assurance: v as FormState["assurance"] })}
-              className={`block w-full rounded-xl border px-4 py-3 text-left transition ${form.assurance === v ? "border-accent bg-accent-soft/50" : "border-line bg-card hover:border-line-strong"}`}
-            >
-              <span className="block text-sm font-medium">{titre}</span>
-              <span className="mt-0.5 block text-[12.5px] leading-snug text-ink-soft">{explication}</span>
-            </button>
-          ))}
+        <div className="mt-2 border-t border-line pt-5">
+          <ChampPeriode
+            label="Période souhaitée *"
+            mode={form.periode_mode}
+            valeur={form.periode}
+            onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
+            exemple="Entre le 15 et le 30 novembre, dès que la vente est signée…"
+          />
         </div>
-      </Field>
-      <Field label="S'agit-il d'une mutation professionnelle ? *">
-        <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
-      </Field>
-      {form.type_client !== "entreprise" && form.mutation_pro === "oui" && (
-        <Field label="De quelle société s'agit-il ?"><TextInput value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" /></Field>
-      )}
-      <Field label="Déménagement complet ou partiel ?">
-        <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
-      </Field>
-      <Field
-        label="Avez-vous des objets de 80 à 150 kg ?"
-        hint="aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif"
-      >
-        <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
-      </Field>
-      {form.articles_lourds === "oui" && (
-        <ChargesLourdes
-          lignes={form.charges_lourdes}
-          onChange={(charges_lourdes) => patch({ charges_lourdes })}
-        />
-      )}
-      <Field
-        label="Avez-vous un piano ?"
-        hint="plus de 150 kg, il demande une manutention à part — les pianos électriques, légers, n'en font pas partie"
-      >
-        <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
-      </Field>
-      <PeriodeSouhaitee
-        mode={form.periode_mode}
-        valeur={form.periode}
-        onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
-      />
+      </Bloc>
+
+      <Bloc icone="bouclier" titre="Votre garantie dommages" sous="La valeur de votre mobilier, et le niveau de garantie souhaité." delai={140}>
+        <div className="space-y-6">
+          <Field groupe label="Estimation de la valeur du mobilier" hint="facultatif">
+            <div className="flex flex-wrap gap-2">
+              {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
+            </div>
+          </Field>
+          <Field groupe label="Garantie dommages souhaitée *">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {GARANTIES.map((g) => (
+                <CarteChoix
+                  key={g.key}
+                  active={form.assurance === g.key}
+                  onClick={() => patch({ assurance: g.key })}
+                  icone={g.key === "luxe" ? "couronne" : "bouclier"}
+                  titre={g.titre}
+                  texte={g.texte}
+                  badge={g.badge}
+                />
+              ))}
+            </div>
+          </Field>
+        </div>
+      </Bloc>
+
+      <Bloc icone="poids" titre="Vos objets lourds" sous="Ils demandent une manutention à part : mieux vaut les annoncer." delai={210}>
+        <div>
+          <Ligne
+            label="Avez-vous des objets de 80 à 150 kg ?"
+            aide="Aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif."
+          >
+            <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
+          </Ligne>
+          {form.articles_lourds === "oui" && (
+            <div className="animate-step-in mb-4 rounded-[20px] bg-subtle p-4">
+              <ChargesLourdes
+                lignes={form.charges_lourdes}
+                onChange={(charges_lourdes) => patch({ charges_lourdes })}
+              />
+            </div>
+          )}
+          <Ligne
+            label="Avez-vous un piano ?"
+            aide="Plus de 150 kg, il demande une manutention à part — les pianos électriques, légers, n'en font pas partie."
+          >
+            <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
+          </Ligne>
+        </div>
+      </Bloc>
     </div>
   );
 }
@@ -710,330 +1076,224 @@ function VousStep({ form, patch }: StepProps) {
 function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "arrivee" }) {
   const a = form[which];
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
+  const depart = which === "depart";
   return (
-    <div className="space-y-6">
-      <Field label={`Adresse ${which === "depart" ? "de départ" : "d'arrivée"} *`} hint="Tapez et choisissez dans la liste (adresse & distance automatiques)">
-        <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris"
-          onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
-          onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
-      </Field>
-      <p className="-mt-3 text-xs text-ink-soft">
-        Adresse introuvable dans la liste ? Saisissez-la telle quelle, puis <span className="font-medium text-ink">choisissez au moins la ville ci-dessous</span> — cela suffit pour calculer la distance.
-      </p>
-      <Field label="Distance entre le stationnement du camion et la porte d'entrée" hint="en mètres">
-        <TextInput
-          type="number"
-          value={a.portage_m}
-          onChange={(e) => set({ portage_m: e.target.value })}
-          placeholder="15"
-        />
-      </Field>
-      <Field label="Complément d'adresse" hint="facultatif">
-        <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />
-      </Field>
-      <div className="grid grid-cols-[1fr_2fr] gap-4">
-        <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" /></Field>
-        <Field label="Ville *" hint="choisissez dans la liste">
-          <AddressInput kind="municipality" value={a.ville} placeholder="Paris"
-            /* Les coordonnées repartent à zéro dès qu'on retape : sans ça, une
-               ville saisie à la main gardait celles de l'adresse précédente, et
-               la distance comme la carte restaient sur l'ancienne commune. */
-            onChange={(v) => set({ ville: v, lat: undefined, lon: undefined })}
-            onSelect={(p) => set({ ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
-        </Field>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
-        <Field label="Pays">
-          <select value={a.pays} onChange={(e) => set({ pays: e.target.value })} className="w-full rounded-xl border border-line bg-card px-3.5 py-2.5 text-sm outline-none focus:border-accent">
-            {PAYS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </Field>
-      </div>
+    <div className="space-y-5">
+      <Bloc
+        icone={depart ? "pin" : "maison"}
+        titre={depart ? "L'adresse de départ" : "L'adresse d'arrivée"}
+        sous="Tapez, puis choisissez dans la liste : l'adresse se complète et la distance se calcule."
+      >
+        <div className="space-y-5">
+          <div>
+            <Field label={`Adresse ${depart ? "de départ" : "d'arrivée"} *`}>
+              <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris"
+                onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
+                onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
+            </Field>
+            <p className="mt-2 flex gap-2 text-[12.5px] leading-snug text-ink-soft">
+              <Icone nom="info" taille={14} className="mt-px shrink-0" />
+              <span>
+                Adresse introuvable dans la liste ? Saisissez-la telle quelle, puis{" "}
+                <span className="font-medium text-ink">choisissez au moins la ville ci-dessous</span> — cela suffit pour calculer la distance.
+              </span>
+            </p>
+          </div>
+          <Field label="Complément d'adresse" hint="facultatif">
+            <TextInput value={a.complement} onChange={(e) => set({ complement: e.target.value })} placeholder="Bâtiment, appartement…" />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+            <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" inputMode="numeric" /></Field>
+            <Field label="Ville *" hint="choisissez dans la liste">
+              <AddressInput kind="municipality" value={a.ville} placeholder="Paris"
+                /* Les coordonnées repartent à zéro dès qu'on retape : sans ça, une
+                   ville saisie à la main gardait celles de l'adresse précédente, et
+                   la distance comme la carte restaient sur l'ancienne commune. */
+                onChange={(v) => set({ ville: v, lat: undefined, lon: undefined })}
+                onSelect={(p) => set({ ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
+            <Field label="Pays">
+              <Selecteur value={a.pays} onChange={(e) => set({ pays: e.target.value })}>
+                {PAYS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </Selecteur>
+            </Field>
+          </div>
+        </div>
+      </Bloc>
 
-      <div className="rounded-xl border border-line bg-card p-4">
-        <div className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Accès au logement</div>
+      <Bloc icone="immeuble" titre="Accès au logement" sous="Étage, ascenseur, escalier : c'est ce qui fait le temps de manutention." delai={70}>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Étage" hint="0 = RDC"><TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" /></Field>
-          <Field label="Surface habitable" hint="m²"><TextInput type="number" min={0} value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
+          <Field label="Surface habitable"><TextInput type="number" min={0} unite="m²" value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
         </div>
         {/* Toutes les questions restent posées. Les masquer tant qu'un étage
             n'était pas saisi donnait un bloc à moitié vide, et le client ne
             savait pas ce qu'on attendait de lui. */}
-        <div className="mt-3 space-y-3">
-          <FieldRow label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></FieldRow>
-          <FieldRow label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></FieldRow>
+        <div className="mt-3">
+          <Ligne label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></Ligne>
+          <Ligne label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></Ligne>
           {a.ascenseur === "oui" && (
-            <div className="grid grid-cols-1 gap-3 border-l-2 border-line pl-3">
-              <Field label="Taille de l'ascenseur" hint="nombre de personnes"><TextInput type="number" min={0} value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" /></Field>
-              <FieldRow label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></FieldRow>
+            <div className="animate-step-in mb-4 space-y-1 rounded-[20px] bg-subtle p-4">
+              <Field label="Taille de l'ascenseur" hint="nombre de personnes">
+                <TextInput type="number" min={0} unite="pers." value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" />
+              </Field>
+              <Ligne nue label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></Ligne>
             </div>
           )}
-          <FieldRow label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></FieldRow>
+          <Ligne label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></Ligne>
         </div>
-      </div>
+      </Bloc>
 
-      <div className="rounded-xl border border-line bg-card p-4">
-        <div className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">Accès camion</div>
-        <div className="space-y-3">
-          <FieldRow label="Difficultés d'accès en camion poids lourd ?"><YesNo value={a.difficulte_acces} onChange={(v) => set({ difficulte_acces: v })} /></FieldRow>
+      <Bloc icone="camion" titre="Accès camion" sous="Où le camion peut se garer, et à quelle distance de votre porte." delai={140}>
+        <Field label="Distance entre le stationnement du camion et la porte d'entrée">
+          <div className="sm:max-w-[220px]">
+            <TextInput type="number" min={0} unite="m" value={a.portage_m} onChange={(e) => set({ portage_m: e.target.value })} placeholder="15" />
+          </div>
+        </Field>
+        <div className="mt-3">
+          <Ligne label="Difficultés d'accès en camion poids lourd ?"><YesNo value={a.difficulte_acces} onChange={(v) => set({ difficulte_acces: v })} /></Ligne>
           {a.difficulte_acces === "oui" && (
-            <Field label="Type de difficulté d'accès"><TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" /></Field>
+            <div className="animate-step-in pb-4">
+              <Field label="Type de difficulté d'accès">
+                <TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" />
+              </Field>
+            </div>
           )}
-          <FieldRow label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></FieldRow>
+          <Ligne label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></Ligne>
           {a.stationnement === "oui" && (
-            <p className="rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] leading-snug text-brand-ink">
-              Des frais de stationnement peuvent être appliqués par votre mairie. Le cas échéant,
-              ils vous seront refacturés à l&apos;euro près, sur justificatif.
+            <p className="animate-step-in flex gap-2.5 rounded-[18px] bg-brand-soft px-4 py-3 text-[12.5px] leading-snug text-brand-ink">
+              <Icone nom="info" taille={15} className="mt-px shrink-0" />
+              <span>
+                Des frais de stationnement peuvent être appliqués par votre mairie. Le cas échéant,
+                ils vous seront refacturés à l&apos;euro près, sur justificatif.
+              </span>
             </p>
           )}
         </div>
-      </div>
+      </Bloc>
     </div>
   );
 }
 
 /**
- * Les trois formules, en colonnes à choisir.
+ * Les meubles à démonter : trois cartes bâties sur le même gabarit.
  *
- * Céline : « je trouve qu'il faut changer cette étape et faire des colonnes,
- * le client sélectionne celle qu'il choisit — comme pour le choix d'une
- * catégorie d'avion. Je trouve ça plus lisible. » Les cases service par
- * service restent accessibles en dessous, pour ajuster.
+ * Le titre en haut, les deux réponses dessous, la précision en dernier. Un
+ * libellé plus long que les autres — celui des meubles en kit — ne peut donc
+ * plus faire passer ses réponses à la ligne quand celles des autres restent
+ * à droite.
  */
-const FORMULES_FORM: {
-  key: "eco" | "standard" | "luxe";
-  titre: string;
-  tagline: string;
-  points: string[];
-  prestations: FormState["prestations"];
-}[] = [
-  {
-    key: "eco",
-    titre: "Économique",
-    tagline: "Vous emballez, nous transportons",
-    points: ["Démontage et remontage du mobilier", "Véhicule et personnel spécialisé", "Vous faites vos cartons"],
-    prestations: { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
-  },
-  {
-    key: "standard",
-    titre: "Standard",
-    tagline: "Nous emballons le fragile",
-    points: ["Emballage et déballage du fragile", "Démontage et remontage du mobilier", "Vous faites le non fragile"],
-    prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
-  },
-  {
-    key: "luxe",
-    titre: "Premium",
-    tagline: "Vous n'avez rien à toucher",
-    points: ["Emballage et déballage de tout", "Démontage et remontage du mobilier", "Rangement à l'arrivée"],
-    prestations: { fragile: "bailly", embNonFragile: "bailly", debNonFragile: "bailly", demontage: "bailly", transport: "moi" },
-  },
-];
-
-function PrestationsStep({ form, patch }: StepProps) {
-  const [detail, setDetail] = useState(false);
-  const transportSeul = form.prestations.transport === "bailly";
-
-  // La formule retenue se lit dans les cases : elle reste juste même si le
-  // client ajuste une ligne à la main ensuite.
-  const choisie = transportSeul
-    ? null
-    : FORMULES_FORM.find((f) =>
-        (Object.keys(f.prestations) as (keyof FormState["prestations"])[]).every(
-          (k) => f.prestations[k] === form.prestations[k],
-        ),
-      )?.key ?? null;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {FORMULES_FORM.map((f) => {
-          const active = choisie === f.key;
-          return (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => patch({ prestations: { ...f.prestations } })}
-              aria-pressed={active}
-              className={`flex flex-col rounded-2xl border p-4 text-left transition ${
-                active
-                  ? "border-brand bg-brand-soft/60 shadow-sm"
-                  : "border-line bg-card hover:border-line-strong"
-              }`}
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-[15px] font-semibold">{f.titre}</span>
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
-                    active ? "border-brand bg-brand text-[#1b1a18]" : "border-line-strong text-transparent"
-                  }`}
-                >
-                  ✓
-                </span>
-              </span>
-              <span className="mt-1 block text-[12.5px] text-ink-soft">{f.tagline}</span>
-              <ul className="mt-3 space-y-1.5">
-                {f.points.map((pt) => (
-                  <li key={pt} className="flex gap-2 text-[12.5px] leading-snug text-ink">
-                    <span className="text-brand-ink">·</span>
-                    {pt}
-                  </li>
-                ))}
-              </ul>
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        type="button"
-        onClick={() =>
-          patch({
-            prestations: transportSeul
-              ? { ...FORMULES_FORM[1].prestations }
-              : { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "moi", transport: "bailly" },
-          })
-        }
-        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
-          transportSeul ? "border-brand bg-brand-soft/60" : "border-line bg-card hover:border-line-strong"
-        }`}
-      >
-        <span>
-          <span className="block text-sm font-medium">Transport de meubles uniquement</span>
-          <span className="block text-[12.5px] text-ink-soft">
-            Ni emballage, ni démontage — vous préparez tout, nous chargeons.
-          </span>
-        </span>
-        <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] ${
-            transportSeul ? "border-brand bg-brand text-[#1b1a18]" : "border-line-strong text-transparent"
-          }`}
-        >
-          ✓
-        </span>
-      </button>
-
-      <div className="rounded-xl border border-line bg-card">
-        <button
-          type="button"
-          onClick={() => setDetail((v) => !v)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-        >
-          <span>
-            <span className="block text-sm font-medium">Le détail, service par service</span>
-            <span className="block text-[12.5px] text-ink-soft">
-              Pour ajuster une ligne, ou comparer ce que comprend chaque formule
-            </span>
-          </span>
-          <span className="text-sm text-brand-ink">{detail ? "Masquer" : "Ouvrir"}</span>
-        </button>
-        {detail && (
-          <div className="space-y-2.5 border-t border-line p-3">
-            {PRESTATIONS.map((p) => {
-              // Transporter les meubles seuls exclut tout emballage et tout
-              // démontage : les quatre lignes du dessus n'ont plus de sens.
-              const eteinte = transportSeul && p.key !== "transport";
-              return (
-                <div
-                  key={p.key}
-                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 transition ${eteinte ? "pointer-events-none opacity-40" : ""}`}
-                  aria-disabled={eteinte}
-                >
-                  <div className="text-sm font-medium">
-                    {p.label}
-                    {eteinte && (
-                      <span className="ml-2 text-[11.5px] font-normal text-ink-soft">
-                        sans objet : vous n&apos;avez demandé que le transport
-                      </span>
-                    )}
-                  </div>
-                  <Choice
-                    small
-                    options={[["moi", "Je m'en occupe"], ["bailly", "Bailly"]]}
-                    value={eteinte ? "moi" : form.prestations[p.key]}
-                    onChange={(v) => patch({ prestations: { ...form.prestations, [p.key]: v as Presta } })}
-                  />
-                </div>
-              );
-            })}
-            <div className="pt-1">
-              <FormulesClient />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function EmballageStep({ form, patch }: StepProps) {
   const e = form.emballage;
-  const rows: { key: keyof FormState["emballage"]; precKey: keyof FormState["emballage"]; label: string }[] = [
-    { key: "ikea", precKey: "ikeaPrecision", label: "Meubles type IKEA / CONFORAMA…" },
-    { key: "anciens", precKey: "anciensPrecision", label: "Meubles anciens" },
-    { key: "specifiques", precKey: "specifiquesPrecision", label: "Meubles spécifiques" },
-  ];
   return (
-    <div className="space-y-4">
-      {rows.map((r) => (
-        <div key={r.key} className="rounded-xl border border-line bg-card p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-medium">{r.label}</div>
-            <Choice small options={[["possible", "Démontage possible"], ["imperatif", "Démontage impératif"]]} value={e[r.key] as string} onChange={(v) => patch({ emballage: { ...e, [r.key]: v as Demontage } })} />
-          </div>
-          <TextInput value={e[r.precKey] as string} onChange={(ev) => patch({ emballage: { ...e, [r.precKey]: ev.target.value } })} placeholder="Précisez (facultatif)" />
-        </div>
-      ))}
+    <div className="space-y-5">
+      {MEUBLES.map((m, i) => {
+        const choisir = (v: Demontage) => patch({ emballage: { ...e, [m.key]: e[m.key] === v ? "" : v } });
+        return (
+          <Bloc key={m.key} icone={m.icone} titre={m.titre} sous={m.sous} delai={i * 70}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Option
+                active={e[m.key] === "possible"}
+                onClick={() => choisir("possible")}
+                titre="Démontage possible"
+                texte="Si cela facilite le transport."
+              />
+              <Option
+                active={e[m.key] === "imperatif"}
+                onClick={() => choisir("imperatif")}
+                titre="Démontage impératif"
+                texte="Ils ne passent pas autrement."
+              />
+            </div>
+            <div className="mt-4">
+              <Field label="Précisions" hint="facultatif">
+                <TextInput value={e[m.precKey]} onChange={(ev) => patch({ emballage: { ...e, [m.precKey]: ev.target.value } })} placeholder={m.exemple} />
+              </Field>
+            </div>
+          </Bloc>
+        );
+      })}
     </div>
   );
 }
 
-function CommentairesStep({ form, patch, volume }: StepProps & { volume: number | null }) {
+function CommentairesStep({
+  form,
+  patch,
+  volume,
+  onModifier,
+}: StepProps & { volume: number | null; onModifier: (step: number) => void }) {
   return (
-    <div className="space-y-6">
-      <RecapCard form={form} volume={volume} />
-      <Field label="Message" hint="facultatif">
-        <textarea value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
-          className="w-full resize-none rounded-xl border border-line bg-card px-3.5 py-2.5 text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-          placeholder="Précisions, contraintes, objets particuliers…" />
-      </Field>
+    <div className="space-y-5">
+      <RecapCard form={form} volume={volume} onModifier={onModifier} />
+      <Bloc icone="message" titre="Votre message" sous="Précisions, contraintes, objets particuliers : tout ce qui nous aidera." delai={120}>
+        <Field label="Message" hint="facultatif">
+          <Zone value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
+            placeholder="Précisions, contraintes, objets particuliers…" />
+        </Field>
+      </Bloc>
     </div>
   );
 }
 
 /* ---------- Volume (3 modes) ---------- */
 
+const MODES_VOLUME: { key: VolumeMode; icone: NomIcone; titre: string; texte: string }[] = [
+  { key: "explicit", icone: "carton", titre: "Je connais mon volume", texte: "Vous saisissez le nombre de mètres cubes." },
+  { key: "list", icone: "liste", titre: "Je liste mes meubles", texte: "Meuble par meuble, le volume se calcule." },
+  { key: "ai", icone: "photo", titre: "J'envoie des photos", texte: "L'analyse de vos photos estime le volume." },
+];
+
 function VolumeStep({ form, patch, library }: StepProps & { library: LibraryPhoto[] }) {
   const mode = form.volumeMode;
+  const actif = MODES_VOLUME.find((m) => m.key === mode) ?? MODES_VOLUME[0];
   return (
-    <div>
-      <div className="mb-6 grid grid-cols-3 gap-2">
-        {([["explicit", "Je connais", "mon volume"], ["list", "Je liste", "mes meubles"], ["ai", "J'envoie", "des photos"]] as const).map(([m, a, b]) => (
-          <button key={m} type="button" onClick={() => patch({ volumeMode: m })}
-            className={`rounded-xl border px-3 py-4 text-left transition ${mode === m ? "border-accent bg-accent-soft/50 shadow-sm" : "border-line bg-card hover:border-line-strong"}`}>
-            <div className="font-serif text-lg leading-tight">{a}</div>
-            <div className="text-sm text-ink-soft">{b}</div>
-          </button>
+    <div className="space-y-5">
+      <div className="reveal grid gap-3 sm:grid-cols-3">
+        {MODES_VOLUME.map((m) => (
+          <CarteChoix
+            key={m.key}
+            active={mode === m.key}
+            onClick={() => patch({ volumeMode: m.key })}
+            icone={m.icone}
+            titre={m.titre}
+            texte={m.texte}
+          />
         ))}
       </div>
-      {mode === "explicit" && <ExplicitMode form={form} patch={patch} />}
-      {mode === "list" && <ListMode form={form} patch={patch} />}
-      {mode === "ai" && <PhotoAnalyzer library={library} photos={form.photos} onChange={(photos) => patch({ photos })} />}
+      <div key={mode}>
+        <Bloc icone={actif.icone} titre={actif.titre} sous={actif.texte} delai={70}>
+          {mode === "explicit" && <SaisieVolume valeur={form.explicitVolume} onChange={(explicitVolume) => patch({ explicitVolume })} />}
+          {mode === "list" && <ListMode form={form} patch={patch} />}
+          {mode === "ai" && <PhotoAnalyzer library={library} photos={form.photos} onChange={(photos) => patch({ photos })} />}
+        </Bloc>
+      </div>
     </div>
   );
 }
 
-function ExplicitMode({ form, patch }: StepProps) {
+/** Le volume saisi à la main, avec des repères par type de logement. */
+function SaisieVolume({ valeur, onChange }: { valeur: string; onChange: (v: string) => void }) {
   return (
     <div className="space-y-5">
-      <Field label="Volume estimé" hint="en m³"><TextInput type="number" min={0} step="0.5" value={form.explicitVolume} onChange={(e) => patch({ explicitVolume: e.target.value })} placeholder="25" /></Field>
-      <div>
-        <div className="mb-2 text-xs uppercase tracking-wide text-ink-soft">Repères par logement</div>
-        <div className="flex flex-wrap gap-2">
-          {LOGEMENT_HINTS.map((h) => <Pill key={h.label} active={false} onClick={() => patch({ explicitVolume: String(h.volume) })}>{h.label} · ~{h.volume} m³</Pill>)}
+      <Field label="Volume estimé">
+        <div className="sm:max-w-[260px]">
+          <TextInput type="number" min={0} step="0.5" unite="m³" value={valeur} onChange={(e) => onChange(e.target.value)} placeholder="25" />
         </div>
-      </div>
+      </Field>
+      <Field groupe label="Repères par logement" hint="un clic remplit le champ">
+        <div className="flex flex-wrap gap-2">
+          {LOGEMENT_HINTS.map((h) => (
+            <Pill key={h.label} active={valeur === String(h.volume)} onClick={() => onChange(String(h.volume))}>
+              {h.label}
+              <span className="ml-1.5 opacity-60">~{h.volume} m³</span>
+            </Pill>
+          ))}
+        </div>
+      </Field>
     </div>
   );
 }
@@ -1049,34 +1309,60 @@ function ListMode({ form, patch }: StepProps) {
   }
   function setQty(i: number, q: number) { if (q <= 0) return patch({ items: items.filter((_, idx) => idx !== i) }); const copy = [...items]; copy[i] = { ...copy[i], quantite: q }; patch({ items: copy }); }
   const groupes = [...new Set(CATALOG.map((c) => c.groupe))];
+  const quantite = (label: string) => items.find((it) => it.label === label)?.quantite ?? 0;
   return (
     <div className="space-y-6">
-      <div className="space-y-3">
+      <div className="space-y-4">
         {groupes.map((g) => (
           <div key={g}>
-            <div className="mb-1.5 text-sm font-medium text-ink-soft">{g}</div>
+            <div className="eyebrow mb-2 text-ink-soft">{g}</div>
             <div className="flex flex-wrap gap-1.5">
-              {CATALOG.filter((c) => c.groupe === g).map((c) => (
-                <button key={c.label} type="button" onClick={() => addFromCatalog(c.label)} className="rounded-full border border-line bg-card px-2.5 py-1 text-xs transition hover:border-accent hover:text-accent">+ {c.label}</button>
-              ))}
+              {CATALOG.filter((c) => c.groupe === g).map((c) => {
+                const n = quantite(c.label);
+                return (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => addFromCatalog(c.label)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium transition duration-200 active:scale-95 ${
+                      n > 0
+                        ? "border-ink bg-brand-soft text-ink"
+                        : "border-line-strong bg-card text-ink-mid hover:border-ink hover:text-ink"
+                    }`}
+                  >
+                    {n > 0 ? (
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1b1a18] px-1 text-[10px] font-bold text-brand">{n}</span>
+                    ) : (
+                      <Icone nom="plus" taille={12} trait={2.6} />
+                    )}
+                    {c.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
       </div>
       {items.length > 0 && (
-        <div className="rounded-xl border border-line bg-card">
+        <div className="animate-step-in overflow-hidden rounded-[20px] border border-line">
           {items.map((it, i) => (
-            <div key={it.label} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 last:border-0">
-              <div className="min-w-0 flex-1"><div className="truncate text-sm">{it.label}</div><div className="text-xs text-ink-soft">{it.volume_unitaire_m3} m³/u</div></div>
-              <div className="flex items-center gap-1.5">
-                <button type="button" onClick={() => setQty(i, it.quantite - 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent">−</button>
-                <span className="w-8 text-center text-sm tabular-nums">{it.quantite}</span>
-                <button type="button" onClick={() => setQty(i, it.quantite + 1)} className="h-7 w-7 rounded-md border border-line text-ink-soft hover:border-accent">+</button>
+            <div key={it.label} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[14px] font-medium">{it.label}</div>
+                <div className="text-[12px] text-ink-soft">{it.volume_unitaire_m3} m³ l&apos;unité</div>
               </div>
-              <div className="w-16 text-right text-sm tabular-nums">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={() => setQty(i, it.quantite - 1)} aria-label={`Retirer un ${it.label}`} className="flex h-8 w-8 items-center justify-center rounded-full border border-line-strong text-ink-mid transition hover:border-ink hover:text-ink active:scale-90">−</button>
+                <span className="w-7 text-center text-[14px] font-semibold tnum">{it.quantite}</span>
+                <button type="button" onClick={() => setQty(i, it.quantite + 1)} aria-label={`Ajouter un ${it.label}`} className="flex h-8 w-8 items-center justify-center rounded-full border border-line-strong text-ink-mid transition hover:border-ink hover:text-ink active:scale-90">+</button>
+              </div>
+              <div className="w-16 text-right text-[13.5px] tnum">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>
             </div>
           ))}
-          <div className="flex items-center justify-between px-4 py-3 font-medium"><span>Total</span><span className="tabular-nums">{total.toFixed(1)} m³</span></div>
+          <div className="flex items-center justify-between bg-subtle px-4 py-3.5">
+            <span className="text-[14px] font-semibold">Total</span>
+            <span className="font-serif text-[20px] tnum">{total.toFixed(1)} m³</span>
+          </div>
         </div>
       )}
     </div>
@@ -1102,30 +1388,31 @@ function ChargesLourdes({
     onChange(liste.map((l, n) => (n === i ? { ...l, [champ]: v } : l)));
 
   return (
-    <Field label="Lesquels, et quel poids ?" hint="un objet par ligne">
+    <Field groupe label="Lesquels, et quel poids ?" hint="un objet par ligne">
       <div className="space-y-2">
         {liste.map((l, i) => (
-          // Une grille, pas un flex : TextInput impose `w-full`, qui écrasait
-          // toute largeur posée sur l'élément lui-même.
-          <div key={i} className="grid grid-cols-[minmax(0,1fr)_130px_40px] items-center gap-2">
+          <div key={i} className="grid grid-cols-[minmax(0,1fr)_112px_44px] items-center gap-2">
             <TextInput
               value={l.label}
               onChange={(e) => set(i, "label", e.target.value)}
               placeholder="Billard"
+              aria-label="Objet"
             />
             <TextInput
               value={l.poids}
               onChange={(e) => set(i, "poids", e.target.value)}
               placeholder="120 kg"
+              aria-label="Poids"
             />
             {liste.length > 1 ? (
               <button
                 type="button"
                 onClick={() => onChange(liste.filter((_, n) => n !== i))}
                 title="Retirer cette ligne"
-                className="h-10 rounded-xl border border-line text-ink-soft transition hover:border-danger hover:text-danger"
+                aria-label="Retirer cette ligne"
+                className="flex h-12 items-center justify-center rounded-2xl border border-line-strong text-ink-soft transition hover:border-danger hover:text-danger active:scale-95"
               >
-                ×
+                <Icone nom="croix" taille={15} trait={2.2} />
               </button>
             ) : (
               <span />
@@ -1136,9 +1423,10 @@ function ChargesLourdes({
       <button
         type="button"
         onClick={() => onChange([...liste, { label: "", poids: "" }])}
-        className="mt-2 text-sm font-medium text-brand-ink transition hover:text-ink"
+        className="mt-3 inline-flex h-10 items-center gap-2 rounded-full border border-dashed border-ink-soft/50 px-4 text-[13px] font-medium text-ink-mid transition hover:border-ink hover:text-ink active:scale-95"
       >
-        + Ajouter un objet
+        <Icone nom="plus" taille={14} trait={2.4} />
+        Ajouter un objet
       </button>
     </Field>
   );
@@ -1161,33 +1449,37 @@ const PERIODES = [
  * date : certains en ont une, d'autres une fourchette, d'autres une condition
  * (« après la vente »). Forcer le calendrier faisait saisir n'importe quoi.
  */
-function PeriodeSouhaitee({
+function ChampPeriode({
+  label,
   mode,
   valeur,
   onChange,
+  exemple,
 }: {
+  label: string;
   mode: PeriodeMode;
   valeur: string;
   onChange: (mode: PeriodeMode, valeur: string) => void;
+  exemple: string;
 }) {
   return (
-    <Field label="Période souhaitée *">
-      <div className="space-y-3">
-        <Choice
-          small
-          options={[
-            ["date", "Une date précise"],
-            ["suggestion", "Une période"],
-            ["libre", "Je précise moi-même"],
-          ]}
-          value={mode}
-          onChange={(v) => onChange(v as PeriodeMode, "")}
-        />
-
+    <Field groupe label={label}>
+      <Choice
+        plein
+        options={[
+          ["date", "Une date précise"],
+          ["suggestion", "Une période"],
+          ["libre", "Je précise moi-même"],
+        ]}
+        value={mode}
+        onChange={(v) => onChange(v as PeriodeMode, "")}
+      />
+      <div key={mode} className="animate-step-in mt-3">
         {mode === "date" && (
-          <TextInput type="date" value={valeur} onChange={(e) => onChange("date", e.target.value)} />
+          <div className="sm:max-w-[260px]">
+            <TextInput type="date" value={valeur} onChange={(e) => onChange("date", e.target.value)} aria-label="Date souhaitée" />
+          </div>
         )}
-
         {mode === "suggestion" && (
           <div className="flex flex-wrap gap-2">
             {PERIODES.map((p) => (
@@ -1197,12 +1489,12 @@ function PeriodeSouhaitee({
             ))}
           </div>
         )}
-
         {mode === "libre" && (
           <TextInput
             value={valeur}
             onChange={(e) => onChange("libre", e.target.value)}
-            placeholder="Entre le 15 et le 30 novembre, dès que la vente est signée…"
+            placeholder={exemple}
+            aria-label="Période souhaitée"
           />
         )}
       </div>
@@ -1227,7 +1519,7 @@ function adresseLisible(a: Address) {
 }
 
 function aplatirTexte(t: string) {
-  return t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 /** Ce qui pèse sur la manutention : étage, ascenseur, portage, accès camion. */
@@ -1254,101 +1546,145 @@ function lourdsLisible(form: FormState) {
 }
 
 function garantieLisible(form: FormState) {
-  const g = GARANTIES.find(([v]) => v === form.assurance);
+  const g = GARANTIES.find((x) => x.key === form.assurance);
   if (!g) return "à définir";
   const valeur = form.valeur_mobilier ? ` · mobilier déclaré ${form.valeur_mobilier}` : "";
-  return `${g[1]}${valeur}`;
+  return `${g.titre}${valeur}`;
 }
 
-function RecapCard({ form, volume }: { form: FormState; volume: number | null }) {
-  const presta = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
-  const rows: [string, string][] = [
-    ["Client", `${[form.prenom, form.nom].filter(Boolean).join(" ")} · ${form.email}${form.tel ? " · " + form.tel : ""}`],
-    ["Départ", adresseLisible(form.depart)],
-    ["Arrivée", adresseLisible(form.arrivee)],
-    ["Accès au départ", accesLisible(form.depart)],
-    ["Accès à l'arrivée", accesLisible(form.arrivee)],
-    ["Objets lourds", lourdsLisible(form)],
-    ["Garantie", garantieLisible(form)],
-    ["Prise en charge Bailly", presta],
-    ["Période", form.periode || "à définir"],
-    ["Volume", volume != null ? `${volume} m³` : "non renseigné"],
+/** « 2026-11-15 » devient « 15 novembre 2026 ». */
+function dateLisible(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function periodeLisible(form: FormState) {
+  if (!form.periode) return "à définir";
+  return form.periode_mode === "date" ? dateLisible(form.periode) : form.periode;
+}
+
+function trajetLisible(depart: string, arrivee: string) {
+  const d = depart.trim(), a = arrivee.trim();
+  if (d && a) return `${d} → ${a}`;
+  return d || a || null;
+}
+
+function demontageLisible(form: FormState): [string, string][] {
+  const lignes = MEUBLES.filter((m) => form.emballage[m.key] || form.emballage[m.precKey].trim()).map((m): [string, string] => {
+    const choix = form.emballage[m.key];
+    const precision = form.emballage[m.precKey].trim();
+    const etat = choix === "imperatif" ? "démontage impératif" : choix === "possible" ? "démontage possible" : "";
+    return [m.titre, [etat, precision].filter(Boolean).join(" — ")];
+  });
+  return lignes.length ? lignes : [["Meubles", "rien de signalé"]];
+}
+
+const METHODE_VOLUME: Record<VolumeMode, string> = {
+  explicit: "volume saisi",
+  list: "liste de meubles",
+  ai: "analyse de photos",
+};
+
+/**
+ * La demande relue avant l'envoi, rangée par étape. Chaque groupe renvoie à
+ * la sienne : corriger une adresse ne demande pas de remonter tout le parcours.
+ */
+function RecapCard({
+  form,
+  volume,
+  onModifier,
+}: {
+  form: FormState;
+  volume: number | null;
+  onModifier: (step: number) => void;
+}) {
+  const presta = LIGNES_CARTE.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
+  const contact = [[form.prenom, form.nom].filter(Boolean).join(" "), form.email, form.tel].filter(Boolean).join(" · ");
+  const groupes: { step: number; icone: NomIcone; titre: string; lignes: [string, string][] }[] = [
+    {
+      step: 0,
+      icone: "user",
+      titre: "Vous",
+      lignes: [
+        ["Client", contact || "non renseigné"],
+        ...(form.societe ? ([["Société", form.societe]] as [string, string][]) : []),
+        ["Garantie", garantieLisible(form)],
+        ["Objets lourds", lourdsLisible(form)],
+        ["Période", periodeLisible(form)],
+      ],
+    },
+    { step: 1, icone: "pin", titre: "Départ", lignes: [["Adresse", adresseLisible(form.depart)], ["Accès", accesLisible(form.depart)]] },
+    { step: 2, icone: "maison", titre: "Arrivée", lignes: [["Adresse", adresseLisible(form.arrivee)], ["Accès", accesLisible(form.arrivee)]] },
+    { step: 3, icone: "bouclier", titre: "Prestations", lignes: [["Formule", nomFormule(form.prestations) ?? "à définir"], ["Prise en charge Bailly", presta]] },
+    { step: 4, icone: "cle", titre: "Démontage", lignes: demontageLisible(form) },
+    {
+      step: 5,
+      icone: "carton",
+      titre: "Inventaire",
+      lignes: [["Volume", volume != null ? `${volume} m³ (${METHODE_VOLUME[form.volumeMode]})` : "non renseigné"]],
+    },
   ];
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-card">
-      {rows.map(([k, v]) => (
-        <div key={k} className="grid grid-cols-[150px_1fr] gap-4 border-b border-line px-4 py-2.5 text-sm last:border-0">
-          <span className="text-ink-soft">{k}</span>
-          <span className="text-ink">{v}</span>
+    <div className="bloc reveal overflow-hidden rounded-[26px] border border-line bg-card">
+      {groupes.map((g) => (
+        <div
+          key={g.titre}
+          className="grid gap-x-6 gap-y-3 border-b border-line px-5 py-5 last:border-0 sm:grid-cols-[170px_minmax(0,1fr)] sm:px-7"
+        >
+          <div className="flex items-center justify-between gap-3 sm:block">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-brand-soft text-brand-ink">
+                <Icone nom={g.icone} taille={16} />
+              </span>
+              <span className="text-[14.5px] font-semibold">{g.titre}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onModifier(g.step)}
+              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-ink transition hover:text-ink sm:mt-2.5"
+            >
+              <Icone nom="crayon" taille={12} />
+              Modifier
+            </button>
+          </div>
+          <dl className="space-y-2">
+            {g.lignes.map(([cle, valeur]) => (
+              <div key={cle} className="grid gap-x-4 text-[13.5px] sm:grid-cols-[150px_minmax(0,1fr)]">
+                <dt className="text-ink-soft">{cle}</dt>
+                <dd className="text-ink">{valeur}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       ))}
     </div>
   );
 }
 
-function SuccessScreen({ id, volume, heroUrl, count = 1 }: { id: string; volume: number | null; heroUrl?: string; count?: number }) {
+function SuccessScreen({ id, volume, count = 1 }: { id: string; volume: number | null; count?: number }) {
   return (
-    <div>
-      <div className="relative min-h-dvh overflow-hidden bg-card">
-      {heroUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={heroUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />
-      )}
-      <div className="absolute inset-0 bg-card/80" />
-      <div className="relative z-10 mx-auto flex min-h-dvh max-w-lg flex-col items-center justify-center px-6 text-center">
-        <div className="animate-fade-up">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-          <h1 className="font-serif text-5xl">{count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}</h1>
-          <p className="mt-3 text-ink-soft">
-            {count > 1
-              ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
-              : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`}
-          </p>
-          <div className="mt-6 inline-block rounded-xl border border-line bg-card px-4 py-2 text-sm text-ink-soft">Référence : <span className="font-mono text-ink">{id.slice(0, 8)}</span></div>
+    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
+      <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
+      <div className="absolute inset-0 bg-[#1b1a18]/70" />
+      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/40 to-[#1b1a18]/95" />
+      <div className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
+
+      <div className="relative z-10 w-full max-w-lg text-center">
+        <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+          <Icone nom="check" taille={28} trait={3} className="coche-pop" />
+        </div>
+        <h1 className="font-serif reveal mt-7 text-balance text-[40px] text-white sm:text-[52px]" style={delai(80)}>
+          {count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}
+        </h1>
+        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/72" style={delai(160)}>
+          {count > 1
+            ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
+            : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`}
+        </p>
+        <div className="reveal mt-7 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[13px] text-white/70" style={delai(240)}>
+          Référence <span className="font-mono text-white">{id.slice(0, 8)}</span>
         </div>
       </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================ UI ============================ */
-
-function Choice({ options, value, onChange, small }: { options: [string, string][]; value: string; onChange: (v: string) => void; small?: boolean }) {
-  return (
-    <div className={`inline-flex rounded-xl border border-line bg-subtle p-0.5 ${small ? "" : "flex"}`}>
-      {options.map(([val, label]) => (
-        <button key={val} type="button" onClick={() => onChange(val)}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${small ? "" : "flex-1"} ${value === val ? "bg-card text-ink shadow-sm" : "text-ink-soft hover:text-ink"}`}>{label}</button>
-      ))}
-    </div>
-  );
-}
-
-function YesNo({ value, onChange }: { value: YN; onChange: (v: YN) => void }) {
-  return (
-    <div className="inline-flex gap-2">
-      {(["oui", "non"] as const).map((v) => (
-        <button key={v} type="button" onClick={() => onChange(v)}
-          className={`rounded-xl border px-4 py-1.5 text-sm font-medium transition ${value === v ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card text-ink-soft hover:border-accent"}`}>
-          {v === "oui" ? "Oui" : "Non"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-full border px-3.5 py-1.5 text-sm transition ${active ? "border-accent bg-accent-soft/60 text-accent-dark" : "border-line bg-card hover:border-accent hover:text-accent"}`}>{children}</button>
-  );
-}
-
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <span className="text-sm text-ink">{label}</span>
-      {children}
     </div>
   );
 }
@@ -1362,13 +1698,26 @@ function computeVolume(form: FormState): number | null {
   return volumePhotos(form.photos);
 }
 
-function validateStep(step: number, form: FormState): boolean {
+/** Ce qu'il manque pour passer à l'étape suivante — ou rien. */
+function manque(step: number, form: FormState): string | null {
   switch (step) {
-    case 0: return (form.prenom.trim() || form.nom.trim()).length > 0 && /.+@.+\..+/.test(form.email) && form.tel.trim().length > 0;
-    case 1: return form.depart.adresse.trim().length > 0 || form.depart.ville.trim().length > 0;
-    case 2: return form.arrivee.adresse.trim().length > 0 || form.arrivee.ville.trim().length > 0;
-    case 5: return computeVolume(form) != null;
-    default: return true;
+    case 0: {
+      const nomme = (form.prenom.trim() || form.nom.trim()).length > 0;
+      if (form.type_client === "entreprise") {
+        if (!form.societe.trim() && !nomme) return "Indiquez la raison sociale";
+      } else if (!nomme) return "Indiquez votre nom";
+      if (!form.tel.trim()) return "Indiquez votre téléphone";
+      if (!/.+@.+\..+/.test(form.email)) return "Indiquez un e-mail valide";
+      return null;
+    }
+    case 1:
+      return form.depart.adresse.trim() || form.depart.ville.trim() ? null : "Indiquez l'adresse de départ, ou au moins la ville";
+    case 2:
+      return form.arrivee.adresse.trim() || form.arrivee.ville.trim() ? null : "Indiquez l'adresse d'arrivée, ou au moins la ville";
+    case 5:
+      return computeVolume(form) != null ? null : "Renseignez le volume à déménager";
+    default:
+      return null;
   }
 }
 
@@ -1393,11 +1742,12 @@ function buildPayload(form: FormState) {
     montage: form.prestations.demontage === "bailly",
     monte_meuble: false, garde_meuble: false,
   };
-  const bailly = PRESTATIONS.filter((p) => form.prestations[p.key] === "bailly").length;
+  const bailly = LIGNES_CARTE.filter((p) => form.prestations[p.key] === "bailly").length;
   const formule = bailly >= 4 ? "luxe" : bailly >= 2 ? "standard" : "eco";
 
   return {
-    client: { nom: [form.prenom, form.nom].filter(Boolean).join(" ") || form.email, email: form.email, tel: form.tel || undefined },
+    // Une entreprise peut ne donner que sa raison sociale : elle tient lieu de nom.
+    client: { nom: [form.prenom, form.nom].filter(Boolean).join(" ") || form.societe || form.email, email: form.email, tel: form.tel || undefined },
     depart: toAddr(form.depart), arrivee: toAddr(form.arrivee),
     date_souhaitee: form.periode_mode === "date" ? form.periode || undefined : undefined,
     flexibilite: form.periode_mode === "date" ? undefined : form.periode || undefined,
