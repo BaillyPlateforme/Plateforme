@@ -32,6 +32,12 @@
   /* Le jaune ne se lit pas sur blanc : ce brun doré le remplace en texte. */
   --color-brand-ink: #8a6f00;
   --color-brand-soft: #fdf6d6;
+  /* Deux jetons pour qu'un espace pro puisse changer la couleur d'accent sans
+     casser la lecture : le texte posé SUR l'accent, et l'accent posé sur du
+     noir. En jaune, c'est du noir et le jaune lui-même ; en bleu marine, ce
+     serait du blanc et un bleu éclairci. */
+  --color-sur-brand: #1b1a18;
+  --color-brand-clair: #f5d033;
 
   /* Anciens noms conservés — ils désignent désormais le jaune. */
   --color-peach: #f5d033;
@@ -143,7 +149,7 @@ h2.font-serif {
 
 /* Signature : dégradé sur un mot-clé (titres, grands nombres) */
 .gradient-text {
-  background: linear-gradient(95deg, #1b1a18 0%, #a98a00 45%, #f5d033 100%);
+  background: linear-gradient(95deg, var(--color-ink) 0%, var(--color-brand-dark) 45%, var(--color-brand-mid) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -381,72 +387,36 @@ h2.font-serif {
     transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0s);
 }
 
-/* En-tête : transparent sur la photo, posé sur fond clair ensuite. */
+/* En-tête : le héros est clair, l'en-tête l'est aussi dès le départ. Il est
+   transparent en haut de page, et se pose sur un fond blanc au défilement. */
 .site-header {
   background: transparent;
   border-bottom: 1px solid transparent;
 }
 .site-header .site-link {
-  color: rgba(255, 255, 255, 0.68);
-}
-/* Le logo change de fichier selon le fond : blanc sur la photo, couleur une
-   fois l'en-tête posé. */
-.site-header .site-logo-clair {
-  opacity: 0;
-}
-.site-header.header-pose .site-logo-sombre {
-  opacity: 0;
-}
-.site-header.header-pose .site-logo-clair {
-  opacity: 1;
-}
-.site-logo-clair,
-.site-logo-sombre {
-  transition: opacity 0.3s;
+  color: var(--color-ink-soft);
 }
 .site-header .site-link:hover {
-  color: #fff;
+  color: var(--color-ink);
 }
 .site-header .site-ghost {
-  border-color: rgba(255, 255, 255, 0.28);
-  color: rgba(255, 255, 255, 0.92);
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
 }
 .site-header .site-ghost:hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-ink);
 }
 /* La clé de l'espace équipe : presque effacée, lisible au survol. */
 .site-header .site-cle {
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--color-line-strong);
 }
 .site-header .site-cle:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-ink);
+  background: var(--color-subtle);
 }
 .site-header.header-pose {
   background: var(--color-card);
   border-bottom-color: var(--color-line);
-}
-.site-header.header-pose .site-link {
-  color: var(--color-ink-soft);
-}
-.site-header.header-pose .site-link:hover {
-  color: var(--color-ink);
-}
-.site-header.header-pose .site-ghost {
-  border-color: var(--color-line-strong);
-  color: var(--color-ink);
-}
-.site-header.header-pose .site-ghost:hover {
-  border-color: var(--color-ink);
-  background: transparent;
-}
-.site-header.header-pose .site-cle {
-  color: var(--color-line-strong);
-}
-.site-header.header-pose .site-cle:hover {
-  color: var(--color-ink);
-  background: var(--color-subtle);
 }
 
 /* Filet dégradé autour d'une carte : un fond en dégradé, un centre opaque. */
@@ -538,7 +508,7 @@ h2.font-serif {
   /* Le noir cerne le champ actif, le jaune de la marque l'entoure. */
   .champ:focus {
     border-color: var(--color-ink);
-    box-shadow: 0 0 0 4px rgba(245, 208, 51, 0.34);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand) 36%, transparent);
   }
   textarea.champ {
     height: auto;
@@ -575,7 +545,7 @@ h2.font-serif {
 
 /* La coche dorée d'un bouton noir. De nuit le bouton est clair : elle fonce. */
 .coche-or {
-  color: #f5d033;
+  color: var(--color-brand-clair);
 }
 :root[data-theme="dark"] .coche-or {
   color: #8a6f00;
@@ -585,11 +555,11 @@ h2.font-serif {
    est sombre, et un rond noir s'y perdrait : elle redevient jaune. */
 .coche-retenue {
   background: #1b1a18;
-  color: #f5d033;
+  color: var(--color-brand-clair);
 }
 :root[data-theme="dark"] .coche-retenue {
-  background: #f5d033;
-  color: #1b1a18;
+  background: var(--color-brand);
+  color: var(--color-sur-brand);
 }
 
 /* La coche d'un choix : elle arrive en rebondissant. */
@@ -604,8 +574,8 @@ h2.font-serif {
 
 /* L'onde qui part de la coche au moment du clic. */
 @keyframes onde {
-  from { box-shadow: 0 0 0 0 rgba(245, 208, 51, 0.8); }
-  to   { box-shadow: 0 0 0 16px rgba(245, 208, 51, 0); }
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand) 80%, transparent); }
+  to   { box-shadow: 0 0 0 16px color-mix(in srgb, var(--color-brand) 0%, transparent); }
 }
 .onde {
   animation: onde 0.75s ease-out both;
@@ -637,4 +607,10 @@ h2.font-serif {
   .eclat {
     display: none;
   }
+}
+
+/* Un espace pro peut choisir de ne pas montrer les mètres cubes : tout ce qui
+   porte l'étiquette data-volume disparaît dans ce cadre. */
+.sans-volume [data-volume] {
+  display: none !important;
 }

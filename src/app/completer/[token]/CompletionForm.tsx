@@ -1,12 +1,11 @@
 "use client";
 
-import Image from "next/image";
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { completeRequest } from "@/lib/actions/completion";
 import { AddressInput } from "@/app/demande/AddressInput";
-import { BrandPanel, Bouton, Cadre, Erreur, Manque, Titre, delai } from "@/app/demande/cadre";
+import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo } from "@/app/demande/cadre";
 import { Bloc, CarteChoix, Field, Icone, TextInput, YesNo, type NomIcone } from "@/app/demande/ui";
 import {
   ListeMeubles,
@@ -305,30 +304,28 @@ function dateLisible(iso: string) {
 function Points({ points }: { points: { cle: string; label: string; fait: boolean }[] }) {
   if (points.length === 0)
     return (
-      <p className="max-w-[22ch] text-[15px] leading-relaxed text-white/75">
+      <p className="max-w-[22ch] text-[15px] leading-relaxed text-ink-soft">
         Votre demande est complète : vérifiez vos informations, puis validez.
       </p>
     );
   return (
     <div>
-      <p className="eyebrow text-white/55">Il nous manque</p>
+      <p className="eyebrow text-ink-soft">Il nous manque</p>
       <ol className="mt-5 space-y-4">
         {points.map((p, i) => (
           <li key={p.cle} className="flex items-center gap-4">
             <span
               className={`flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-[background-color,color,box-shadow] duration-300 ${
-                p.fait
-                  ? "bg-brand text-[#1b1a18]"
-                  : "border border-white/28 bg-[#22211e] text-white/70"
+                p.fait ? "bg-brand text-sur-brand" : "bg-ink text-shell"
               }`}
             >
               {p.fait ? <Icone nom="check" taille={13} trait={3.2} className="coche-pop" /> : i + 1}
             </span>
             <span className="min-w-0">
-              <span className={`block text-[14px] leading-tight ${p.fait ? "text-white/85" : "font-semibold text-white"}`}>
+              <span className={`block text-[14px] leading-tight ${p.fait ? "text-ink-mid" : "font-semibold text-ink"}`}>
                 {p.label}
               </span>
-              <span className="mt-1 block text-[11.5px] leading-tight text-white/50">
+              <span className="mt-1 block text-[11.5px] leading-tight text-ink-soft">
                 {p.fait ? "Renseigné" : "À compléter"}
               </span>
             </span>
@@ -398,28 +395,25 @@ function BlocAdresse({
   );
 }
 
-/** L'écran de fin : sur le décor de la vitrine, comme la confirmation d'un devis. */
+/** L'écran de fin, dans le même ton que la confirmation d'un devis. */
 function Merci({ volume, email }: { volume: number | null; email: string | null }) {
   return (
-    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
-      <div aria-hidden className="absolute inset-0">
-        <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
-        <div className="absolute inset-0 bg-[#1b1a18]/70" />
-        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/40 to-[#1b1a18]/95" />
-        <div
-          className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
-          style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties}
-        />
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink">
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" style={halo(30)} />
       </div>
 
       <div className="relative z-10 w-full max-w-lg text-center">
-        <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+        <div className="flex justify-center">
+          <Enseigne />
+        </div>
+        <div className="reveal mx-auto mt-10 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_10px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
           <Icone nom="check" taille={28} trait={3} className="coche-pop" />
         </div>
-        <h1 className="font-serif reveal mt-7 text-balance text-[40px] text-white sm:text-[52px]" style={delai(80)}>
-          Merci, c&apos;est <span className="gradient-flow-light">complet</span>
+        <h1 className="font-serif reveal mt-7 text-balance text-[40px] sm:text-[52px]" style={delai(80)}>
+          Merci, c&apos;est <span className="gradient-text">complet</span>
         </h1>
-        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/75" style={delai(160)}>
+        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-ink-soft" style={delai(160)}>
           Votre demande est complétée{volume != null && volume > 0 ? ` (~${volume} m³)` : ""}.{" "}
           {email
             ? "Votre estimation vous est envoyée par e-mail, et nos experts reviennent vers vous très vite."
@@ -427,7 +421,7 @@ function Merci({ volume, email }: { volume: number | null; email: string | null 
         </p>
         <a
           href="tel:+33169103520"
-          className="reveal mt-8 inline-flex h-12 items-center gap-2.5 rounded-full border border-white/30 px-6 text-[14.5px] font-semibold text-white transition hover:border-white/70 hover:bg-white/10"
+          className="reveal mt-8 inline-flex h-12 items-center gap-2.5 rounded-full border border-line-strong bg-card px-6 text-[14.5px] font-semibold transition hover:border-ink"
           style={delai(240)}
         >
           <Icone nom="tel" taille={15} />

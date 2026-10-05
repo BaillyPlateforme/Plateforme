@@ -20,8 +20,12 @@ export const metadata: Metadata = {
 /**
  * Le thème est posé sur <html> avant la peinture : sans ce script, une page
  * en sombre s'afficherait d'abord en clair le temps que React démarre.
+ *
+ * Le sombre n'appartient qu'à l'espace équipe. Le choix est retenu dans le
+ * navigateur : un membre de l'équipe qui l'avait activé voyait aussi le site
+ * public et le formulaire de devis en sombre — et croyait à un défaut.
  */
-const THEME = `(function(){try{var t=localStorage.getItem("bailly-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t;}catch(e){}})()`;
+const THEME = `(function(){try{if(location.pathname.indexOf("/dashboard")!==0)return;var t=localStorage.getItem("bailly-theme");if(t==="dark"||t==="light")document.documentElement.dataset.theme=t;}catch(e){}})()`;
 
 export default function RootLayout({
   children,

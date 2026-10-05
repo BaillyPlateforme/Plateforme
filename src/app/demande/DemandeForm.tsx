@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   Bloc,
@@ -28,8 +27,9 @@ import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
-import { BrandPanel, Bouton, Cadre, Erreur, Manque, Titre, delai } from "./cadre";
+import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { ListeMeubles, MODES_VOLUME, SaisieVolume, volumeDe, type ListItem, type VolumeMode } from "./volume";
+import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic, type QuestionCle } from "@/lib/espaces";
 
 /* ============================ Types ============================ */
 
@@ -98,29 +98,59 @@ type FormState = {
 
 /* ============================ Constantes ============================ */
 
-const STEPS = ["Vous", "Départ", "Arrivée", "Prestations", "Emballage", "Inventaire", "Commentaires"] as const;
+type EtapeCle = "vous" | "depart" | "arrivee" | "prestations" | "emballage" | "inventaire" | "commentaires";
 
-/** Ce que chaque étape demande, dit en trois mots sous son nom. */
-const SOUS_ETAPES = [
-  "Coordonnées et projet",
-  "Adresse et accès",
-  "Adresse et accès",
-  "Votre formule",
-  "Meubles à démonter",
-  "Volume à déménager",
-  "Relecture et envoi",
+/**
+ * Les étapes du devis complet. Chacune a un nom — pas un numéro : un espace
+ * pro peut en retirer (les prestations quand la formule est imposée, le
+ * démontage), et « l'étape 4 » ne désigne alors plus la même chose.
+ *
+ * `sous` dit ce que l'étape demande, en trois mots ; `accent` est le mot du
+ * titre que le dégradé met en avant.
+ */
+const ETAPES: { cle: EtapeCle; label: string; sous: string; eyebrow: string; avant: string; accent: string; apres: string; sub: string }[] = [
+  { cle: "vous", label: "Vous", sous: "Coordonnées et projet", eyebrow: "Informations personnelles", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
+  { cle: "depart", label: "Départ", sous: "Adresse et accès", eyebrow: "Adresse de départ", avant: "D'où ", accent: "partez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès actuelles." },
+  { cle: "arrivee", label: "Arrivée", sous: "Adresse et accès", eyebrow: "Adresse d'arrivée", avant: "Où ", accent: "allez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
+  { cle: "prestations", label: "Prestations", sous: "Votre formule", eyebrow: "Prestations", avant: "Que devons-nous ", accent: "prendre en charge", apres: " ?", sub: "Trois formules, comparées ligne par ligne. Vous choisissez, nous nous occupons du reste." },
+  { cle: "emballage", label: "Emballage", sous: "Meubles à démonter", eyebrow: "Prestation d'emballage", avant: "Vos meubles à ", accent: "démonter", apres: "", sub: "Pour préparer au mieux le démontage et le remontage." },
+  { cle: "inventaire", label: "Inventaire", sous: "Volume à déménager", eyebrow: "Inventaire", avant: "Quel ", accent: "volume", apres: " à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
+  { cle: "commentaires", label: "Commentaires", sous: "Relecture et envoi", eyebrow: "Commentaires", avant: "Un dernier ", accent: "mot", apres: " ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
 ];
 
-/** Le titre de chaque étape, avec le mot que le dégradé met en avant. */
-const HEADERS: { eyebrow: string; avant: string; accent: string; apres: string; sub: string }[] = [
-  { eyebrow: "Informations personnelles", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
-  { eyebrow: "Adresse de départ", avant: "D'où ", accent: "partez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès actuelles." },
-  { eyebrow: "Adresse d'arrivée", avant: "Où ", accent: "allez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
-  { eyebrow: "Prestations", avant: "Que devons-nous ", accent: "prendre en charge", apres: " ?", sub: "Trois formules, comparées ligne par ligne. Vous choisissez, nous nous occupons du reste." },
-  { eyebrow: "Prestation d'emballage", avant: "Vos meubles à ", accent: "démonter", apres: "", sub: "Pour préparer au mieux le démontage et le remontage." },
-  { eyebrow: "Inventaire", avant: "Quel ", accent: "volume", apres: " à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
-  { eyebrow: "Commentaires", avant: "Un dernier ", accent: "mot", apres: " ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
-];
+/** Une question que l'espace pro a retirée du parcours ? */
+type Masque = (cle: QuestionCle) => boolean;
+const RIEN_DE_MASQUE: Masque = () => false;
+
+/**
+ * Le parcours d'un espace, tel que son écran d'accueil l'annonce : les étapes
+ * que le client va réellement traverser, ni plus ni moins.
+ */
+export function parcoursDe(espace: EspacePublic): { label: string; sous: string }[] {
+  if (espace.parcours === "express") {
+    const sansPeriode = espace.questions_masquees.includes("periode");
+    const sansPhotos = espace.questions_masquees.includes("volume_photos");
+    return [
+      { label: "Vos coordonnées", sous: "Nom, e-mail, téléphone" },
+      { label: "Votre trajet", sous: "Ville de départ, ville d'arrivée" },
+      ...(sansPeriode ? [] : [{ label: "Votre date", sous: "Une date ou une période" }]),
+      { label: "Votre volume", sous: sansPhotos ? "En mètres cubes" : "Saisi, ou estimé sur photos" },
+    ];
+  }
+  return etapesDe(espace).map(({ label, sous }) => ({ label, sous }));
+}
+
+/** Les étapes qu'un espace laisse au client. */
+function etapesDe(espace: EspacePublic | undefined) {
+  if (!espace) return ETAPES;
+  const masquees = new Set<string>(espace.questions_masquees);
+  return ETAPES.filter(
+    (e) =>
+      // La formule imposée par l'entreprise ne se choisit pas.
+      !(e.cle === "prestations" && (masquees.has("formules") || espace.formule_imposee)) &&
+      !(e.cle === "emballage" && masquees.has("demontage")),
+  );
+}
 
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 // Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
@@ -222,6 +252,7 @@ export default function DemandeForm({
   instant = false,
   modeInitial = "express",
   onQuitter,
+  espace,
 }: {
   library: LibraryPhoto[];
   instant?: boolean;
@@ -229,44 +260,54 @@ export default function DemandeForm({
   modeInitial?: "express" | "complet";
   /** Retour à la vitrine, sans changer de page. */
   onQuitter: () => void;
+  /** L'espace pro d'où l'on vient : il décide du parcours, des questions et de l'habillage. */
+  espace?: EspacePublic;
 }) {
-  if (modeInitial === "express")
-    return <ExpressForm library={library} onBack={onQuitter} instant={instant} />;
-  return <CompleteForm library={library} onBack={onQuitter} instant={instant} />;
+  if ((espace?.parcours ?? modeInitial) === "express")
+    return <ExpressForm library={library} onBack={onQuitter} instant={instant} espace={espace} />;
+  return <CompleteForm library={library} onBack={onQuitter} instant={instant} espace={espace} />;
 }
 
 /* ============================ La coque ============================ */
 
-/** Les sept étapes, sur un rail qui se remplit de jaune à mesure qu'on avance. */
-function Frise({ step, onAller }: { step: number; onAller: (i: number) => void }) {
+/** Les étapes du parcours, sur un rail qui se remplit à mesure qu'on avance. */
+function Frise({
+  etapes,
+  step,
+  onAller,
+}: {
+  etapes: { label: string; sous: string }[];
+  step: number;
+  onAller: (i: number) => void;
+}) {
   return (
     <ol className="relative">
-      <span aria-hidden className="absolute bottom-[26px] left-[15px] top-[26px] w-px bg-white/15" />
+      <span aria-hidden className="absolute bottom-[26px] left-[15px] top-[26px] w-px bg-line-strong" />
       <span
         aria-hidden
-        className="absolute left-[15px] top-[26px] w-px bg-brand transition-[height] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-        style={{ height: `calc((100% - 52px) * ${step / (STEPS.length - 1)})` }}
+        className="absolute left-[15px] top-[26px] w-px bg-ink transition-[height] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ height: `calc((100% - 52px) * ${etapes.length > 1 ? step / (etapes.length - 1) : 0})` }}
       />
-      {STEPS.map((label, i) => {
+      {etapes.map((e, i) => {
         const etat = i === step ? "active" : i < step ? "done" : "todo";
         return (
-          <li key={label}>
+          <li key={e.label}>
             <button
               type="button"
               onClick={() => i < step && onAller(i)}
               disabled={i > step}
               aria-current={etat === "active" ? "step" : undefined}
               className={`relative flex w-full items-center gap-4 rounded-2xl py-2 pr-3 text-left transition-colors duration-200 ${
-                etat === "done" ? "hover:bg-white/8" : ""
+                etat === "done" ? "hover:bg-subtle" : ""
               }`}
             >
               <span
                 className={`relative z-10 flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold transition-[background-color,box-shadow,color] duration-300 ${
                   etat === "active"
-                    ? "bg-brand text-[#1b1a18] shadow-[0_0_0_5px_rgba(245,208,51,0.24)]"
+                    ? "bg-ink text-shell shadow-[0_0_0_5px_color-mix(in_srgb,var(--color-brand)_55%,transparent)]"
                     : etat === "done"
-                      ? "bg-brand text-[#1b1a18]"
-                      : "border border-white/28 bg-[#22211e] text-white/60"
+                      ? "bg-brand text-sur-brand"
+                      : "border border-line-strong bg-card text-ink-soft"
                 }`}
               >
                 {etat === "done" ? <Icone nom="check" taille={13} trait={3.2} /> : i + 1}
@@ -274,13 +315,13 @@ function Frise({ step, onAller }: { step: number; onAller: (i: number) => void }
               <span className="min-w-0">
                 <span
                   className={`block text-[14px] leading-tight ${
-                    etat === "active" ? "font-semibold text-white" : etat === "done" ? "text-white/88" : "text-white/55"
+                    etat === "active" ? "font-semibold text-ink" : etat === "done" ? "text-ink-mid" : "text-ink-soft"
                   }`}
                 >
-                  {label}
+                  {e.label}
                 </span>
-                <span className={`mt-1 block text-[11.5px] leading-tight ${etat === "todo" ? "text-white/38" : "text-white/55"}`}>
-                  {SOUS_ETAPES[i]}
+                <span className={`mt-1 block text-[11.5px] leading-tight ${etat === "todo" ? "text-ink-soft/70" : "text-ink-soft"}`}>
+                  {e.sous}
                 </span>
               </span>
             </button>
@@ -292,22 +333,28 @@ function Frise({ step, onAller }: { step: number; onAller: (i: number) => void }
 }
 
 /** Ce que promet le devis express, à la place des étapes. */
-function PromessesExpress() {
-  const lignes: [NomIcone, string, string][] = [
-    ["eclair", "Deux minutes", "Quatre questions, pas une de plus."],
-    ["euro", "Le prix tout de suite", "Calculé sur notre grille, celle du commercial."],
-    ["bouclier", "Sans engagement", "Vous gardez l'estimation, et vous nous rappelez quand vous voulez."],
-  ];
+function PromessesExpress({ sansPrix = false }: { sansPrix?: boolean }) {
+  const lignes: [NomIcone, string, string][] = sansPrix
+    ? [
+        ["eclair", "Deux minutes", "Quatre questions, pas une de plus."],
+        ["user", "Un conseiller dédié", "Il reprend votre demande et vous recontacte."],
+        ["bouclier", "En toute confidentialité", "Vos informations ne servent qu'à préparer votre déménagement."],
+      ]
+    : [
+        ["eclair", "Deux minutes", "Quatre questions, pas une de plus."],
+        ["euro", "Le prix tout de suite", "Calculé sur notre grille, celle du commercial."],
+        ["bouclier", "Sans engagement", "Vous gardez l'estimation, et vous nous rappelez quand vous voulez."],
+      ];
   return (
     <ul className="space-y-5">
       {lignes.map(([icone, titre, texte]) => (
         <li key={titre} className="flex gap-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-white/18 bg-white/10 text-brand">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-brand text-sur-brand">
             <Icone nom={icone} taille={18} />
           </span>
           <span>
-            <span className="block text-[14px] font-semibold text-white">{titre}</span>
-            <span className="mt-1 block text-[12.5px] leading-snug text-white/55">{texte}</span>
+            <span className="block text-[14px] font-semibold">{titre}</span>
+            <span className="mt-1 block text-[12.5px] leading-snug text-ink-soft">{texte}</span>
           </span>
         </li>
       ))}
@@ -317,7 +364,21 @@ function PromessesExpress() {
 
 /* ============================ Devis express ============================ */
 
-function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
+function ExpressForm({
+  library,
+  onBack,
+  instant,
+  espace,
+}: {
+  library: LibraryPhoto[];
+  onBack: () => void;
+  instant: boolean;
+  espace?: EspacePublic;
+}) {
+  const masque: Masque = espace ? (c) => espace.questions_masquees.includes(c) : RIEN_DE_MASQUE;
+  const theme = espace ? themeEspace(espace.couleur) : undefined;
+  const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
+  const montreVolume = espace?.afficher_volume ?? true;
   const [compare, setCompare] = useState(false);
   const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState(EXPRESS_VIDE);
@@ -395,6 +456,7 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
           volume: volumePayload,
           type_client: "particulier",
           details: { express: true } as unknown as Record<string, unknown>,
+          espace: espace?.slug,
         }),
       });
       const data = await res.json();
@@ -406,12 +468,20 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
   }
 
   if (done) {
-    return instant ? (
-      <InstantResult requestId={done} volume={volume} count={doneCount}
+    // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
+    return (espace ? espace.afficher_estimation : instant) ? (
+      <InstantResult requestId={done} volume={volume} count={doneCount} theme={theme} marque={marque}
         onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); }}
       />
     ) : (
-      <SuccessScreen id={done} volume={volume} count={doneCount} />
+      <SuccessScreen
+        id={done}
+        volume={montreVolume ? volume : null}
+        count={doneCount}
+        marque={marque}
+        theme={theme}
+        message={espace ? messageFinDe(espace) : undefined}
+      />
     );
   }
 
@@ -431,18 +501,21 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
       <Cadre
         panneau={
           <BrandPanel
-            milieu={<PromessesExpress />}
+            milieu={<PromessesExpress sansPrix={espace ? !espace.afficher_estimation : false} />}
+            marque={marque}
             recap={[
               ["Trajet", trajetLisible(f.departVille, f.arriveeVille)],
               ["Distance", distanceKm != null ? `${distanceKm} km` : null],
-              ["Quand", quand],
-              ["Volume", volume != null ? `${volume} m³` : null],
+              ...(masque("periode") ? [] : ([["Quand", quand]] as [string, string | null][])),
+              ...(montreVolume ? ([["Volume", volume != null ? `${volume} m³` : null]] as [string, string | null][]) : []),
             ]}
           />
         }
-        etiquette="Devis express"
+        etiquette={espace ? espace.slug === "standard" ? "Espace pro" : `Espace ${nomCourt(espace.nom)}` : "Devis express"}
         progression={8 + (faits / 3) * 92}
         onBack={onBack}
+        marque={marque}
+        theme={theme}
         barre={
           <>
             <div className="min-w-0 flex-1">
@@ -450,12 +523,18 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
                 <Manque>{manque}</Manque>
               ) : (
                 <p className="text-right text-[12.5px] text-ink-soft sm:text-left">
-                  Tout y est — <span className="font-semibold text-ink">{volume} m³</span> à déménager.
+                  {montreVolume ? (
+                    <>
+                      Tout y est — <span className="font-semibold text-ink">{volume} m³</span> à déménager.
+                    </>
+                  ) : (
+                    "Tout y est — vous pouvez envoyer votre demande."
+                  )}
                 </p>
               )}
             </div>
             <Bouton onClick={submit} disabled={manque !== null || submitting}>
-              {submitting ? "Envoi…" : "Obtenir mon estimation"}
+              {submitting ? "Envoi…" : espace && !espace.afficher_estimation ? "Envoyer ma demande" : "Obtenir mon estimation"}
             </Bouton>
           </>
         }
@@ -463,11 +542,15 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
         <Titre
           pastille={<Icone nom="eclair" taille={11} trait={2.4} />}
           texte="2 minutes"
-          eyebrow="Devis express"
-          avant="Estimation "
+          eyebrow={espace ? espace.slug === "standard" ? "Espace pro" : `Espace ${nomCourt(espace.nom)}` : "Devis express"}
+          avant={espace && !espace.afficher_estimation ? "Demande " : "Estimation "}
           accent="rapide"
           apres=""
-          sub="L'essentiel pour un premier chiffrage — en deux minutes."
+          sub={
+            espace && !espace.afficher_estimation
+              ? "L'essentiel pour préparer votre déménagement — en deux minutes."
+              : "L'essentiel pour un premier chiffrage — en deux minutes."
+          }
         />
 
         <div className="space-y-5">
@@ -502,29 +585,40 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
             )}
           </Bloc>
 
-          <Bloc icone="calendrier" titre="Votre date" sous="Une date, une période, ou vos propres mots." delai={140}>
-            <ChampPeriode
-              label="Quand souhaitez-vous déménager ?"
-              mode={f.dateMode}
-              valeur={f.dateMode === "date" ? f.date : f.periode}
-              onChange={(dateMode, v) =>
-                set(dateMode === "date" ? { dateMode, date: v, periode: "" } : { dateMode, date: "", periode: v })
-              }
-              exemple="Courant mars, entre le 10 et le 20 avril, avant l'été…"
-            />
-          </Bloc>
+          {!masque("periode") && (
+            <Bloc icone="calendrier" titre="Votre date" sous="Une date, une période, ou vos propres mots." delai={140}>
+              <ChampPeriode
+                label="Quand souhaitez-vous déménager ?"
+                mode={f.dateMode}
+                valeur={f.dateMode === "date" ? f.date : f.periode}
+                onChange={(dateMode, v) =>
+                  set(dateMode === "date" ? { dateMode, date: v, periode: "" } : { dateMode, date: "", periode: v })
+                }
+                exemple="Courant mars, entre le 10 et le 20 avril, avant l'été…"
+              />
+            </Bloc>
+          )}
 
-          <Bloc icone="carton" titre="Votre volume" sous="Saisissez-le, ou laissez vos photos l'estimer." delai={210}>
-            <Field groupe label="Volume à déménager *">
-              <div className="sm:max-w-md">
-                <Choice plein options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
-              </div>
-            </Field>
-            <div key={f.volMode} className="animate-step-in mt-4">
-              {f.volMode === "explicit" ? (
+          <Bloc
+            icone="carton"
+            titre="Votre volume"
+            sous={masque("volume_photos") ? "Indiquez le volume à déménager." : "Saisissez-le, ou laissez vos photos l'estimer."}
+            delai={210}
+          >
+            {!masque("volume_photos") && (
+              <Field groupe label="Volume à déménager *">
+                <div className="sm:max-w-md">
+                  <Choice plein options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
+                </div>
+              </Field>
+            )}
+            <div key={f.volMode} className={`animate-step-in ${masque("volume_photos") ? "" : "mt-4"}`}>
+              {f.volMode === "explicit" || masque("volume_photos") ? (
                 <SaisieVolume valeur={f.explicitVolume} onChange={(explicitVolume) => set({ explicitVolume })} />
               ) : (
-                <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} />
+                <div className={montreVolume ? "" : "sans-volume"}>
+                  <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} showTotal={montreVolume} />
+                </div>
               )}
             </div>
           </Bloc>
@@ -538,7 +632,24 @@ function ExpressForm({ library, onBack, instant }: { library: LibraryPhoto[]; on
 
 /* ============================ Formulaire complet ============================ */
 
-function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; onBack: () => void; instant: boolean }) {
+function CompleteForm({
+  library,
+  onBack,
+  instant,
+  espace,
+}: {
+  library: LibraryPhoto[];
+  onBack: () => void;
+  instant: boolean;
+  espace?: EspacePublic;
+}) {
+  // Ce que l'espace pro change : les étapes, les questions, l'habillage.
+  const etapes = useMemo(() => etapesDe(espace), [espace]);
+  const masque: Masque = espace ? (c) => espace.questions_masquees.includes(c) : RIEN_DE_MASQUE;
+  const theme = espace ? themeEspace(espace.couleur) : undefined;
+  const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
+  const montreVolume = espace?.afficher_volume ?? true;
+
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
@@ -582,20 +693,26 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
     const id = setTimeout(() => {
       if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
       setForm(DEMO);
-      setStep(STEPS.length - 1);
+      setStep(etapes.length - 1);
     }, 0);
     return () => clearTimeout(id);
-  }, []);
+  }, [etapes.length]);
 
-  const manquant = manque(step, form);
-  const annonce = manquant ? null : annonceDefauts(step, form);
+  const etape = etapes[Math.min(step, etapes.length - 1)];
+  const manquant = manque(etape.cle, form);
+  const annonce = manquant ? null : annonceDefauts(etape.cle, form, masque);
+  /** Aller à une étape par son nom — si l'espace l'a gardée. */
+  const allerA = (cle: EtapeCle) => {
+    const i = etapes.findIndex((e) => e.cle === cle);
+    if (i >= 0) setStep(i);
+  };
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
       const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
@@ -606,17 +723,24 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
   }
 
   if (done) {
-    return instant ? (
-      <InstantResult requestId={done} volume={totalVolume} count={doneCount}
+    // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
+    return (espace ? espace.afficher_estimation : instant) ? (
+      <InstantResult requestId={done} volume={totalVolume} count={doneCount} theme={theme} marque={marque}
         onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setTrajet(null); }}
       />
     ) : (
-      <SuccessScreen id={done} volume={totalVolume} count={doneCount} />
+      <SuccessScreen
+        id={done}
+        volume={montreVolume ? totalVolume : null}
+        count={doneCount}
+        marque={marque}
+        theme={theme}
+        message={espace ? messageFinDe(espace) : undefined}
+      />
     );
   }
 
-  const entete = HEADERS[step];
-  const derniere = step === STEPS.length - 1;
+  const derniere = step === etapes.length - 1;
 
   return (
     <>
@@ -641,19 +765,25 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
       <Cadre
         panneau={
           <BrandPanel
-            milieu={<Frise step={step} onAller={setStep} />}
+            milieu={<Frise etapes={etapes} step={step} onAller={setStep} />}
+            marque={marque}
             recap={[
               ["Trajet", trajetLisible(form.depart.ville, form.arrivee.ville)],
               ["Distance", distanceKm != null ? `${distanceKm} km` : null],
-              ["Formule", nomFormule(form.prestations)],
-              ["Volume", totalVolume != null ? `${totalVolume} m³` : null],
+              // Une ligne que l'espace a retirée du parcours ne laisse pas de case vide.
+              ...(etapes.some((e) => e.cle === "prestations")
+                ? ([["Formule", nomFormule(form.prestations)]] as [string, string | null][])
+                : []),
+              ...(montreVolume ? ([["Volume", totalVolume != null ? `${totalVolume} m³` : null]] as [string, string | null][]) : []),
             ]}
           />
         }
-        etiquette={`Étape ${step + 1} / ${STEPS.length} · ${STEPS[step]}`}
-        progression={((step + 1) / STEPS.length) * 100}
+        etiquette={`Étape ${step + 1} / ${etapes.length} · ${etape.label}`}
+        progression={((step + 1) / etapes.length) * 100}
         onBack={onBack}
-        large={step === 3}
+        large={etape.cle === "prestations"}
+        marque={marque}
+        theme={theme}
         barre={
           <>
             <button
@@ -674,9 +804,9 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
               ) : (
                 <div className="hidden items-center gap-3 sm:flex">
                   <div className="flex items-center gap-1.5">
-                    {STEPS.map((label, i) => (
+                    {etapes.map((e, i) => (
                       <span
-                        key={label}
+                        key={e.cle}
                         className={`h-1.5 rounded-full transition-all duration-500 ${
                           i === step ? "w-6 bg-ink" : i < step ? "w-1.5 bg-brand-mid" : "w-1.5 bg-line-strong"
                         }`}
@@ -684,7 +814,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
                     ))}
                   </div>
                   <span className="text-[12.5px] text-ink-soft">
-                    Étape {step + 1} sur {STEPS.length}
+                    Étape {step + 1} sur {etapes.length}
                   </span>
                 </div>
               )}
@@ -695,7 +825,7 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
               <Bouton
                 onClick={() => {
                   // Les questions laissées sans réponse prennent leur valeur par défaut.
-                  setForm((f) => ({ ...f, ...defauts(step, f) }));
+                  setForm((f) => ({ ...f, ...defauts(etape.cle, f) }));
                   setStep((s) => s + 1);
                 }}
                 disabled={manquant !== null}
@@ -709,20 +839,32 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
         <div key={step}>
           <Titre
             pastille={step + 1}
-            texte={`Étape ${step + 1} sur ${STEPS.length}`}
-            eyebrow={entete.eyebrow}
-            avant={entete.avant}
-            accent={entete.accent}
-            apres={entete.apres}
-            sub={entete.sub}
+            texte={`Étape ${step + 1} sur ${etapes.length}`}
+            eyebrow={etape.eyebrow}
+            avant={etape.avant}
+            accent={etape.accent}
+            apres={etape.apres}
+            sub={etape.sub}
           />
-          {step === 0 && <VousStep form={form} patch={patch} />}
-          {step === 1 && <AddressStep which="depart" form={form} patch={patch} />}
-          {step === 2 && <AddressStep which="arrivee" form={form} patch={patch} />}
-          {step === 3 && <ChoixFormule value={form.prestations} onChange={(prestations) => patch({ prestations })} />}
-          {step === 4 && <EmballageStep form={form} patch={patch} />}
-          {step === 5 && <VolumeStep form={form} patch={patch} library={library} />}
-          {step === 6 && <CommentairesStep form={form} patch={patch} volume={totalVolume} onModifier={setStep} />}
+          {etape.cle === "vous" && <VousStep form={form} patch={patch} masque={masque} />}
+          {etape.cle === "depart" && <AddressStep which="depart" form={form} patch={patch} masque={masque} />}
+          {etape.cle === "arrivee" && <AddressStep which="arrivee" form={form} patch={patch} masque={masque} />}
+          {etape.cle === "prestations" && <ChoixFormule value={form.prestations} onChange={(prestations) => patch({ prestations })} />}
+          {etape.cle === "emballage" && <EmballageStep form={form} patch={patch} />}
+          {etape.cle === "inventaire" && (
+            <VolumeStep form={form} patch={patch} library={library} masque={masque} montreVolume={montreVolume} />
+          )}
+          {etape.cle === "commentaires" && (
+            <CommentairesStep
+              form={form}
+              patch={patch}
+              volume={totalVolume}
+              masque={masque}
+              montreVolume={montreVolume}
+              etapes={etapes.map((e) => e.cle)}
+              onModifier={allerA}
+            />
+          )}
         </div>
 
         {error && <Erreur>{error}</Erreur>}
@@ -734,18 +876,24 @@ function CompleteForm({ library, onBack, instant }: { library: LibraryPhoto[]; o
 /* ============================ Étapes ============================ */
 
 type StepProps = { form: FormState; patch: (p: Partial<FormState>) => void };
+type AvecMasque = { masque: Masque };
 
-function VousStep({ form, patch }: StepProps) {
+function VousStep({ form, patch, masque }: StepProps & AvecMasque) {
   const entreprise = form.type_client === "entreprise";
+  // Un bloc dont l'espace a retiré toutes les questions disparaît avec elles.
+  const projet = !masque("demenagement") || !masque("mutation_pro") || !masque("periode");
+  const garantie = !masque("valeur_mobilier") || !masque("garantie");
   return (
     <div className="space-y-5">
       <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous envoyer l'estimation et vous rappeler.">
         <div className="space-y-5">
-          <Field groupe label="Vous êtes *">
-            <div className="sm:max-w-xs">
-              <Choice plein options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
-            </div>
-          </Field>
+          {!masque("type_client") && (
+            <Field groupe label="Vous êtes *">
+              <div className="sm:max-w-xs">
+                <Choice plein options={[["particulier", "Particulier"], ["entreprise", "Entreprise"]]} value={form.type_client} onChange={(v) => patch({ type_client: v as FormState["type_client"] })} />
+              </div>
+            </Field>
+          )}
           {entreprise && (
             <div className="animate-step-in">
               <Field label="Raison sociale *">
@@ -768,87 +916,107 @@ function VousStep({ form, patch }: StepProps) {
         </div>
       </Bloc>
 
-      <Bloc icone="calendrier" titre="Votre projet" sous="Le cadre de votre déménagement, et la période visée." delai={70}>
-        <div>
-          <Ligne label="Déménagement complet ou partiel ?">
-            <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
-          </Ligne>
-          <Ligne label="S'agit-il d'une mutation professionnelle ?">
-            <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
-          </Ligne>
-          {!entreprise && form.mutation_pro === "oui" && (
-            <div className="animate-step-in pb-4">
-              <Field label="De quelle société s'agit-il ?">
-                <TextInput icone="immeuble" value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" />
-              </Field>
+      {projet && (
+        <Bloc icone="calendrier" titre="Votre projet" sous="Le cadre de votre déménagement, et la période visée." delai={70}>
+          {(!masque("demenagement") || !masque("mutation_pro")) && (
+            <div>
+              {!masque("demenagement") && (
+                <Ligne label="Déménagement complet ou partiel ?">
+                  <Choice options={[["complet", "Complet"], ["partiel", "Partiel"]]} value={form.demenagement} onChange={(v) => patch({ demenagement: v as FormState["demenagement"] })} />
+                </Ligne>
+              )}
+              {!masque("mutation_pro") && (
+                <>
+                  <Ligne label="S'agit-il d'une mutation professionnelle ?">
+                    <YesNo value={form.mutation_pro} onChange={(v) => patch({ mutation_pro: v })} />
+                  </Ligne>
+                  {!entreprise && form.mutation_pro === "oui" && (
+                    <div className="animate-step-in pb-4">
+                      <Field label="De quelle société s'agit-il ?">
+                        <TextInput icone="immeuble" value={form.societe} onChange={(e) => patch({ societe: e.target.value })} placeholder="Nom de la société" />
+                      </Field>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
-        </div>
-        <div className="mt-2 border-t border-line pt-5">
-          <ChampPeriode
-            label="Période souhaitée"
-            mode={form.periode_mode}
-            valeur={form.periode}
-            onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
-            exemple="Entre le 15 et le 30 novembre, dès que la vente est signée…"
-          />
-        </div>
-      </Bloc>
-
-      <Bloc icone="bouclier" titre="Votre garantie dommages" sous="La valeur de votre mobilier, et le niveau de garantie souhaité." delai={140}>
-        <div className="space-y-6">
-          <Field groupe label="Estimation de la valeur du mobilier" hint="facultatif">
-            <div className="flex flex-wrap gap-2">
-              {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
-            </div>
-          </Field>
-          <Field groupe label="Garantie dommages souhaitée">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {GARANTIES.map((g) => (
-                <CarteChoix
-                  key={g.key}
-                  active={form.assurance === g.key}
-                  onClick={() => patch({ assurance: g.key })}
-                  icone={g.key === "luxe" ? "couronne" : "bouclier"}
-                  titre={g.titre}
-                  texte={g.texte}
-                  badge={g.badge}
-                />
-              ))}
-            </div>
-          </Field>
-        </div>
-      </Bloc>
-
-      <Bloc icone="poids" titre="Vos objets lourds" sous="Ils demandent une manutention à part : mieux vaut les annoncer." delai={210}>
-        <div>
-          <Ligne
-            label="Avez-vous des objets de 80 à 150 kg ?"
-            aide="Aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif."
-          >
-            <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
-          </Ligne>
-          {form.articles_lourds === "oui" && (
-            <div className="animate-step-in mb-4 rounded-[20px] bg-subtle p-4">
-              <ChargesLourdes
-                lignes={form.charges_lourdes}
-                onChange={(charges_lourdes) => patch({ charges_lourdes })}
+          {!masque("periode") && (
+            <div className={!masque("demenagement") || !masque("mutation_pro") ? "mt-2 border-t border-line pt-5" : ""}>
+              <ChampPeriode
+                label="Période souhaitée"
+                mode={form.periode_mode}
+                valeur={form.periode}
+                onChange={(periode_mode, periode) => patch({ periode_mode, periode })}
+                exemple="Entre le 15 et le 30 novembre, dès que la vente est signée…"
               />
             </div>
           )}
-          <Ligne
-            label="Avez-vous un piano ?"
-            aide="Plus de 150 kg, il demande une manutention à part — les pianos électriques, légers, n'en font pas partie."
-          >
-            <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
-          </Ligne>
-        </div>
-      </Bloc>
+        </Bloc>
+      )}
+
+      {garantie && (
+        <Bloc icone="bouclier" titre="Votre garantie dommages" sous="La valeur de votre mobilier, et le niveau de garantie souhaité." delai={140}>
+          <div className="space-y-6">
+            {!masque("valeur_mobilier") && (
+              <Field groupe label="Estimation de la valeur du mobilier" hint="facultatif">
+                <div className="flex flex-wrap gap-2">
+                  {VALEURS.map((v) => <Pill key={v} active={form.valeur_mobilier === v} onClick={() => patch({ valeur_mobilier: v })}>{v}</Pill>)}
+                </div>
+              </Field>
+            )}
+            {!masque("garantie") && (
+              <Field groupe label="Garantie dommages souhaitée">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {GARANTIES.map((g) => (
+                    <CarteChoix
+                      key={g.key}
+                      active={form.assurance === g.key}
+                      onClick={() => patch({ assurance: g.key })}
+                      icone={g.key === "luxe" ? "couronne" : "bouclier"}
+                      titre={g.titre}
+                      texte={g.texte}
+                      badge={g.badge}
+                    />
+                  ))}
+                </div>
+              </Field>
+            )}
+          </div>
+        </Bloc>
+      )}
+
+      {!masque("objets_lourds") && (
+        <Bloc icone="poids" titre="Vos objets lourds" sous="Ils demandent une manutention à part : mieux vaut les annoncer." delai={210}>
+          <div>
+            <Ligne
+              label="Avez-vous des objets de 80 à 150 kg ?"
+              aide="Aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif."
+            >
+              <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
+            </Ligne>
+            {form.articles_lourds === "oui" && (
+              <div className="animate-step-in mb-4 rounded-[20px] bg-subtle p-4">
+                <ChargesLourdes
+                  lignes={form.charges_lourdes}
+                  onChange={(charges_lourdes) => patch({ charges_lourdes })}
+                />
+              </div>
+            )}
+            <Ligne
+              label="Avez-vous un piano ?"
+              aide="Plus de 150 kg, il demande une manutention à part — les pianos électriques, légers, n'en font pas partie."
+            >
+              <YesNo value={form.piano} onChange={(v) => patch({ piano: v })} />
+            </Ligne>
+          </div>
+        </Bloc>
+      )}
     </div>
   );
 }
 
-function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "arrivee" }) {
+function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { which: "depart" | "arrivee" }) {
   const a = form[which];
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
   const depart = which === "depart";
@@ -899,7 +1067,12 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
         </div>
       </Bloc>
 
-      <Bloc icone="immeuble" titre="Accès au logement" sous="Étage, ascenseur, escalier : c'est ce qui fait le temps de manutention." delai={70}>
+      <Bloc
+        icone="immeuble"
+        titre="Accès au logement"
+        sous={masque("acces_logement") ? "L'étage et la surface du logement." : "Étage, ascenseur, escalier : c'est ce qui fait le temps de manutention."}
+        delai={70}
+      >
         <div className="grid grid-cols-2 gap-4">
           <Field label="Étage" hint="0 = RDC"><TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" /></Field>
           <Field label="Surface habitable"><TextInput type="number" min={0} unite="m²" value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
@@ -907,48 +1080,52 @@ function AddressStep({ which, form, patch }: StepProps & { which: "depart" | "ar
         {/* Toutes les questions restent posées. Les masquer tant qu'un étage
             n'était pas saisi donnait un bloc à moitié vide, et le client ne
             savait pas ce qu'on attendait de lui. */}
-        <div className="mt-3">
-          <Ligne label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></Ligne>
-          <Ligne label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></Ligne>
-          {a.ascenseur === "oui" && (
-            <div className="animate-step-in mb-4 space-y-1 rounded-[20px] bg-subtle p-4">
-              <Field label="Taille de l'ascenseur" hint="nombre de personnes">
-                <TextInput type="number" min={0} unite="pers." value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" />
-              </Field>
-              <Ligne nue label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></Ligne>
-            </div>
-          )}
-          <Ligne label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></Ligne>
-        </div>
+        {!masque("acces_logement") && (
+          <div className="mt-3">
+            <Ligne label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></Ligne>
+            <Ligne label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></Ligne>
+            {a.ascenseur === "oui" && (
+              <div className="animate-step-in mb-4 space-y-1 rounded-[20px] bg-subtle p-4">
+                <Field label="Taille de l'ascenseur" hint="nombre de personnes">
+                  <TextInput type="number" min={0} unite="pers." value={a.taille_ascenseur} onChange={(e) => set({ taille_ascenseur: e.target.value })} placeholder="4" />
+                </Field>
+                <Ligne nue label="Vos meubles passent-ils par l'ascenseur ?"><YesNo value={a.passage_ascenseur} onChange={(v) => set({ passage_ascenseur: v })} /></Ligne>
+              </div>
+            )}
+            <Ligne label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></Ligne>
+          </div>
+        )}
       </Bloc>
 
-      <Bloc icone="camion" titre="Accès camion" sous="Où le camion peut se garer, et à quelle distance de votre porte." delai={140}>
-        <Field label="Distance entre le stationnement du camion et la porte d'entrée">
-          <div className="sm:max-w-[220px]">
-            <TextInput type="number" min={0} unite="m" value={a.portage_m} onChange={(e) => set({ portage_m: e.target.value })} placeholder="15" />
-          </div>
-        </Field>
-        <div className="mt-3">
-          <Ligne label="Difficultés d'accès en camion poids lourd ?"><YesNo value={a.difficulte_acces} onChange={(v) => set({ difficulte_acces: v })} /></Ligne>
-          {a.difficulte_acces === "oui" && (
-            <div className="animate-step-in pb-4">
-              <Field label="Type de difficulté d'accès">
-                <TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" />
-              </Field>
+      {!masque("acces_camion") && (
+        <Bloc icone="camion" titre="Accès camion" sous="Où le camion peut se garer, et à quelle distance de votre porte." delai={140}>
+          <Field label="Distance entre le stationnement du camion et la porte d'entrée">
+            <div className="sm:max-w-[220px]">
+              <TextInput type="number" min={0} unite="m" value={a.portage_m} onChange={(e) => set({ portage_m: e.target.value })} placeholder="15" />
             </div>
-          )}
-          <Ligne label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></Ligne>
-          {a.stationnement === "oui" && (
-            <p className="animate-step-in flex gap-2.5 rounded-[18px] bg-brand-soft px-4 py-3 text-[12.5px] leading-snug text-brand-ink">
-              <Icone nom="info" taille={15} className="mt-px shrink-0" />
-              <span>
-                Des frais de stationnement peuvent être appliqués par votre mairie. Le cas échéant,
-                ils vous seront refacturés à l&apos;euro près, sur justificatif.
-              </span>
-            </p>
-          )}
-        </div>
-      </Bloc>
+          </Field>
+          <div className="mt-3">
+            <Ligne label="Difficultés d'accès en camion poids lourd ?"><YesNo value={a.difficulte_acces} onChange={(v) => set({ difficulte_acces: v })} /></Ligne>
+            {a.difficulte_acces === "oui" && (
+              <div className="animate-step-in pb-4">
+                <Field label="Type de difficulté d'accès">
+                  <TextInput value={a.type_difficulte} onChange={(e) => set({ type_difficulte: e.target.value })} placeholder="Rue étroite, sens interdit, hauteur limitée…" />
+                </Field>
+              </div>
+            )}
+            <Ligne label="Autorisation de stationnement nécessaire ?"><YesNo value={a.stationnement} onChange={(v) => set({ stationnement: v })} /></Ligne>
+            {a.stationnement === "oui" && (
+              <p className="animate-step-in flex gap-2.5 rounded-[18px] bg-brand-soft px-4 py-3 text-[12.5px] leading-snug text-brand-ink">
+                <Icone nom="info" taille={15} className="mt-px shrink-0" />
+                <span>
+                  Des frais de stationnement peuvent être appliqués par votre mairie. Le cas échéant,
+                  ils vous seront refacturés à l&apos;euro près, sur justificatif.
+                </span>
+              </p>
+            )}
+          </div>
+        </Bloc>
+      )}
     </div>
   );
 }
@@ -999,45 +1176,77 @@ function CommentairesStep({
   form,
   patch,
   volume,
+  masque,
+  montreVolume,
+  etapes,
   onModifier,
-}: StepProps & { volume: number | null; onModifier: (step: number) => void }) {
+}: StepProps &
+  AvecMasque & {
+    volume: number | null;
+    montreVolume: boolean;
+    etapes: EtapeCle[];
+    onModifier: (cle: EtapeCle) => void;
+  }) {
   return (
     <div className="space-y-5">
-      <RecapCard form={form} volume={volume} onModifier={onModifier} />
-      <Bloc icone="message" titre="Votre message" sous="Précisions, contraintes, objets particuliers : tout ce qui nous aidera." delai={120}>
-        <Field label="Message" hint="facultatif">
-          <Zone value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
-            placeholder="Précisions, contraintes, objets particuliers…" />
-        </Field>
-      </Bloc>
+      <RecapCard form={form} volume={volume} masque={masque} montreVolume={montreVolume} etapes={etapes} onModifier={onModifier} />
+      {!masque("commentaire") && (
+        <Bloc icone="message" titre="Votre message" sous="Précisions, contraintes, objets particuliers : tout ce qui nous aidera." delai={120}>
+          <Field label="Message" hint="facultatif">
+            <Zone value={form.commentaire} onChange={(e) => patch({ commentaire: e.target.value })} rows={5}
+              placeholder="Précisions, contraintes, objets particuliers…" />
+          </Field>
+        </Bloc>
+      )}
     </div>
   );
 }
 
 /* ---------- Volume (3 modes) ---------- */
 
-function VolumeStep({ form, patch, library }: StepProps & { library: LibraryPhoto[] }) {
-  const mode = form.volumeMode;
-  const actif = MODES_VOLUME.find((m) => m.key === mode) ?? MODES_VOLUME[0];
+function VolumeStep({
+  form,
+  patch,
+  library,
+  masque,
+  montreVolume,
+}: StepProps & AvecMasque & { library: LibraryPhoto[]; montreVolume: boolean }) {
+  // L'espace peut retirer la liste ou les photos ; la saisie directe reste toujours.
+  const modes = MODES_VOLUME.filter(
+    (m) => !(m.key === "list" && masque("volume_liste")) && !(m.key === "ai" && masque("volume_photos"))
+  );
+  // Quand l'espace tait les mètres cubes, les cartes ne promettent pas un chiffre.
+  const texte = (m: (typeof MODES_VOLUME)[number]) =>
+    montreVolume || m.key === "explicit"
+      ? m.texte
+      : m.key === "list"
+        ? "Meuble par meuble : nos équipes en déduisent le volume."
+        : "Nos équipes estiment le volume d'après vos photos.";
+  const actif = modes.find((m) => m.key === form.volumeMode) ?? modes[0];
+  const mode = actif.key;
   return (
     <div className="space-y-5">
-      <div className="reveal grid gap-3 sm:grid-cols-3">
-        {MODES_VOLUME.map((m) => (
-          <CarteChoix
-            key={m.key}
-            active={mode === m.key}
-            onClick={() => patch({ volumeMode: m.key })}
-            icone={m.icone}
-            titre={m.titre}
-            texte={m.texte}
-          />
-        ))}
-      </div>
-      <div key={mode}>
-        <Bloc icone={actif.icone} titre={actif.titre} sous={actif.texte} delai={70}>
+      {modes.length > 1 && (
+        <div className={`reveal grid gap-3 ${modes.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          {modes.map((m) => (
+            <CarteChoix
+              key={m.key}
+              active={mode === m.key}
+              onClick={() => patch({ volumeMode: m.key })}
+              icone={m.icone}
+              titre={m.titre}
+              texte={texte(m)}
+            />
+          ))}
+        </div>
+      )}
+      <div key={mode} className={montreVolume ? "" : "sans-volume"}>
+        <Bloc icone={actif.icone} titre={actif.titre} sous={texte(actif)} delai={70}>
           {mode === "explicit" && <SaisieVolume valeur={form.explicitVolume} onChange={(explicitVolume) => patch({ explicitVolume })} />}
-          {mode === "list" && <ListeMeubles items={form.items} onChange={(items) => patch({ items })} />}
-          {mode === "ai" && <PhotoAnalyzer library={library} photos={form.photos} onChange={(photos) => patch({ photos })} />}
+          {mode === "list" && <ListeMeubles items={form.items} onChange={(items) => patch({ items })} sansVolume={!montreVolume} />}
+          {mode === "ai" && (
+            <PhotoAnalyzer library={library} photos={form.photos} onChange={(photos) => patch({ photos })} showTotal={montreVolume} />
+          )}
         </Bloc>
       </div>
     </div>
@@ -1227,6 +1436,11 @@ function garantieLisible(form: FormState) {
   return `${g.titre}${valeur}`;
 }
 
+/** Le nom d'un espace, sans le mot « Espace » qu'on met déjà devant. */
+function nomCourt(nom: string) {
+  return nom.replace(/^espace\s+/i, "");
+}
+
 /** « 2026-11-15 » devient « 15 novembre 2026 ». */
 function dateLisible(iso: string) {
   const d = new Date(`${iso}T12:00:00`);
@@ -1267,38 +1481,55 @@ const METHODE_VOLUME: Record<VolumeMode, string> = {
 function RecapCard({
   form,
   volume,
+  masque,
+  montreVolume,
+  etapes,
   onModifier,
 }: {
   form: FormState;
   volume: number | null;
-  onModifier: (step: number) => void;
+  masque: Masque;
+  montreVolume: boolean;
+  etapes: EtapeCle[];
+  onModifier: (cle: EtapeCle) => void;
 }) {
   const presta = LIGNES_CARTE.filter((p) => form.prestations[p.key] === "bailly").map((p) => p.label).join(", ") || "aucune";
   const contact = [[form.prenom, form.nom].filter(Boolean).join(" "), form.email, form.tel].filter(Boolean).join(" · ");
-  const groupes: { step: number; icone: NomIcone; titre: string; lignes: [string, string][] }[] = [
+  const si = (garde: boolean, ligne: [string, string]): [string, string][] => (garde ? [ligne] : []);
+  const acces = (a: Address): [string, string][] => [
+    ["Adresse", adresseLisible(a)],
+    ...si(!masque("acces_logement") || !masque("acces_camion"), ["Accès", accesLisible(a)]),
+  ];
+  const tous: { cle: EtapeCle; icone: NomIcone; titre: string; lignes: [string, string][] }[] = [
     {
-      step: 0,
+      cle: "vous",
       icone: "user",
       titre: "Vous",
       lignes: [
         ["Client", contact || "non renseigné"],
-        ...(form.societe ? ([["Société", form.societe]] as [string, string][]) : []),
-        ["Garantie", garantieLisible(form)],
-        ["Objets lourds", lourdsLisible(form)],
-        ["Période", periodeLisible(form)],
+        ...si(Boolean(form.societe), ["Société", form.societe]),
+        ...si(!masque("garantie"), ["Garantie", garantieLisible(form)]),
+        ...si(!masque("objets_lourds"), ["Objets lourds", lourdsLisible(form)]),
+        ...si(!masque("periode"), ["Période", periodeLisible(form)]),
       ],
     },
-    { step: 1, icone: "pin", titre: "Départ", lignes: [["Adresse", adresseLisible(form.depart)], ["Accès", accesLisible(form.depart)]] },
-    { step: 2, icone: "maison", titre: "Arrivée", lignes: [["Adresse", adresseLisible(form.arrivee)], ["Accès", accesLisible(form.arrivee)]] },
-    { step: 3, icone: "bouclier", titre: "Prestations", lignes: [["Formule", nomFormule(form.prestations) ?? "à définir"], ["Prise en charge Bailly", presta]] },
-    { step: 4, icone: "cle", titre: "Démontage", lignes: demontageLisible(form) },
+    { cle: "depart", icone: "pin", titre: "Départ", lignes: acces(form.depart) },
+    { cle: "arrivee", icone: "maison", titre: "Arrivée", lignes: acces(form.arrivee) },
+    { cle: "prestations", icone: "bouclier", titre: "Prestations", lignes: [["Formule", nomFormule(form.prestations) ?? "à définir"], ["Prise en charge Bailly", presta]] },
+    { cle: "emballage", icone: "cle", titre: "Démontage", lignes: demontageLisible(form) },
     {
-      step: 5,
+      cle: "inventaire",
       icone: "carton",
       titre: "Inventaire",
-      lignes: [["Volume", volume != null ? `${volume} m³ (${METHODE_VOLUME[form.volumeMode]})` : "non renseigné"]],
+      lignes: [
+        montreVolume
+          ? ["Volume", volume != null ? `${volume} m³ (${METHODE_VOLUME[form.volumeMode]})` : "non renseigné"]
+          : ["Inventaire", volume != null ? `transmis (${METHODE_VOLUME[form.volumeMode]})` : "non renseigné"],
+      ],
     },
   ];
+  // Une étape que l'espace a retirée ne figure pas au récapitulatif.
+  const groupes = tous.filter((g) => etapes.includes(g.cle));
   return (
     <div className="bloc reveal overflow-hidden rounded-[26px] border border-line bg-card">
       {groupes.map((g) => (
@@ -1315,7 +1546,7 @@ function RecapCard({
             </div>
             <button
               type="button"
-              onClick={() => onModifier(g.step)}
+              onClick={() => onModifier(g.cle)}
               className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-ink transition hover:text-ink sm:mt-2.5"
             >
               <Icone nom="crayon" taille={12} />
@@ -1336,28 +1567,46 @@ function RecapCard({
   );
 }
 
-function SuccessScreen({ id, volume, count = 1 }: { id: string; volume: number | null; count?: number }) {
+function SuccessScreen({
+  id,
+  volume,
+  count = 1,
+  marque,
+  theme,
+  message,
+}: {
+  id: string;
+  volume: number | null;
+  count?: number;
+  marque?: Marque | null;
+  theme?: CSSProperties;
+  /** Le mot de la fin d'un espace pro, à la place du texte par défaut. */
+  message?: string;
+}) {
   return (
-    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
-      <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
-      <div className="absolute inset-0 bg-[#1b1a18]/70" />
-      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/40 to-[#1b1a18]/95" />
-      <div className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink" style={theme}>
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" style={halo(30)} />
+      </div>
 
       <div className="relative z-10 w-full max-w-lg text-center">
-        <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+        <div className="flex justify-center">
+          <Enseigne marque={marque} />
+        </div>
+        <div className="reveal mx-auto mt-10 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_10px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
           <Icone nom="check" taille={28} trait={3} className="coche-pop" />
         </div>
-        <h1 className="font-serif reveal mt-7 text-balance text-[40px] text-white sm:text-[52px]" style={delai(80)}>
+        <h1 className="font-serif reveal mt-7 text-balance text-[40px] sm:text-[52px]" style={delai(80)}>
           {count > 1 ? `${count} demandes envoyées` : "Demande envoyée"}
         </h1>
-        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/72" style={delai(160)}>
-          {count > 1
-            ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
-            : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`}
+        <p className="reveal mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-ink-soft" style={delai(160)}>
+          {message ||
+            (count > 1
+              ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
+              : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`)}
         </p>
-        <div className="reveal mt-7 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[13px] text-white/70" style={delai(240)}>
-          Référence <span className="font-mono text-white">{id.slice(0, 8)}</span>
+        <div className="reveal mt-7 inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-4 py-2 text-[13px] text-ink-soft" style={delai(240)}>
+          Référence <span className="font-mono text-ink">{id.slice(0, 8)}</span>
         </div>
       </div>
     </div>
@@ -1371,9 +1620,9 @@ function computeVolume(form: FormState): number | null {
 }
 
 /** Ce qu'il manque pour passer à l'étape suivante — ou rien. */
-function manque(step: number, form: FormState): string | null {
-  switch (step) {
-    case 0: {
+function manque(cle: EtapeCle, form: FormState): string | null {
+  switch (cle) {
+    case "vous": {
       const nomme = (form.prenom.trim() || form.nom.trim()).length > 0;
       if (form.type_client === "entreprise") {
         if (!form.societe.trim() && !nomme) return "Indiquez la raison sociale";
@@ -1383,11 +1632,11 @@ function manque(step: number, form: FormState): string | null {
       return null;
     }
     // La ville est le minimum : sans elle, ni distance ni prix.
-    case 1:
+    case "depart":
       return form.depart.ville.trim() ? null : "Indiquez la ville de départ";
-    case 2:
+    case "arrivee":
       return form.arrivee.ville.trim() ? null : "Indiquez la ville d'arrivée";
-    case 5:
+    case "inventaire":
       return computeVolume(form) != null ? null : "Renseignez le volume à déménager";
     default:
       return null;
@@ -1405,9 +1654,9 @@ const PERIODE_PAR_DEFAUT = "Je ne sais pas encore";
  * prend, au moment de continuer, sa valeur la plus courante. Le client
  * avance sans être bloqué, et le récapitulatif lui montre ce qui a été retenu.
  */
-function defauts(step: number, form: FormState): Partial<FormState> {
-  switch (step) {
-    case 0: {
+function defauts(etape: EtapeCle, form: FormState): Partial<FormState> {
+  switch (etape) {
+    case "vous": {
       const p: Partial<FormState> = {};
       if (!form.demenagement) p.demenagement = "complet";
       if (!form.mutation_pro) p.mutation_pro = "non";
@@ -1420,9 +1669,9 @@ function defauts(step: number, form: FormState): Partial<FormState> {
       }
       return p;
     }
-    case 1:
-    case 2: {
-      const cle = step === 1 ? "depart" : "arrivee";
+    case "depart":
+    case "arrivee": {
+      const cle = etape;
       const a = form[cle];
       const d: Partial<Address> = {};
       if (!a.etage) d.etage = "0";
@@ -1434,24 +1683,45 @@ function defauts(step: number, form: FormState): Partial<FormState> {
       if (!a.stationnement) d.stationnement = "non";
       return Object.keys(d).length ? ({ [cle]: { ...a, ...d } } as Partial<FormState>) : {};
     }
-    case 3:
+    case "prestations":
       return formuleRetenue(form.prestations) === null ? { prestations: { ...PRESTATIONS_PAR_DEFAUT } } : {};
     default:
       return {};
   }
 }
 
-/** Ce que la barre du bas annonce quand des réponses vont être complétées. */
-function annonceDefauts(step: number, form: FormState): string | null {
-  const patch = defauts(step, form);
-  if (step === 3) return patch.prestations ? "Sans choix de votre part, la formule Standard sera retenue." : null;
+/** La question à laquelle se rattache chaque réponse complétée d'office. */
+const QUESTION_DU_CHAMP: Record<string, QuestionCle> = {
+  demenagement: "demenagement",
+  mutation_pro: "mutation_pro",
+  assurance: "garantie",
+  articles_lourds: "objets_lourds",
+  piano: "objets_lourds",
+  periode: "periode",
+  duplex: "acces_logement",
+  ascenseur: "acces_logement",
+  passage_ascenseur: "acces_logement",
+  passage_escalier: "acces_logement",
+  difficulte_acces: "acces_camion",
+  stationnement: "acces_camion",
+};
+
+/**
+ * Ce que la barre du bas annonce quand des réponses vont être complétées.
+ * Une question que l'espace a retirée est complétée en silence : on n'annonce
+ * pas au client une question qu'il n'a jamais vue.
+ */
+function annonceDefauts(etape: EtapeCle, form: FormState, masque: Masque): string | null {
+  const visible = (champ: string) => !(champ in QUESTION_DU_CHAMP && masque(QUESTION_DU_CHAMP[champ]));
+  const patch = defauts(etape, form);
+  if (etape === "prestations") return patch.prestations ? "Sans choix de votre part, la formule Standard sera retenue." : null;
   let n = 0;
-  if (step === 1 || step === 2) {
-    const cle = step === 1 ? "depart" : "arrivee";
+  if (etape === "depart" || etape === "arrivee") {
+    const cle = etape;
     const apres = patch[cle];
-    if (apres) n = (Object.keys(apres) as (keyof Address)[]).filter((k) => apres[k] !== form[cle][k]).length;
+    if (apres) n = (Object.keys(apres) as (keyof Address)[]).filter((k) => apres[k] !== form[cle][k] && visible(k)).length;
   } else {
-    n = Object.keys(patch).filter((k) => k !== "periode_mode").length;
+    n = Object.keys(patch).filter((k) => k !== "periode_mode" && visible(k)).length;
   }
   if (n === 0) return null;
   return n === 1

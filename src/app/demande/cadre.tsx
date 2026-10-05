@@ -6,64 +6,107 @@ import type { CSSProperties, ReactNode } from "react";
 import { Icone } from "./ui";
 
 /*
- * La coque des parcours de devis : le panneau sombre à gauche, la progression,
- * le titre, la barre d'action. Le formulaire de devis et la page de
- * complétion s'en servent tous les deux — un client qui revient compléter sa
+ * La coque des parcours de devis : le panneau à gauche, la progression, le
+ * titre, la barre d'action. Le formulaire de devis, la page de complétion et
+ * les espaces pro s'en servent tous — un client qui revient compléter sa
  * demande retrouve exactement l'écran qu'il a quitté.
+ *
+ * Tout y est clair. La couleur d'accent vient des jetons de marque : un espace
+ * pro les redéfinit sur la racine du cadre, et le panneau, la progression et
+ * les boutons suivent sans rien savoir de l'espace.
  */
 
 export const AGENCE = { lien: "tel:+33169103520", numero: "01 69 10 35 20" };
 
 export const delai = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
+/** Le halo d'un coin de page : la couleur de marque, très diluée. */
+export const halo = (force: number) =>
+  ({ "--halo": `color-mix(in srgb, var(--color-brand) ${force}%, transparent)` }) as CSSProperties;
+
+/** L'enseigne d'un espace pro, posée à côté de celle de Bailly. */
+export type Marque = { nom: string; logo: string | null };
+
 const RETOUR =
   "group inline-flex h-9 items-center gap-2 rounded-full border border-line-strong bg-card px-3.5 text-[12.5px] font-medium text-ink-mid transition hover:border-ink hover:text-ink";
 
 /**
- * Le panneau de gauche, dans le langage de la vitrine : la photo d'intérieur
- * assombrie, le halo doré, le texte en blanc. Le milieu est laissé au
- * parcours ; en bas, la demande se remplit sous les yeux du client.
+ * Le logo de Bailly — seul, ou précédé de l'enseigne de l'entreprise quand on
+ * est dans son espace. Sans logo fourni, le nom de l'entreprise en tient lieu.
+ */
+export function Enseigne({ marque, compact = false }: { marque?: Marque | null; compact?: boolean }) {
+  const bailly = (
+    <Image
+      src="/marque/bailly-logo.svg"
+      alt="Bailly Déménagement"
+      width={200}
+      height={64}
+      priority
+      className={`h-auto shrink-0 ${marque ? (compact ? "w-[84px]" : "w-[104px]") : compact ? "w-[110px]" : "w-[150px] xl:w-[170px]"}`}
+    />
+  );
+  if (!marque) return bailly;
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      {marque.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API
+        <img
+          src={marque.logo}
+          alt={marque.nom}
+          className={`w-auto shrink object-contain ${compact ? "h-7 max-w-[96px]" : "h-10 max-w-[124px]"}`}
+        />
+      ) : (
+        <span
+          className={`min-w-0 truncate rounded-[10px] bg-brand font-bold text-sur-brand ${
+            compact ? "px-2 py-1 text-[11.5px]" : "px-2.5 py-1.5 text-[13.5px]"
+          }`}
+        >
+          {marque.nom}
+        </span>
+      )}
+      <span aria-hidden className="h-6 w-px shrink-0 bg-line-strong" />
+      {bailly}
+    </div>
+  );
+}
+
+/**
+ * Le panneau de gauche : l'enseigne, une phrase, le parcours au milieu, et en
+ * bas la demande qui se remplit sous les yeux du client.
  *
- * Les noirs sont écrits en dur : le panneau reste sombre quel que soit le
- * thème, là où `bg-ink` s'éclaircirait de nuit.
+ * Il est blanc. Sa première version reprenait la photo d'intérieur sous un
+ * voile noir : un tiers de l'écran en sombre, et le formulaire donnait
+ * l'impression d'être en mode nuit.
  */
 export function BrandPanel({
   milieu,
   recap,
+  marque,
 }: {
   milieu: ReactNode;
   recap: [string, string | null][];
+  marque?: Marque | null;
 }) {
   return (
-    <aside className="grain relative hidden overflow-hidden bg-[#1b1a18] lg:sticky lg:top-0 lg:block lg:h-dvh">
-      {/* Le décor a son propre cadre : next/image refuse un parent « sticky ». */}
-      <div aria-hidden className="absolute inset-0">
-        <Image src="/login-interieur.jpg" alt="" fill priority sizes="380px" className="ken-burns object-cover" />
-        <div className="absolute inset-0 bg-[#1b1a18]/78" />
-        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/85 via-[#1b1a18]/55 to-[#1b1a18]/95" />
-        <div className="halo drift absolute -left-24 top-1/3 h-[380px] w-[380px]" style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties} />
+    <aside className="relative hidden overflow-hidden border-r border-line bg-card lg:sticky lg:top-0 lg:block lg:h-dvh">
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute -left-44 -top-36 h-[480px] w-[480px]" style={halo(30)} />
+        <div className="halo absolute -bottom-48 -right-32 h-[440px] w-[440px]" style={halo(16)} />
       </div>
 
       <div className="relative z-10 flex h-full flex-col overflow-y-auto px-7 py-8 [scrollbar-width:none] xl:px-9">
-        <Image
-          src="/marque/bailly-logo-blanc.svg"
-          alt="Bailly Déménagement"
-          width={200}
-          height={64}
-          priority
-          className="h-auto w-[150px] shrink-0 xl:w-[170px]"
-        />
-        <p className="font-serif mt-6 max-w-xs text-[19px] leading-snug text-white xl:text-[21px] [@media(max-height:840px)]:hidden">
+        <Enseigne marque={marque} />
+        <p className="font-serif mt-6 max-w-xs text-[19px] leading-snug xl:text-[21px] [@media(max-height:840px)]:hidden">
           Une question, un projet ? Nous vous{" "}
-          <span className="gradient-flow-light">accompagnons</span> à chaque étape.
+          <span className="gradient-text">accompagnons</span> à chaque étape.
         </p>
 
         <div className="my-auto py-6">{milieu}</div>
 
-        <div className="edge-glow relative shrink-0 rounded-[22px] bg-linear-to-br from-white/16 via-white/7 to-white/4 p-4 xl:p-5">
+        <div className="shrink-0 rounded-[22px] border border-line bg-paper p-4 xl:p-5">
           <div className="flex items-center justify-between gap-3">
-            <span className="eyebrow text-white/55">Votre demande</span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-white/50">
+            <span className="eyebrow text-ink-soft">Votre demande</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-soft">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-good" />
               en direct
             </span>
@@ -71,11 +114,11 @@ export function BrandPanel({
           <dl className="mt-3.5 space-y-2.5">
             {recap.map(([cle, valeur]) => (
               <div key={cle} className="flex items-baseline justify-between gap-4">
-                <dt className="shrink-0 text-[12px] text-white/55">{cle}</dt>
+                <dt className="shrink-0 text-[12.5px] text-ink-soft">{cle}</dt>
                 <dd
                   key={valeur ?? "vide"}
-                  className={`min-w-0 truncate text-right text-[13px] font-medium ${
-                    valeur ? "animate-step-in text-white" : "text-white/28"
+                  className={`min-w-0 truncate text-right text-[13.5px] font-semibold ${
+                    valeur ? "animate-step-in text-ink" : "text-line-strong"
                   }`}
                 >
                   {valeur ?? "—"}
@@ -85,10 +128,10 @@ export function BrandPanel({
           </dl>
           <a
             href={AGENCE.lien}
-            className="mt-4 flex items-center justify-between gap-3 border-t border-white/12 pt-3.5 text-[12px] text-white/60 transition hover:text-white"
+            className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3.5 text-[12.5px] text-ink-soft transition hover:text-ink"
           >
             <span>Une question ?</span>
-            <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
               <Icone nom="tel" taille={13} />
               {AGENCE.numero}
             </span>
@@ -111,6 +154,8 @@ export function Cadre({
   large = false,
   barre,
   children,
+  marque,
+  theme,
 }: {
   panneau: ReactNode;
   /** Où l'on en est, pour le bandeau du téléphone. */
@@ -122,29 +167,36 @@ export function Cadre({
   large?: boolean;
   barre: ReactNode;
   children: ReactNode;
+  /** L'enseigne de l'espace pro, pour le bandeau du téléphone. */
+  marque?: Marque | null;
+  /** Les jetons de marque redéfinis par un espace pro. */
+  theme?: CSSProperties;
 }) {
   const largeur = large ? "max-w-[1060px]" : "max-w-[860px]";
   return (
-    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]">
+    <div
+      className="min-h-dvh bg-paper text-ink lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]"
+      style={theme}
+    >
       {panneau}
 
       <main className="relative flex min-h-dvh min-w-0 flex-col">
         <div className="sticky top-0 z-40 h-[3px] w-full bg-line">
           <div
-            className="h-full rounded-r-full bg-linear-to-r from-brand-mid to-brand shadow-[0_0_12px_rgba(245,208,51,0.85)] transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            className="h-full rounded-r-full bg-brand transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
             style={{ width: `${progression}%` }}
           />
         </div>
 
-        {/* Une lueur dorée dans l'angle, comme sur la vitrine. */}
+        {/* Une lueur dans l'angle, comme sur la vitrine. */}
         <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[480px] overflow-hidden">
-          <div className="halo absolute -right-48 -top-56 h-[640px] w-[640px]" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
+          <div className="halo absolute -right-48 -top-56 h-[640px] w-[640px]" style={halo(22)} />
         </div>
 
-        {/* Sur téléphone, le panneau disparaît : il en reste le logo et l'étape. */}
-        <div className="relative z-10 flex items-center justify-between gap-3 bg-[#1b1a18] px-5 py-3 lg:hidden">
-          <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={120} height={38} priority className="h-7 w-auto" />
-          <span className="text-[12px] font-medium text-white/70">{etiquette}</span>
+        {/* Sur téléphone, le panneau disparaît : il en reste l'enseigne et l'étape. */}
+        <div className="relative z-10 flex items-center justify-between gap-3 border-b border-line bg-card px-5 py-3 lg:hidden">
+          <Enseigne marque={marque} compact />
+          <span className="shrink-0 text-[12px] font-medium text-ink-soft">{etiquette}</span>
         </div>
 
         <div className={`relative z-10 mx-auto w-full flex-1 px-5 pb-14 pt-6 sm:px-8 lg:px-12 lg:pt-9 ${largeur}`}>
@@ -199,7 +251,7 @@ export function Titre({
     <header className="mb-8 mt-7 sm:mb-9 sm:mt-9">
       <div className="reveal flex flex-wrap items-center gap-3">
         <span className="inline-flex items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-[11.5px] font-semibold text-shell">
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10.5px] font-bold text-[#1b1a18]">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[10.5px] font-bold text-sur-brand">
             {pastille}
           </span>
           {texte}
@@ -218,7 +270,7 @@ export function Titre({
   );
 }
 
-/** Le bouton d'action : noir, avec sa flèche dans un rond jaune. */
+/** Le bouton d'action : noir, avec sa flèche dans un rond à la couleur de marque. */
 export function Bouton({
   children,
   onClick,
@@ -236,7 +288,7 @@ export function Bouton({
       className="group inline-flex h-12 shrink-0 items-center gap-3 rounded-full bg-ink pl-5 pr-1.5 text-[14px] font-semibold text-shell shadow-[0_16px_30px_-16px_rgba(27,26,24,0.8)] transition-[box-shadow,transform,opacity] duration-200 hover:shadow-[0_20px_36px_-14px_rgba(27,26,24,0.85)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none sm:pl-6"
     >
       {children}
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-[#1b1a18] transition-transform duration-300 group-hover:translate-x-0.5 group-disabled:translate-x-0">
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sur-brand transition-transform duration-300 group-hover:translate-x-0.5 group-disabled:translate-x-0">
         <Icone nom="droite" taille={16} trait={2.4} />
       </span>
     </button>

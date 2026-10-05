@@ -56,7 +56,16 @@ export function SaisieVolume({ valeur, onChange }: { valeur: string; onChange: (
 }
 
 /** Le volume construit meuble par meuble, à partir du catalogue. */
-export function ListeMeubles({ items, onChange }: { items: ListItem[]; onChange: (items: ListItem[]) => void }) {
+export function ListeMeubles({
+  items,
+  onChange,
+  sansVolume = false,
+}: {
+  items: ListItem[];
+  onChange: (items: ListItem[]) => void;
+  /** Un espace pro peut taire les mètres cubes : on compte alors les meubles. */
+  sansVolume?: boolean;
+}) {
   const total = items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0);
   function addFromCatalog(label: string) {
     const preset = CATALOG.find((c) => c.label === label); if (!preset) return;
@@ -88,7 +97,7 @@ export function ListeMeubles({ items, onChange }: { items: ListItem[]; onChange:
                     }`}
                   >
                     {n > 0 ? (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1b1a18] px-1 text-[10px] font-bold text-brand">{n}</span>
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1b1a18] px-1 text-[10px] font-bold text-brand-clair">{n}</span>
                     ) : (
                       <Icone nom="plus" taille={12} trait={2.6} />
                     )}
@@ -106,19 +115,21 @@ export function ListeMeubles({ items, onChange }: { items: ListItem[]; onChange:
             <div key={it.label} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[14px] font-medium">{it.label}</div>
-                <div className="text-[12px] text-ink-soft">{it.volume_unitaire_m3} m³ l&apos;unité</div>
+                {!sansVolume && <div className="text-[12px] text-ink-soft">{it.volume_unitaire_m3} m³ l&apos;unité</div>}
               </div>
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={() => setQty(i, it.quantite - 1)} aria-label={`Retirer un ${it.label}`} className="flex h-8 w-8 items-center justify-center rounded-full border border-line-strong text-ink-mid transition hover:border-ink hover:text-ink active:scale-90">−</button>
                 <span className="w-7 text-center text-[14px] font-semibold tnum">{it.quantite}</span>
                 <button type="button" onClick={() => setQty(i, it.quantite + 1)} aria-label={`Ajouter un ${it.label}`} className="flex h-8 w-8 items-center justify-center rounded-full border border-line-strong text-ink-mid transition hover:border-ink hover:text-ink active:scale-90">+</button>
               </div>
-              <div className="w-16 text-right text-[13.5px] tnum">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>
+              {!sansVolume && <div className="w-16 text-right text-[13.5px] tnum">{(it.quantite * it.volume_unitaire_m3).toFixed(1)} m³</div>}
             </div>
           ))}
           <div className="flex items-center justify-between bg-subtle px-4 py-3.5">
-            <span className="text-[14px] font-semibold">Total</span>
-            <span className="font-serif text-[20px] tnum">{total.toFixed(1)} m³</span>
+            <span className="text-[14px] font-semibold">{sansVolume ? "Meubles listés" : "Total"}</span>
+            <span className="font-serif text-[20px] tnum">
+              {sansVolume ? items.reduce((s, it) => s + it.quantite, 0) : `${total.toFixed(1)} m³`}
+            </span>
           </div>
         </div>
       )}

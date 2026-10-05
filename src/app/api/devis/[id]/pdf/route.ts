@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { DevisPdf, type PdfTrajet } from "@/lib/DevisPdf";
 import type { DevisRow, RequestRow } from "@/lib/types";
+import { espacePourDevis } from "@/lib/espace-demande";
 
 export const runtime = "nodejs";
 
@@ -26,8 +27,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     };
   }
 
-  const settings = await getSettings();
-  const buffer = await renderToBuffer(DevisPdf({ devis, settings, trajet }));
+  const [settings, espace] = await Promise.all([getSettings(), espacePourDevis(devis.request_id)]);
+  const buffer = await renderToBuffer(DevisPdf({ devis, settings, trajet, espace }));
 
   return new Response(new Uint8Array(buffer), {
     headers: {

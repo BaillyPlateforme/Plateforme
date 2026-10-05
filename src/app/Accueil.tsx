@@ -4,6 +4,7 @@ import { useState } from "react";
 import Vitrine, { type Parcours } from "./Vitrine";
 import DemandeForm from "./demande/DemandeForm";
 import type { LibraryPhoto } from "@/components/PhotoAnalyzer";
+import ThemeClair from "@/components/ThemeClair";
 
 /**
  * La racine du site : la vitrine et le formulaire au même endroit.
@@ -37,14 +38,22 @@ export default function Accueil({
 
   if (parcours) {
     return (
-      <DemandeForm
-        library={library}
-        instant={instant}
-        modeInitial={parcours}
-        onQuitter={revenir}
-      />
+      <>
+        <ThemeClair />
+        <DemandeForm
+          library={library}
+          instant={instant}
+          modeInitial={parcours}
+          onQuitter={revenir}
+        />
+      </>
     );
   }
 
-  return <Vitrine onChoisir={choisir} annee={annee} />;
+  return (
+    <>
+      <ThemeClair />
+      <Vitrine onChoisir={choisir} annee={annee} />
+    </>
+  );
 }

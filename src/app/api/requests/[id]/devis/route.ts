@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { DevisRow, RequestRow } from "@/lib/types";
+import { espaceDeLaDemande } from "@/lib/espaces";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createServiceClient();
+
+  // Un espace pro peut ne pas montrer le prix au client. Cette adresse est
+  // publique : le refuser ici, et pas seulement à l'écran, c'est ce qui le
+  // tient vraiment hors de portée.
+  const { data: demande } = await supabase.from("requests").select("raw_payload").eq("id", id).maybeSingle();
+  if (espaceDeLaDemande(demande)?.afficher_estimation === false) {
+    return NextResponse.json({ error: "Estimation non communiquée" }, { status: 404 });
+  }
+
   const { data: devis } = await supabase
     .from("devis")
     .select("*")

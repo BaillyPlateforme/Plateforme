@@ -86,7 +86,7 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
         )}
         <input value={photo.piece} onChange={(e) => onChange({ ...photo, piece: e.target.value })}
           className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none transition hover:border-line focus:border-accent" />
-        <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-medium tabular-nums text-accent-dark">{photo.volume_m3.toFixed(1)} m³</span>
+        <span data-volume className="shrink-0 rounded-full bg-accent-soft px-2.5 py-1 text-sm font-medium tabular-nums text-accent-dark">{photo.volume_m3.toFixed(1)} m³</span>
         <button type="button" onClick={onRemove} title="Retirer la photo"
           className="shrink-0 rounded-md p-1.5 text-ink-soft transition hover:bg-subtle hover:text-accent">✕</button>
       </div>
@@ -118,7 +118,7 @@ export function PhotoAnalysisCard<T extends AnalyzedPhotoBase>({
               <button type="button" onClick={() => setQty(idx, o.quantite + 1)}
                 className="flex h-6 w-6 items-center justify-center rounded-md border border-line text-ink-soft transition hover:border-accent hover:text-accent">+</button>
             </div>
-            <div className={`flex w-[84px] shrink-0 items-center justify-end gap-1 rounded-md border border-line bg-paper px-2 py-1 ${o.doublon ? "opacity-45" : ""}`}>
+            <div data-volume className={`flex w-[84px] shrink-0 items-center justify-end gap-1 rounded-md border border-line bg-paper px-2 py-1 ${o.doublon ? "opacity-45" : ""}`}>
               <input type="number" step="0.1" min={0} value={o.volume_m3} onChange={(e) => setObjet(idx, "volume_m3", e.target.value)}
                 className="w-11 bg-transparent text-right text-sm outline-none" />
               <span className="text-[11px] text-ink-soft">m³</span>
@@ -201,7 +201,7 @@ function AddObjetPicker({
               onClick={() => onAdd({ label: c.label, quantite: 1, volume_m3: c.volume })}
               className="rounded-full border border-line bg-card px-2.5 py-1 text-xs transition hover:border-accent hover:text-accent"
             >
-              {c.label} · {c.volume} m³
+              {c.label}<span data-volume> · {c.volume} m³</span>
             </button>
           ))}
           {filtered.length === 0 && (
@@ -228,7 +228,7 @@ export function PhotoDropzone({
   return (
     <label className="group block cursor-pointer rounded-[22px] border-2 border-dashed border-line-strong bg-subtle/60 px-6 py-8 text-center transition-colors duration-200 hover:border-ink hover:bg-brand-soft">
       <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] border border-line bg-card text-ink-mid transition-colors duration-200 group-hover:border-[#1b1a18] group-hover:bg-[#1b1a18] group-hover:text-brand">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] border border-line bg-card text-ink-mid transition-colors duration-200 group-hover:border-[#1b1a18] group-hover:bg-[#1b1a18] group-hover:text-brand-clair">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <path d="m17 8-5-5-5 5" />

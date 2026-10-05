@@ -13,6 +13,17 @@ import {
 import { rendreEmail, variablesCalculees, type LigneEstimation } from "@/lib/email-render";
 import { modeleEffectif } from "@/lib/email-defauts";
 import { estimationDeLaDemande, type EstimationPourEmail } from "@/lib/estimation-pdf";
+import { espaceDUneDemande } from "@/lib/espace-demande";
+import { COULEUR_BAILLY, nomEnseigne, urlLogo } from "@/lib/espaces";
+
+/** Les événements que la plateforme déclenche seule, sans geste de l'équipe. */
+const AUTOMATIQUES = new Set([
+  "demande_recue",
+  "demande_complete",
+  "demande_incomplete",
+  "demande_completee",
+  "devis_cree",
+]);
 
 export async function listAlerts(): Promise<AlertRow[]> {
   const supabase = createServiceClient();
@@ -44,6 +55,11 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       estimation !== undefined
         ? estimation
         : (estimation = await estimationDeLaDemande(ctx.request_id as string | undefined));
+
+    // L'espace pro de la demande, lui aussi cherché une seule fois.
+    let espace: Awaited<ReturnType<typeof espaceDUneDemande>> | undefined;
+    const lireEspace = async () =>
+      espace !== undefined ? espace : (espace = await espaceDUneDemande(ctx.request_id as string | undefined));
 
     for (const a of alerts as (AlertRow & { template: MessageTemplate | null })[]) {
       if (a.montant_min != null && Number(ctx.montant_ttc ?? 0) < Number(a.montant_min)) continue;
@@ -88,20 +104,46 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       // Les variables de l'e-mail : celles de l'événement, complétées par
       // l'estimation quand elle existe. L'objet en dépend — il doit donc être
       // calculé avec elles, ici comme à l'envoi.
-      const est = a.channel === "email" ? await lireEstimation() : null;
+      // L'espace pro n'habille que ce qui part vers le client : une alerte
+      // interne reste aux couleurs de Bailly.
+      const versClient = a.destinataire !== "custom";
+      const esp = a.channel === "email" && versClient ? await lireEspace() : null;
+
+      // Un espace peut choisir de ne pas envoyer l'estimation. Les messages
+      // automatiques partent alors sans prix ni pièce jointe ; un devis que
+      // l'équipe envoie elle-même, à la main, part toujours.
+      const tait = !!esp && !esp.retenu.envoyer_devis && AUTOMATIQUES.has(event);
+      if (tait && event === "devis_cree") {
+        // « Votre estimation est prête », sans estimation : rien à dire.
+        if (ctx.request_id) {
+          await supabase.from("request_events").insert({
+            request_id: ctx.request_id as string,
+            type: "message",
+            payload: {
+              channel: a.channel, rule: a.name, template: tpl.name, to, event, status: "ignore",
+              erreur: `l'espace ${esp!.retenu.nom} n'envoie pas l'estimation au client`,
+            },
+          });
+        }
+        continue;
+      }
+
+      const est = a.channel === "email" && !tait ? await lireEstimation() : null;
       const varsEmail: MessageContext = variablesCalculees({
         ...fullCtx,
         entreprise_tel: settings.entreprise_tel || TEL_AGENCE,
         entreprise_email: settings.entreprise_email,
-        reference: fullCtx.reference ?? est?.reference ?? "",
-        validite: fullCtx.validite ?? est?.validite ?? "",
-        montant_ttc: fullCtx.montant_ttc ?? est?.montant_ttc,
-        montant_ht: fullCtx.montant_ht ?? est?.montant_ht,
+        reference: tait ? "" : (fullCtx.reference ?? est?.reference ?? ""),
+        validite: tait ? "" : (fullCtx.validite ?? est?.validite ?? ""),
+        montant_ttc: tait ? undefined : (fullCtx.montant_ttc ?? est?.montant_ttc),
+        montant_ht: tait ? undefined : (fullCtx.montant_ht ?? est?.montant_ht),
         lien_estimation: est && base ? `${base}/api/devis/${est.devisId}/pdf` : "",
       });
 
       const sujetPrevu =
-        a.channel === "sms" ? `[SMS] ${tpl.name}` : renderTemplate(tpl.sujet || tpl.name, varsEmail);
+        a.channel === "sms"
+          ? `[SMS] ${tpl.name}`
+          : renderTemplate(esp?.config?.mail_objet?.trim() || tpl.sujet || tpl.name, varsEmail);
       const { data: dejaEnvoye } = await supabase
         .from("emails")
         .select("id")
@@ -153,6 +195,15 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
               tel: settings.entreprise_tel || TEL_AGENCE,
             },
             pieceJointe: !!pdf,
+            espace: esp
+              ? {
+                  nom: nomEnseigne({ slug: esp.retenu.slug, nom: esp.config?.nom ?? esp.retenu.nom }),
+                  couleur: esp.config?.couleur ?? COULEUR_BAILLY,
+                  logo: esp.config ? urlLogo(esp.config, base) : null,
+                  objet: esp.config?.mail_objet,
+                  message: esp.config?.mail_message,
+                }
+              : null,
           });
 
           await sendBrevoEmail({

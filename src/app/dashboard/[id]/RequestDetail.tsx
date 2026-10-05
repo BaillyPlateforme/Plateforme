@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import ApercuDevis from "@/components/ApercuDevis";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE } from "../status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE, ESPACE_CLASSE, espaceLabel } from "../status";
+import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
 import TrajetMap from "@/components/TrajetMap";
 
@@ -22,6 +24,7 @@ export default function RequestDetail({
   const [tab, setTab] = useState<Tab>("Infos");
   const [pending, start] = useTransition();
   const missing = missingFields(r);
+  const espace = espaceDeLaDemande(r);
 
   return (
     <div className="mt-4">
@@ -36,6 +39,15 @@ export default function RequestDetail({
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceClass(r.source)}`}>
               {sourceLabel(r.source)}
             </span>
+            {espace && (
+              <Link
+                href="/dashboard/espaces-pro"
+                title="Demande venue d'un espace pro"
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESPACE_CLASSE}`}
+              >
+                {espaceLabel(espace.nom)}
+              </Link>
+            )}
             {isIncomplete(r) ? (
               <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">Incomplète</span>
             ) : (
@@ -192,19 +204,41 @@ function InfosTab({ detail }: { detail: Detail }) {
 
 function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<string, string> }) {
   const { request: r, items, photos } = detail;
+  // La cote de l'espace pro : le client déclare un volume, le chiffrage en
+  // retient un autre. L'équipe voit les deux ; le client, jamais le second.
+  const espace = espaceDeLaDemande(r);
+  const cote = espace?.ajustement_volume ?? 0;
+  const retenu = r.volume_m3 != null && cote !== 0 ? volumeChiffre(Number(r.volume_m3), cote) : null;
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-6">
+      <div className="flex flex-wrap items-center gap-6">
         <div>
-          <div className="text-xs uppercase tracking-wide text-ink-soft">Volume total</div>
+          <div className="text-xs uppercase tracking-wide text-ink-soft">{retenu != null ? "Volume déclaré" : "Volume total"}</div>
           <div className="font-serif text-4xl">
             {r.volume_m3 ?? "—"} <span className="text-xl text-ink-soft">m³</span>
           </div>
         </div>
+        {retenu != null && (
+          <div className="border-l border-line pl-6">
+            <div className="text-xs uppercase tracking-wide text-ink-soft">Volume chiffré</div>
+            <div className="font-serif text-4xl">
+              {retenu} <span className="text-xl text-ink-soft">m³</span>
+            </div>
+          </div>
+        )}
         <div className="rounded-full bg-paper px-3 py-1 text-sm text-ink-soft">
           Méthode : {r.volume_method === "ai" ? "photos (IA)" : r.volume_method === "list" ? "liste" : r.volume_method === "explicit" ? "déclaré" : "—"}
         </div>
       </div>
+      {retenu != null && espace && (
+        <p className="max-w-[70ch] rounded-xl border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
+          <span className="font-medium text-ink">
+            {cote > 0 ? "Cote" : "Décote"} de {cote > 0 ? "+" : "−"}{Math.abs(cote)} % — espace {espaceLabel(espace.nom)}.
+          </span>{" "}
+          Le prix est calculé sur {retenu} m³. Le client, lui, ne voit que le volume qu&apos;il a déclaré : ni la cote ni le volume
+          chiffré n&apos;apparaissent dans son espace, son mail ou son devis.
+        </p>
+      )}
 
       {items.length > 0 && (
         <Card title="Inventaire">

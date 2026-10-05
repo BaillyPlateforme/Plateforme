@@ -177,7 +177,17 @@ function ThemeToggle() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+      // On relit le choix retenu : venu du site public, toujours clair, <html>
+      // ne le porte plus.
+      let retenu: string | null = null;
+      try {
+        retenu = localStorage.getItem("bailly-theme");
+      } catch {
+        /* navigation privée */
+      }
+      const v = retenu === "dark" || document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      document.documentElement.dataset.theme = retenu === "light" ? "light" : v;
+      setTheme(retenu === "light" ? "light" : v);
     }, 0);
     return () => clearTimeout(t);
   }, []);

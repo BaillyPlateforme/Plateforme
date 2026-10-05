@@ -1,4 +1,5 @@
 import {
+  avecTeinte,
   bouton,
   carteContact,
   cartePrix,
@@ -26,6 +27,18 @@ export interface ContexteRendu {
   entreprise?: { nom?: string; email?: string; tel?: string };
   /** L'estimation part en pièce jointe : le message le dit. */
   pieceJointe?: boolean;
+  /**
+   * L'espace pro d'où vient la demande : sa couleur teinte le message, son
+   * enseigne se pose dans l'en-tête, et il peut remplacer l'objet et ajouter
+   * son propre mot d'accueil.
+   */
+  espace?: {
+    nom: string;
+    couleur: string;
+    logo?: string | null;
+    objet?: string;
+    message?: string;
+  } | null;
 }
 
 const eur = (n: number) =>
@@ -82,8 +95,15 @@ export function rendreEmail(
   contexte: ContexteRendu,
 ): { sujet: string; html: string } {
   const ctx = { ...contexte, vars: variablesCalculees(contexte.vars) };
+  return avecTeinte(ctx.espace?.couleur, () => composer(modele, ctx));
+}
+
+function composer(
+  modele: { sujet?: string | null; contenu: string; name: string },
+  ctx: ContexteRendu,
+): { sujet: string; html: string } {
   const v = ctx.vars;
-  const sujet = renderTemplate(modele.sujet || modele.name, v);
+  const sujet = renderTemplate(ctx.espace?.objet?.trim() || modele.sujet || modele.name, v);
   // Le découpage se fait sur le texte BRUT : les jetons de bloc doivent être
   // reconnus avant que la substitution des variables ne les efface.
   const corps = assembler(modele.contenu, ctx);
@@ -103,8 +123,13 @@ export function rendreEmail(
       apercu: premiereLigne(modele.contenu, ctx),
       base: ctx.base,
       entreprise: ctx.entreprise,
-      surtitre: v.reference ? `Estimation ${v.reference}` : "Votre déménagement",
+      surtitre: v.reference
+        ? `Estimation ${v.reference}`
+        : ctx.espace
+          ? /^espace\b/i.test(ctx.espace.nom) ? ctx.espace.nom : `Espace ${ctx.espace.nom}`
+          : "Votre déménagement",
       puces,
+      marque: ctx.espace ? { nom: ctx.espace.nom, logo: ctx.espace.logo } : null,
     }),
   };
 }
@@ -121,6 +146,19 @@ function assembler(texte: string, ctx: ContexteRendu): string {
       const lignes = paragrapheEnCours.map((l) => echapper(renderTemplate(l, ctx.vars)));
       const premier = morceaux.length === 0 && lignes.length === 1 && /^bonjour\b/i.test(lignes[0]);
       morceaux.push(premier ? salutation(lignes[0]) : paragraphe(lignes.join("<br>")));
+      // Le mot d'accueil de l'espace pro vient juste après le bonjour.
+      if (premier && ctx.espace?.message?.trim()) {
+        for (const bloc of ctx.espace.message.trim().split(/\n\s*\n/)) {
+          morceaux.push(
+            paragraphe(
+              bloc
+                .split("\n")
+                .map((l) => echapper(renderTemplate(l.trim(), ctx.vars)))
+                .join("<br>"),
+            ),
+          );
+        }
+      }
       paragrapheEnCours = [];
     }
   };

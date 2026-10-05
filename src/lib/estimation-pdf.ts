@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { DevisPdf, type PdfTrajet } from "@/lib/DevisPdf";
 import type { DevisRow, RequestRow } from "@/lib/types";
+import { espacePourDevis } from "@/lib/espace-demande";
 
 export interface EstimationPourEmail {
   devisId: string;
@@ -64,8 +65,8 @@ export async function estimationDeLaDemande(
     const pdf = () =>
       (rendu ??= (async () => {
         try {
-          const settings = await getSettings();
-          const buffer = await renderToBuffer(DevisPdf({ devis, settings, trajet }));
+          const [settings, espace] = await Promise.all([getSettings(), espacePourDevis(requestId)]);
+          const buffer = await renderToBuffer(DevisPdf({ devis, settings, trajet, espace }));
           return Buffer.from(buffer).toString("base64");
         } catch {
           return undefined; // le PDF a échoué : le message part sans pièce jointe

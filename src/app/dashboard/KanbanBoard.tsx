@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { RequestRow } from "@/lib/types";
 import { moveRequestStage } from "@/lib/actions/requests";
-import { sourceLabel, sourceClass, isIncomplete } from "./status";
+import { sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel } from "./status";
 
 type Stage = "incomplete" | "qualifier" | "devis" | "chantier" | "perdu";
 
@@ -97,6 +97,9 @@ function Card({ r, onDragStart, onDragEnd }: { r: RequestRow; onDragStart: () =>
         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
           {sourceLabel(r.source)}
         </span>
+        {r.espace_nom && (
+          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ESPACE_CLASSE}`}>{espaceLabel(r.espace_nom)}</span>
+        )}
         {isIncomplete(r) ? (
           <span className="rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn">Incomplète</span>
         ) : (

@@ -179,14 +179,14 @@ export default function PhotoAnalyzer({
                   key={p.path}
                   onClick={() => toggleSelect(p.path)}
                   className={`group relative aspect-square overflow-hidden rounded-[14px] border-2 transition duration-200 active:scale-95 ${
-                    on ? "border-brand shadow-[0_0_0_3px_rgba(245,208,51,0.35)]" : "border-transparent hover:border-line-strong"
+                    on ? "border-brand shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_40%,transparent)]" : "border-transparent hover:border-line-strong"
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={p.url} alt="" className="h-full w-full object-cover" />
                   <span
                     className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs transition ${
-                      on ? "bg-brand text-[#1b1a18]" : "bg-white/70 text-transparent group-hover:text-[#615f68]"
+                      on ? "bg-brand text-sur-brand" : "bg-white/70 text-transparent group-hover:text-[#615f68]"
                     }`}
                   >
                     ✓

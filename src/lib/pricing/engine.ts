@@ -21,6 +21,7 @@ import {
   type NiveauGarantie,
 } from "./grille";
 import type { RequestRow } from "@/lib/types";
+import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 /** Nombres à la française dans les libellés : ils finissent sur le devis. */
@@ -29,6 +30,13 @@ const nb = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 }
 export interface SimulationInput {
   formule: Formule;
   volume_m3: number;
+  /**
+   * Le volume annoncé par le client, quand il diffère du volume chiffré.
+   * Un espace pro peut coter ou décoter le volume : le prix se calcule sur
+   * `volume_m3`, mais les libellés — qui finissent sur le devis du client —
+   * citent celui-ci, et taisent le détail du calcul.
+   */
+  volume_declare?: number;
   distance_km: number;
   /** Date imposée par le client : majoration du transport. */
   voyage_special?: boolean;
@@ -106,6 +114,9 @@ export function caseGrille(formule: Formule, volume: number, km: number) {
 
 export function simuler(input: SimulationInput): Simulation {
   const volume = Math.max(0, input.volume_m3 || 0);
+  // Ce que les libellés montrent : le volume du client, pas le volume coté.
+  const cote = input.volume_declare != null && input.volume_declare !== volume;
+  const affiche = cote ? Math.max(0, input.volume_declare || 0) : volume;
   const km = Math.max(0, input.distance_km || 0);
   const formule = input.formule ?? "standard";
   const tauxTva = input.tva ?? TVA_DEFAUT;
@@ -136,9 +147,12 @@ export function simuler(input: SimulationInput): Simulation {
   const transport = r2(estForfait ? valeurCase : volume * tarif);
   lines.push({
     label: "Transport et manutention",
-    detail: estForfait
-      ? `forfait ${nb(valeurCase)} € — ${trancheVolume.label}, ${trancheDistance.label}`
-      : `${nb(volume)} m³ × ${nb(tarif)} €/m³ — ${trancheVolume.label}, ${trancheDistance.label}`,
+    detail: cote
+      ? // Ni prix au m³ ni tranche de volume : l'un comme l'autre trahirait la cote.
+        `${nb(affiche)} m³ — ${trancheDistance.label}`
+      : estForfait
+        ? `forfait ${nb(valeurCase)} € — ${trancheVolume.label}, ${trancheDistance.label}`
+        : `${nb(volume)} m³ × ${nb(tarif)} €/m³ — ${trancheVolume.label}, ${trancheDistance.label}`,
     amount: transport,
   });
   if (estForfait) {
@@ -198,7 +212,7 @@ export function simuler(input: SimulationInput): Simulation {
     });
     if (declenchement) {
       mentions.push(
-        `Monte-meubles inclus : ${volume} m³ à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`,
+        `Monte-meubles inclus : ${affiche} m³ à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`,
       );
     }
   }
@@ -299,9 +313,14 @@ export function entreeDepuisDemande(req: RequestRow): SimulationInput {
     return typeof a?.portage_m === "number" ? a.portage_m : 0;
   };
 
+  // La cote de l'espace pro : le chiffrage se fait sur le volume corrigé.
+  const declare = req.volume_m3 ?? 0;
+  const ajustement = espaceDeLaDemande(req)?.ajustement_volume ?? 0;
+
   return {
     formule: (req.formule as Formule) || "standard",
-    volume_m3: req.volume_m3 ?? 0,
+    volume_m3: ajustement ? volumeChiffre(declare, ajustement) : declare,
+    volume_declare: ajustement ? declare : undefined,
     distance_km: req.distance_km ?? 0,
     portage_depart_m: portage("depart"),
     portage_arrivee_m: portage("arrivee"),

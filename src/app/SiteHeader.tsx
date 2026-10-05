@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 /**
- * En-tête de la page d'accueil. Transparent sur la photo, il se pose sur un
- * fond clair dès qu'on quitte le héros.
+ * En-tête de la page d'accueil. Transparent tout en haut, il se pose sur un
+ * fond blanc dès qu'on fait défiler.
  *
  * L'état est écrit directement dans la classe du nœud : un `useState` ici
  * ferait re-rendre la page entière à chaque pixel de défilement.
@@ -23,7 +23,7 @@ export default function SiteHeader({
     if (!el) return;
     let pose = false;
     const onScroll = () => {
-      const veut = window.scrollY > window.innerHeight - 90;
+      const veut = window.scrollY > 24;
       if (veut === pose) return;
       pose = veut;
       el.classList.toggle("header-pose", veut);
@@ -39,22 +39,13 @@ export default function SiteHeader({
       className="site-header fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300"
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
-        {/* Deux fichiers pour deux fonds : le blanc sur la photo, le couleur
-            dès que l'en-tête se pose. */}
         <Link href="/" className="relative block h-9 w-[150px] shrink-0" aria-label="Bailly Déménagement">
           <Image
-            src="/marque/bailly-logo-blanc.svg"
+            src="/marque/bailly-logo.svg"
             alt="Bailly Déménagement"
             fill
             priority
-            className="site-logo-sombre object-contain object-left"
-          />
-          <Image
-            src="/marque/bailly-logo.svg"
-            alt=""
-            fill
-            aria-hidden
-            className="site-logo-clair object-contain object-left"
+            className="object-contain object-left"
           />
         </Link>
 
@@ -81,7 +72,7 @@ export default function SiteHeader({
           <button
             type="button"
             onClick={() => onChoisir("complet")}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-[13px] font-semibold text-[#1b1a18] shadow-lg shadow-black/20 transition hover:bg-[#e0b81a]"
+            className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-shell transition active:scale-[0.98]"
           >
             Mon devis
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">

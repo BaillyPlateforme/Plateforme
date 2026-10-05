@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
+import { getEspace } from "@/lib/espaces-pro";
+import { instantane } from "@/lib/espaces";
 import { qualifyRequest } from "@/lib/qualification";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
@@ -48,6 +50,20 @@ export async function createRequest(
   const supabase = createServiceClient();
   const { volume_m3, volume_method, items, photos } = resolveVolume(input.volume);
 
+  // L'espace pro. Le formulaire n'envoie que son lien : ses réglages sont
+  // relus ici, jamais crus sur parole — la cote sur le volume ne doit pas
+  // pouvoir être choisie par celui qui remplit. Ils sont figés dans la
+  // demande : modifier l'espace ensuite ne rechiffre pas le passé.
+  const espace = input.espace ? await getEspace(input.espace) : null;
+  const contexteEspace = espace?.actif ? instantane(espace) : undefined;
+  const charge: Record<string, unknown> = { ...input, espace: contexteEspace };
+  if (contexteEspace) {
+    // Un espace pro, c'est une mobilité portée par l'employeur.
+    charge.mutation_pro = true;
+    if (!input.societe) charge.societe = contexteEspace.nom;
+  }
+  const formule = espace?.actif && espace.formule_imposee ? espace.formule_imposee : input.formule;
+
   const insert: Partial<RequestRow> & Pick<RequestRow, "source"> = {
     source,
     status: "new",
@@ -71,13 +87,13 @@ export async function createRequest(
 
     date_souhaitee: input.date_souhaitee ?? null,
     flexibilite: input.flexibilite ?? null,
-    formule: input.formule ?? null,
+    formule: formule ?? null,
     distance_km: input.distance_km ?? null,
     services: input.services ?? {},
 
     volume_m3,
     volume_method,
-    raw_payload: input as unknown as Record<string, unknown>,
+    raw_payload: charge,
   };
 
   const { data: request, error } = await supabase
@@ -236,6 +252,7 @@ const COLONNES_LISTE = [
   "score_potentiel", "score_difficulte", "score_notes",
   "completion_token", "created_at", "updated_at",
   "express:raw_payload->details->>express",
+  "espace_nom:raw_payload->espace->>nom",
 ].join(",");
 
 // Liste pour le dashboard.

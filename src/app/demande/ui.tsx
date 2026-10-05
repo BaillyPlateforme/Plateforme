@@ -431,7 +431,7 @@ export function Radio({ on }: { on: boolean }) {
     <span
       className={`relative flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-200 ${
         on
-          ? "border-[#1b1a18] bg-[#1b1a18] text-brand"
+          ? "border-[#1b1a18] bg-[#1b1a18] text-brand-clair"
           : "border-line-strong text-transparent group-hover:border-ink-soft"
       }`}
     >
@@ -472,7 +472,7 @@ export function CarteChoix({
       <span className="flex items-start justify-between gap-3">
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-[14px] transition-colors duration-300 ${
-            active ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-mid"
+            active ? "bg-[#1b1a18] text-brand-clair" : "bg-subtle text-ink-mid"
           }`}
         >
           <Icone nom={icone} taille={20} />
@@ -484,7 +484,7 @@ export function CarteChoix({
       {badge && (
         <span
           className={`mt-4 inline-flex self-start rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors duration-300 ${
-            active ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-mid"
+            active ? "bg-[#1b1a18] text-brand-clair" : "bg-subtle text-ink-mid"
           }`}
         >
           {badge}
@@ -547,7 +547,7 @@ export function Bloc({
   etiquette?: { texte: string; fait?: boolean };
 }) {
   const mention = `shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[10.5px] font-bold uppercase leading-none tracking-[0.08em] transition-colors duration-300 ${
-    etiquette?.fait ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
+    etiquette?.fait ? "bg-brand text-sur-brand" : "bg-[#1b1a18] text-brand-clair"
   }`;
   const pastille = etiquette && (
     <>

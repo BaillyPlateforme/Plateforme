@@ -16,8 +16,24 @@ import {
   View,
 } from "@react-pdf/renderer";
 import type { DevisRow, SettingsRow } from "@/lib/types";
+import { palette } from "@/lib/espaces";
 
 export type PdfTrajet = { depart: string | null; arrivee: string | null; volume: number | null; quand: string | null };
+
+/**
+ * L'espace pro d'où vient la demande : le devis prend sa couleur, porte son
+ * enseigne à côté de celle de Bailly, et peut ajouter sa propre mention.
+ */
+export type PdfEspace = {
+  nom: string;
+  couleur: string;
+  /** Le logo, déjà chargé : PNG ou JPEG. */
+  logo?: { donnees: Buffer; type: string } | null;
+  mention?: string;
+};
+
+/** L'accent du document, et ce qui en découle. */
+type Teinte = { accent: string; sombre: string; surNoir: string; dessus: string; pale: string };
 
 /* ─────────────────────────── Marque ─────────────────────────── */
 
@@ -127,7 +143,7 @@ const s = StyleSheet.create({
  * diagonale jaune et d'un halo doré. react-pdf ne connaît pas les dégradés CSS,
  * mais il sait dessiner du SVG — c'est par là que ça passe.
  */
-function FondHero() {
+function FondHero({ t }: { t: Teinte }) {
   return (
     <Svg width={LARGEUR} height={198} style={s.heroFond}>
       <Defs>
@@ -137,12 +153,12 @@ function FondHero() {
           <Stop offset="1" stopColor="#3a3426" />
         </LinearGradient>
         <RadialGradient id="halo" cx="0.82" cy="0.2" r="0.6">
-          <Stop offset="0" stopColor={C.jaune} stopOpacity={0.4} />
-          <Stop offset="1" stopColor={C.jaune} stopOpacity={0} />
+          <Stop offset="0" stopColor={t.surNoir} stopOpacity={0.4} />
+          <Stop offset="1" stopColor={t.surNoir} stopOpacity={0} />
         </RadialGradient>
         <LinearGradient id="biais" x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={C.jaune} stopOpacity={0.9} />
-          <Stop offset="1" stopColor={C.jauneSombre} stopOpacity={0.15} />
+          <Stop offset="0" stopColor={t.surNoir} stopOpacity={0.9} />
+          <Stop offset="1" stopColor={t.sombre} stopOpacity={0.15} />
         </LinearGradient>
       </Defs>
 
@@ -151,13 +167,13 @@ function FondHero() {
       {/* Deux biais qui filent vers le coin, pour donner du mouvement. */}
       <Path d={`M${LARGEUR - 250} 198 L${LARGEUR - 120} 0 L${LARGEUR - 86} 0 L${LARGEUR - 216} 198 Z`} fill="url(#biais)" opacity={0.18} />
       <Path d={`M${LARGEUR - 190} 198 L${LARGEUR - 60} 0 L${LARGEUR - 44} 0 L${LARGEUR - 174} 198 Z`} fill="url(#biais)" opacity={0.12} />
-      <Rect x={0} y={195} width={LARGEUR} height={3} fill={C.jaune} />
+      <Rect x={0} y={195} width={LARGEUR} height={3} fill={t.accent} />
     </Svg>
   );
 }
 
 /** Le pied de page : la même nuit, retournée. */
-function FondPied() {
+function FondPied({ t }: { t: Teinte }) {
   return (
     <Svg width={LARGEUR} height={58} style={s.pied}>
       <Defs>
@@ -167,7 +183,7 @@ function FondPied() {
         </LinearGradient>
       </Defs>
       <Rect x={0} y={0} width={LARGEUR} height={58} fill="url(#fondPied)" />
-      <Rect x={0} y={0} width={LARGEUR} height={2} fill={C.jaune} />
+      <Rect x={0} y={0} width={LARGEUR} height={2} fill={t.accent} />
     </Svg>
   );
 }
@@ -188,7 +204,24 @@ const fdate = (d: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR")
 
 /* ─────────────────────────── Document ─────────────────────────── */
 
-export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; settings: SettingsRow; trajet?: PdfTrajet }) {
+export function DevisPdf({
+  devis,
+  settings,
+  trajet,
+  espace,
+}: {
+  devis: DevisRow;
+  settings: SettingsRow;
+  trajet?: PdfTrajet;
+  espace?: PdfEspace | null;
+}) {
+  // La teinte : le jaune de Bailly, ou la couleur de l'espace pro et ses
+  // variantes lisibles — sur noir pour l'en-tête, en texte pour le reste.
+  const p = espace ? palette(espace.couleur) : null;
+  const t: Teinte = p
+    ? { accent: p.accent, sombre: p.fonce, surNoir: p.surNoir, dessus: p.dessus, pale: p.pale }
+    : { accent: C.jaune, sombre: C.jauneSombre, surNoir: C.jaune, dessus: C.noir, pale: C.creme };
+
   const lignes =
     devis.lignes && devis.lignes.length > 0
       ? devis.lignes
@@ -203,12 +236,34 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
       <Page size="A4" style={s.page}>
         {/* ── En-tête ── */}
         <View style={s.hero} fixed={false}>
-          <FondHero />
+          <FondHero t={t} />
           <View style={s.heroContenu}>
-            {/* Le composant Image de react-pdf n'a pas d'attribut alt : il
-                produit un PDF, pas du HTML. */}
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image src={logo} style={s.logo} />
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              {/* Dans un espace pro, l'enseigne de l'entreprise précède celle
+                  de Bailly : son logo sur fond blanc, ou son nom. */}
+              {espace ? (
+                <>
+                  {espace.logo ? (
+                    <View style={{ backgroundColor: C.blanc, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 9 }}>
+                      {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                      <Image
+                        src={{ data: espace.logo.donnees, format: espace.logo.type === "image/png" ? "png" : "jpg" }}
+                        style={{ height: 26, maxWidth: 110, objectFit: "contain" }}
+                      />
+                    </View>
+                  ) : (
+                    <View style={{ backgroundColor: t.accent, borderRadius: 7, paddingVertical: 6, paddingHorizontal: 9 }}>
+                      <Text style={{ fontSize: 11, fontWeight: 700, color: t.dessus }}>{net(espace.nom)}</Text>
+                    </View>
+                  )}
+                  <View style={{ width: 0.8, height: 22, backgroundColor: "#57554f", marginHorizontal: 12 }} />
+                </>
+              ) : null}
+              {/* Le composant Image de react-pdf n'a pas d'attribut alt : il
+                  produit un PDF, pas du HTML. */}
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image src={logo} style={espace ? { width: 104, height: 33 } : s.logo} />
+            </View>
             <View style={{ marginTop: 16, flexDirection: "row", alignItems: "flex-end" }}>
               <View style={{ flex: 1 }}>
                 <Text style={s.heroTitre}>ESTIMATION</Text>
@@ -217,7 +272,7 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
                 </Text>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Text style={[s.heroSous, { color: C.jaune, fontWeight: 500 }]}>
+                <Text style={[s.heroSous, { color: t.surNoir, fontWeight: 500 }]}>
                   Valable jusqu&apos;au {fdate(devis.valid_until)}
                 </Text>
                 <Text style={s.heroSous}>{devis.client_nom || "—"}</Text>
@@ -239,21 +294,21 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
           <Svg width={62} height={62}>
             <Defs>
               <LinearGradient id="pastille" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={C.jaune} />
-                <Stop offset="1" stopColor={C.jauneSombre} />
+                <Stop offset="0" stopColor={t.accent} />
+                <Stop offset="1" stopColor={t.sombre} />
               </LinearGradient>
             </Defs>
             <Rect x={0} y={0} width={62} height={62} rx={16} fill="url(#pastille)" />
             <Path
               d="M18 40 V24 a2 2 0 0 1 2 -2 h16 v18 M36 29 h7 l5 5.5 V40 h-3"
-              stroke={C.noir}
+              stroke={t.dessus}
               strokeWidth={2.2}
               fill="none"
               strokeLinejoin="round"
               strokeLinecap="round"
             />
-            <Path d="M24 43.5 m-2.6 0 a2.6 2.6 0 1 0 5.2 0 a2.6 2.6 0 1 0 -5.2 0" fill={C.noir} />
-            <Path d="M40 43.5 m-2.6 0 a2.6 2.6 0 1 0 5.2 0 a2.6 2.6 0 1 0 -5.2 0" fill={C.noir} />
+            <Path d="M24 43.5 m-2.6 0 a2.6 2.6 0 1 0 5.2 0 a2.6 2.6 0 1 0 -5.2 0" fill={t.dessus} />
+            <Path d="M40 43.5 m-2.6 0 a2.6 2.6 0 1 0 5.2 0 a2.6 2.6 0 1 0 -5.2 0" fill={t.dessus} />
           </Svg>
         </View>
 
@@ -277,11 +332,11 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
           {/* ── Le détail ── */}
           <View style={s.section}>
             <Text style={s.sectionTitre}>Le détail du chiffrage</Text>
-            <View style={s.sectionTrait} />
+            <View style={[s.sectionTrait, { backgroundColor: t.accent }]} />
 
             <View style={s.th}>
-              <Text style={[s.cLabel, s.thTexte]}>DÉSIGNATION</Text>
-              <Text style={[s.cAmt, s.thTexte]}>MONTANT HT</Text>
+              <Text style={[s.cLabel, s.thTexte, { color: t.surNoir }]}>DÉSIGNATION</Text>
+              <Text style={[s.cAmt, s.thTexte, { color: t.surNoir }]}>MONTANT HT</Text>
             </View>
 
             {lignes.map((l, i) => (
@@ -304,15 +359,16 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
                 <Text style={s.totalVal}>{eur(devis.montant_tva)}</Text>
               </View>
               <View style={s.ttcBloc}>
-                <Text style={s.ttcLabel}>TOTAL TTC</Text>
+                <Text style={[s.ttcLabel, { color: t.surNoir }]}>TOTAL TTC</Text>
                 <Text style={s.ttcVal}>{eur(devis.montant_ttc)}</Text>
               </View>
             </View>
           </View>
 
           {/* ── Ce qu'il faut savoir ── */}
-          <View style={s.mentions} wrap={false}>
+          <View style={[s.mentions, { backgroundColor: t.pale, borderLeftColor: t.accent }]} wrap={false}>
             <Text style={s.mentionTitre}>Ce qu&apos;il faut savoir</Text>
+            {espace?.mention?.trim() ? <Text style={s.mention}>• {net(espace.mention.trim())}</Text> : null}
             <Text style={s.mention}>
               • Établie sur notre grille tarifaire, à partir de ce que vous nous avez communiqué, et
               pour des conditions normales d&apos;accès.
@@ -334,7 +390,7 @@ export function DevisPdf({ devis, settings, trajet }: { devis: DevisRow; setting
 
         {/* ── Pied de page ── */}
         <View style={s.pied} fixed>
-          <FondPied />
+          <FondPied t={t} />
           <View style={s.piedTexte}>
             <View style={{ flex: 1 }}>
               <Text style={s.piedNom}>{nom}</Text>

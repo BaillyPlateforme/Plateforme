@@ -34,6 +34,10 @@ export function sourceLabel(source: string): string {
 export const sourceClass = (source: string) =>
   source === "email" ? "bg-subtle text-ink-soft" : "bg-accent-soft text-accent";
 
+/** Le repère d'une demande venue d'un espace pro : le nom de l'entreprise. */
+export const ESPACE_CLASSE = "bg-ink text-shell";
+export const espaceLabel = (nom: string) => nom.replace(/^espace\s+pro\s+standard$/i, "Espace pro");
+
 // Une demande est incomplète si un jeton de complétion est en attente,
 // ou s'il lui manque le volume ou une adresse.
 export function isIncomplete(r: {

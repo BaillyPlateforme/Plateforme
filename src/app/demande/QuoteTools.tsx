@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 import TrajetMap from "@/components/TrajetMap";
+import { Enseigne, halo, type Marque } from "./cadre";
 import { Icone } from "./ui";
 
 /* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
@@ -14,7 +14,22 @@ type DevisData = {
 };
 const euro = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
 
-export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { requestId: string; volume: number | null; count?: number; onNewQuote?: () => void }) {
+export function InstantResult({
+  requestId,
+  volume,
+  count = 1,
+  onNewQuote,
+  theme,
+  marque,
+}: {
+  requestId: string;
+  volume: number | null;
+  count?: number;
+  onNewQuote?: () => void;
+  /** Les jetons de marque d'un espace pro. */
+  theme?: CSSProperties;
+  marque?: Marque | null;
+}) {
   const DURATION = 7000; // génération visible mais rapide
   const STEPS = [
     "Analyse de votre demande…",
@@ -61,17 +76,17 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
   if (!ready) {
     const tour = 2 * Math.PI * 52;
     return (
-      <Scene>
+      <Scene theme={theme} marque={marque}>
         <div className="w-full max-w-md text-center">
           <div className="relative mx-auto h-28 w-28">
             <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90" aria-hidden>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="6" />
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-line-strong)" strokeWidth="6" />
               <circle
                 cx="60"
                 cy="60"
                 r="52"
                 fill="none"
-                stroke="#f5d033"
+                stroke="var(--color-brand)"
                 strokeWidth="6"
                 strokeLinecap="round"
                 strokeDasharray={tour}
@@ -79,12 +94,12 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
                 className="transition-[stroke-dashoffset] duration-300 ease-out"
               />
             </svg>
-            <span className="font-serif absolute inset-0 flex items-center justify-center text-[27px] text-white tnum">
+            <span className="font-serif absolute inset-0 flex items-center justify-center text-[27px] tnum">
               {progress}
-              <span className="ml-0.5 text-[14px] text-white/55">%</span>
+              <span className="ml-0.5 text-[14px] text-ink-soft">%</span>
             </span>
           </div>
-          <h1 className="font-serif mt-8 text-balance text-[30px] text-white sm:text-[36px]">
+          <h1 className="font-serif mt-8 text-balance text-[30px] sm:text-[36px]">
             {count > 1 ? "Génération de vos estimations…" : "Génération de votre estimation…"}
           </h1>
           <ul className="mx-auto mt-8 max-w-[19rem] space-y-3.5 text-left">
@@ -94,27 +109,27 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
                 <li
                   key={texte}
                   className={`flex items-center gap-3 text-[14px] transition-colors duration-500 ${
-                    etat === "attente" ? "text-white/35" : etat === "cours" ? "text-white" : "text-white/70"
+                    etat === "attente" ? "text-ink-soft/60" : etat === "cours" ? "font-medium text-ink" : "text-ink-mid"
                   }`}
                 >
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                       etat === "fait"
-                        ? "bg-brand text-[#1b1a18]"
+                        ? "bg-brand text-sur-brand"
                         : etat === "cours"
-                          ? "border-2 border-brand"
-                          : "border border-white/25"
+                          ? "border-2 border-ink"
+                          : "border border-line-strong"
                     }`}
                   >
                     {etat === "fait" && <Icone nom="check" taille={11} trait={3.4} className="coche-pop" />}
-                    {etat === "cours" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />}
+                    {etat === "cours" && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink" />}
                   </span>
                   {texte.replace(/…$/, "")}
                 </li>
               );
             })}
           </ul>
-          <p className="mt-8 text-[12.5px] text-white/50">Encore quelques secondes…</p>
+          <p className="mt-8 text-[12.5px] text-ink-soft">Encore quelques secondes…</p>
         </div>
       </Scene>
     );
@@ -123,25 +138,25 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
   // Plusieurs demandes (via le comparateur) : confirmation sans détailler chaque prix.
   if (count > 1) {
     return (
-      <Scene>
+      <Scene theme={theme} marque={marque}>
         <div className="w-full max-w-lg text-center">
-          <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_10px_rgba(245,208,51,0.18)]">
+          <div className="reveal mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_10px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
             <Icone nom="check" taille={28} trait={3} className="coche-pop" />
           </div>
-          <h1 className="font-serif reveal mt-7 text-balance text-[36px] text-white sm:text-[46px]">
+          <h1 className="font-serif reveal mt-7 text-balance text-[36px] sm:text-[46px]">
             Vos {count} estimations sont prêtes
           </h1>
-          <p className="reveal mt-4 text-[15.5px] leading-relaxed text-white/72">
+          <p className="reveal mt-4 text-[15.5px] leading-relaxed text-ink-soft">
             Nous vous adressons une estimation pour chaque scénario par e-mail.
           </p>
-          <p className="reveal mx-auto mt-3 max-w-[46ch] text-[14px] leading-relaxed text-white/60">
+          <p className="reveal mx-auto mt-3 max-w-[46ch] text-[14px] leading-relaxed text-ink-soft">
             Cette estimation vous convient ? Contactez-nous pour la transformer en devis ferme —
             nous revenons vers vous sous 24 h ouvrées.
           </p>
           {onNewQuote && (
             <button
               onClick={onNewQuote}
-              className="reveal mt-8 inline-flex h-12 items-center rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] transition hover:bg-[#e0b81a] active:scale-[0.98]"
+              className="reveal mt-8 inline-flex h-12 items-center rounded-full bg-ink px-6 text-[14px] font-semibold text-shell transition active:scale-[0.98]"
             >
               Faire une nouvelle demande
             </button>
@@ -153,26 +168,23 @@ export function InstantResult({ requestId, volume, count = 1, onNewQuote }: { re
 
   // Devis unique : on affiche le montant, le résumé et le PDF complet.
   return (
-    <div className="min-h-dvh bg-paper">
-      <section className="grain relative overflow-hidden bg-[#1b1a18] px-5 pb-32 pt-10 sm:pb-36 sm:pt-12">
-        <Decor />
+    <div className="min-h-dvh bg-paper text-ink" style={theme}>
+      <section className="relative overflow-hidden px-5 pb-32 pt-10 sm:pb-36 sm:pt-12">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="halo absolute left-1/2 top-[-260px] h-[760px] w-[760px] -translate-x-1/2" style={halo(34)} />
+        </div>
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <Image
-            src="/marque/bailly-logo-blanc.svg"
-            alt="Bailly Déménagement"
-            width={200}
-            height={64}
-            priority
-            className="mx-auto h-auto w-[150px]"
-          />
-          <div className="reveal mx-auto mt-9 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-[#1b1a18] shadow-[0_0_0_9px_rgba(245,208,51,0.18)]">
+          <div className="flex justify-center">
+            <Enseigne marque={marque} />
+          </div>
+          <div className="reveal mx-auto mt-9 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_9px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
             <Icone nom="check" taille={24} trait={3} className="coche-pop" />
           </div>
-          <p className="eyebrow reveal mt-6 text-brand">Votre proposition</p>
-          <h1 className="font-serif reveal mt-3 text-balance text-[36px] text-white sm:text-[50px]">
-            Votre estimation <span className="gradient-flow-light">est prête</span>
+          <p className="eyebrow reveal mt-6 text-brand-ink">Votre proposition</p>
+          <h1 className="font-serif reveal mt-3 text-balance text-[36px] sm:text-[50px]">
+            Votre estimation <span className="gradient-text">est prête</span>
           </h1>
-          <p className="reveal mt-3 text-[15px] text-white/70">Estimation établie selon les informations transmises.</p>
+          <p className="reveal mt-3 text-[15px] text-ink-soft">Estimation établie selon les informations transmises.</p>
         </div>
       </section>
 
@@ -324,7 +336,7 @@ function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?:
           role="status"
           className="animate-step-in mx-auto mt-7 flex max-w-[30rem] items-center gap-4 rounded-[20px] border border-brand bg-brand-soft px-5 py-4 text-left"
         >
-          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand">
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
             <span className="onde absolute inset-0 rounded-full" />
             <Icone nom="check" taille={20} trait={3} className="coche-pop" />
           </span>
@@ -344,11 +356,11 @@ function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?:
             onClick={demander}
             disabled={etat === "envoi"}
             aria-busy={etat === "envoi"}
-            className="inline-flex h-12 min-w-[168px] items-center justify-center gap-2.5 rounded-full bg-brand px-6 text-[14px] font-semibold text-[#1b1a18] shadow-[0_14px_28px_-14px_rgba(245,208,51,0.9)] transition hover:bg-[#e0b81a] active:scale-[0.98] disabled:cursor-wait disabled:hover:bg-brand"
+            className="inline-flex h-12 min-w-[168px] items-center justify-center gap-2.5 rounded-full bg-brand px-6 text-[14px] font-semibold text-sur-brand shadow-[0_14px_28px_-14px_color-mix(in_srgb,var(--color-brand)_90%,transparent)] transition hover:bg-brand-mid active:scale-[0.98] disabled:cursor-wait disabled:hover:bg-brand"
           >
             {etat === "envoi" ? (
               <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1b1a18]/25 border-t-[#1b1a18]" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/25 border-t-current" />
                 Un instant…
               </>
             ) : (
@@ -385,26 +397,24 @@ function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?:
   );
 }
 
-/** Le décor sombre de la vitrine : la photo, ses voiles et le halo doré. */
-function Decor() {
+/** Un écran entier, clair : l'attente, puis la confirmation. */
+function Scene({
+  children,
+  theme,
+  marque,
+}: {
+  children: React.ReactNode;
+  theme?: CSSProperties;
+  marque?: Marque | null;
+}) {
   return (
-    <div aria-hidden className="absolute inset-0">
-      <Image src="/login-interieur.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover" />
-      <div className="absolute inset-0 bg-[#1b1a18]/72" />
-      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/88 via-[#1b1a18]/45 to-[#1b1a18]/95" />
-      <div
-        className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
-        style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties}
-      />
-    </div>
-  );
-}
-
-/** Un écran entier posé sur le décor : l'attente, puis la confirmation. */
-function Scene({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#1b1a18] px-6 py-16">
-      <Decor />
+    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink" style={theme}>
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" style={halo(30)} />
+      </div>
+      <div className="relative z-10 mb-10">
+        <Enseigne marque={marque} />
+      </div>
       <div className="relative z-10 flex w-full justify-center">{children}</div>
     </div>
   );

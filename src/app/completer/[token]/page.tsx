@@ -2,6 +2,7 @@ import { getRequestByToken } from "@/lib/completion";
 import { listLibraryPhotos } from "@/lib/library";
 import CompletionForm from "./CompletionForm";
 import LienExpire from "./LienExpire";
+import ThemeClair from "@/components/ThemeClair";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Compléter ma demande — Bailly" };
@@ -11,10 +12,18 @@ export default async function CompleterPage({ params }: { params: Promise<{ toke
   const req = await getRequestByToken(token);
   // Un lien de complétion ne sert qu'une fois : après validation, il n'existe
   // plus. Le client qui reclique mérite mieux qu'une page d'erreur.
-  if (!req) return <LienExpire />;
+  if (!req)
+    return (
+      <>
+        <ThemeClair />
+        <LienExpire />
+      </>
+    );
   const library = await listLibraryPhotos();
 
   return (
+    <>
+    <ThemeClair />
     <CompletionForm
       token={token}
       library={library}
@@ -40,5 +49,6 @@ export default async function CompleterPage({ params }: { params: Promise<{ toke
         },
       }}
     />
+    </>
   );
 }

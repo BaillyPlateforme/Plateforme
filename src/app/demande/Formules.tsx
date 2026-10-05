@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useState, type CSSProperties } from "react";
 import { FORMULES, PRESTATIONS, type Acteur, type Formule } from "@/lib/pricing/grille";
+import { halo } from "./cadre";
 import { Choice, Icone, Radio, type NomIcone } from "./ui";
 
 export type Presta = "moi" | "bailly" | "";
@@ -174,32 +174,23 @@ export default function ChoixFormule({
         {/* « clip », pas « hidden » : un cadre en overflow hidden reste défilable
             par programme. Le bas des onglets y dépasse de 12 px ; au premier
             focus, le navigateur faisait défiler l'en-tête pour les montrer en
-            entier, et tout sautait de 12 px. Un cadre « clip » ne défile jamais. */}
-        <div className="grain relative overflow-clip rounded-t-[27px] bg-[#1b1a18]">
-          <Image
-            src="/login-interieur.jpg"
-            alt=""
-            fill
-            sizes="(min-width: 1024px) 960px, 100vw"
-            className="object-cover object-center opacity-60"
-          />
-          <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/80 via-[#1b1a18]/55 to-[#1b1a18]/92" />
-          <div
-            className="halo drift absolute -left-28 -top-28 h-[380px] w-[380px]"
-            style={{ "--halo": "rgba(245,208,51,0.26)" } as CSSProperties}
-          />
-          <div
-            className="halo absolute -right-24 bottom-[-160px] h-[340px] w-[340px]"
-            style={{ "--halo": "rgba(255,255,255,0.1)" } as CSSProperties}
-          />
+            entier, et tout sautait de 12 px. Un cadre « clip » ne défile jamais.
+
+            L'en-tête est clair : un fond à peine teinté de la couleur de
+            marque, sur lequel les onglets blancs restent un peu translucides. */}
+        <div className="relative overflow-clip rounded-t-[27px] bg-subtle">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="halo absolute -left-32 -top-40 h-[440px] w-[440px]" style={halo(46)} />
+            <div className="halo absolute -right-24 bottom-[-220px] h-[420px] w-[420px]" style={halo(26)} />
+          </div>
 
           <div className="relative z-10 grid grid-cols-3 items-end px-2 pb-3 pt-6 sm:grid-cols-[var(--lab)_repeat(3,minmax(0,1fr))] sm:px-0 sm:pb-0 sm:pt-8">
             <div className="col-span-3 px-2 pb-6 sm:col-span-1 sm:self-center sm:pb-8 sm:pl-7 sm:pr-5">
-              <p className="eyebrow text-brand">Trois formules</p>
-              <p className="font-serif mt-2.5 text-[22px] leading-[1.1] text-white xl:text-[25px]">
+              <p className="eyebrow text-brand-ink">Trois formules</p>
+              <p className="font-serif mt-2.5 text-[22px] leading-[1.1] xl:text-[25px]">
                 Choisissez votre niveau de service
               </p>
-              <p className="mt-2.5 text-[12.5px] leading-relaxed text-white/62">
+              <p className="mt-2.5 text-[12.5px] leading-relaxed text-ink-soft">
                 Comme une classe de voyage : cliquez sur une colonne pour la retenir.
               </p>
             </div>
@@ -272,7 +263,7 @@ export default function ChoixFormule({
               >
                 <span
                   className={`flex h-full items-center justify-center py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] transition-colors duration-300 sm:text-[12px] ${
-                    index === i ? "bg-brand text-[#1b1a18]" : "text-ink-soft hover:text-ink"
+                    index === i ? "bg-brand text-sur-brand" : "text-ink-soft hover:text-ink"
                   }`}
                 >
                   <span className="sm:hidden">{c.court}</span>
@@ -372,7 +363,7 @@ export default function ChoixFormule({
           <div className={`${GRILLE} items-center border-t border-line`}>
             <div className="px-3 py-4 text-[11.5px] leading-relaxed text-ink-soft sm:px-7 sm:text-[12.5px]">
               <span className="inline-flex items-center gap-1.5 align-middle">
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[#1b1a18]">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-sur-brand">
                   <Icone nom="check" taille={9} trait={3.6} />
                 </span>
                 pris en charge par Bailly
@@ -389,7 +380,7 @@ export default function ChoixFormule({
                   aria-label={`Choisir la formule ${NOM[c.key]}`}
                   className={`h-9 w-full rounded-full text-[11.5px] font-semibold transition-[background-color,border-color,color,transform] duration-200 active:scale-95 sm:h-10 sm:text-[12.5px] ${
                     index === i
-                      ? "bg-[#1b1a18] text-brand"
+                      ? "bg-[#1b1a18] text-white"
                       : "border border-line-strong bg-card text-ink hover:border-ink"
                   }`}
                 >
@@ -412,7 +403,7 @@ export default function ChoixFormule({
       >
         <span
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-colors duration-300 ${
-            choix ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-soft"
+            choix ? "bg-[#1b1a18] text-brand-clair" : "bg-subtle text-ink-soft"
           }`}
         >
           <Icone nom={resume.icone} taille={20} />
@@ -443,7 +434,7 @@ export default function ChoixFormule({
       >
         <span
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] transition-colors duration-300 ${
-            transportSeul ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-mid"
+            transportSeul ? "bg-[#1b1a18] text-brand-clair" : "bg-subtle text-ink-mid"
           }`}
         >
           <Icone nom="camion" taille={20} />
@@ -475,7 +466,7 @@ export default function ChoixFormule({
             <span className="flex flex-wrap items-center gap-2 text-[15px] font-semibold leading-tight">
               Ajuster à la carte
               {choix === "carte" && (
-                <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#1b1a18]">
+                <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sur-brand">
                   Sur mesure
                 </span>
               )}
@@ -539,7 +530,7 @@ export default function ChoixFormule({
   );
 }
 
-/** Un onglet de l'en-tête : translucide sur la photo, plein et doré une fois retenu. */
+/** Un onglet de l'en-tête : blanc et un peu translucide, puis plein à la couleur de marque. */
 function Onglet({
   classe,
   actif,
@@ -566,8 +557,8 @@ function Onglet({
     >
       {classe.vedette && (
         <span
-          className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] shadow-lg shadow-black/30 transition-colors duration-300 sm:text-[9.5px] ${
-            actif ? "bg-[#1b1a18] text-brand" : "bg-brand text-[#1b1a18]"
+          className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] shadow-md transition-colors duration-300 sm:text-[9.5px] ${
+            actif ? "bg-[#1b1a18] text-brand-clair" : "bg-brand text-sur-brand"
           }`}
         >
           Le plus choisi
@@ -578,60 +569,49 @@ function Onglet({
         role="radio"
         aria-checked={actif}
         onClick={onClick}
-        className={`group relative flex w-full flex-col overflow-hidden rounded-[18px] border px-2.5 pb-3 pt-4 text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white transition-[background-color,border-color,box-shadow,opacity,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] active:brightness-95 sm:rounded-b-none sm:border-b-0 sm:px-3.5 sm:pb-8 sm:pt-5 xl:px-4 ${
+        className={`group relative flex w-full flex-col overflow-hidden rounded-[18px] border px-2.5 pb-3 pt-4 text-left outline-none transition-[background-color,border-color,box-shadow,opacity,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ink active:brightness-95 sm:rounded-b-none sm:border-b-0 sm:px-3.5 sm:pb-8 sm:pt-5 xl:px-4 ${
           actif
-            ? "border-[#ffe680] bg-linear-to-b from-[#ffe45e] via-brand to-[#efc52b] text-[#1b1a18] shadow-[0_-20px_54px_-14px_rgba(245,208,51,0.7)]"
-            : `border-white/18 bg-linear-to-b from-white/18 to-white/6 text-white hover:from-white/28 hover:to-white/12 ${
+            ? "border-brand bg-brand text-sur-brand shadow-[0_-18px_44px_-18px_color-mix(in_srgb,var(--color-brand)_85%,transparent)]"
+            : `border-white bg-card/70 text-ink shadow-[0_-10px_30px_-22px_rgba(27,26,24,0.45)] hover:bg-card ${
                 attenue ? "opacity-80 hover:opacity-100" : ""
               }`
         }`}
       >
         {actif && <span aria-hidden className="eclat" />}
 
-        <span
-          className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-300 sm:h-10 sm:w-10 sm:rounded-[14px] ${
-            actif ? "bg-[#1b1a18] text-brand" : "bg-white/14 text-white"
-          }`}
-        >
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1b1a18] text-brand-clair sm:h-10 sm:w-10 sm:rounded-[14px]">
           <Icone nom={classe.icone} taille={18} />
         </span>
 
         <span className="font-serif mt-3 block text-[13px] leading-tight sm:text-[14px] xl:text-[17px]">
           {NOM[classe.key]}
         </span>
-        <span
-          className={`mt-1 hidden min-h-[2.75em] text-[12px] leading-snug sm:block ${
-            actif ? "text-[#1b1a18]/75" : "text-white/70"
-          }`}
-        >
+        <span className={`mt-1 hidden min-h-[2.75em] text-[12px] leading-snug sm:block ${actif ? "opacity-75" : "text-ink-soft"}`}>
           {classe.accroche}
         </span>
 
         <span className="mt-3 flex items-baseline gap-1">
           <span className="font-serif text-[20px] leading-none tnum sm:text-[25px]">{n}</span>
-          <span className={`text-[10.5px] sm:text-[11.5px] ${actif ? "text-[#1b1a18]/70" : "text-white/55"}`}>
+          <span className={`text-[10.5px] sm:text-[11.5px] ${actif ? "opacity-70" : "text-ink-soft"}`}>
             / {TOTAL} gestes
           </span>
         </span>
-        <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${actif ? "bg-[#1b1a18]/15" : "bg-white/14"}`}>
-          <span
-            className={`block h-full rounded-full ${actif ? "bg-[#1b1a18]" : "bg-brand"}`}
-            style={{ width: `${(n / TOTAL) * 100}%` }}
-          />
+        <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${actif ? "bg-[#1b1a18]/15" : "bg-line-strong"}`}>
+          <span className="block h-full rounded-full bg-[#1b1a18]" style={{ width: `${(n / TOTAL) * 100}%` }} />
         </span>
 
         <span
           className={`mt-3.5 inline-flex h-8 items-center justify-center gap-1.5 rounded-full text-[11.5px] font-semibold transition-colors duration-300 sm:h-9 sm:text-[12.5px] ${
             actif
-              ? "bg-[#1b1a18] text-brand"
-              : "border border-white/28 text-white group-hover:border-white/60 group-hover:bg-white/10"
+              ? "bg-[#1b1a18] text-white"
+              : "border border-line-strong text-ink group-hover:border-ink"
           }`}
         >
           {actif ? (
             <>
               <span className="relative inline-flex">
                 <span className="onde absolute inset-0 rounded-full" />
-                <Icone nom="check" taille={13} trait={3.2} className="coche-pop" />
+                <Icone nom="check" taille={13} trait={3.2} className="coche-pop coche-or" />
               </span>
               Choisie
             </>
@@ -657,7 +637,7 @@ function Cellule({ acteur, retenue }: { acteur: Acteur; retenue: boolean }) {
       // La couleur change, rien ne bouge : trente-cinq coches qui rebondissent
       // à chaque clic faisaient vibrer toute la colonne.
       className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-300 ${
-        retenue ? "coche-retenue" : "bg-brand text-[#1b1a18]"
+        retenue ? "coche-retenue" : "bg-brand text-sur-brand"
       }`}
     >
       <Icone nom="check" taille={13} trait={3.2} />

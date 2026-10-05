@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { RequestRow, RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete } from "./status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel } from "./status";
 
 type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
 
@@ -118,6 +118,9 @@ export default function RequestsTable({
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${sourceClass(r.source)}`}>
                           {sourceLabel(r.source)}
                         </span>
+                        {r.espace_nom && (
+                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ESPACE_CLASSE}`}>{espaceLabel(r.espace_nom)}</span>
+                        )}
                         {isIncomplete(r) ? (
                           <span className="rounded-full bg-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-warn">Incomplète</span>
                         ) : (

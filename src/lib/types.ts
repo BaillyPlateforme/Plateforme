@@ -58,6 +58,8 @@ export interface RequestRow {
   raw_payload: Record<string, unknown>;
   /** Projeté par les vues de liste depuis raw_payload->details->>express. */
   express?: string | null;
+  /** Projeté de même : le nom de l'espace pro d'où vient la demande. */
+  espace_nom?: string | null;
 
   created_at: string;
   updated_at: string;

@@ -16,6 +16,8 @@
  * gris #615F68 (voir charte-graphique/README.md).
  */
 
+import { COULEUR_BAILLY, couleurValide, palette } from "@/lib/espaces";
+
 export const COULEURS = {
   noir: "#1b1a18",
   jaune: "#f5d033",
@@ -32,6 +34,58 @@ export const COULEURS = {
 } as const;
 
 const POLICE = "Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif";
+
+/**
+ * La teinte du message : l'accent et ce qui en découle.
+ *
+ * Par défaut, le jaune de Bailly. Un espace pro donne sa propre couleur ; on
+ * en dérive celle qui se lit sur noir, le texte à poser dessus, sa version
+ * pâle — sans quoi un bleu marine finirait en bleu sur noir, illisible.
+ */
+type Teinte = {
+  accent: string;
+  soutenu: string;
+  /** Le texte posé sur l'accent. */
+  dessus: string;
+  /** L'accent sur fond noir. */
+  surNoir: string;
+  /** L'accent en texte sur blanc. */
+  encre: string;
+  pale: string;
+};
+
+const TEINTE_BAILLY: Teinte = {
+  accent: COULEURS.jaune,
+  soutenu: COULEURS.jauneSombre,
+  dessus: COULEURS.noir,
+  surNoir: COULEURS.jaune,
+  encre: COULEURS.or,
+  pale: COULEURS.jaunePale,
+};
+
+let T: Teinte = TEINTE_BAILLY;
+
+/**
+ * Compose un message dans la teinte d'un espace pro.
+ *
+ * Les briques lisent la teinte courante plutôt que de la recevoir une à une :
+ * le rendu est synchrone, d'un seul tenant, et la teinte est remise en place
+ * à la sortie — deux messages ne se mélangent jamais.
+ */
+export function avecTeinte<R>(couleur: string | null | undefined, composer: () => R): R {
+  const avant = T;
+  if (couleur && (couleurValide(couleur) ?? COULEUR_BAILLY) !== COULEUR_BAILLY) {
+    const p = palette(couleur);
+    T = { accent: p.accent, soutenu: p.soutenu, dessus: p.dessus, surNoir: p.surNoir, encre: p.encre, pale: p.pale };
+  } else {
+    T = TEINTE_BAILLY;
+  }
+  try {
+    return composer();
+  } finally {
+    T = avant;
+  }
+}
 
 /** Les petites capitales étirées qui coiffent chaque carte. */
 const SURTITRE = "font-size:11px;line-height:1.4;letter-spacing:2.4px;text-transform:uppercase;font-weight:700;";
@@ -53,20 +107,36 @@ export interface MiseEnPage {
   surtitre?: string;
   /** Les repères posés sous le titre : le trajet, le volume, la date. */
   puces?: string[];
+  /** L'entreprise de l'espace pro : son enseigne se pose à côté de celle de Bailly. */
+  marque?: { nom: string; logo?: string | null } | null;
 }
 
 /** Enveloppe un contenu dans l'habillage Bailly et renvoie le HTML complet. */
-export function mettreEnPage({ titre, corps, apercu, base, entreprise, surtitre, puces }: MiseEnPage): string {
+export function mettreEnPage({ titre, corps, apercu, base, entreprise, surtitre, puces, marque }: MiseEnPage): string {
   const racine = (base || "").replace(/\/$/, "");
   const logo = racine ? `${racine}/marque/bailly-logo-blanc.png` : "";
   const photo = racine ? `${racine}/marque/mail-entete.jpg` : "";
   const nom = entreprise?.nom || "Bailly Déménagement";
 
-  const marque = (largeur: number) =>
+  const marque_ = (largeur: number) =>
     logo
       ? `<img src="${logo}" alt="${echapper(nom)}" width="${largeur}" style="display:block;width:${largeur}px;max-width:100%;height:auto;border:0;outline:none;">`
       : `<div style="color:${COULEURS.blanc};font-size:24px;line-height:1;font-weight:900;letter-spacing:-0.4px;">BAILLY</div>
          <div style="margin-top:5px;color:${COULEURS.jaune};font-size:10px;letter-spacing:2.2px;font-weight:700;">BD MOVING | GROUP</div>`;
+
+  // Dans un espace pro, l'enseigne de l'entreprise précède celle de Bailly :
+  // son logo sur une pastille blanche, ou son nom si elle n'en a pas fourni.
+  const enseigne = marque
+    ? `<table ${TABLE}><tr>
+        <td valign="middle" style="vertical-align:middle;">${
+          marque.logo
+            ? `<table ${TABLE}><tr><td bgcolor="${COULEURS.blanc}" style="background:${COULEURS.blanc};border-radius:12px;padding:8px 12px;"><img src="${marque.logo}" alt="${echapper(marque.nom)}" height="30" style="display:block;height:30px;width:auto;max-width:130px;border:0;outline:none;"></td></tr></table>`
+            : `<table ${TABLE}><tr><td bgcolor="${T.accent}" style="background:${T.accent};border-radius:10px;padding:8px 12px;font-family:${POLICE};font-size:14px;line-height:1.2;font-weight:700;color:${T.dessus};">${echapper(marque.nom)}</td></tr></table>`
+        }</td>
+        <td width="1" style="width:1px;padding:0 14px;"><div style="width:1px;height:26px;line-height:26px;font-size:0;background:#57554f;">&nbsp;</div></td>
+        <td valign="middle" style="vertical-align:middle;">${marque_(112)}</td>
+      </tr></table>`
+    : marque_(150);
 
   // Chaque repère a deux fonds : la couleur pleine d'abord, la transparence
   // ensuite. Qui ne comprend pas la seconde garde la première.
@@ -116,14 +186,14 @@ ${apercu ? `<div style="display:none;font-size:1px;color:${COULEURS.fond};line-h
         <!-- En-tête : la photo de la vitrine, le logo, le titre en grand -->
         <tr>
           <td class="marge" ${photo ? `background="${photo}"` : ""} bgcolor="${COULEURS.noir}" style="background-color:${COULEURS.noir};${photo ? `background-image:url('${photo}');` : ""}background-size:cover;background-position:center;border-radius:24px 24px 0 0;padding:30px 40px 40px;font-family:${POLICE};">
-            ${marque(150)}
+            ${enseigne}
             <div style="height:54px;line-height:54px;font-size:0;">&nbsp;</div>
-            ${surtitre ? `<div style="${SURTITRE}color:${COULEURS.jaune};">${echapper(surtitre)}</div>` : ""}
+            ${surtitre ? `<div style="${SURTITRE}color:${T.surNoir};">${echapper(surtitre)}</div>` : ""}
             <h1 class="titre" style="margin:12px 0 0;font-family:${POLICE};font-size:34px;line-height:1.1;letter-spacing:-0.8px;font-weight:700;color:${COULEURS.blanc};">${echapper(titre)}</h1>
             ${blocPuces}
           </td>
         </tr>
-        <tr><td bgcolor="${COULEURS.jaune}" style="height:5px;line-height:5px;font-size:0;background-color:${COULEURS.jaune};background-image:linear-gradient(90deg,${COULEURS.jauneSombre},${COULEURS.jaune} 35%,#ffe680 62%,${COULEURS.jaune});">&nbsp;</td></tr>
+        <tr><td bgcolor="${T.accent}" style="height:5px;line-height:5px;font-size:0;background-color:${T.accent};background-image:linear-gradient(90deg,${T.soutenu},${T.accent} 40%,${T.accent});">&nbsp;</td></tr>
 
         <!-- Corps -->
         <tr>
@@ -138,7 +208,7 @@ ${apercu ? `<div style="display:none;font-size:1px;color:${COULEURS.fond};line-h
             <table ${TABLE} width="100%">
               <tr>
                 <td class="pile" valign="top" style="vertical-align:top;">
-                  ${marque(124)}
+                  ${marque_(124)}
                   <div style="margin-top:12px;font-size:13.5px;line-height:1.4;font-weight:500;color:${COULEURS.jaune};">Déménagez où vous voulez&nbsp;!</div>
                 </td>
                 <td class="pile pile-suite" valign="top" align="right" style="vertical-align:top;text-align:right;font-size:13px;line-height:1.75;color:#b9b6b0;">
@@ -182,7 +252,7 @@ export function mention(texte: string): string {
 /** Un titre de section : un trait jaune, puis des petites capitales. */
 export function sousTitre(texte: string): string {
   return `<table ${TABLE} style="margin:30px 0 12px;"><tr>
-    <td width="22" style="width:22px;"><div style="width:22px;height:3px;line-height:3px;font-size:0;background:${COULEURS.jaune};border-radius:2px;">&nbsp;</div></td>
+    <td width="22" style="width:22px;"><div style="width:22px;height:3px;line-height:3px;font-size:0;background:${T.accent};border-radius:2px;">&nbsp;</div></td>
     <td style="padding-left:10px;${SURTITRE}color:${COULEURS.noir};">${echapper(texte)}</td>
   </tr></table>`;
 }
@@ -191,8 +261,8 @@ export function sousTitre(texte: string): string {
 export function bouton(label: string, url: string): string {
   return `<table ${TABLE} width="100%"><tr><td align="center" style="padding:14px 0 28px;">
   <table ${TABLE}><tr>
-    <td align="center" bgcolor="${COULEURS.jaune}" style="background:${COULEURS.jaune};border-radius:999px;">
-      <a href="${url}" style="display:inline-block;padding:16px 34px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${COULEURS.noir};text-decoration:none;border-radius:999px;">${echapper(label)}&nbsp;&nbsp;&rarr;</a>
+    <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
+      <a href="${url}" style="display:inline-block;padding:16px 34px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(label)}&nbsp;&nbsp;&rarr;</a>
     </td>
   </tr></table>
 </td></tr></table>`;
@@ -243,7 +313,7 @@ export function carteTrajet(input: {
       ? `<table ${TABLE} width="100%" style="margin-top:16px;"><tr>
           ${ville("Départ", depart, "left")}
           <td width="16%" align="center" valign="middle" style="width:16%;vertical-align:middle;">
-            <table ${TABLE} align="center"><tr><td width="38" height="38" align="center" valign="middle" bgcolor="${COULEURS.jaune}" style="width:38px;height:38px;border-radius:19px;background:${COULEURS.jaune};font-size:18px;line-height:38px;font-weight:700;color:${COULEURS.noir};">&rarr;</td></tr></table>
+            <table ${TABLE} align="center"><tr><td width="38" height="38" align="center" valign="middle" bgcolor="${T.accent}" style="width:38px;height:38px;border-radius:19px;background:${T.accent};font-size:18px;line-height:38px;font-weight:700;color:${T.dessus};">&rarr;</td></tr></table>
           </td>
           ${ville("Arrivée", arrivee, "right")}
         </tr></table>`
@@ -268,7 +338,7 @@ export function carteTrajet(input: {
 
   return `<table ${TABLE} width="100%" style="margin:26px 0 10px;"><tr>
   <td bgcolor="${COULEURS.papier}" style="background:${COULEURS.papier};border-radius:20px;padding:24px 26px 24px;">
-    <div style="${SURTITRE}color:${COULEURS.or};">Votre déménagement</div>
+    <div style="${SURTITRE}color:${T.encre};">Votre déménagement</div>
     ${trajet}
     ${details}
   </td>
@@ -311,10 +381,10 @@ export function cartePrix(input: {
       <td colspan="2" bgcolor="${COULEURS.noir}" style="background:${COULEURS.noir};border-radius:${seul ? "19px" : "0 0 19px 19px"};padding:22px 24px;">
         <table ${TABLE} width="100%"><tr>
           <td valign="middle" style="vertical-align:middle;">
-            <div style="${SURTITRE}color:${COULEURS.jaune};">Total estimé TTC</div>
+            <div style="${SURTITRE}color:${T.surNoir};">Total estimé TTC</div>
             ${validite ? `<div style="margin-top:5px;font-size:12.5px;line-height:1.4;color:#a8a59f;">Valable jusqu'au ${echapper(validite)}</div>` : ""}
           </td>
-          <td class="prix" valign="middle" align="right" style="vertical-align:middle;text-align:right;font-size:34px;line-height:1;letter-spacing:-0.8px;font-weight:700;color:${COULEURS.jaune};white-space:nowrap;">${echapper(ttc)}</td>
+          <td class="prix" valign="middle" align="right" style="vertical-align:middle;text-align:right;font-size:34px;line-height:1;letter-spacing:-0.8px;font-weight:700;color:${T.surNoir};white-space:nowrap;">${echapper(ttc)}</td>
         </tr></table>
       </td>
     </tr>`
@@ -330,7 +400,7 @@ export function etapes(liste: [string, string][]): string {
     .map(
       ([titre, texte], i) => `<tr>
       <td width="46" valign="top" style="width:46px;vertical-align:top;padding:9px 0;">
-        <table ${TABLE}><tr><td width="30" height="30" align="center" valign="middle" bgcolor="${COULEURS.noir}" style="width:30px;height:30px;border-radius:15px;background:${COULEURS.noir};font-size:13px;line-height:30px;font-weight:700;color:${COULEURS.jaune};">${i + 1}</td></tr></table>
+        <table ${TABLE}><tr><td width="30" height="30" align="center" valign="middle" bgcolor="${COULEURS.noir}" style="width:30px;height:30px;border-radius:15px;background:${COULEURS.noir};font-size:13px;line-height:30px;font-weight:700;color:${T.surNoir};">${i + 1}</td></tr></table>
       </td>
       <td valign="top" style="vertical-align:top;padding:9px 0;">
         <div style="font-size:15px;line-height:1.4;font-weight:700;color:${COULEURS.noir};">${echapper(titre)}</div>
@@ -348,14 +418,14 @@ export function carteContact(input: { tel?: string; mail?: string }): string {
   if (!tel && !mail) return "";
   return `<table ${TABLE} width="100%" style="margin:26px 0 24px;"><tr>
   <td bgcolor="${COULEURS.noir}" style="background:${COULEURS.noir};border-radius:20px;padding:26px 28px 28px;">
-    <div style="${SURTITRE}color:${COULEURS.jaune};">Une question ?</div>
+    <div style="${SURTITRE}color:${T.surNoir};">Une question ?</div>
     <div style="margin-top:9px;font-size:20px;line-height:1.3;letter-spacing:-0.3px;font-weight:700;color:${COULEURS.blanc};">Un conseiller vous répond</div>
     <div style="margin-top:6px;font-size:14px;line-height:1.6;color:#b9b6b0;">Appelez-nous, ou répondez simplement à ce message.</div>
     ${
       tel
         ? `<table ${TABLE} style="margin-top:18px;"><tr>
-      <td align="center" bgcolor="${COULEURS.jaune}" style="background:${COULEURS.jaune};border-radius:999px;">
-        <a href="tel:${tel.replace(/\s/g, "")}" style="display:inline-block;padding:12px 22px;font-family:${POLICE};font-size:15px;line-height:1.2;font-weight:700;color:${COULEURS.noir};text-decoration:none;border-radius:999px;">${echapper(tel)}</a>
+      <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
+        <a href="tel:${tel.replace(/\s/g, "")}" style="display:inline-block;padding:12px 22px;font-family:${POLICE};font-size:15px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(tel)}</a>
       </td>
     </tr></table>`
         : ""
@@ -368,7 +438,7 @@ export function carteContact(input: { tel?: string; mail?: string }): string {
 /** Un encadré jaune pâle : une précision qui doit se voir sans crier. */
 export function encadre(contenu: string): string {
   return `<table ${TABLE} width="100%" style="margin:18px 0;">
-  <tr><td bgcolor="${COULEURS.jaunePale}" style="background:${COULEURS.jaunePale};border-radius:16px;padding:16px 20px;font-size:14px;line-height:1.6;color:${COULEURS.noir};">${contenu}</td></tr>
+  <tr><td bgcolor="${T.pale}" style="background:${T.pale};border-radius:16px;padding:16px 20px;font-size:14px;line-height:1.6;color:${COULEURS.noir};">${contenu}</td></tr>
 </table>`;
 }
 

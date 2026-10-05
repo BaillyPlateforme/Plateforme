@@ -59,7 +59,7 @@ function Fleche({ sombre = false }: { sombre?: boolean }) {
   return (
     <span
       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform duration-300 group-hover:translate-x-0.5 ${
-        sombre ? "bg-[#1b1a18] text-brand" : "bg-brand text-[#1b1a18]"
+        sombre ? "bg-[#1b1a18] text-brand-clair" : "bg-brand text-sur-brand"
       }`}
     >
       <Icone nom="droite" taille={16} trait={2.4} />
@@ -69,47 +69,38 @@ function Fleche({ sombre = false }: { sombre?: boolean }) {
 
 /* ─────────────────────────── Héros ─────────────────────────── */
 
-/* Les noirs du héros sont écrits en dur : il reste sombre quel que soit le
-   thème, là où `bg-ink` s'éclaircirait de nuit. */
+/* Le halo d'un coin de page : la couleur de marque, très diluée. */
+const halo = (force: number) =>
+  ({ "--halo": `color-mix(in srgb, var(--color-brand) ${force}%, transparent)` }) as CSSProperties;
+
+/**
+ * Le héros est clair. La photo d'intérieur, sombre par nature, n'en est plus
+ * le fond : elle devient une image, encadrée derrière les deux cartes. Posée
+ * en plein écran sous un voile noir, elle donnait à toute la page un air de
+ * mode sombre.
+ */
 function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section className="grain relative flex min-h-[100svh] flex-col overflow-hidden bg-[#1b1a18]">
-      <Image
-        src="/login-interieur.jpg"
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        className="ken-burns object-cover object-center"
-      />
+    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-paper">
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute -right-40 -top-48 h-[720px] w-[720px]" style={halo(34)} />
+        <div className="halo absolute -left-56 bottom-[-260px] h-[620px] w-[620px]" style={halo(18)} />
+      </div>
 
-      {/* Voiles : la photo reste présente, le texte se lit sans effort. Le
-          voile de gauche assoit le titre ; celui du bas, les chiffres. */}
-      <div className="absolute inset-0 bg-[#1b1a18]/66" />
-      <div className="absolute inset-0 bg-linear-to-r from-[#1b1a18]/85 via-[#1b1a18]/35 to-transparent" />
-      <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/70 via-transparent to-[#1b1a18]/95" />
-      <div className="halo drift absolute -left-40 top-24 h-[520px] w-[520px]" style={{ "--halo": "rgba(245,208,51,0.18)" } as CSSProperties} />
-
-      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] flex-1 items-center gap-12 px-6 pb-12 pt-[112px] lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)] lg:gap-14 lg:px-10 lg:pb-14">
+      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] flex-1 items-center gap-12 px-6 pb-12 pt-[112px] lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:gap-14 lg:px-10 lg:pb-14">
         <div>
           <div className="reveal max-w-fit" style={delay(60)}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/12 px-3.5 py-1.5 text-[12.5px] font-medium text-white">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-3.5 py-1.5 text-[12.5px] font-medium text-ink-mid">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-mid" />
               Déménagements particuliers et entreprises
             </span>
           </div>
 
-          <h1
-            className="font-serif reveal mt-6 text-balance text-[44px] text-white sm:text-[56px] xl:text-[66px]"
-            style={delay(160)}
-          >
-            Votre déménagement, <span className="gradient-flow-light">chiffré tout de suite</span>
+          <h1 className="font-serif reveal mt-6 text-balance text-[44px] sm:text-[56px] xl:text-[66px]" style={delay(160)}>
+            Votre déménagement, <span className="gradient-text">chiffré tout de suite</span>
           </h1>
 
-          <p
-            className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-white/85 sm:text-[18px]"
-            style={delay(260)}
-          >
+          <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-soft sm:text-[18px]" style={delay(260)}>
             Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
             tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
             au centime près.
@@ -117,8 +108,8 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
           <ul className="reveal mt-8 flex flex-wrap gap-x-7 gap-y-3" style={delay(360)}>
             {["Sans engagement", "Estimation immédiate", "Réponse sous 24 h ouvrées"].map((t) => (
-              <li key={t} className="flex items-center gap-2.5 text-[14.5px] font-medium text-white">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[#1b1a18]">
+              <li key={t} className="flex items-center gap-2.5 text-[14.5px] font-medium">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-sur-brand">
                   <Icone nom="check" taille={11} trait={3.4} />
                 </span>
                 {t}
@@ -127,12 +118,17 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
           </ul>
         </div>
 
-        {/* Les deux parcours de devis : le rapide et le détaillé. */}
-        <div>
-          <p className="eyebrow reveal mb-4 text-white/70" style={delay(300)}>
-            Choisissez votre devis
-          </p>
-          <div className="space-y-4">
+        {/* Les deux parcours de devis, posés sur la photo encadrée. */}
+        <div className="relative">
+          <div
+            aria-hidden
+            className="reveal absolute -bottom-7 -right-5 -top-9 left-10 overflow-hidden rounded-[36px] shadow-[0_40px_80px_-40px_rgba(27,26,24,0.55)] sm:left-16"
+            style={delay(240)}
+          >
+            <Image src="/login-interieur.jpg" alt="" fill priority sizes="(min-width: 1024px) 560px, 100vw" className="ken-burns object-cover" />
+          </div>
+
+          <div className="relative space-y-4 py-2 pr-6 sm:pr-12">
             <Porte
               onClick={() => onChoisir("express")}
               d={380}
@@ -160,10 +156,7 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
       {/* Bandeau de chiffres, au pied du héros. */}
       <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pb-12 lg:px-10">
-        <div
-          className="reveal grid grid-cols-2 gap-x-8 gap-y-6 border-t border-white/18 pt-7 sm:grid-cols-4"
-          style={delay(620)}
-        >
+        <div className="reveal grid grid-cols-2 gap-x-8 gap-y-6 border-t border-line-strong pt-7 sm:grid-cols-4" style={delay(620)}>
           <Chiffre valeur="3 min" legende="pour une estimation complète" />
           <Chiffre valeur="3" legende="formules, de l'économique au premium" />
           <Chiffre valeur={`${PORTEE_KM} km`} legende="de portée, France entière" />
@@ -177,10 +170,9 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 /**
  * Une porte d'entrée vers un devis.
  *
- * Une carte pleine, pas un verre dépoli : posé sur la photo, un fond
- * translucide laissait passer les fenêtres derrière le texte, et un reflet
- * balayait les lignes. Ici le texte est noir sur un aplat — jaune pour le
- * parcours rapide, blanc pour le détaillé — et l'action est un vrai bouton.
+ * Une carte pleine, pas un verre dépoli : le texte est noir sur un aplat — la
+ * couleur de marque pour le parcours rapide, blanc pour le détaillé — et
+ * l'action est un vrai bouton.
  */
 function Porte({
   onClick,
@@ -207,33 +199,33 @@ function Porte({
     <button
       type="button"
       onClick={onClick}
-      className={`reveal group relative block w-full rounded-[26px] p-6 text-left text-[#1b1a18] shadow-[0_36px_70px_-36px_rgba(0,0,0,0.9)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_46px_80px_-36px_rgba(0,0,0,0.95)] active:translate-y-0 sm:p-7 ${
-        accent ? "bg-linear-to-br from-[#ffe668] via-brand to-[#efc52b]" : "bg-[#fbfaf7]"
+      className={`reveal group relative block w-full rounded-[26px] p-6 text-left shadow-[0_30px_60px_-34px_rgba(27,26,24,0.6)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_40px_70px_-34px_rgba(27,26,24,0.7)] active:translate-y-0 sm:p-7 ${
+        accent ? "bg-brand text-sur-brand" : "border border-line bg-card text-ink"
       }`}
       style={delay(d)}
     >
       <span className="flex items-center justify-between gap-4">
         <span className="flex min-w-0 items-center gap-3.5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand sm:h-12 sm:w-12 sm:rounded-2xl">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand-clair sm:h-12 sm:w-12 sm:rounded-2xl">
             <Icone nom={icone} taille={20} />
           </span>
           <span className="font-serif block text-[21px] leading-none sm:text-[28px]">{titre}</span>
         </span>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.08em] sm:px-3 sm:py-1.5 sm:text-[11.5px] ${
-            accent ? "bg-[#1b1a18] text-brand" : "bg-[#1b1a18]/8 text-[#1b1a18]"
+            accent ? "bg-[#1b1a18] text-brand-clair" : "bg-subtle text-ink-mid"
           }`}
         >
           {duree}
         </span>
       </span>
 
-      <span className="mt-5 block text-[15.5px] leading-relaxed text-[#1b1a18]/80">{desc}</span>
+      <span className="mt-5 block text-[15.5px] leading-relaxed opacity-80">{desc}</span>
 
       <span className="mt-4 flex flex-wrap gap-x-5 gap-y-2">
         {points.map((p) => (
           <span key={p} className="flex items-center gap-2 text-[14px] font-medium">
-            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand">
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
               <Icone nom="check" taille={10} trait={3.6} />
             </span>
             {p}
@@ -252,32 +244,20 @@ function Porte({
 function Chiffre({ valeur, legende }: { valeur: string; legende: string }) {
   return (
     <div>
-      <div className="font-serif text-[30px] leading-none text-white sm:text-[34px]">{valeur}</div>
-      <div className="mt-2.5 text-[13.5px] leading-snug text-white/70">{legende}</div>
+      <div className="font-serif text-[30px] leading-none sm:text-[34px]">{valeur}</div>
+      <div className="mt-2.5 text-[13.5px] leading-snug text-ink-soft">{legende}</div>
     </div>
   );
 }
 
 /* ─────────────────────────── En-tête de section ─────────────────────────── */
 
-function Entete({
-  surtitre,
-  titre,
-  texte,
-  sombre = false,
-}: {
-  surtitre: string;
-  titre: React.ReactNode;
-  texte: string;
-  sombre?: boolean;
-}) {
+function Entete({ surtitre, titre, texte }: { surtitre: string; titre: React.ReactNode; texte: string }) {
   return (
     <Reveal className="max-w-[54ch]">
-      <p className={`eyebrow ${sombre ? "text-brand" : "text-brand-ink"}`}>{surtitre}</p>
-      <h2 className={`font-serif mt-4 text-balance text-[36px] sm:text-[46px] ${sombre ? "text-white" : ""}`}>
-        {titre}
-      </h2>
-      <p className={`mt-5 text-[16.5px] leading-relaxed ${sombre ? "text-white/78" : "text-ink-soft"}`}>{texte}</p>
+      <p className="eyebrow text-brand-ink">{surtitre}</p>
+      <h2 className="font-serif mt-4 text-balance text-[36px] sm:text-[46px]">{titre}</h2>
+      <p className="mt-5 text-[16.5px] leading-relaxed text-ink-soft">{texte}</p>
     </Reveal>
   );
 }
@@ -334,7 +314,7 @@ function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
               className="bloc group flex flex-col rounded-[26px] border border-line bg-card p-7"
             >
               <div className="flex items-center justify-between">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-ink transition-colors duration-300 group-hover:bg-[#1b1a18] group-hover:text-brand">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-ink transition-colors duration-300 group-hover:bg-[#1b1a18] group-hover:text-brand-clair">
                   <Icone nom={e.icone} taille={21} />
                 </span>
                 <span className="font-serif text-[42px] leading-none text-line-strong transition-colors duration-300 group-hover:text-brand-mid">
@@ -403,8 +383,8 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
         <div className="mt-16 grid items-stretch gap-5 lg:grid-cols-3">
           {FORMULES.map((f, i) => {
-            // La formule la plus choisie passe en noir : elle se détache des
-            // deux autres sans qu'il faille la désigner d'une flèche.
+            // La formule la plus choisie prend la couleur de marque : elle se
+            // détache des deux autres sans assombrir la page.
             const vedette = f.key === "standard";
             return (
               <Reveal
@@ -412,41 +392,35 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
                 delay={i * 110}
                 className={`relative flex flex-col rounded-[28px] border p-7 sm:p-8 ${
                   vedette
-                    ? "border-[#1b1a18] bg-[#1b1a18] text-white shadow-[0_40px_70px_-40px_rgba(27,26,24,0.9)] lg:-my-3"
+                    ? "border-brand bg-brand text-sur-brand shadow-[0_40px_70px_-44px_rgba(27,26,24,0.6)] lg:-my-3"
                     : "bloc border-line bg-paper"
                 }`}
               >
                 {vedette && (
-                  <span className="absolute -top-3.5 left-8 rounded-full bg-brand px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#1b1a18]">
+                  <span className="absolute -top-3.5 left-8 rounded-full bg-[#1b1a18] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-brand-clair">
                     Le plus choisi
                   </span>
                 )}
                 <div className="flex items-center gap-3.5">
-                  <span
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                      vedette ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
-                    }`}
-                  >
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1b1a18] text-brand-clair">
                     <Icone nom={ICONE_FORMULE[f.key]} taille={21} />
                   </span>
                   <h3 className="font-serif text-[26px] leading-none">{f.label}</h3>
                 </div>
-                <p className={`mt-5 min-h-[52px] text-[15.5px] leading-relaxed ${vedette ? "text-white/78" : "text-ink-soft"}`}>
+                <p className={`mt-5 min-h-[52px] text-[15.5px] leading-relaxed ${vedette ? "opacity-80" : "text-ink-soft"}`}>
                   {f.description}
                 </p>
 
-                <div className={`mt-6 border-t pt-6 ${vedette ? "border-white/15" : "border-line-strong"}`}>
+                <div className={`mt-6 border-t pt-6 ${vedette ? "border-[#1b1a18]/15" : "border-line-strong"}`}>
                   <div className="flex items-baseline gap-2">
-                    <span className={`font-serif text-[46px] leading-none tnum ${vedette ? "text-brand" : ""}`}>
-                      {COMPTE[f.key]}
-                    </span>
-                    <span className={`text-[14px] ${vedette ? "text-white/70" : "text-ink-soft"}`}>
+                    <span className="font-serif text-[46px] leading-none tnum">{COMPTE[f.key]}</span>
+                    <span className={`text-[14px] ${vedette ? "opacity-75" : "text-ink-soft"}`}>
                       gestes pris en charge sur {TOTAL}
                     </span>
                   </div>
-                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${vedette ? "bg-white/15" : "bg-line-strong"}`}>
+                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${vedette ? "bg-[#1b1a18]/15" : "bg-line-strong"}`}>
                     <div
-                      className={`draw-line h-full rounded-full ${vedette ? "bg-brand" : "bg-ink"}`}
+                      className={`draw-line h-full rounded-full ${vedette ? "bg-[#1b1a18]" : "bg-ink"}`}
                       style={{ width: `${(COMPTE[f.key] / TOTAL) * 100}%` }}
                     />
                   </div>
@@ -455,11 +429,7 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
                 <ul className="mt-7 flex-1 space-y-3.5">
                   {RESUME[f.key].map((l) => (
                     <li key={l} className="flex gap-3 text-[15px] leading-snug">
-                      <span
-                        className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                          vedette ? "bg-brand text-[#1b1a18]" : "bg-[#1b1a18] text-brand"
-                        }`}
-                      >
+                      <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
                         <Icone nom="check" taille={11} trait={3.4} />
                       </span>
                       {l}
@@ -471,11 +441,11 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
                   type="button"
                   onClick={() => onChoisir("complet")}
                   className={`group mt-9 inline-flex h-[52px] items-center justify-between gap-3 rounded-full pl-6 pr-2 text-[15px] font-semibold transition active:scale-[0.98] ${
-                    vedette ? "bg-brand text-[#1b1a18]" : "bg-ink text-shell"
+                    vedette ? "bg-[#1b1a18] text-white" : "bg-ink text-shell"
                   }`}
                 >
                   Estimer avec cette formule
-                  <Fleche sombre={vedette} />
+                  <Fleche />
                 </button>
               </Reveal>
             );
@@ -504,21 +474,14 @@ const PROMESSES: { titre: string; texte: string; icone: NomIcone }[] = [
 
 function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section id="promesses" className="grain relative scroll-mt-20 overflow-hidden bg-[#1b1a18] py-24 lg:py-32">
-      <div className="halo drift absolute -right-32 top-0 h-[460px] w-[460px]" style={{ "--halo": "rgba(245,208,51,0.2)" } as CSSProperties} />
-      <div
-        className="halo drift absolute -left-40 bottom-0 h-[420px] w-[420px]"
-        style={{ animationDuration: "22s", animationDelay: "-6s", "--halo": "rgba(255,255,255,0.08)" } as CSSProperties}
-      />
-
-      <div className="relative z-10 mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,400px)_1fr] lg:gap-16 lg:px-10">
+    <section id="promesses" className="scroll-mt-20 bg-paper py-24 lg:py-32">
+      <div className="mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,400px)_1fr] lg:gap-16 lg:px-10">
         <div>
           <Entete
-            sombre
             surtitre="Ce qui change"
             titre={
               <>
-                Un déménagement <span className="gradient-flow-light">sans zone d&apos;ombre</span>
+                Un déménagement <span className="gradient-text">sans zone d&apos;ombre</span>
               </>
             }
             texte="Vous savez ce que vous payez, et pourquoi. Le devis reprend ligne par ligne ce que vous avez rempli — rien ne s'ajoute en cours de route."
@@ -528,20 +491,20 @@ function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             <button
               type="button"
               onClick={() => onChoisir("express")}
-              className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-brand pl-6 pr-2 text-[15px] font-semibold text-[#1b1a18] transition active:scale-[0.98]"
+              className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-ink pl-6 pr-2 text-[15px] font-semibold text-shell transition active:scale-[0.98]"
             >
               Faire mon estimation
-              <Fleche sombre />
+              <Fleche />
             </button>
             <a
               href="#formules"
-              className="inline-flex h-[52px] items-center rounded-full border border-white/30 px-6 text-[15px] font-semibold text-white transition hover:border-white/70 hover:bg-white/10"
+              className="inline-flex h-[52px] items-center rounded-full border border-line-strong bg-card px-6 text-[15px] font-semibold transition hover:border-ink"
             >
               Voir les formules
             </a>
           </Reveal>
 
-          <Reveal delay={180} as="p" className="mt-7 flex items-center gap-2.5 text-[13px] text-white/65">
+          <Reveal delay={180} as="p" className="mt-7 flex items-center gap-2.5 text-[13px] text-ink-soft">
             <Icone nom="bouclier" taille={15} />
             Vos données restent chez nous · hébergement en Europe
           </Reveal>
@@ -552,13 +515,13 @@ function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             <Reveal
               key={o.titre}
               delay={i * 70}
-              className="rounded-[22px] border border-white/14 bg-white/[0.07] p-6 transition-colors duration-300 hover:border-brand/50 hover:bg-white/[0.11]"
+              className="bloc rounded-[22px] border border-line bg-card p-6"
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-brand text-[#1b1a18]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-brand text-sur-brand">
                 <Icone nom={o.icone} taille={20} />
               </span>
-              <p className="mt-5 text-[17px] font-semibold leading-snug text-white">{o.titre}</p>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-white/75">{o.texte}</p>
+              <p className="mt-5 text-[17px] font-semibold leading-snug">{o.titre}</p>
+              <p className="mt-2 text-[14.5px] leading-relaxed text-ink-soft">{o.texte}</p>
             </Reveal>
           ))}
         </div>
@@ -571,22 +534,21 @@ function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
 function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section className="bg-paper px-6 py-20 lg:px-10 lg:py-24">
-      <Reveal className="grain relative mx-auto w-full max-w-[1200px] overflow-hidden rounded-[36px] bg-[#1b1a18] px-7 py-16 text-center sm:px-14 sm:py-20">
-        <Image src="/login-interieur.jpg" alt="" fill sizes="(min-width: 1280px) 1200px, 100vw" className="object-cover object-center" />
-        <div className="absolute inset-0 bg-[#1b1a18]/76" />
-        <div className="absolute inset-0 bg-linear-to-b from-[#1b1a18]/70 via-[#1b1a18]/30 to-[#1b1a18]/92" />
-        <div
-          className="halo drift absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2"
-          style={{ "--halo": "rgba(245,208,51,0.22)" } as CSSProperties}
-        />
+    <section className="border-t border-line bg-card px-6 py-20 lg:px-10 lg:py-24">
+      {/* Le dernier appel est un aplat de la couleur de marque : il ferme la
+          page sur une note vive, pas sur un bloc noir. */}
+      <Reveal className="relative mx-auto w-full max-w-[1200px] overflow-hidden rounded-[36px] bg-brand px-7 py-16 text-center text-sur-brand sm:px-14 sm:py-20">
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="halo absolute -left-32 -top-40 h-[460px] w-[460px]" style={{ "--halo": "rgba(255,255,255,0.5)" } as CSSProperties} />
+          <div className="halo absolute -bottom-48 -right-24 h-[480px] w-[480px]" style={{ "--halo": "rgba(255,255,255,0.32)" } as CSSProperties} />
+        </div>
 
         <div className="relative z-10">
-          <p className="eyebrow text-brand">Votre estimation</p>
-          <h2 className="font-serif mx-auto mt-4 max-w-[17ch] text-balance text-[36px] text-white sm:text-[52px]">
-            Combien coûte votre <span className="gradient-flow-light">déménagement</span>&nbsp;?
+          <p className="eyebrow opacity-70">Votre estimation</p>
+          <h2 className="font-serif mx-auto mt-4 max-w-[17ch] text-balance text-[36px] sm:text-[52px]">
+            Combien coûte votre déménagement&nbsp;?
           </h2>
-          <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed text-white/82">
+          <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed opacity-80">
             La réponse tient en trois minutes. Vous gardez le devis, vous nous rappelez quand
             vous voulez.
           </p>
@@ -594,25 +556,22 @@ function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             <button
               type="button"
               onClick={() => onChoisir("express")}
-              className="group inline-flex h-14 items-center gap-3 rounded-full bg-brand pl-7 pr-2.5 text-[15.5px] font-semibold text-[#1b1a18] shadow-[0_22px_44px_-18px_rgba(245,208,51,0.75)] transition active:scale-[0.98]"
+              className="group inline-flex h-14 items-center gap-3 rounded-full bg-[#1b1a18] pl-7 pr-2.5 text-[15.5px] font-semibold text-white shadow-[0_22px_44px_-20px_rgba(27,26,24,0.7)] transition active:scale-[0.98]"
             >
               Faire mon estimation
-              <Fleche sombre />
+              <Fleche />
             </button>
             <button
               type="button"
               onClick={() => onChoisir("complet")}
-              className="inline-flex h-14 items-center rounded-full border border-white/35 px-7 text-[15.5px] font-semibold text-white transition hover:border-white/80 hover:bg-white/10"
+              className="inline-flex h-14 items-center rounded-full border border-current px-7 text-[15.5px] font-semibold transition hover:bg-white/30"
             >
               Devis complet
             </button>
           </div>
-          <a
-            href={AGENCE.lien}
-            className="mt-8 inline-flex items-center gap-2.5 text-[14.5px] text-white/75 transition hover:text-white"
-          >
+          <a href={AGENCE.lien} className="mt-8 inline-flex items-center gap-2.5 text-[14.5px] opacity-80 transition hover:opacity-100">
             <Icone nom="tel" taille={15} />
-            Ou appelez-nous : <span className="font-semibold text-white">{AGENCE.numero}</span>
+            Ou appelez-nous : <span className="font-semibold">{AGENCE.numero}</span>
           </a>
         </div>
       </Reveal>
@@ -623,26 +582,20 @@ function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 /* ─────────────────────────── Pied de page ─────────────────────────── */
 
 function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) => void }) {
-  const lien = "text-[14.5px] text-white/75 transition hover:text-white";
+  const lien = "text-[14.5px] text-ink-soft transition hover:text-ink";
   return (
-    <footer className="bg-[#1b1a18] text-white">
+    <footer className="border-t border-line bg-paper">
       <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-6 py-14 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] lg:px-10">
         <div>
-          <Image
-            src="/marque/bailly-logo-blanc.svg"
-            alt="Bailly Déménagement"
-            width={200}
-            height={64}
-            className="h-auto w-[170px]"
-          />
-          <p className="mt-5 text-[16px] font-medium text-brand">Déménagez où vous voulez&nbsp;!</p>
-          <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-white/60">
+          <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[170px]" />
+          <p className="mt-5 text-[16px] font-medium text-brand-ink">Déménagez où vous voulez&nbsp;!</p>
+          <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-ink-soft">
             Membre FIDI et IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.
           </p>
         </div>
 
         <div>
-          <p className="eyebrow text-white/50">Votre devis</p>
+          <p className="eyebrow text-ink-soft">Votre devis</p>
           <ul className="mt-4 space-y-3">
             <li>
               <button type="button" onClick={() => onChoisir("express")} className={lien}>
@@ -668,23 +621,18 @@ function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) =>
         </div>
 
         <div>
-          <p className="eyebrow text-white/50">Nous joindre</p>
-          <a href={AGENCE.lien} className="font-serif mt-4 block text-[26px] leading-none text-white transition hover:text-brand">
+          <p className="eyebrow text-ink-soft">Nous joindre</p>
+          <a href={AGENCE.lien} className="font-serif mt-4 block text-[26px] leading-none transition hover:text-brand-ink">
             {AGENCE.numero}
           </a>
-          <a
-            href="https://www.demenagements-bailly.com/"
-            target="_blank"
-            rel="noreferrer"
-            className={`mt-4 inline-block ${lien}`}
-          >
+          <a href="https://www.demenagements-bailly.com/" target="_blank" rel="noreferrer" className={`mt-4 inline-block ${lien}`}>
             demenagements-bailly.com
           </a>
         </div>
       </div>
 
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-6 text-[13px] text-white/50 lg:px-10">
+      <div className="border-t border-line">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-6 text-[13px] text-ink-soft lg:px-10">
           <span>© {annee} Bailly Déménagement · BD Moving Group</span>
           <span>Estimations indicatives, sans valeur de devis contractuel.</span>
         </div>
