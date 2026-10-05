@@ -69,21 +69,22 @@ function Fleche({ sombre = false }: { sombre?: boolean }) {
 
 /* ─────────────────────────── Héros ─────────────────────────── */
 
-/* Le halo d'un coin de page : la couleur de marque, très diluée. */
-const halo = (force: number) =>
-  ({ "--halo": `color-mix(in srgb, var(--color-brand) ${force}%, transparent)` }) as CSSProperties;
 
 /**
- * Le héros est clair, sans photo. La photo d'intérieur est sombre par nature :
- * en fond de page elle donnait un air de mode nuit, et encadrée derrière les
- * cartes elle en dépassait. Il reste le titre, et les deux portes d'entrée.
+ * Le héros : une photo d'intérieur lumineuse en fond, le titre à gauche, les
+ * deux portes d'entrée à droite. La première photo était un intérieur de nuit
+ * sous un voile noir — toute la page semblait en mode sombre. Celle-ci est
+ * claire, et son voile aussi (photo : Unsplash, licence libre).
  */
 function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
     <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-paper">
+      {/* La photo de fond, en haute définition : un intérieur baigné de lumière.
+          Un voile clair — jamais noir — la retient du côté du texte et la
+          laisse entière du côté des cartes ; en bas, elle se fond dans la page. */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="halo absolute -right-40 -top-48 h-[720px] w-[720px]" style={halo(34)} />
-        <div className="halo absolute -left-56 bottom-[-260px] h-[620px] w-[620px]" style={halo(18)} />
+        <Image src="/marque/hero.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover object-center" />
+        <div className="hero-voile absolute inset-0" />
       </div>
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1200px] flex-1 items-center gap-12 px-6 pb-12 pt-[112px] lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:gap-14 lg:px-10 lg:pb-14">
@@ -99,7 +100,7 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             Votre déménagement, <span className="gradient-text">chiffré tout de suite</span>
           </h1>
 
-          <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-soft sm:text-[18px]" style={delay(260)}>
+          <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-mid sm:text-[18px]" style={delay(260)}>
             Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
             tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
             au centime près.

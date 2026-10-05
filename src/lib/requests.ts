@@ -42,11 +42,16 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// Crée une demande. Chemin unique pour le formulaire ET pour n8n (mail).
+/**
+ * Crée une demande. Chemin unique pour le formulaire ET pour n8n (mail).
+ *
+ * Rend la demande dès qu'elle est enregistrée, et `suite` : le chiffrage, le
+ * devis et les messages, à lancer une fois la réponse envoyée.
+ */
 export async function createRequest(
   input: CreateRequestInput,
   source: RequestSource,
-): Promise<RequestRow> {
+): Promise<{ demande: RequestRow; suite: () => Promise<void> }> {
   const supabase = createServiceClient();
   const { volume_m3, volume_method, items, photos } = resolveVolume(input.volume);
 
@@ -111,36 +116,34 @@ export async function createRequest(
   }
   const created = request as RequestRow;
 
-  if (items.length > 0) {
-    const { error: itemsError } = await supabase.from("request_items").insert(
-      items.map((it) => ({
-        request_id: created.id,
-        label: it.label,
-        quantite: it.quantite,
-        volume_unitaire_m3: it.volume_unitaire_m3,
-      })),
-    );
-    if (itemsError) throw new Error(`Insertion des items échouée : ${itemsError.message}`);
-  }
-
-  if (photos.length > 0) {
-    const { error: photosError } = await supabase.from("request_photos").insert(
-      photos.map((p) => ({
-        request_id: created.id,
-        storage_path: p.storage_path,
-        piece: p.piece,
-        ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 },
-        volume_m3: p.volume_m3,
-      })),
-    );
-    if (photosError) throw new Error(`Insertion des photos échouée : ${photosError.message}`);
-  }
-
-  await supabase.from("request_events").insert({
-    request_id: created.id,
-    type: "created",
-    payload: { source },
-  });
+  // Les meubles, les photos et la trace de création ne dépendent pas les uns
+  // des autres : ils s'écrivent ensemble, pas l'un après l'autre.
+  const [meubles, cliches] = await Promise.all([
+    items.length > 0
+      ? supabase.from("request_items").insert(
+          items.map((it) => ({
+            request_id: created.id,
+            label: it.label,
+            quantite: it.quantite,
+            volume_unitaire_m3: it.volume_unitaire_m3,
+          })),
+        )
+      : null,
+    photos.length > 0
+      ? supabase.from("request_photos").insert(
+          photos.map((p) => ({
+            request_id: created.id,
+            storage_path: p.storage_path,
+            piece: p.piece,
+            ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 },
+            volume_m3: p.volume_m3,
+          })),
+        )
+      : null,
+    supabase.from("request_events").insert({ request_id: created.id, type: "created", payload: { source } }),
+  ]);
+  if (meubles?.error) throw new Error(`Insertion des items échouée : ${meubles.error.message}`);
+  if (cliches?.error) throw new Error(`Insertion des photos échouée : ${cliches.error.message}`);
 
   // Complétude : mêmes règles que pour les mails entrants.
   const manque_volume = created.volume_m3 == null;
@@ -162,43 +165,52 @@ export async function createRequest(
     await supabase.from("request_events").insert({ request_id: created.id, type: "incomplete", payload: { manque } });
   }
 
-  const settings = await getSettings();
-  const base = (settings.base_url || "").replace(/\/$/, "");
-  const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
+  /*
+   * La suite : le chiffrage, le devis, les messages. Rien de tout cela n'est
+   * nécessaire pour répondre au client — sa demande est enregistrée. Tant que
+   * la réponse attendait la fin des mails et du PDF, le bouton « Envoyer »
+   * restait figé de longues secondes. L'appelant lance donc la suite une fois
+   * la réponse partie.
+   */
+  const suite = async () => {
+    const settings = await getSettings();
+    const base = (settings.base_url || "").replace(/\/$/, "");
+    const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
 
-  const ctx = {
-    request_id: created.id,
-    source: created.source,
-    client_nom: created.client_nom,
-    client_email: created.client_email,
-    client_tel: created.client_tel,
-    ...contexteDemande(created),
-    lien_completion: lien,
-    manque_volume,
-    manque_depart,
-    manque_arrivee,
+    const ctx = {
+      request_id: created.id,
+      source: created.source,
+      client_nom: created.client_nom,
+      client_email: created.client_email,
+      client_tel: created.client_tel,
+      ...contexteDemande(created),
+      lien_completion: lien,
+      manque_volume,
+      manque_depart,
+      manque_arrivee,
+    };
+
+    if (incomplet) {
+      await fireEvent("demande_recue", ctx);
+      await fireEvent("demande_incomplete", ctx);
+    } else {
+      // Demande complète → qualification (devis + analyse notée), AVANT les
+      // messages. L'accusé de réception partait jusqu'ici sans l'estimation,
+      // qui n'existait pas encore : le client recevait trois phrases, et jamais
+      // son prix. Une qualification qui échoue n'empêche pas le message de partir.
+      let echec: unknown = null;
+      try {
+        await qualifyRequest(created.id);
+      } catch (e) {
+        echec = e;
+      }
+      await fireEvent("demande_recue", ctx);
+      await fireEvent("demande_complete", ctx);
+        if (echec) throw echec;
+    }
   };
 
-  if (incomplet) {
-    await fireEvent("demande_recue", ctx);
-    await fireEvent("demande_incomplete", ctx);
-  } else {
-    // Demande complète → qualification (devis + analyse notée), AVANT les
-    // messages. L'accusé de réception partait jusqu'ici sans l'estimation,
-    // qui n'existait pas encore : le client recevait trois phrases, et jamais
-    // son prix. Une qualification qui échoue n'empêche pas le message de partir.
-    let echec: unknown = null;
-    try {
-      await qualifyRequest(created.id);
-    } catch (e) {
-      echec = e;
-    }
-    await fireEvent("demande_recue", ctx);
-    await fireEvent("demande_complete", ctx);
-    if (echec) throw echec;
-  }
-
-  return created;
+  return { demande: created, suite };
 }
 
 import type { RequestPhotoRow, RequestItemRow, RequestEventRow, DevisRow } from "@/lib/types";

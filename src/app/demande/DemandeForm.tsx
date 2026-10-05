@@ -25,7 +25,7 @@ import ChoixFormule, {
 } from "./Formules";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
-import { InstantResult, Comparateur } from "./QuoteTools";
+import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { ListeMeubles, MODES_VOLUME, SaisieVolume, volumeDe, type ListItem, type VolumeMode } from "./volume";
@@ -379,6 +379,8 @@ function ExpressForm({
   const theme = espace ? themeEspace(espace.couleur) : undefined;
   const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
   const montreVolume = espace?.afficher_volume ?? true;
+  // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
+  const affichePrix = espace ? espace.afficher_estimation : instant;
   const [compare, setCompare] = useState(false);
   const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState(EXPRESS_VIDE);
@@ -406,12 +408,15 @@ function ExpressForm({
   }, [cleTrajet, departCoord, arriveeCoord]);
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
 
-  // Le raccourci de démonstration, déclenché par ?demo=1. Différé d'un tour :
-  // le premier rendu doit être le même côté serveur et côté navigateur.
+  /** Le raccourci de démonstration : tout le formulaire, rempli d'un exemple. */
+  const remplir = () =>
+    setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", dateMode: "date", date: "2026-11-15", periode: "", volMode: "explicit", explicitVolume: "30" }));
+
+  // Le même raccourci, déclenché par ?demo=1. Différé d'un tour : le premier
+  // rendu doit être le même côté serveur et côté navigateur.
   useEffect(() => {
     const id = setTimeout(() => {
-      if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
-      setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", date: "2026-11-15", volMode: "explicit", explicitVolume: "30" }));
+      if (new URLSearchParams(window.location.search).get("demo") === "1") remplir();
     }, 0);
     return () => clearTimeout(id);
   }, []);
@@ -440,6 +445,7 @@ function ExpressForm({
   async function submit() {
     setSubmitting(true);
     setError(null);
+    const pause = new Promise((r) => setTimeout(r, affichePrix ? 0 : 900));
     try {
       const volumePayload = f.volMode === "explicit"
         ? { method: "explicit" as const, volume_m3: parseFloat(f.explicitVolume) }
@@ -461,18 +467,22 @@ function ExpressForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+      await pause; // sans prix à calculer, l'écran d'envoi reste le temps d'être vu
       setDone(data.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally { setSubmitting(false); }
   }
 
-  if (done) {
-    // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
-    return (espace ? espace.afficher_estimation : instant) ? (
+  // L'écran change dès le clic sur « Envoyer » : on n'attend pas la réponse du
+  // serveur sur un bouton figé. Si l'envoi échoue, on revient au formulaire.
+  if (done || submitting) {
+    return affichePrix ? (
       <InstantResult requestId={done} volume={volume} count={doneCount} theme={theme} marque={marque}
         onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); }}
       />
+    ) : !done ? (
+      <Envoi theme={theme} marque={marque} />
     ) : (
       <SuccessScreen
         id={done}
@@ -516,6 +526,7 @@ function ExpressForm({
         onBack={onBack}
         marque={marque}
         theme={theme}
+        onRemplir={remplir}
         barre={
           <>
             <div className="min-w-0 flex-1">
@@ -649,6 +660,8 @@ function CompleteForm({
   const theme = espace ? themeEspace(espace.couleur) : undefined;
   const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
   const montreVolume = espace?.afficher_volume ?? true;
+  // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
+  const affichePrix = espace ? espace.afficher_estimation : instant;
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
@@ -687,8 +700,14 @@ function CompleteForm({
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
 
-  // Le raccourci de démonstration, déclenché par ?demo=1. Différé d'un tour :
-  // le premier rendu doit être le même côté serveur et côté navigateur.
+  /** Le raccourci de démonstration : tout rempli d'un exemple, et droit à la relecture. */
+  const remplir = () => {
+    setForm(DEMO);
+    setStep(etapes.length - 1);
+  };
+
+  // Le même raccourci, déclenché par ?demo=1. Différé d'un tour : le premier
+  // rendu doit être le même côté serveur et côté navigateur.
   useEffect(() => {
     const id = setTimeout(() => {
       if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
@@ -710,24 +729,29 @@ function CompleteForm({
   async function submit() {
     setSubmitting(true);
     setError(null);
+    const pause = new Promise((r) => setTimeout(r, affichePrix ? 0 : 900));
     try {
       const res = await fetch("/api/requests", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug, espace_code: espace?.code }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+      await pause; // sans prix à calculer, l'écran d'envoi reste le temps d'être vu
       setDone(data.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally { setSubmitting(false); }
   }
 
-  if (done) {
-    // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
-    return (espace ? espace.afficher_estimation : instant) ? (
+  // L'écran change dès le clic sur « Envoyer » : on n'attend pas la réponse du
+  // serveur sur un bouton figé. Si l'envoi échoue, on revient au formulaire.
+  if (done || submitting) {
+    return affichePrix ? (
       <InstantResult requestId={done} volume={totalVolume} count={doneCount} theme={theme} marque={marque}
         onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setTrajet(null); }}
       />
+    ) : !done ? (
+      <Envoi theme={theme} marque={marque} />
     ) : (
       <SuccessScreen
         id={done}
@@ -784,6 +808,7 @@ function CompleteForm({
         large={etape.cle === "prestations"}
         marque={marque}
         theme={theme}
+        onRemplir={remplir}
         barre={
           <>
             <button

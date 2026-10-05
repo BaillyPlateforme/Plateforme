@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import TrajetMap from "@/components/TrajetMap";
 import { Enseigne, halo, type Marque } from "./cadre";
 import { Icone } from "./ui";
@@ -22,7 +22,8 @@ export function InstantResult({
   theme,
   marque,
 }: {
-  requestId: string;
+  /** L'identifiant de la demande — ou rien tant que le serveur n'a pas répondu. */
+  requestId: string | null;
   volume: number | null;
   count?: number;
   onNewQuote?: () => void;
@@ -30,48 +31,69 @@ export function InstantResult({
   theme?: CSSProperties;
   marque?: Marque | null;
 }) {
-  const DURATION = 7000; // génération visible mais rapide
+  /*
+   * L'écran s'affiche dès le clic sur « Envoyer », avant même la réponse du
+   * serveur, et dure ce que dure le chiffrage — une à deux secondes. Sa
+   * première version attendait la réponse sur un bouton figé, puis tournait
+   * sept secondes quoi qu'il arrive.
+   */
+  const MINIMUM = 1500; // assez pour être lu, pas assez pour faire attendre
+  const PATIENCE = 12000; // au-delà, on affiche la confirmation sans le montant
   const STEPS = [
     "Analyse de votre demande…",
     "Calcul du volume et de la distance…",
     "Application de nos tarifs…",
     "Préparation de votre estimation…",
   ];
-  const [progress, setProgress] = useState(2);
-  const [msg, setMsg] = useState(0);
+  const [progress, setProgress] = useState(4);
   const [ready, setReady] = useState(false);
   const [devis, setDevis] = useState<DevisData | null>(null);
+  /** Le devis est arrivé — ou on a cessé de l'attendre. */
+  const [fini, setFini] = useState(false);
+  const debut = useRef(0);
+  const msg = Math.min(STEPS.length - 1, Math.floor(progress / 25));
 
+  // La jauge avance seule, de plus en plus lentement, sans jamais atteindre le
+  // bout : c'est l'arrivée du devis qui la termine.
   useEffect(() => {
-    // Récupère le devis généré (avec quelques tentatives si la qualification finit à peine).
+    debut.current = Date.now();
+    const iv = setInterval(() => {
+      const t = (Date.now() - debut.current) / 1000;
+      setProgress((p) => Math.max(p, Math.round(92 * (1 - Math.exp(-t / 1.8)))));
+    }, 120);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Le devis, demandé dès que la demande est enregistrée, puis toutes les
+  // demi-secondes : le chiffrage se fait juste après la réponse du serveur.
+  useEffect(() => {
+    if (!requestId) return;
     let cancelled = false;
     (async () => {
-      for (let i = 0; i < 6 && !cancelled; i++) {
+      const depart = Date.now();
+      while (!cancelled && Date.now() - depart < PATIENCE) {
         try {
           const r = await fetch(`/api/requests/${requestId}/devis`);
-          if (r.ok) { const d = await r.json(); if (!cancelled) setDevis(d); break; }
-        } catch { /* retry */ }
-        await new Promise((res) => setTimeout(res, 1500));
+          if (r.ok) {
+            const d = await r.json();
+            if (!cancelled) setDevis(d);
+            break;
+          }
+        } catch { /* nouvelle tentative */ }
+        await new Promise((res) => setTimeout(res, 500));
       }
+      if (!cancelled) setFini(true);
     })();
     return () => { cancelled = true; };
   }, [requestId]);
 
   useEffect(() => {
-    const start = Date.now();
-    const iv = setInterval(() => {
-      const t = Math.min(1, (Date.now() - start) / DURATION);
-      setProgress(Math.min(98, Math.round(t * 98)));
-      setMsg(Math.min(STEPS.length - 1, Math.floor(t * STEPS.length)));
-    }, 250);
-    const done = setTimeout(() => {
-      clearInterval(iv);
-      setProgress(100);
-      setTimeout(() => setReady(true), 500);
-    }, DURATION);
-    return () => { clearInterval(iv); clearTimeout(done); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!fini) return;
+    const reste = Math.max(0, MINIMUM - (Date.now() - debut.current));
+    const plein = setTimeout(() => setProgress(100), reste);
+    const pret = setTimeout(() => setReady(true), reste + 420);
+    return () => { clearTimeout(plein); clearTimeout(pret); };
+  }, [fini]);
 
   if (!ready) {
     const tour = 2 * Math.PI * 52;
@@ -129,11 +151,14 @@ export function InstantResult({
               );
             })}
           </ul>
-          <p className="mt-8 text-[12.5px] text-ink-soft">Encore quelques secondes…</p>
+          <p className="mt-8 text-[12.5px] text-ink-soft">Un instant…</p>
         </div>
       </Scene>
     );
   }
+
+  // L'écran n'est « prêt » qu'une fois la demande enregistrée : elle a son identifiant.
+  if (!requestId) return null;
 
   // Plusieurs demandes (via le comparateur) : confirmation sans détailler chaque prix.
   if (count > 1) {
@@ -417,6 +442,33 @@ function Scene({
       </div>
       <div className="relative z-10 flex w-full justify-center">{children}</div>
     </div>
+  );
+}
+
+/**
+ * L'envoi en cours, quand aucun prix n'est attendu au bout. L'écran change dès
+ * le clic : un bouton qui passe à « Envoi… » et ne bouge plus laisse croire
+ * que rien ne se passe.
+ */
+export function Envoi({ theme, marque }: { theme?: CSSProperties; marque?: Marque | null }) {
+  return (
+    <Scene theme={theme} marque={marque}>
+      <div className="w-full max-w-md text-center" role="status" aria-live="polite">
+        <div className="relative mx-auto h-28 w-28">
+          <svg viewBox="0 0 120 120" className="h-full w-full animate-spin [animation-duration:1.3s]" aria-hidden>
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-line-strong)" strokeWidth="6" />
+            <circle cx="60" cy="60" r="52" fill="none" stroke="var(--color-brand)" strokeWidth="6" strokeLinecap="round" strokeDasharray="92 327" />
+          </svg>
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-soft text-brand-ink">
+              <Icone nom="mail" taille={24} />
+            </span>
+          </span>
+        </div>
+        <h1 className="font-serif mt-8 text-balance text-[30px] sm:text-[36px]">Envoi de votre demande…</h1>
+        <p className="mt-3 text-[14.5px] text-ink-soft">Nous la transmettons à nos équipes.</p>
+      </div>
+    </Scene>
   );
 }
 

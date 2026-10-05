@@ -536,6 +536,15 @@ h2.font-serif {
     0 28px 52px -40px rgba(27, 26, 24, 0.4);
 }
 
+/* La carte dont un champ a la main passe devant ses voisines. La liste des
+   villes déborde de sa carte ; or chaque carte garde, de son animation
+   d'entrée, son propre plan d'empilement, et la carte suivante — venue après
+   dans la page — recouvrait la liste. */
+.bloc:focus-within {
+  position: relative;
+  z-index: 20;
+}
+
 /* Le dégradé des titres part du noir : de nuit, il partirait du fond. */
 :root[data-theme="dark"] .gradient-text {
   background: linear-gradient(95deg, #f3f1ec 0%, #f0cd4a 50%, #f5d033 100%);
@@ -613,4 +622,27 @@ h2.font-serif {
    porte l'étiquette data-volume disparaît dans ce cadre. */
 .sans-volume [data-volume] {
   display: none !important;
+}
+
+/* Le voile du héros : la couleur de la page, presque opaque sous le texte,
+   absente sous les cartes — la photo y reste nette. En haut il dégage
+   l'en-tête, en bas la photo se fond dans la page. Sur téléphone le texte
+   occupe toute la largeur : le voile aussi. */
+.hero-voile {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-paper) 82%, transparent) 0%, transparent 20%, transparent 58%, var(--color-paper) 96%),
+    color-mix(in srgb, var(--color-paper) 86%, transparent);
+}
+@media (min-width: 1024px) {
+  .hero-voile {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--color-paper) 66%, transparent) 0%, transparent 15%, transparent 66%, var(--color-paper) 98%),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-paper) 94%, transparent) 0%,
+        color-mix(in srgb, var(--color-paper) 90%, transparent) 36%,
+        color-mix(in srgb, var(--color-paper) 42%, transparent) 54%,
+        transparent 70%
+      );
+  }
 }

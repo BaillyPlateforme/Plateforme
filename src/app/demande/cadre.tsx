@@ -156,6 +156,7 @@ export function Cadre({
   children,
   marque,
   theme,
+  onRemplir,
 }: {
   panneau: ReactNode;
   /** Où l'on en est, pour le bandeau du téléphone. */
@@ -171,6 +172,8 @@ export function Cadre({
   marque?: Marque | null;
   /** Les jetons de marque redéfinis par un espace pro. */
   theme?: CSSProperties;
+  /** Remplir le formulaire avec un exemple : le raccourci de démonstration. */
+  onRemplir?: () => void;
 }) {
   const largeur = large ? "max-w-[1060px]" : "max-w-[860px]";
   return (
@@ -212,11 +215,26 @@ export function Cadre({
                 Accueil
               </Link>
             )}
-            <a href={AGENCE.lien} className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft transition hover:text-ink">
-              <Icone nom="tel" taille={14} />
-              <span className="hidden sm:inline">Besoin d&apos;aide ?</span>
-              <span className="font-semibold text-ink">{AGENCE.numero}</span>
-            </a>
+            <div className="flex items-center gap-2.5">
+              {/* Le raccourci de démonstration : un éclair sans libellé, à peine
+                  visible, pour qui présente l'outil sans tout saisir. */}
+              {onRemplir && (
+                <button
+                  type="button"
+                  onClick={onRemplir}
+                  title="Remplir avec un exemple"
+                  aria-label="Remplir avec un exemple"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink-soft opacity-40 transition hover:bg-card hover:text-ink hover:opacity-100 active:scale-90"
+                >
+                  <Icone nom="eclair" taille={13} />
+                </button>
+              )}
+              <a href={AGENCE.lien} className="inline-flex items-center gap-2 text-[12.5px] text-ink-soft transition hover:text-ink">
+                <Icone nom="tel" taille={14} />
+                <span className="hidden sm:inline">Besoin d&apos;aide ?</span>
+                <span className="font-semibold text-ink">{AGENCE.numero}</span>
+              </a>
+            </div>
           </div>
           {children}
         </div>

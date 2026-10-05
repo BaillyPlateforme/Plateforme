@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createRequestSchema } from "@/lib/schemas";
 import { createRequest } from "@/lib/requests";
 import type { RequestSource } from "@/lib/types";
@@ -26,8 +26,14 @@ export async function POST(req: Request) {
     req.headers.get("x-request-source") === "email" ? "email" : "form";
 
   try {
-    const request = await createRequest(parsed.data, source);
-    return NextResponse.json({ id: request.id, status: request.status }, { status: 201 });
+    const { demande, suite } = await createRequest(parsed.data, source);
+    // Le chiffrage, le devis et les messages partent après la réponse : le
+    // client n'attend que l'enregistrement de sa demande. L'écran de résultat
+    // vient chercher l'estimation dès qu'elle est prête.
+    after(() =>
+      suite().catch((e) => console.error(`[demande ${demande.id}] suite en échec :`, e instanceof Error ? e.message : e)),
+    );
+    return NextResponse.json({ id: demande.id, status: demande.status }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });
