@@ -367,6 +367,12 @@ export default function EspacesBoard({
                   <a href={cheminEspace(brouillon)} target="_blank" rel="noreferrer" className="font-medium text-brand-ink transition hover:text-ink">
                     Ouvrir ↗
                   </a>
+                  {/* L'espace RH de cette entreprise, tel que ses RH le voient. */}
+                  {brouillon.slug !== "standard" && (
+                    <a href={`/rh?apercu=${encodeURIComponent(brouillon.id)}`} target="_blank" rel="noreferrer" className="font-medium text-brand-ink transition hover:text-ink">
+                      Espace RH ↗
+                    </a>
+                  )}
                   <button
                     onClick={renouveler}
                     disabled={enCours}
