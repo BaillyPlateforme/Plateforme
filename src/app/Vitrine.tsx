@@ -74,10 +74,9 @@ const halo = (force: number) =>
   ({ "--halo": `color-mix(in srgb, var(--color-brand) ${force}%, transparent)` }) as CSSProperties;
 
 /**
- * Le héros est clair. La photo d'intérieur, sombre par nature, n'en est plus
- * le fond : elle devient une image, encadrée derrière les deux cartes. Posée
- * en plein écran sous un voile noir, elle donnait à toute la page un air de
- * mode sombre.
+ * Le héros est clair, sans photo. La photo d'intérieur est sombre par nature :
+ * en fond de page elle donnait un air de mode nuit, et encadrée derrière les
+ * cartes elle en dépassait. Il reste le titre, et les deux portes d'entrée.
  */
 function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
@@ -118,17 +117,11 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
           </ul>
         </div>
 
-        {/* Les deux parcours de devis, posés sur la photo encadrée. */}
+        {/* Les deux parcours de devis, l'un sous l'autre, sur le fond clair de la
+            page. Rien derrière : la photo d'intérieur, sombre, dépassait des
+            cartes et salissait toute la composition. */}
         <div className="relative">
-          <div
-            aria-hidden
-            className="reveal absolute -bottom-7 -right-5 -top-9 left-10 overflow-hidden rounded-[36px] shadow-[0_40px_80px_-40px_rgba(27,26,24,0.55)] sm:left-16"
-            style={delay(240)}
-          >
-            <Image src="/login-interieur.jpg" alt="" fill priority sizes="(min-width: 1024px) 560px, 100vw" className="ken-burns object-cover" />
-          </div>
-
-          <div className="relative space-y-4 py-2 pr-6 sm:pr-12">
+          <div className="relative space-y-4">
             <Porte
               onClick={() => onChoisir("express")}
               d={380}
@@ -199,7 +192,7 @@ function Porte({
     <button
       type="button"
       onClick={onClick}
-      className={`reveal group relative block w-full rounded-[26px] p-6 text-left shadow-[0_30px_60px_-34px_rgba(27,26,24,0.6)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_40px_70px_-34px_rgba(27,26,24,0.7)] active:translate-y-0 sm:p-7 ${
+      className={`reveal group relative block w-full rounded-[26px] p-6 text-left shadow-[0_24px_50px_-32px_rgba(27,26,24,0.4)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_34px_60px_-32px_rgba(27,26,24,0.5)] active:translate-y-0 sm:p-8 ${
         accent ? "bg-brand text-sur-brand" : "border border-line bg-card text-ink"
       }`}
       style={delay(d)}

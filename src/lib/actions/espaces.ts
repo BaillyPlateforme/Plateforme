@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import {
   enregistrerEspace,
   enregistrerLogo,
+  enregistrerRegles,
+  renouvelerLien,
   retirerLogo,
   supprimerEspace,
 } from "@/lib/espaces-pro";
-import type { EspacePro } from "@/lib/espaces";
+import type { EspacePro, Regles } from "@/lib/espaces";
 import { getUser } from "@/lib/supabase/auth";
 
 type Reponse = { ok: true; espace: EspacePro } | { ok: false; erreur: string };
@@ -34,6 +36,20 @@ export async function sauverEspace(entree: Partial<EspacePro>): Promise<Reponse>
   }
 }
 
+/** Les règles générales des grands comptes : elles valent pour tous ceux qui les suivent. */
+export async function sauverRegles(
+  entree: Partial<Regles>,
+): Promise<{ ok: true; regles: Regles } | { ok: false; erreur: string }> {
+  try {
+    await exigerEquipe();
+    const regles = await enregistrerRegles(entree);
+    revalidatePath("/dashboard/espaces-pro");
+    return { ok: true, regles };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : "Erreur inconnue" };
+  }
+}
+
 export async function effacerEspace(id: string): Promise<{ ok: boolean; erreur?: string }> {
   try {
     await exigerEquipe();
@@ -42,6 +58,18 @@ export async function effacerEspace(id: string): Promise<{ ok: boolean; erreur?:
     return { ok: true };
   } catch (e) {
     return { ok: false, erreur: e instanceof Error ? e.message : "Erreur inconnue" };
+  }
+}
+
+/** Un nouveau lien pour l'espace : l'ancien cesse de fonctionner. */
+export async function nouveauLien(id: string): Promise<Reponse> {
+  try {
+    await exigerEquipe();
+    const espace = await renouvelerLien(id);
+    revalidatePath("/dashboard/espaces-pro");
+    return { ok: true, espace };
+  } catch (e) {
+    return echec(e);
   }
 }
 

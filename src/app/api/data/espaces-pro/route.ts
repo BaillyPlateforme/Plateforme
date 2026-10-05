@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-import { compterDemandesParEspace, listEspaces } from "@/lib/espaces-pro";
+import { compterDemandesParEspace, lireRegles, listEspaces } from "@/lib/espaces-pro";
 import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const [espaces, demandes, settings] = await Promise.all([
+    const [espaces, regles, demandes, settings] = await Promise.all([
       listEspaces(),
+      lireRegles(),
       compterDemandesParEspace().catch(() => ({}) as Record<string, number>),
       getSettings(),
     ]);
     return NextResponse.json({
       espaces,
+      // Les règles générales des grands comptes : l'écran les applique lui-même aux espaces qui les suivent.
+      regles,
       demandes,
       // L'adresse publique du site, pour composer le lien à transmettre.
       base: (settings.base_url || "").replace(/\/$/, ""),

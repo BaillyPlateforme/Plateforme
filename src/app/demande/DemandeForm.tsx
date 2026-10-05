@@ -456,7 +456,7 @@ function ExpressForm({
           volume: volumePayload,
           type_client: "particulier",
           details: { express: true } as unknown as Record<string, unknown>,
-          espace: espace?.slug,
+          espace: espace?.slug, espace_code: espace?.code,
         }),
       });
       const data = await res.json();
@@ -712,7 +712,7 @@ function CompleteForm({
     setError(null);
     try {
       const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug, espace_code: espace?.code }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");

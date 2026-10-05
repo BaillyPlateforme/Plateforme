@@ -109,6 +109,8 @@ export const createRequestSchema = z.object({
   /* Le lien de l'espace pro d'où vient la demande. Ce n'est qu'un nom : ses
      réglages — la cote sur le volume surtout — sont relus côté serveur. */
   espace: z.string().max(80).optional(),
+  /* Le code du lien : sans lui, le nom seul ne rattache la demande à aucun espace. */
+  espace_code: z.string().max(40).optional(),
 });
 
 export type CreateRequestInput = z.infer<typeof createRequestSchema>;

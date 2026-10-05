@@ -1,13 +1,15 @@
-import { getEspace, lireLogo } from "@/lib/espaces-pro";
+import { getEspaceParCode, lireLogo } from "@/lib/espaces-pro";
 
 export const runtime = "nodejs";
 
-// GET /api/espaces/[slug]/logo — le logo d'un espace pro.
+// GET /api/espaces/[code]/logo — le logo d'un espace pro.
 // Public : la page de l'espace l'affiche, et les e-mails le chargent par cette
 // adresse (une boîte mail ne lit pas une image embarquée dans le message).
-export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const espace = await getEspace(slug).catch(() => null);
+// L'adresse porte le code du lien, pas le nom de l'entreprise : on ne peut pas
+// savoir qui a un espace en essayant des noms.
+export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
+  const { code } = await params;
+  const espace = await getEspaceParCode(code).catch(() => null);
   const logo = espace ? await lireLogo(espace) : null;
   if (!logo) return new Response("Logo introuvable", { status: 404 });
 

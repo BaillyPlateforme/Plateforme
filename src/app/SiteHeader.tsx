@@ -81,9 +81,11 @@ export default function SiteHeader({
           </button>
 
           {/* L'accès de l'équipe : une clé sans libellé, à peine visible, qui
-              ne s'adresse qu'à ceux qui savent déjà qu'elle est là. */}
+              ne s'adresse qu'à ceux qui savent déjà qu'elle est là. Elle mène
+              droit à l'espace équipe : la connexion ne s'interpose que si la
+              session n'est pas ouverte. */}
           <Link
-            href="/login"
+            href="/dashboard"
             rel="nofollow"
             title="Espace équipe"
             aria-label="Espace équipe"

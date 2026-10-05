@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import DemandeForm, { parcoursDe } from "@/app/demande/DemandeForm";
 import { AGENCE, Enseigne, delai, halo } from "@/app/demande/cadre";
@@ -118,18 +117,10 @@ export default function EspaceAccueil({
           </ul>
         </div>
 
-        {/* Le parcours annoncé, posé sur la photo encadrée — comme sur la vitrine. */}
+        {/* Le parcours annoncé, sur le fond clair de la page — sans photo derrière. */}
         <div className="relative">
           <div
-            aria-hidden
-            className="reveal absolute -bottom-7 -right-5 -top-9 left-10 overflow-hidden rounded-[36px] shadow-[0_40px_80px_-40px_rgba(27,26,24,0.55)] sm:left-16"
-            style={delai(240)}
-          >
-            <Image src="/login-interieur.jpg" alt="" fill priority sizes="(min-width: 1024px) 560px, 100vw" className="ken-burns object-cover" />
-          </div>
-
-          <div
-            className="reveal relative my-2 mr-6 overflow-hidden rounded-[28px] border border-line bg-card shadow-[0_30px_60px_-34px_rgba(27,26,24,0.6)] sm:mr-12"
+            className="reveal relative overflow-hidden rounded-[28px] border border-line bg-card shadow-[0_24px_50px_-32px_rgba(27,26,24,0.4)]"
             style={delai(380)}
           >
             <div className="flex items-center justify-between gap-4 bg-brand px-6 py-5 text-sur-brand sm:px-7">

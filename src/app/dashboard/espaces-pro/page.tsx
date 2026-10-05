@@ -2,11 +2,12 @@
 
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
-import type { EspacePro } from "@/lib/espaces";
+import type { EspacePro, Regles } from "@/lib/espaces";
 import EspacesBoard from "./EspacesBoard";
 
 type Donnees = {
   espaces: EspacePro[];
+  regles: Regles;
   demandes: Record<string, number>;
   base: string;
   entreprise: { nom: string | null; email: string | null; tel: string | null };
@@ -24,6 +25,7 @@ export default function EspacesProPage() {
       ) : (
         <EspacesBoard
           espaces={donnees.espaces}
+          regles={donnees.regles}
           demandes={donnees.demandes}
           base={donnees.base}
           entreprise={donnees.entreprise}

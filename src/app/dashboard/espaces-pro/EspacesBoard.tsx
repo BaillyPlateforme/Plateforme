@@ -20,8 +20,15 @@ import {
   type EspacePro,
   type QuestionCle,
   nomEnseigne,
+  appliquerRegles,
+  cheminEspace,
+  espaceEffectif,
+  memeReglage,
+  CLES_REGLES,
+  type CleRegle,
+  type Regles,
 } from "@/lib/espaces";
-import { effacerEspace, enleverLogo, sauverEspace, televerserLogo } from "@/lib/actions/espaces";
+import { effacerEspace, enleverLogo, nouveauLien, sauverEspace, sauverRegles, televerserLogo } from "@/lib/actions/espaces";
 import { rendreEmail } from "@/lib/email-render";
 
 type Entreprise = { nom: string | null; email: string | null; tel: string | null };
@@ -61,11 +68,13 @@ L'équipe {{entreprise_nom}}`;
  */
 export default function EspacesBoard({
   espaces,
+  regles: reglesInitiales,
   demandes,
   base,
   entreprise,
 }: {
   espaces: EspacePro[];
+  regles: Regles;
   demandes: Record<string, number>;
   base: string;
   entreprise: Entreprise;
@@ -78,11 +87,29 @@ export default function EspacesBoard({
   const [enCours, lancer] = useTransition();
   const fichier = useRef<HTMLInputElement>(null);
 
+  // Les règles générales des grands comptes : celles qui sont enregistrées, et
+  // celles qu'on est en train de modifier.
+  const [regles, setRegles] = useState(reglesInitiales);
+  const [reglesBrouillon, setReglesBrouillon] = useState(reglesInitiales);
+  /** Ce que le panneau de droite montre : un espace, ou les règles générales. */
+  const [vue, setVue] = useState<"espace" | "regles">("espace");
+  const general = vue === "regles";
+
   const origine = typeof window !== "undefined" ? window.location.origin : "";
   const racine = base || origine;
   const nouveau = !liste.some((e) => e.id === brouillon.id);
   const enregistre = liste.find((e) => e.id === brouillon.id);
-  const modifie = nouveau || JSON.stringify(enregistre) !== JSON.stringify(brouillon);
+  const modifie = general
+    ? JSON.stringify(regles) !== JSON.stringify(reglesBrouillon)
+    : nouveau || JSON.stringify(enregistre) !== JSON.stringify(brouillon);
+
+  const grandsComptes = liste.filter((e) => e.grand_compte);
+  /**
+   * Les réglages à l'écran : les règles générales, ou ceux de l'espace tels
+   * qu'ils s'appliquent — un grand compte montre la règle générale partout où
+   * il n'a rien réglé lui-même.
+   */
+  const v: Regles = general ? reglesBrouillon : appliquerRegles(brouillon, regles);
 
   const visibles = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -94,18 +121,88 @@ export default function EspacesBoard({
     setEtat(null);
   };
 
+  /**
+   * Changer un réglage. Dans les règles générales, il change pour tous ceux
+   * qui les suivent. Dans un grand compte, le toucher suffit à le rendre
+   * propre à cet espace : il cesse de suivre la règle générale sur ce point.
+   */
+  const regler = (p: Partial<Regles>) => {
+    if (general) {
+      setReglesBrouillon((r) => ({ ...r, ...p }));
+      setEtat(null);
+      return;
+    }
+    const cles = Object.keys(p) as CleRegle[];
+    patch({ ...p, ...(brouillon.grand_compte ? { propres: CLES_REGLES.filter((c) => brouillon.propres.includes(c) || cles.includes(c)) } : {}) });
+  };
+  /** Rendre un réglage à la règle générale. */
+  const reprendre = (cle: CleRegle) => patch({ propres: brouillon.propres.filter((c) => c !== cle) });
+
+  /** D'où vient un réglage, dit à côté de lui — seulement dans un grand compte. */
+  const origineDe = (cle: CleRegle): ReactNode =>
+    general || !brouillon.grand_compte ? null : brouillon.propres.includes(cle) ? (
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px]">
+        <span className="rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand-ink">Propre à cet espace</span>
+        <button onClick={() => reprendre(cle)} className="font-medium text-ink-soft underline-offset-2 transition hover:text-ink hover:underline">
+          Revenir à la règle générale
+        </button>
+      </span>
+    ) : (
+      <span className="rounded-full bg-subtle px-2 py-0.5 text-[11.5px] font-medium text-ink-soft">Règle générale</span>
+    );
+
+  /**
+   * Grand compte ou espace indépendant. On ne change pas ce que l'espace fait
+   * en changeant son type : ce qui différait de la règle générale reste propre
+   * à l'espace, et un espace qui devient indépendant garde ce qu'il appliquait.
+   */
+  const changerType = (grand: boolean) => {
+    if (grand === brouillon.grand_compte) return;
+    if (grand) return patch({ grand_compte: true, propres: CLES_REGLES.filter((c) => !memeReglage(brouillon[c], regles[c])) });
+    const applique = appliquerRegles(brouillon, regles);
+    patch({ ...Object.fromEntries(CLES_REGLES.map((c) => [c, applique[c]])), grand_compte: false, propres: [] });
+  };
+
   function ouvrir(e: EspacePro) {
+    setVue("espace");
     setBrouillon(e);
     setEtat(null);
   }
 
+  function ouvrirRegles() {
+    setVue("regles");
+    if (onglet === "identite") setOnglet("parcours");
+    setEtat(null);
+  }
+
   function creer() {
-    setBrouillon({ ...espaceVide("Nouvel espace"), id: `nouveau-${Date.now()}`, slug: "nouvel-espace" });
+    setVue("espace");
+    // Un nouvel espace naît grand compte : il suit les règles générales tant qu'on ne règle rien.
+    setBrouillon({ ...espaceVide("Nouvel espace"), id: `nouveau-${Date.now()}`, slug: "nouvel-espace", grand_compte: true });
     setOnglet("identite");
     setEtat(null);
   }
 
+  function renouveler() {
+    if (!window.confirm(`Donner un nouveau lien à « ${brouillon.nom} » ? L'ancien cessera aussitôt de fonctionner : il faudra retransmettre le nouveau.`)) return;
+    lancer(async () => {
+      const r = await nouveauLien(brouillon.id);
+      if (!r.ok) return setEtat({ ton: "erreur", texte: r.erreur });
+      setListe((l) => l.map((e) => (e.id === r.espace.id ? r.espace : e)));
+      setBrouillon((b) => ({ ...b, code: r.espace.code, rotation: r.espace.rotation, updated_at: r.espace.updated_at }));
+      setEtat({ ton: "ok", texte: "Nouveau lien créé" });
+    });
+  }
+
   function enregistrer() {
+    if (general)
+      return lancer(async () => {
+        const r = await sauverRegles(reglesBrouillon);
+        if (!r.ok) return setEtat({ ton: "erreur", texte: r.erreur });
+        setRegles(r.regles);
+        setReglesBrouillon(r.regles);
+        setEtat({ ton: "ok", texte: `Enregistré — appliqué aux grands comptes` });
+      });
     lancer(async () => {
       const r = await sauverEspace(nouveau ? { ...brouillon, id: undefined } : brouillon);
       if (!r.ok) return setEtat({ ton: "erreur", texte: r.erreur });
@@ -152,7 +249,15 @@ export default function EspacesBoard({
     });
   }
 
-  const lien = `${racine}/pro/${brouillon.slug}`;
+  // Le lien n'existe qu'une fois l'espace enregistré : c'est le serveur qui en calcule le code.
+  const lien = brouillon.code ? `${racine}${cheminEspace(brouillon)}` : "";
+  const onglets = general ? ONGLETS.filter((o) => o.cle !== "identite") : ONGLETS;
+  /** L'espace que les aperçus habillent : celui qu'on règle, ou un grand compte en exemple. */
+  const exemple = general
+    ? grandsComptes[0]
+      ? espaceEffectif({ ...grandsComptes[0], propres: [] }, reglesBrouillon)
+      : null
+    : espaceEffectif(brouillon, regles);
 
   return (
     <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -174,13 +279,33 @@ export default function EspacesBoard({
           </button>
         </div>
 
+        <button
+          onClick={ouvrirRegles}
+          className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
+            general ? "border-ink bg-ink text-shell" : "border-line bg-card hover:border-line-strong"
+          }`}
+        >
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${general ? "bg-brand text-sur-brand" : "bg-ink text-shell"}`}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold">Règles générales</span>
+            <span className={`mt-0.5 block truncate text-xs ${general ? "opacity-70" : "text-ink-soft"}`}>
+              Grands comptes · {grandsComptes.length} espace{grandsComptes.length > 1 ? "s" : ""}
+            </span>
+          </span>
+        </button>
+
         <div className="space-y-1.5">
-          {nouveau && <LigneEspace espace={brouillon} actif n={0} brouillon onClick={() => {}} />}
+          {nouveau && !general && <LigneEspace espace={brouillon} regles={regles} actif n={0} brouillon onClick={() => {}} />}
           {visibles.map((e) => (
             <LigneEspace
               key={e.id}
               espace={e.id === brouillon.id ? brouillon : e}
-              actif={e.id === brouillon.id}
+              regles={regles}
+              actif={!general && e.id === brouillon.id}
               n={demandes[e.slug] ?? 0}
               onClick={() => ouvrir(e)}
             />
@@ -195,37 +320,69 @@ export default function EspacesBoard({
 
       {/* ── L'espace choisi ── */}
       <section className="min-w-0 rounded-[18px] bg-card">
-        <header className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 md:px-6">
-          <Vignette espace={brouillon} taille={46} />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[17px] font-semibold">{brouillon.nom || "Espace sans nom"}</div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-soft">
-              <span className="truncate font-mono">{lien.replace(/^https?:\/\//, "")}</span>
-              <button
-                onClick={() => {
-                  void navigator.clipboard?.writeText(lien);
-                  setEtat({ ton: "ok", texte: "Lien copié" });
-                }}
-                className="font-medium text-brand-ink transition hover:text-ink"
-              >
-                Copier
-              </button>
-              {!nouveau && (
-                <a href={`/pro/${brouillon.slug}`} target="_blank" rel="noreferrer" className="font-medium text-brand-ink transition hover:text-ink">
-                  Ouvrir ↗
-                </a>
+        {general ? (
+          <header className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 md:px-6">
+            <span className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-ink text-shell">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+              </svg>
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[17px] font-semibold">Règles générales des grands comptes</div>
+              <p className="mt-0.5 text-[12.5px] leading-snug text-ink-soft">
+                Un changement ici vaut pour les {grandsComptes.length} grands comptes — sauf pour un espace qui a réglé ce point
+                lui-même. Le logo, la couleur et le titre restent propres à chaque entreprise.
+              </p>
+            </div>
+          </header>
+        ) : (
+          <header className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 md:px-6">
+            <Vignette espace={brouillon} taille={46} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="truncate text-[17px] font-semibold">{brouillon.nom || "Espace sans nom"}</span>
+                <span className="shrink-0 rounded-full bg-subtle px-2 py-0.5 text-[11px] font-medium text-ink-soft">
+                  {brouillon.grand_compte ? "Grand compte" : "Indépendant"}
+                </span>
+              </div>
+              {lien ? (
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-soft">
+                  <span className="truncate font-mono">{lien.replace(/^https?:\/\//, "")}</span>
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(lien);
+                      setEtat({ ton: "ok", texte: "Lien copié" });
+                    }}
+                    className="font-medium text-brand-ink transition hover:text-ink"
+                  >
+                    Copier
+                  </button>
+                  <a href={cheminEspace(brouillon)} target="_blank" rel="noreferrer" className="font-medium text-brand-ink transition hover:text-ink">
+                    Ouvrir ↗
+                  </a>
+                  <button
+                    onClick={renouveler}
+                    disabled={enCours}
+                    title="Créer un nouveau lien : l'ancien cesse de fonctionner"
+                    className="font-medium text-ink-soft transition hover:text-ink"
+                  >
+                    Nouveau lien
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-0.5 text-[12.5px] text-ink-soft">Le lien, avec son code, sera créé à l&apos;enregistrement.</div>
               )}
             </div>
-          </div>
-          <Bascule
-            actif={brouillon.actif}
-            onChange={(actif) => patch({ actif })}
-            label={brouillon.actif ? "Actif" : "Inactif"}
-          />
-        </header>
+            <Bascule
+              actif={brouillon.actif}
+              onChange={(actif) => patch({ actif })}
+              label={brouillon.actif ? "Actif" : "Inactif"}
+            />
+          </header>
+        )}
 
         <nav className="flex gap-1 overflow-x-auto border-b border-line px-4 md:px-5">
-          {ONGLETS.map((o) => (
+          {onglets.map((o) => (
             <button
               key={o.cle}
               onClick={() => setOnglet(o.cle)}
@@ -240,8 +397,22 @@ export default function EspacesBoard({
 
         <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 space-y-6">
-            {onglet === "identite" && (
+            {onglet === "identite" && !general && (
               <>
+                <Champ
+                  label="Type d'espace"
+                  aide="Un grand compte suit les règles générales, sauf sur les points que vous réglez ici pour lui. Un espace indépendant ne dépend que de ses propres réglages."
+                >
+                  <Segments
+                    valeur={brouillon.grand_compte ? "grand" : "seul"}
+                    options={[
+                      ["grand", "Grand compte", "Suit les règles générales des grands comptes."],
+                      ["seul", "Espace indépendant", "Ses réglages ne valent que pour lui."],
+                    ]}
+                    onChange={(t) => changerType(t === "grand")}
+                  />
+                </Champ>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Champ label="Nom de l'entreprise">
                     <input
@@ -256,9 +427,12 @@ export default function EspacesBoard({
                       className={SAISIE}
                     />
                   </Champ>
-                  <Champ label="Lien" aide="Ce qui suit /pro/ dans l'adresse. Le changer casse l'ancien lien.">
+                  <Champ
+                    label="Nom dans le lien"
+                    aide="Le code qui le précède est attribué par le serveur : c'est lui qui ouvre l'espace. Sans le code, le nom seul ne mène nulle part."
+                  >
                     <div className="flex items-center rounded-xl border border-line bg-paper focus-within:border-accent">
-                      <span className="shrink-0 pl-3 text-sm text-ink-soft">/pro/</span>
+                      <span className="shrink-0 pl-3 font-mono text-sm text-ink-soft">/pro/{brouillon.code || "code"}/</span>
                       <input
                         value={brouillon.slug}
                         onChange={(e) => patch({ slug: slugifier(e.target.value) })}
@@ -360,23 +534,46 @@ export default function EspacesBoard({
               </>
             )}
 
+            {onglet !== "identite" && !general && brouillon.grand_compte && (
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line bg-paper px-4 py-3 text-[13px]">
+                <span className="min-w-0 flex-1 leading-snug text-ink-soft">
+                  <span className="font-semibold text-ink">
+                    {brouillon.propres.length === 0
+                      ? "Ce grand compte suit toutes les règles générales."
+                      : `Ce grand compte a ${brouillon.propres.length} réglage${brouillon.propres.length > 1 ? "s" : ""} propre${brouillon.propres.length > 1 ? "s" : ""}.`}
+                  </span>{" "}
+                  Modifiez un réglage ici : il ne vaudra que pour {brouillon.nom || "cet espace"}.
+                </span>
+                <span className="flex shrink-0 items-center gap-3">
+                  {brouillon.propres.length > 0 && (
+                    <button onClick={() => patch({ propres: [] })} className="font-medium text-ink-soft underline-offset-2 transition hover:text-ink hover:underline">
+                      Tout remettre aux règles générales
+                    </button>
+                  )}
+                  <button onClick={ouvrirRegles} className="font-semibold text-brand-ink transition hover:text-ink">
+                    Règles générales →
+                  </button>
+                </span>
+              </div>
+            )}
+
             {onglet === "parcours" && (
               <>
-                <Champ label="Formulaire proposé">
+                <Champ label="Formulaire proposé" marque={origineDe("parcours")}>
                   <Segments
-                    valeur={brouillon.parcours}
+                    valeur={v.parcours}
                     options={[
                       ["complet", "Devis complet", "Sept étapes : accès, prestations, inventaire."],
                       ["express", "Devis express", "Une page : contact, trajet, date, volume."],
                     ]}
-                    onChange={(v) => patch({ parcours: v as EspacePro["parcours"] })}
+                    onChange={(choix) => regler({ parcours: choix as EspacePro["parcours"] })}
                   />
                 </Champ>
 
-                <Champ label="Formule" aide="Quand l'entreprise prend en charge une formule précise, elle s'applique sans que le salarié ait à choisir.">
+                <Champ label="Formule" marque={origineDe("formule_imposee")} aide="Quand l'entreprise prend en charge une formule précise, elle s'applique sans que le salarié ait à choisir.">
                   <select
-                    value={brouillon.formule_imposee}
-                    onChange={(e) => patch({ formule_imposee: e.target.value as EspacePro["formule_imposee"] })}
+                    value={v.formule_imposee}
+                    onChange={(e) => regler({ formule_imposee: e.target.value as EspacePro["formule_imposee"] })}
                     className={`${SAISIE} sm:w-80`}
                   >
                     <option value="">Le client choisit sa formule</option>
@@ -387,9 +584,12 @@ export default function EspacesBoard({
                 </Champ>
 
                 <div>
-                  <div className="mb-1 text-sm font-medium">Questions posées</div>
+                  <div className="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="text-sm font-medium">Questions posées</span>
+                    {origineDe("questions_masquees")}
+                  </div>
                   <p className="mb-3 text-xs text-ink-soft">
-                    Décochez ce que cet espace ne demande pas. Une question retirée prend sa valeur par défaut.
+                    Décochez ce qui ne se demande pas. Une question retirée prend sa valeur par défaut.
                   </p>
                   <div className="space-y-4">
                     {[...new Set(QUESTIONS.map((q) => q.groupe))].map((groupe) => (
@@ -397,9 +597,9 @@ export default function EspacesBoard({
                         <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{groupe}</div>
                         <div className="grid gap-1.5 sm:grid-cols-2">
                           {QUESTIONS.filter((q) => q.groupe === groupe).map((q) => {
-                            const posee = !brouillon.questions_masquees.includes(q.cle);
+                            const posee = !v.questions_masquees.includes(q.cle);
                             // L'étape Prestations disparaît d'office quand la formule est imposée.
-                            const force = q.cle === "formules" && !!brouillon.formule_imposee;
+                            const force = q.cle === "formules" && !!v.formule_imposee;
                             return (
                               <label
                                 key={q.cle}
@@ -411,7 +611,7 @@ export default function EspacesBoard({
                                   type="checkbox"
                                   checked={posee && !force}
                                   disabled={force}
-                                  onChange={(e) => patch({ questions_masquees: basculer(brouillon.questions_masquees, q.cle, !e.target.checked) })}
+                                  onChange={(e) => regler({ questions_masquees: basculer(v.questions_masquees, q.cle, !e.target.checked) })}
                                   className="mt-0.5 accent-[var(--color-ink)]"
                                 />
                                 <span>
@@ -439,29 +639,32 @@ export default function EspacesBoard({
                   <Reglage
                     titre="Afficher le prix à la fin du parcours"
                     aide="Décoché, le client voit une confirmation, pas un montant. Le chiffrage est fait quand même : il reste dans l'espace équipe."
-                    actif={brouillon.afficher_estimation}
-                    onChange={(v) => patch({ afficher_estimation: v })}
+                    actif={v.afficher_estimation}
+                    marque={origineDe("afficher_estimation")}
+                    onChange={(oui) => regler({ afficher_estimation: oui })}
                   />
                   <Reglage
                     titre="Envoyer l'estimation au client par e-mail"
                     aide="Décoché, il reçoit un accusé de réception sans prix ni pièce jointe. Un devis envoyé à la main par l'équipe part toujours."
-                    actif={brouillon.envoyer_devis}
-                    onChange={(v) => patch({ envoyer_devis: v })}
+                    actif={v.envoyer_devis}
+                    marque={origineDe("envoyer_devis")}
+                    onChange={(oui) => regler({ envoyer_devis: oui })}
                   />
                   <Reglage
                     titre="Afficher le volume calculé"
                     aide="Décoché, le client liste ses meubles ou envoie ses photos sans voir le total en mètres cubes."
-                    actif={brouillon.afficher_volume}
-                    onChange={(v) => patch({ afficher_volume: v })}
+                    actif={v.afficher_volume}
+                    marque={origineDe("afficher_volume")}
+                    onChange={(oui) => regler({ afficher_volume: oui })}
                   />
                 </div>
 
-                {!brouillon.afficher_estimation && (
-                  <Champ label="Mot de la fin" aide="Ce que le client lit à la place du prix.">
+                {!v.afficher_estimation && (
+                  <Champ label="Mot de la fin" marque={origineDe("message_fin")} aide="Ce que le client lit à la place du prix.">
                     <textarea
-                      value={brouillon.message_fin}
-                      onChange={(e) => patch({ message_fin: e.target.value })}
-                      placeholder={messageFinDe({ ...brouillon, message_fin: "" })}
+                      value={v.message_fin}
+                      onChange={(e) => regler({ message_fin: e.target.value })}
+                      placeholder={messageFinDe({ nom: "", slug: "", message_fin: "" })}
                       rows={3}
                       className={`${SAISIE} resize-y leading-relaxed`}
                     />
@@ -475,22 +678,23 @@ export default function EspacesBoard({
                       <p className="mt-0.5 text-xs text-ink-soft">
                         Appliquée au chiffrage. Jamais montrée au client : ni à l&apos;écran, ni dans le mail, ni sur le devis.
                       </p>
+                      {origineDe("ajustement_volume") && <div className="mt-2">{origineDe("ajustement_volume")}</div>}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <button onClick={() => patch({ ajustement_volume: borner(brouillon.ajustement_volume - 5) })} className={PAS} aria-label="Moins 5 %">−</button>
+                      <button onClick={() => regler({ ajustement_volume: borner(v.ajustement_volume - 5) })} className={PAS} aria-label="Moins 5 %">−</button>
                       <div className="flex items-center rounded-xl border border-line bg-card px-2.5">
                         <input
                           type="number"
-                          value={brouillon.ajustement_volume}
+                          value={v.ajustement_volume}
                           min={AJUSTEMENT_MIN}
                           max={AJUSTEMENT_MAX}
-                          onChange={(e) => patch({ ajustement_volume: borner(Number(e.target.value) || 0) })}
+                          onChange={(e) => regler({ ajustement_volume: borner(Number(e.target.value) || 0) })}
                           className="w-14 bg-transparent py-2 text-right text-sm font-semibold tabular-nums outline-none"
                           aria-label="Cote sur le volume, en pour cent"
                         />
                         <span className="pl-1 text-sm text-ink-soft">%</span>
                       </div>
-                      <button onClick={() => patch({ ajustement_volume: borner(brouillon.ajustement_volume + 5) })} className={PAS} aria-label="Plus 5 %">+</button>
+                      <button onClick={() => regler({ ajustement_volume: borner(v.ajustement_volume + 5) })} className={PAS} aria-label="Plus 5 %">+</button>
                     </div>
                   </div>
                   <input
@@ -498,20 +702,20 @@ export default function EspacesBoard({
                     min={AJUSTEMENT_MIN}
                     max={AJUSTEMENT_MAX}
                     step={1}
-                    value={brouillon.ajustement_volume}
-                    onChange={(e) => patch({ ajustement_volume: Number(e.target.value) })}
+                    value={v.ajustement_volume}
+                    onChange={(e) => regler({ ajustement_volume: Number(e.target.value) })}
                     className="mt-4 w-full accent-[var(--color-ink)]"
                     aria-label="Cote sur le volume"
                   />
                   <p className="mt-3 text-[13px]">
-                    {brouillon.ajustement_volume === 0 ? (
+                    {v.ajustement_volume === 0 ? (
                       "Aucune correction : le chiffrage se fait sur le volume déclaré."
                     ) : (
                       <>
                         Un volume déclaré de <strong>30 m³</strong> est chiffré sur{" "}
-                        <strong>{volumeChiffre(30, brouillon.ajustement_volume).toLocaleString("fr-FR")} m³</strong>
-                        {brouillon.ajustement_volume > 0 ? " — une cote" : " — une décote"} de{" "}
-                        {Math.abs(brouillon.ajustement_volume)} %. Le client continue de lire 30 m³.
+                        <strong>{volumeChiffre(30, v.ajustement_volume).toLocaleString("fr-FR")} m³</strong>
+                        {v.ajustement_volume > 0 ? " — une cote" : " — une décote"} de{" "}
+                        {Math.abs(v.ajustement_volume)} %. Le client continue de lire 30 m³.
                       </>
                     )}
                   </p>
@@ -521,49 +725,85 @@ export default function EspacesBoard({
 
             {onglet === "mail" && (
               <>
-                <Champ label="Objet du mail" aide="Laissé vide, l'objet du modèle s'applique. Les variables fonctionnent : {{client_nom}}, {{reference}}…">
+                <Champ label="Objet du mail" marque={origineDe("mail_objet")} aide="Laissé vide, l'objet du modèle s'applique. Les variables fonctionnent : {{client_nom}}, {{reference}}… et {{espace_nom}}, le nom de l'entreprise.">
                   <input
-                    value={brouillon.mail_objet}
-                    onChange={(e) => patch({ mail_objet: e.target.value })}
+                    value={v.mail_objet}
+                    onChange={(e) => regler({ mail_objet: e.target.value })}
                     placeholder="{{titre_demande}} — {{entreprise_nom}}"
                     className={SAISIE}
                   />
                 </Champ>
-                <Champ label="Mot d'accueil du mail" aide="Ajouté juste après « Bonjour », avant le texte du modèle.">
+                <Champ label="Mot d'accueil du mail" marque={origineDe("mail_message")} aide="Ajouté juste après « Bonjour », avant le texte du modèle. {{espace_nom}} y devient le nom de l'entreprise.">
                   <textarea
-                    value={brouillon.mail_message}
-                    onChange={(e) => patch({ mail_message: e.target.value })}
-                    placeholder={`Vous déménagez dans le cadre de votre mobilité chez ${brouillon.slug === "standard" ? "votre employeur" : brouillon.nom || "votre employeur"} : Bailly Déménagement s'occupe de tout.`}
+                    value={v.mail_message}
+                    onChange={(e) => regler({ mail_message: e.target.value })}
+                    placeholder={`Vous déménagez dans le cadre de votre mobilité chez ${general || brouillon.grand_compte ? "{{espace_nom}}" : brouillon.slug === "standard" ? "votre employeur" : brouillon.nom || "votre employeur"} : Bailly Déménagement s'occupe de tout.`}
                     rows={3}
                     className={`${SAISIE} resize-y leading-relaxed`}
                   />
                 </Champ>
-                <Champ label="Mention sur le devis" aide="Une ligne ajoutée à l'encadré « Ce qu'il faut savoir » du PDF.">
+                <Champ label="Mention sur le devis" marque={origineDe("devis_mention")} aide="Une ligne ajoutée à l'encadré « Ce qu'il faut savoir » du PDF.">
                   <textarea
-                    value={brouillon.devis_mention}
-                    onChange={(e) => patch({ devis_mention: e.target.value })}
+                    value={v.devis_mention}
+                    onChange={(e) => regler({ devis_mention: e.target.value })}
                     placeholder="Prestation prise en charge dans le cadre de l'accord de mobilité."
                     rows={2}
                     className={`${SAISIE} resize-y leading-relaxed`}
                   />
                 </Champ>
-                <ApercuMail espace={brouillon} base={racine} entreprise={entreprise} />
+                {exemple && (
+                  <ApercuMail
+                    espace={exemple}
+                    base={racine}
+                    entreprise={entreprise}
+                    legende={general ? `Aperçu avec ${exemple.nom}, pris en exemple` : undefined}
+                  />
+                )}
               </>
             )}
           </div>
 
-          {/* ── Ce que voit le client ── */}
+          {/* ── Ce que voit le client — ou, pour les règles générales, qui elles concernent ── */}
           <div className="xl:sticky xl:top-4 xl:self-start">
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">Ce que voit le client</div>
-            <ApercuAccueil espace={brouillon} />
+            {general ? (
+              <>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">Espaces concernés</div>
+                <div className="overflow-hidden rounded-2xl border border-line">
+                  {grandsComptes.map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={() => ouvrir(e)}
+                      className="flex w-full items-center gap-3 border-b border-line bg-paper px-3.5 py-2.5 text-left transition last:border-0 hover:bg-card"
+                    >
+                      <Vignette espace={e} taille={28} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{e.nom}</span>
+                      <span className={`shrink-0 text-[11.5px] ${e.propres.length ? "font-semibold text-brand-ink" : "text-ink-soft"}`}>
+                        {e.propres.length ? `${e.propres.length} propre${e.propres.length > 1 ? "s" : ""}` : "suit tout"}
+                      </span>
+                    </button>
+                  ))}
+                  {grandsComptes.length === 0 && (
+                    <p className="bg-paper px-4 py-5 text-center text-sm text-ink-soft">Aucun espace n&apos;est un grand compte.</p>
+                  )}
+                </div>
+                <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">
+                  Ouvrez un espace pour régler un point rien que pour lui : il gardera ce réglage même si la règle générale change.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">Ce que voit le client</div>
+                <ApercuAccueil espace={brouillon} />
+              </>
+            )}
             <ul className="mt-3 space-y-1.5 text-[12.5px] text-ink-soft">
-              <li>{brouillon.parcours === "express" ? "Devis express, sur une page." : "Devis complet, en étapes."}</li>
-              <li>{brouillon.afficher_estimation ? "Le prix s'affiche à la fin." : "Le prix n'est pas affiché."}</li>
-              <li>{brouillon.envoyer_devis ? "L'estimation part par e-mail." : "L'estimation n'est pas envoyée."}</li>
-              {brouillon.ajustement_volume !== 0 && (
+              <li>{v.parcours === "express" ? "Devis express, sur une page." : "Devis complet, en étapes."}</li>
+              <li>{v.afficher_estimation ? "Le prix s'affiche à la fin." : "Le prix n'est pas affiché."}</li>
+              <li>{v.envoyer_devis ? "L'estimation part par e-mail." : "L'estimation n'est pas envoyée."}</li>
+              {v.ajustement_volume !== 0 && (
                 <li className="font-medium text-ink">
-                  Volume chiffré à {brouillon.ajustement_volume > 0 ? "+" : ""}
-                  {brouillon.ajustement_volume} % (invisible côté client).
+                  Volume chiffré à {v.ajustement_volume > 0 ? "+" : ""}
+                  {v.ajustement_volume} % (invisible côté client).
                 </li>
               )}
             </ul>
@@ -576,7 +816,7 @@ export default function EspacesBoard({
             disabled={enCours || !modifie}
             className="rounded-xl bg-ink px-5 py-2.5 text-sm font-semibold text-shell transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {enCours ? "…" : nouveau ? "Créer l'espace" : "Enregistrer"}
+            {enCours ? "…" : general ? "Enregistrer les règles" : nouveau ? "Créer l'espace" : "Enregistrer"}
           </button>
           {modifie && !enCours && !etat && <span className="text-sm text-ink-soft">Modifications non enregistrées</span>}
           {etat && (
@@ -585,9 +825,11 @@ export default function EspacesBoard({
               {etat.texte}
             </span>
           )}
-          <button onClick={supprimer} disabled={enCours} className="ml-auto rounded-xl px-3 py-2 text-sm text-ink-soft transition hover:bg-danger-soft hover:text-danger">
-            {nouveau ? "Annuler" : "Supprimer"}
-          </button>
+          {!general && (
+            <button onClick={supprimer} disabled={enCours} className="ml-auto rounded-xl px-3 py-2 text-sm text-ink-soft transition hover:bg-danger-soft hover:text-danger">
+              {nouveau ? "Annuler" : "Supprimer"}
+            </button>
+          )}
         </footer>
       </section>
     </div>
@@ -608,10 +850,13 @@ function basculer(liste: QuestionCle[], cle: QuestionCle, masquer: boolean): Que
   return masquer ? [...sans, cle] : sans;
 }
 
-function Champ({ label, aide, children }: { label: string; aide?: string; children: ReactNode }) {
+function Champ({ label, aide, marque, children }: { label: string; aide?: string; marque?: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <div className="mb-1.5 text-sm font-medium">{label}</div>
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-sm font-medium">{label}</span>
+        {marque}
+      </div>
       {children}
       {aide && <p className="mt-1.5 text-xs leading-snug text-ink-soft">{aide}</p>}
     </div>
@@ -635,12 +880,25 @@ function Bascule({ actif, onChange, label }: { actif: boolean; onChange: (v: boo
   );
 }
 
-function Reglage({ titre, aide, actif, onChange }: { titre: string; aide: string; actif: boolean; onChange: (v: boolean) => void }) {
+function Reglage({
+  titre,
+  aide,
+  actif,
+  marque,
+  onChange,
+}: {
+  titre: string;
+  aide: string;
+  actif: boolean;
+  marque?: ReactNode;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <div className="flex items-start justify-between gap-4 rounded-2xl border border-line bg-paper px-4 py-3.5">
       <div>
         <div className="text-sm font-semibold">{titre}</div>
         <p className="mt-0.5 text-xs leading-snug text-ink-soft">{aide}</p>
+        {marque && <div className="mt-2">{marque}</div>}
       </div>
       <Bascule actif={actif} onChange={onChange} />
     </div>
@@ -705,17 +963,22 @@ function Vignette({ espace, taille }: { espace: EspacePro; taille: number }) {
 
 function LigneEspace({
   espace,
+  regles,
   actif,
   n,
   brouillon = false,
   onClick,
 }: {
   espace: EspacePro;
+  regles: Regles;
   actif: boolean;
   n: number;
   brouillon?: boolean;
   onClick: () => void;
 }) {
+  // La ligne dit ce que l'espace applique réellement, règles générales comprises.
+  const applique = appliquerRegles(espace, regles);
+  const ecarts = espace.grand_compte ? espace.propres.length : 0;
   return (
     <button
       onClick={onClick}
@@ -731,8 +994,14 @@ function LigneEspace({
           {brouillon && <span className="shrink-0 rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-medium text-brand-ink">nouveau</span>}
         </span>
         <span className="mt-0.5 block truncate text-xs text-ink-soft">
-          {espace.afficher_estimation ? "prix affiché" : "prix masqué"}
-          {espace.ajustement_volume !== 0 ? ` · volume ${espace.ajustement_volume > 0 ? "+" : ""}${espace.ajustement_volume} %` : ""}
+          {espace.grand_compte
+            ? ecarts === 0
+              ? "règles générales"
+              : `${ecarts} réglage${ecarts > 1 ? "s" : ""} propre${ecarts > 1 ? "s" : ""}`
+            : "indépendant"}
+          {" · "}
+          {applique.afficher_estimation ? "prix affiché" : "prix masqué"}
+          {applique.ajustement_volume !== 0 ? ` · volume ${applique.ajustement_volume > 0 ? "+" : ""}${applique.ajustement_volume} %` : ""}
         </span>
       </span>
       {n > 0 && (
@@ -781,7 +1050,17 @@ function ApercuAccueil({ espace }: { espace: EspacePro }) {
 }
 
 /** Le mail type, habillé aux couleurs de l'espace. */
-function ApercuMail({ espace, base, entreprise }: { espace: EspacePro; base: string; entreprise: Entreprise }) {
+function ApercuMail({
+  espace,
+  base,
+  entreprise,
+  legende,
+}: {
+  espace: EspacePro;
+  base: string;
+  entreprise: Entreprise;
+  legende?: string;
+}) {
   const nom = entreprise.nom || "Bailly Déménagement";
   const avecPrix = espace.envoyer_devis;
   const { sujet, html } = rendreEmail(
@@ -824,7 +1103,7 @@ function ApercuMail({ espace, base, entreprise }: { espace: EspacePro; base: str
   return (
     <div className="overflow-hidden rounded-2xl border border-line">
       <div className="bg-paper px-4 py-3">
-        <div className="text-sm font-medium">Aperçu du mail envoyé au client</div>
+        <div className="text-sm font-medium">{legende ?? "Aperçu du mail envoyé au client"}</div>
         <div className="truncate text-xs text-ink-soft">{sujet}</div>
       </div>
       <iframe title="Aperçu du mail" srcDoc={html} sandbox="" className="h-[560px] w-full bg-white" />

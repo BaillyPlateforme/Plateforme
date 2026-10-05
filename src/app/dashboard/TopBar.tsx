@@ -66,6 +66,20 @@ export default function TopBar({
       <Refresh />
 
       <div className="ml-auto flex shrink-0 items-center gap-3">
+        {/* Le pendant de la clé du site public : un accès au formulaire de devis,
+            sans libellé, pour qui veut voir ce que voit le client. */}
+        <Link
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          title="Voir le formulaire de devis"
+          aria-label="Voir le formulaire de devis"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-soft opacity-60 transition hover:bg-card hover:text-ink hover:opacity-100"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 3h7v7M21 3l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4" />
+          </svg>
+        </Link>
         <ThemeToggle />
 
         <Link

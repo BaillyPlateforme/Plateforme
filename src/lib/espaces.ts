@@ -35,10 +35,27 @@ export type FormuleCle = "eco" | "standard" | "luxe";
 
 export interface EspacePro {
   id: string;
-  /** Ce qui suit /pro/ dans le lien. */
+  /** Le nom lisible, en fin de lien : /pro/<code>/<slug>. */
   slug: string;
+  /**
+   * Le code du lien. Sans lui, il suffirait de remplacer « carrefour » par
+   * « engie » dans l'adresse pour entrer dans l'espace d'une autre entreprise.
+   * Il est calculé par le serveur à partir d'une clé qui ne quitte pas
+   * l'hébergement — jamais enregistré, jamais écrit dans le code. Vide tant
+   * que l'espace n'a pas été lu par le serveur.
+   */
+  code: string;
+  /** Change à chaque « nouveau lien » : l'ancien code cesse alors de fonctionner. */
+  rotation: number;
   nom: string;
   actif: boolean;
+  /**
+   * Grand compte : l'espace suit les règles générales des grands comptes,
+   * sauf pour les réglages qu'il fixe lui-même (`propres`).
+   */
+  grand_compte: boolean;
+  /** Les réglages que cet espace fixe lui-même au lieu de suivre la règle générale. */
+  propres: CleRegle[];
 
   // ── Identité
   /** Chemin du logo dans le stockage, ou rien. */
@@ -75,6 +92,62 @@ export interface EspacePro {
   updated_at: string;
 }
 
+/* ─────────────────────────── Règles générales ─────────────────────────── */
+
+/**
+ * Ce que les grands comptes ont en commun : le parcours, ce qu'on montre, ce
+ * qu'on envoie, la cote, les textes. Ces réglages se changent une fois, dans
+ * les règles générales, et valent pour tous — sauf pour l'espace qui a réglé
+ * ce point lui-même. L'identité (logo, couleur, titre) n'en fait pas partie :
+ * elle est toujours propre à l'entreprise.
+ */
+export const CLES_REGLES = [
+  "parcours",
+  "questions_masquees",
+  "formule_imposee",
+  "afficher_volume",
+  "afficher_estimation",
+  "envoyer_devis",
+  "ajustement_volume",
+  "message_fin",
+  "mail_objet",
+  "mail_message",
+  "devis_mention",
+] as const;
+export type CleRegle = (typeof CLES_REGLES)[number];
+export type Regles = Pick<EspacePro, CleRegle>;
+
+/** Les règles qui sont des textes : `{{espace_nom}}` y devient le nom de l'entreprise. */
+const REGLES_TEXTE = ["message_fin", "mail_objet", "mail_message", "devis_mention"] as const;
+
+/**
+ * L'espace tel que l'équipe le règle : pour un grand compte, chaque réglage
+ * qu'il n'a pas fixé lui-même prend la valeur de la règle générale.
+ */
+export function appliquerRegles(e: EspacePro, regles: Regles): EspacePro {
+  if (!e.grand_compte) return e;
+  const suivies = Object.fromEntries(CLES_REGLES.filter((c) => !e.propres.includes(c)).map((c) => [c, regles[c]]));
+  return { ...e, ...(suivies as Partial<Regles>) };
+}
+
+/**
+ * L'espace tel qu'il s'applique à un client : les règles générales résolues,
+ * et le nom de l'entreprise posé dans les textes. Une règle générale s'écrit
+ * une fois pour treize entreprises — « votre mobilité chez {{espace_nom}} ».
+ */
+export function espaceEffectif(e: EspacePro, regles: Regles): EspacePro {
+  const r = { ...appliquerRegles(e, regles) };
+  const nom = nomEnseigne(e);
+  for (const cle of REGLES_TEXTE) r[cle] = r[cle].replace(/\{\{\s*espace_nom\s*\}\}/g, nom);
+  return r;
+}
+
+/** Deux valeurs d'un même réglage sont-elles identiques ? (L'ordre d'une liste ne compte pas.) */
+export function memeReglage(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) return [...a].sort().join("|") === [...b].sort().join("|");
+  return a === b;
+}
+
 /**
  * Ce qu'un espace laisse voir au navigateur du client. La cote sur le volume
  * et les textes des mails n'en font pas partie : ils ne sortent pas du serveur.
@@ -82,6 +155,7 @@ export interface EspacePro {
 export type EspacePublic = Pick<
   EspacePro,
   | "slug"
+  | "code"
   | "nom"
   | "couleur"
   | "titre"
@@ -97,6 +171,7 @@ export type EspacePublic = Pick<
 export function versPublic(e: EspacePro): EspacePublic {
   return {
     slug: e.slug,
+    code: e.code,
     nom: e.nom,
     couleur: e.couleur,
     titre: e.titre,
@@ -120,11 +195,23 @@ export function nomEnseigne(e: { slug: string; nom: string }): string {
   return e.slug === "standard" ? "Espace pro" : e.nom;
 }
 
-/** L'adresse du logo, servie par notre API — ou rien si l'espace n'en a pas. */
-export function urlLogo(e: Pick<EspacePro, "slug" | "logo" | "updated_at">, base = ""): string | null {
-  if (!e.logo) return null;
+/** Le chemin d'un espace sur le site : /pro/<code>/<nom>. */
+export function cheminEspace(e: Pick<EspacePro, "code" | "slug">): string {
+  return `/pro/${e.code}/${e.slug}`;
+}
+
+/** Les logos livrés avec le site portent ce préfixe ; les autres sont dans le stockage. */
+export const LOGO_FOURNI = "fournis/";
+
+/**
+ * L'adresse du logo, servie par notre API — ou rien si l'espace n'en a pas.
+ * Elle passe par le code du lien, pas par le nom : une adresse devinable
+ * dirait à n'importe qui quelles entreprises ont un espace.
+ */
+export function urlLogo(e: Pick<EspacePro, "code" | "logo" | "updated_at">, base = ""): string | null {
+  if (!e.logo || !e.code) return null;
   // Le paramètre change à chaque enregistrement : le navigateur ne garde pas l'ancien logo.
-  return `${base}/api/espaces/${encodeURIComponent(e.slug)}/logo?v=${encodeURIComponent(e.updated_at)}`;
+  return `${base}/api/espaces/${encodeURIComponent(e.code)}/logo?v=${encodeURIComponent(e.updated_at)}`;
 }
 
 /**
@@ -183,8 +270,12 @@ export function espaceVide(nom = "", maintenant = new Date().toISOString()): Esp
   return {
     id: "",
     slug: slugifier(nom),
+    code: "",
+    rotation: 0,
     nom,
     actif: true,
+    grand_compte: false,
+    propres: [],
     logo: null,
     couleur: COULEUR_BAILLY,
     titre: "",
@@ -213,32 +304,51 @@ export function espaceVide(nom = "", maintenant = new Date().toISOString()): Esp
  * prix affichés, et sans envoi de l'estimation. L'espace standard, lui, se
  * comporte comme le site public. Tout se change depuis l'espace équipe.
  */
-const GRANDS_COMPTES = [
-  "Crédit Agricole",
-  "Brinks",
-  "Carrefour",
-  "Casino",
-  "Engie",
-  "GRDF",
-  "Keolis",
-  "MACIF",
-  "Safran",
-  "ArianeGroup",
-  "Saint-Gobain",
-  "Siemens",
-  "Suez",
+const GRANDS_COMPTES: [nom: string, couleur: string][] = [
+  ["Crédit Agricole", "#086848"],
+  ["Brinks", "#0a1f9c"],
+  ["Carrefour", "#0058ab"],
+  ["Casino", "#086838"],
+  ["Engie", "#00aaff"],
+  ["GRDF", "#285898"],
+  ["Keolis", "#48a8c8"],
+  ["MACIF", "#283878"],
+  ["Safran", "#2888c8"],
+  ["ArianeGroup", "#0878c8"],
+  ["Saint-Gobain", "#284898"],
+  ["Siemens", "#009999"],
+  ["Suez", "#78c828"],
 ];
 
 const ORIGINE = "2026-10-05T00:00:00.000Z";
 
+/** Les règles générales des grands comptes, telles qu'elles sont livrées. */
+export const REGLES_PAR_DEFAUT: Regles = {
+  parcours: "complet",
+  questions_masquees: ["type_client", "mutation_pro"],
+  formule_imposee: "",
+  afficher_volume: false,
+  afficher_estimation: false,
+  envoyer_devis: false,
+  ajustement_volume: 0,
+  message_fin: "",
+  mail_objet: "",
+  mail_message: "",
+  devis_mention: "",
+};
+
 export const ESPACES_PAR_DEFAUT: EspacePro[] = [
   { ...espaceVide("Espace pro", ORIGINE), id: "standard", slug: "standard", nom: "Espace pro standard" },
-  ...GRANDS_COMPTES.map((nom) => ({
+  // Les grands comptes ne règlent rien eux-mêmes au départ : ils suivent tous la règle générale.
+  // Chacun arrive avec son logo (livré avec le site, dans assets/espaces) et
+  // la couleur dominante de ce logo ; l'équipe peut remplacer l'un et l'autre.
+  ...GRANDS_COMPTES.map(([nom, couleur]) => ({
     ...espaceVide(nom, ORIGINE),
+    ...REGLES_PAR_DEFAUT,
     id: slugifier(nom),
-    afficher_volume: false,
-    afficher_estimation: false,
-    envoyer_devis: false,
+    grand_compte: true,
+    couleur,
+    logo: `${LOGO_FOURNI}${slugifier(nom)}.png`,
   })),
 ];
 
@@ -255,9 +365,36 @@ export function normaliser(brut: Partial<EspacePro>): EspacePro {
     slug: slugifier(brut.slug || brut.nom || "") || "espace",
     nom: (brut.nom ?? "").trim() || "Espace sans nom",
     couleur: couleurValide(brut.couleur) ?? COULEUR_BAILLY,
+    code: typeof brut.code === "string" ? brut.code : "",
+    rotation: Math.max(0, Math.floor(Number(brut.rotation) || 0)),
+    grand_compte: brut.grand_compte === true,
+    propres: Array.isArray(brut.propres) ? CLES_REGLES.filter((c) => brut.propres!.includes(c)) : [],
     questions_masquees: masquees,
     ajustement_volume: borner(Number(brut.ajustement_volume) || 0, AJUSTEMENT_MIN, AJUSTEMENT_MAX),
     updated_at: brut.updated_at ?? base.updated_at,
+  };
+}
+
+/** Complète des règles générales lues en base, de la même façon. */
+export function normaliserRegles(brut: Partial<Regles> | null | undefined): Regles {
+  const b = brut ?? {};
+  const texte = (v: unknown, repli: string) => (typeof v === "string" ? v : repli);
+  const oui = (v: unknown, repli: boolean) => (typeof v === "boolean" ? v : repli);
+  const d = REGLES_PAR_DEFAUT;
+  return {
+    parcours: b.parcours === "express" ? "express" : b.parcours === "complet" ? "complet" : d.parcours,
+    questions_masquees: Array.isArray(b.questions_masquees)
+      ? b.questions_masquees.filter((c): c is QuestionCle => QUESTIONS.some((q) => q.cle === c))
+      : d.questions_masquees,
+    formule_imposee: b.formule_imposee === "eco" || b.formule_imposee === "standard" || b.formule_imposee === "luxe" ? b.formule_imposee : "",
+    afficher_volume: oui(b.afficher_volume, d.afficher_volume),
+    afficher_estimation: oui(b.afficher_estimation, d.afficher_estimation),
+    envoyer_devis: oui(b.envoyer_devis, d.envoyer_devis),
+    ajustement_volume: borner(Number(b.ajustement_volume) || 0, AJUSTEMENT_MIN, AJUSTEMENT_MAX),
+    message_fin: texte(b.message_fin, d.message_fin),
+    mail_objet: texte(b.mail_objet, d.mail_objet),
+    mail_message: texte(b.mail_message, d.mail_message),
+    devis_mention: texte(b.devis_mention, d.devis_mention),
   };
 }
 
