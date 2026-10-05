@@ -44,9 +44,13 @@ export default function ConnexionRhPage() {
             01 69 10 35 20
           </a>
         </p>
+        {/* Un compte de l'équipe se connecte ici aussi : il choisit ensuite
+            l'entreprise dont il veut voir l'espace. L'ancien libellé (« Vous
+            êtes de l'équipe ? » → autre page) laissait croire le contraire. */}
         <p className="mt-2 text-center text-[12.5px] text-ink-soft">
-          <Link href="/login" className="underline-offset-4 hover:text-ink hover:underline">
-            Vous êtes de l&apos;équipe Bailly ?
+          Équipe Bailly : votre compte fonctionne ici aussi, vous choisirez ensuite l&apos;entreprise à afficher.{" "}
+          <Link href="/login" className="font-medium text-ink underline-offset-4 hover:underline">
+            Aller à l&apos;espace équipe
           </Link>
         </p>
       </div>
