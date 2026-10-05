@@ -71,36 +71,39 @@ function Fleche({ sombre = false }: { sombre?: boolean }) {
 
 
 /**
- * Le héros : une photo d'intérieur lumineuse en fond, le titre à gauche, les
- * deux portes d'entrée à droite. La première photo était un intérieur de nuit
- * sous un voile noir — toute la page semblait en mode sombre. Celle-ci est
- * claire, et son voile aussi (photo : Unsplash, licence libre).
+ * Le héros : une photo d'intérieur en plein cadre, nette, le titre à gauche,
+ * les deux portes d'entrée à droite.
+ *
+ * Trois essais avant celui-ci. Un intérieur de nuit sous un voile noir : toute
+ * la page semblait en mode sombre. Pas de photo : plat. Une photo claire sous
+ * un voile blanc : délavée, « beaucoup trop blanc ». Ici la photo est de jour
+ * et reste entière ; seul le côté du texte s'assombrit, pour que le titre se
+ * lise en blanc (photo : Unsplash, licence libre).
  */
 function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
-    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-paper">
-      {/* La photo de fond, en haute définition : un intérieur baigné de lumière.
-          Un voile clair — jamais noir — la retient du côté du texte et la
-          laisse entière du côté des cartes ; en bas, elle se fond dans la page. */}
+    <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#1b1a18] text-white">
+      {/* La photo de fond, en haute définition. Le voile ne couvre que le côté
+          du texte et le pied du héros : à droite, la photo reste telle quelle. */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <Image src="/marque/hero.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover object-center" />
+        <Image src="/marque/hero-salon.jpg" alt="" fill priority sizes="100vw" className="ken-burns object-cover object-center" />
         <div className="hero-voile absolute inset-0" />
       </div>
 
       <div className="relative z-10 mx-auto grid w-full max-w-[1200px] flex-1 items-center gap-12 px-6 pb-12 pt-[112px] lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:gap-14 lg:px-10 lg:pb-14">
         <div>
           <div className="reveal max-w-fit" style={delay(60)}>
-            <span className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-3.5 py-1.5 text-[12.5px] font-medium text-ink-mid">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-mid" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3.5 py-1.5 text-[12.5px] font-medium text-white">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
               Déménagements particuliers et entreprises
             </span>
           </div>
 
           <h1 className="font-serif reveal mt-6 text-balance text-[44px] sm:text-[56px] xl:text-[66px]" style={delay(160)}>
-            Votre déménagement, <span className="gradient-text">chiffré tout de suite</span>
+            Votre déménagement, <span className="text-brand">chiffré tout de suite</span>
           </h1>
 
-          <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-ink-mid sm:text-[18px]" style={delay(260)}>
+          <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-white/85 sm:text-[18px]" style={delay(260)}>
             Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
             tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
             au centime près.
@@ -150,7 +153,7 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
       {/* Bandeau de chiffres, au pied du héros. */}
       <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 pb-12 lg:px-10">
-        <div className="reveal grid grid-cols-2 gap-x-8 gap-y-6 border-t border-line-strong pt-7 sm:grid-cols-4" style={delay(620)}>
+        <div className="reveal grid grid-cols-2 gap-x-8 gap-y-6 border-t border-white/25 pt-7 sm:grid-cols-4" style={delay(620)}>
           <Chiffre valeur="3 min" legende="pour une estimation complète" />
           <Chiffre valeur="3" legende="formules, de l'économique au premium" />
           <Chiffre valeur={`${PORTEE_KM} km`} legende="de portée, France entière" />
@@ -239,7 +242,7 @@ function Chiffre({ valeur, legende }: { valeur: string; legende: string }) {
   return (
     <div>
       <div className="font-serif text-[30px] leading-none sm:text-[34px]">{valeur}</div>
-      <div className="mt-2.5 text-[13.5px] leading-snug text-ink-soft">{legende}</div>
+      <div className="mt-2.5 text-[13.5px] leading-snug text-white/70">{legende}</div>
     </div>
   );
 }

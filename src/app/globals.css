@@ -389,9 +389,12 @@ h2.font-serif {
 
 /* En-tête : le héros est clair, l'en-tête l'est aussi dès le départ. Il est
    transparent en haut de page, et se pose sur un fond blanc au défilement. */
+/* L'en-tête est une barre claire, dès le haut de la page : posé à même la
+   photo du héros, son logo et ses liens se perdaient selon l'image. */
 .site-header {
-  background: transparent;
+  background: var(--color-card);
   border-bottom: 1px solid transparent;
+  box-shadow: 0 10px 30px -22px rgba(27, 26, 24, 0.55);
 }
 .site-header .site-link {
   color: var(--color-ink-soft);
@@ -641,25 +644,24 @@ h2.font-serif {
   display: none !important;
 }
 
-/* Le voile du héros : la couleur de la page, presque opaque sous le texte,
-   absente sous les cartes — la photo y reste nette. En haut il dégage
-   l'en-tête, en bas la photo se fond dans la page. Sur téléphone le texte
-   occupe toute la largeur : le voile aussi. */
+/* Le voile du héros. Il assombrit le côté du texte et le pied — rien d'autre :
+   la photo reste nette et lumineuse sous les cartes. Un voile clair, essayé
+   avant, la délavait tout entière. Sur téléphone le texte occupe toute la
+   largeur : le voile aussi, plus léger. */
 .hero-voile {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--color-paper) 82%, transparent) 0%, transparent 20%, transparent 58%, var(--color-paper) 96%),
-    color-mix(in srgb, var(--color-paper) 86%, transparent);
+    linear-gradient(180deg, rgba(27, 26, 24, 0.46) 0%, rgba(27, 26, 24, 0.56) 55%, rgba(27, 26, 24, 0.74) 100%);
 }
 @media (min-width: 1024px) {
   .hero-voile {
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--color-paper) 66%, transparent) 0%, transparent 15%, transparent 66%, var(--color-paper) 98%),
+      linear-gradient(180deg, rgba(27, 26, 24, 0) 60%, rgba(27, 26, 24, 0.66) 100%),
       linear-gradient(
         90deg,
-        color-mix(in srgb, var(--color-paper) 94%, transparent) 0%,
-        color-mix(in srgb, var(--color-paper) 90%, transparent) 36%,
-        color-mix(in srgb, var(--color-paper) 42%, transparent) 54%,
-        transparent 70%
+        rgba(27, 26, 24, 0.7) 0%,
+        rgba(27, 26, 24, 0.56) 30%,
+        rgba(27, 26, 24, 0.18) 54%,
+        rgba(27, 26, 24, 0) 70%
       );
   }
 }

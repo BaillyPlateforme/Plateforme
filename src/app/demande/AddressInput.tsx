@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useId } from "react";
 import { Icone } from "./ui";
 
 export type Place = { label: string; ville: string; code_postal: string; context: string; lat: number; lon: number };
@@ -50,6 +50,7 @@ export function AddressInput({
   const [active, setActive] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const skip = useRef(false);
+  const idListe = useId();
 
   useEffect(() => {
     if (skip.current) { skip.current = false; return; }
@@ -137,6 +138,7 @@ export function AddressInput({
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open && sugg.length > 0}
+        aria-controls={idListe}
         data-form-type="other"
         data-lpignore="true"
         data-1p-ignore
@@ -146,7 +148,7 @@ export function AddressInput({
         <Icone nom="pin" taille={17} />
       </span>
       {open && sugg.length > 0 && (
-        <ul className="liste-villes animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
+        <ul id={idListe} role="listbox" className="liste-villes animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
           {sugg.map((p, i) => (
             <li key={i}>
               <button
