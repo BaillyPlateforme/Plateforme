@@ -195,6 +195,21 @@ export function nomEnseigne(e: { slug: string; nom: string }): string {
   return e.slug === "standard" ? "Espace pro" : e.nom;
 }
 
+/**
+ * Le nom saisi par un client désigne-t-il cette entreprise ? « carrefour »,
+ * « Groupe Casino », « Saint Gobain », « Brink's France », « Engie SA »… : on
+ * cherche le nom de l'entreprise parmi les mots saisis, sans tenir compte des
+ * accents, des majuscules ni des traits d'union.
+ */
+export function designe(saisie: string, e: Pick<EspacePro, "nom">): boolean {
+  const cible = slugifier(e.nom).replace(/-/g, "");
+  const mots = slugifier(saisie).split("-").filter(Boolean);
+  if (cible.length < 3) return false;
+  for (let i = 0; i < mots.length; i++)
+    for (let j = i + 1; j <= mots.length; j++) if (mots.slice(i, j).join("") === cible) return true;
+  return false;
+}
+
 /** Le chemin d'un espace sur le site : /pro/<code>/<nom>. */
 export function cheminEspace(e: Pick<EspacePro, "code" | "slug">): string {
   return `/pro/${e.code}/${e.slug}`;

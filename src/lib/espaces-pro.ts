@@ -10,6 +10,7 @@ import {
   LOGO_FOURNI,
   REGLES_PAR_DEFAUT,
   couleurValide,
+  designe,
   espaceEffectif,
   normaliser,
   normaliserRegles,
@@ -140,6 +141,46 @@ export async function getEspaceParCode(code: string): Promise<EspacePro | null> 
   const { espaces, regles } = await lireTout();
   const espace = espaces.find((e) => e.code === code);
   return espace ? espaceEffectif(espace, regles) : null;
+}
+
+/*
+ * Le jeton de reconnaissance.
+ *
+ * Quand un client saisit le nom de sa société dans le formulaire public, la
+ * page devient celle de l'espace. Il lui faut alors de quoi charger le logo et
+ * rattacher sa demande à l'espace — mais pas le code du lien, qu'on ne donne
+ * pas à qui tape un nom. Ce jeton tient ce rôle : il se calcule comme le code,
+ * avec une autre étiquette, et n'ouvre pas la page /pro/<code>/<nom>.
+ */
+function jetonEspace(e: Pick<EspacePro, "id" | "rotation">): string {
+  const cle = process.env.ESPACES_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!cle) throw new Error("Aucune clé serveur : les espaces pro ne peuvent pas être reconnus.");
+  const empreinte = createHmac("sha256", cle).update(`espace-reconnu:${e.id}:${e.rotation}`).digest();
+  let jeton = "r";
+  for (let i = 0; i < 13; i++) jeton += LETTRES[empreinte[i] % LETTRES.length];
+  return jeton;
+}
+
+/**
+ * L'espace d'une demande ou d'un logo : retrouvé par le code de son lien, ou
+ * par le jeton remis à qui a saisi le nom de la société.
+ */
+export async function getEspaceParCodeOuJeton(cle: string): Promise<EspacePro | null> {
+  if (!cle) return null;
+  const { espaces, regles } = await lireTout();
+  const espace = espaces.find((e) => e.code === cle || jetonEspace(e) === cle);
+  return espace ? espaceEffectif(espace, regles) : null;
+}
+
+/**
+ * L'espace de la société dont le client vient de saisir le nom, s'il existe
+ * et s'il est ouvert. Rendu avec son jeton à la place du code : c'est ce que
+ * le navigateur recevra. L'espace standard n'est celui d'aucune société.
+ */
+export async function reconnaitreEspace(nom: string): Promise<EspacePro | null> {
+  const { espaces, regles } = await lireTout();
+  const espace = espaces.find((e) => e.actif && e.slug !== "standard" && designe(nom, e));
+  return espace ? { ...espaceEffectif(espace, regles), code: jetonEspace(espace) } : null;
 }
 
 async function ecrire(espaces: EspacePro[], regles?: Regles) {

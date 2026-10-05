@@ -4,7 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
-import { getEspaceParCode } from "@/lib/espaces-pro";
+import { getEspaceParCodeOuJeton } from "@/lib/espaces-pro";
 import { instantane } from "@/lib/espaces";
 import { qualifyRequest } from "@/lib/qualification";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
@@ -60,7 +60,8 @@ export async function createRequest(
   // pouvoir être choisie par celui qui remplit. Ils sont figés dans la
   // demande : modifier l'espace ensuite ne rechiffre pas le passé.
   // Le nom ne suffit pas : c'est le code du lien qui prouve qu'on vient bien de l'espace.
-  const parCode = input.espace_code ? await getEspaceParCode(input.espace_code) : null;
+  // (Ou le jeton reçu par qui a saisi le nom de sa société dans le formulaire public.)
+  const parCode = input.espace_code ? await getEspaceParCodeOuJeton(input.espace_code) : null;
   const espace = parCode && parCode.slug === input.espace ? parCode : null;
   const contexteEspace = espace?.actif ? instantane(espace) : undefined;
   const charge: Record<string, unknown> = { ...input, espace: contexteEspace };

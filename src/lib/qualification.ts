@@ -5,6 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import type { RequestRow } from "@/lib/types";
+import { distanceEntreVilles } from "@/lib/trajet";
 
 // ─────────────────────────────────────────────────────────────
 // Critères de qualification (chaque critère produit une note /100,
@@ -223,13 +224,40 @@ export async function qualifyRequest(requestId: string): Promise<QualifResult | 
   const complete = req.volume_m3 != null && !!req.depart_ville && !!req.arrivee_ville;
   if (!complete) return null;
 
+  // 0) La distance. Le formulaire ne la transmet que si la ville a été choisie
+  // dans la liste ; une demande venue d'un mail n'en a jamais. On la calcule
+  // ici à partir des villes — sans elle, le moteur retenait la tranche
+  // « 0 à 50 km » et annonçait un Paris → Lyon au prix d'un déménagement local.
+  if (req.distance_km == null) {
+    const km = await distanceEntreVilles(
+      { ville: req.depart_ville, code_postal: req.depart_code_postal },
+      { ville: req.arrivee_ville, code_postal: req.arrivee_code_postal },
+    ).catch(() => null);
+    if (km != null) {
+      await supabase.from("requests").update({ distance_km: km }).eq("id", req.id);
+      req.distance_km = km;
+    }
+  }
+  // Une distance introuvable (ville inconnue, service indisponible) : pas de
+  // prix du tout plutôt qu'un prix faux. L'équipe la renseigne et chiffre.
+  const chiffrable = req.distance_km != null;
+  if (!chiffrable) {
+    await supabase.from("request_events").insert({
+      request_id: req.id,
+      type: "distance_inconnue",
+      payload: { depart: req.depart_ville, arrivee: req.arrivee_ville, note: "Distance introuvable : aucune estimation n'a été produite." },
+    });
+  }
+
   // 1) Devis (brouillon) si aucun n'existe encore, + estimation sur la demande.
   const quote = estimerDemande(req);
-  await supabase.from("requests").update({ estimation_prix: quote.ttc }).eq("id", req.id);
-  req.estimation_prix = quote.ttc;
+  if (chiffrable) {
+    await supabase.from("requests").update({ estimation_prix: quote.ttc }).eq("id", req.id);
+    req.estimation_prix = quote.ttc;
+  }
 
   const { data: existing } = await supabase.from("devis").select("id").eq("request_id", req.id).maybeSingle();
-  if (!existing) {
+  if (!existing && chiffrable) {
     const settings = await getSettings();
     const reference = await nextReference();
     const validUntil = new Date();

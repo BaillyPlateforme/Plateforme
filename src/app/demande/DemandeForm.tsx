@@ -30,6 +30,7 @@ import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { ListeMeubles, MODES_VOLUME, SaisieVolume, volumeDe, type ListItem, type VolumeMode } from "./volume";
 import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic, type QuestionCle } from "@/lib/espaces";
+import { situerVille } from "@/lib/trajet";
 
 /* ============================ Types ============================ */
 
@@ -263,9 +264,21 @@ export default function DemandeForm({
   /** L'espace pro d'où l'on vient : il décide du parcours, des questions et de l'habillage. */
   espace?: EspacePublic;
 }) {
+  // L'espace reconnu au nom de la société que le client saisit : la page devient
+  // alors celle de cette société. Venu par le lien d'un espace, on y est déjà.
+  const [reconnu, setReconnu] = useState<EspacePublic | null>(null);
   if ((espace?.parcours ?? modeInitial) === "express")
     return <ExpressForm library={library} onBack={onQuitter} instant={instant} espace={espace} />;
-  return <CompleteForm library={library} onBack={onQuitter} instant={instant} espace={espace} />;
+  return (
+    <CompleteForm
+      library={library}
+      onBack={onQuitter}
+      instant={instant}
+      espace={espace ?? reconnu ?? undefined}
+      reconnu={!espace && reconnu !== null}
+      onReconnaitre={espace ? undefined : setReconnu}
+    />
+  );
 }
 
 /* ============================ La coque ============================ */
@@ -407,6 +420,28 @@ function ExpressForm({
     return () => { cancelled = true; };
   }, [cleTrajet, departCoord, arriveeCoord]);
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
+
+  // Une ville tapée sans être choisie dans la liste n'a pas de coordonnées :
+  // pas de distance, donc un prix faux. On la situe nous-mêmes, une fois la
+  // frappe terminée — la liste reste là pour qui veut préciser.
+  useEffect(() => {
+    if (departCoord || f.departVille.trim().length < 2) return;
+    const ville = f.departVille, cp = f.departCP;
+    const t = setTimeout(async () => {
+      const p = await situerVille(ville, cp);
+      if (p) setDepartCoord((c) => c ?? { label: ville, ville, code_postal: cp, context: "", ...p });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [f.departVille, f.departCP, departCoord]);
+  useEffect(() => {
+    if (arriveeCoord || f.arriveeVille.trim().length < 2) return;
+    const ville = f.arriveeVille;
+    const t = setTimeout(async () => {
+      const p = await situerVille(ville);
+      if (p) setArriveeCoord((c) => c ?? { label: ville, ville, code_postal: "", context: "", ...p });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [f.arriveeVille, arriveeCoord]);
 
   /** Le raccourci de démonstration : tout le formulaire, rempli d'un exemple. */
   const remplir = () =>
@@ -648,11 +683,17 @@ function CompleteForm({
   onBack,
   instant,
   espace,
+  reconnu = false,
+  onReconnaitre,
 }: {
   library: LibraryPhoto[];
   onBack: () => void;
   instant: boolean;
   espace?: EspacePublic;
+  /** L'espace vient du nom de société saisi, pas du lien de la page. */
+  reconnu?: boolean;
+  /** Entrer dans l'espace d'une société reconnue — ou en sortir. */
+  onReconnaitre?: (e: EspacePublic | null) => void;
 }) {
   // Ce que l'espace pro change : les étapes, les questions, l'habillage.
   const etapes = useMemo(() => etapesDe(espace), [espace]);
@@ -699,6 +740,52 @@ function CompleteForm({
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
+
+  // Une ville tapée sans être choisie dans la liste n'a pas de coordonnées :
+  // pas de distance, donc un prix faux. On la situe nous-mêmes, une fois la
+  // frappe terminée — la liste reste là pour qui veut préciser.
+  const { ville: villeDepart, code_postal: cpDepart, lat: latDepart } = form.depart;
+  const { ville: villeArrivee, code_postal: cpArrivee, lat: latArrivee } = form.arrivee;
+  useEffect(() => {
+    const situer = (cle: "depart" | "arrivee", ville: string, cp: string, lat: number | undefined) => {
+      if (lat != null || ville.trim().length < 2) return null;
+      return setTimeout(async () => {
+        const p = await situerVille(ville, cp);
+        // Entre-temps, la ville a pu changer ou être choisie dans la liste.
+        if (p) setForm((f) => (f[cle].ville === ville && f[cle].lat == null ? { ...f, [cle]: { ...f[cle], ...p } } : f));
+      }, 700);
+    };
+    const minuteurs = [situer("depart", villeDepart, cpDepart, latDepart), situer("arrivee", villeArrivee, cpArrivee, latArrivee)];
+    return () => minuteurs.forEach((t) => t && clearTimeout(t));
+  }, [villeDepart, cpDepart, latDepart, villeArrivee, cpArrivee, latArrivee]);
+
+  // « C'est professionnel », et la société a son espace : la page devient la
+  // sienne. On attend la fin de la frappe ; si le client dit que ce n'est pas
+  // son entreprise, on ne lui repose plus la question.
+  const [refuse, setRefuse] = useState(false);
+  const societe = form.mutation_pro === "oui" || form.type_client === "entreprise" ? form.societe.trim() : "";
+  useEffect(() => {
+    if (!onReconnaitre || espace || refuse || societe.length < 3) return;
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/espaces/reconnaitre?nom=${encodeURIComponent(societe)}`);
+        const j = (await r.json()) as { espace?: EspacePublic | null };
+        if (j.espace) onReconnaitre(j.espace);
+      } catch {
+        /* sans réponse, le formulaire reste celui de tout le monde */
+      }
+    }, 650);
+    return () => clearTimeout(t);
+  }, [societe, espace, refuse, onReconnaitre]);
+  const quitterEspace = () => {
+    setRefuse(true);
+    onReconnaitre?.(null);
+  };
+  // La page vient de changer d'enseigne sous les yeux du client, alors qu'il
+  // était en train de saisir plus bas : on le ramène en haut, là où c'est dit.
+  useEffect(() => {
+    if (reconnu) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [reconnu]);
 
   /** Le raccourci de démonstration : tout rempli d'un exemple, et droit à la relecture. */
   const remplir = () => {
@@ -861,6 +948,26 @@ function CompleteForm({
           </>
         }
       >
+        {reconnu && espace && etape.cle === "vous" && (
+          <div className="animate-step-in mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-[22px] border border-brand bg-brand-soft px-5 py-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-sur-brand">
+              <Icone nom="immeuble" taille={18} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14.5px] font-semibold">Bienvenue dans l&apos;espace {nomEnseigne(espace)}</div>
+              <p className="mt-0.5 text-[13px] leading-snug text-ink-soft">
+                Votre demande suit le parcours prévu avec votre entreprise : nous ne vous posons que les questions utiles.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={quitterEspace}
+              className="shrink-0 text-[12.5px] font-medium text-ink-soft underline-offset-4 transition hover:text-ink hover:underline"
+            >
+              Ce n&apos;est pas mon entreprise
+            </button>
+          </div>
+        )}
         <div key={step}>
           <Titre
             pastille={step + 1}

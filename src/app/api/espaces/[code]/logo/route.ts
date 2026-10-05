@@ -1,4 +1,4 @@
-import { getEspaceParCode, lireLogo } from "@/lib/espaces-pro";
+import { getEspaceParCodeOuJeton, lireLogo } from "@/lib/espaces-pro";
 
 export const runtime = "nodejs";
 
@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 // savoir qui a un espace en essayant des noms.
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const espace = await getEspaceParCode(code).catch(() => null);
+  // Le code du lien, ou le jeton remis à qui a saisi le nom de la société.
+  const espace = await getEspaceParCodeOuJeton(code).catch(() => null);
   const logo = espace ? await lireLogo(espace) : null;
   if (!logo) return new Response("Logo introuvable", { status: 404 });
 
