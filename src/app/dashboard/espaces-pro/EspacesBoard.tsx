@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import {
   AJUSTEMENT_MAX,
   AJUSTEMENT_MIN,
@@ -29,6 +29,8 @@ import {
   type Regles,
 } from "@/lib/espaces";
 import { effacerEspace, enleverLogo, nouveauLien, sauverEspace, sauverRegles, televerserLogo } from "@/lib/actions/espaces";
+import { ajouterCompteRh, comptesRh, nouveauMotDePasseRh, retirerCompteRh } from "@/lib/actions/rh";
+import type { CompteRh } from "@/lib/rh";
 import { rendreEmail } from "@/lib/email-render";
 
 type Entreprise = { nom: string | null; email: string | null; tel: string | null };
@@ -38,6 +40,7 @@ const ONGLETS = [
   { cle: "parcours", label: "Parcours" },
   { cle: "prix", label: "Volume et prix" },
   { cle: "mail", label: "Mail et devis" },
+  { cle: "rh", label: "Accès RH" },
 ] as const;
 type Onglet = (typeof ONGLETS)[number]["cle"];
 
@@ -171,7 +174,7 @@ export default function EspacesBoard({
 
   function ouvrirRegles() {
     setVue("regles");
-    if (onglet === "identite") setOnglet("parcours");
+    if (onglet === "identite" || onglet === "rh") setOnglet("parcours");
     setEtat(null);
   }
 
@@ -251,7 +254,11 @@ export default function EspacesBoard({
 
   // Le lien n'existe qu'une fois l'espace enregistré : c'est le serveur qui en calcule le code.
   const lien = brouillon.code ? `${racine}${cheminEspace(brouillon)}` : "";
-  const onglets = general ? ONGLETS.filter((o) => o.cle !== "identite") : ONGLETS;
+  // Les règles générales n'ont ni identité ni comptes RH ; l'espace standard
+  // n'est celui d'aucune entreprise, donc d'aucun service RH.
+  const onglets = general
+    ? ONGLETS.filter((o) => o.cle !== "identite" && o.cle !== "rh")
+    : ONGLETS.filter((o) => o.cle !== "rh" || brouillon.slug !== "standard");
   /** L'espace que les aperçus habillent : celui qu'on règle, ou un grand compte en exemple. */
   const exemple = general
     ? grandsComptes[0]
@@ -534,7 +541,17 @@ export default function EspacesBoard({
               </>
             )}
 
-            {onglet !== "identite" && !general && brouillon.grand_compte && (
+            {onglet === "rh" && !general && (
+              <AccesRh
+                key={brouillon.id}
+                espace={brouillon}
+                enregistre={!nouveau}
+                racine={racine}
+                onCouts={(rh_couts) => patch({ rh_couts })}
+              />
+            )}
+
+            {onglet !== "identite" && onglet !== "rh" && !general && brouillon.grand_compte && (
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line bg-paper px-4 py-3 text-[13px]">
                 <span className="min-w-0 flex-1 leading-snug text-ink-soft">
                   <span className="font-semibold text-ink">
@@ -833,6 +850,174 @@ export default function EspacesBoard({
         </footer>
       </section>
     </div>
+  );
+}
+
+/* ─────────────────────────── Accès RH ─────────────────────────── */
+
+/** Un mot de passe à transmettre de vive voix ou par un canal sûr : sans caractères qui se confondent. */
+function motDePasseAuHasard(): string {
+  const signes = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const tirage = new Uint32Array(14);
+  crypto.getRandomValues(tirage);
+  return [...tirage].map((n) => signes[n % signes.length]).join("");
+}
+
+/**
+ * Les comptes RH d'un espace. L'équipe les crée ici et transmet elle-même les
+ * identifiants : la plateforme n'envoie aucun mot de passe par e-mail.
+ */
+function AccesRh({
+  espace,
+  enregistre,
+  racine,
+  onCouts,
+}: {
+  espace: EspacePro;
+  enregistre: boolean;
+  racine: string;
+  onCouts: (v: boolean) => void;
+}) {
+  const [comptes, setComptes] = useState<CompteRh[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [nom, setNom] = useState("");
+  const [motDePasse, setMotDePasse] = useState("");
+  const [message, setMessage] = useState<{ ton: "ok" | "erreur"; texte: string } | null>(null);
+  /** Les identifiants qui viennent d'être créés ou changés : affichés une fois, pour être transmis. */
+  const [aTransmettre, setATransmettre] = useState<{ email: string; motDePasse: string } | null>(null);
+  const [enCours, lancer] = useTransition();
+  const adresse = `${racine}/rh/connexion`;
+
+  useEffect(() => {
+    if (!enregistre) return;
+    let annule = false;
+    comptesRh(espace.id).then((r) => {
+      if (annule) return;
+      if (r.ok) setComptes(r.comptes);
+      else setMessage({ ton: "erreur", texte: r.erreur });
+    });
+    return () => {
+      annule = true;
+    };
+  }, [espace.id, enregistre]);
+
+  if (!enregistre)
+    return <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-sm text-ink-soft">Enregistrez d&apos;abord l&apos;espace : ses accès RH se créent ensuite.</p>;
+
+  const creer = () =>
+    lancer(async () => {
+      const r = await ajouterCompteRh(espace.id, { email, nom, motDePasse });
+      if (!r.ok) return setMessage({ ton: "erreur", texte: r.erreur });
+      setComptes((c) => [...(c ?? []), r.compte].sort((a, b) => a.email.localeCompare(b.email)));
+      setATransmettre({ email: r.compte.email, motDePasse });
+      setEmail("");
+      setNom("");
+      setMotDePasse("");
+      setMessage({ ton: "ok", texte: "Accès créé" });
+    });
+  const retirer = (c: CompteRh) => {
+    if (!window.confirm(`Retirer l'accès de ${c.email} ? Il ne pourra plus se connecter à l'espace RH.`)) return;
+    lancer(async () => {
+      const r = await retirerCompteRh(c.id);
+      if (!r.ok) return setMessage({ ton: "erreur", texte: r.erreur });
+      setComptes((liste) => (liste ?? []).filter((x) => x.id !== c.id));
+      setMessage({ ton: "ok", texte: "Accès retiré" });
+    });
+  };
+  const renouveler = (c: CompteRh) => {
+    if (!window.confirm(`Donner un nouveau mot de passe à ${c.email} ? L'ancien cessera de fonctionner.`)) return;
+    const nouveau = motDePasseAuHasard();
+    lancer(async () => {
+      const r = await nouveauMotDePasseRh(c.id, nouveau);
+      if (!r.ok) return setMessage({ ton: "erreur", texte: r.erreur });
+      setATransmettre({ email: c.email, motDePasse: nouveau });
+      setMessage({ ton: "ok", texte: "Mot de passe changé" });
+    });
+  };
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3.5">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">L&apos;espace RH de {espace.nom}</div>
+          <p className="mt-0.5 text-xs leading-snug text-ink-soft">
+            Les RH s&apos;y connectent à l&apos;adresse <span className="font-mono text-ink">{adresse.replace(/^https?:\/\//, "")}</span> — la même pour toutes les
+            entreprises. C&apos;est leur compte qui ouvre l&apos;espace de {espace.nom}, à ses couleurs.
+          </p>
+        </div>
+        <a href={`/rh?apercu=${encodeURIComponent(espace.id)}`} target="_blank" rel="noreferrer" className="shrink-0 rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-shell transition active:scale-[0.98]">
+          Voir l&apos;espace RH ↗
+        </a>
+      </div>
+
+      <Reglage
+        titre="Montrer le coût estimé aux RH"
+        aide="Coché, les RH voient le montant estimé de chaque déménagement et le budget de la période. La cote sur le volume, elle, ne leur est jamais montrée."
+        actif={espace.rh_couts}
+        onChange={onCouts}
+      />
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-medium">Comptes RH</span>
+          {message && <span className={`text-xs font-medium ${message.ton === "ok" ? "text-good" : "text-danger"}`}>{message.ton === "ok" ? "✓ " : ""}{message.texte}</span>}
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-line">
+          {comptes === null ? (
+            <p className="bg-paper px-4 py-5 text-center text-sm text-ink-soft">Chargement…</p>
+          ) : comptes.length === 0 ? (
+            <p className="bg-paper px-4 py-5 text-center text-sm text-ink-soft">Aucun compte pour l&apos;instant : personne chez {espace.nom} n&apos;a accès à l&apos;espace RH.</p>
+          ) : (
+            comptes.map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line bg-paper px-4 py-3 last:border-0">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{c.nom || c.email}</div>
+                  <div className="truncate text-xs text-ink-soft">
+                    {c.nom ? `${c.email} · ` : ""}
+                    {c.derniere_connexion ? `dernière connexion le ${new Date(c.derniere_connexion).toLocaleDateString("fr-FR")}` : "jamais connecté"}
+                  </div>
+                </div>
+                <button onClick={() => renouveler(c)} disabled={enCours} className="text-xs font-medium text-brand-ink transition hover:text-ink">Nouveau mot de passe</button>
+                <button onClick={() => retirer(c)} disabled={enCours} className="text-xs font-medium text-ink-soft transition hover:text-danger">Retirer</button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {aTransmettre && (
+        <div className="rounded-2xl border border-brand bg-brand-soft px-4 py-3.5 text-sm">
+          <div className="font-semibold">À transmettre à {aTransmettre.email}</div>
+          <p className="mt-0.5 text-xs text-ink-soft">Ce mot de passe ne sera plus affiché. Transmettez-le vous-même : la plateforme n&apos;envoie pas d&apos;identifiants par e-mail.</p>
+          <div className="mt-2.5 grid gap-1 font-mono text-[13px]">
+            <span>{adresse.replace(/^https?:\/\//, "")}</span>
+            <span>{aTransmettre.email}</span>
+            <span>{aTransmettre.motDePasse}</span>
+          </div>
+          <button
+            onClick={() => void navigator.clipboard?.writeText(`Espace RH Bailly Déménagement\n${adresse}\nIdentifiant : ${aTransmettre.email}\nMot de passe : ${aTransmettre.motDePasse}`)}
+            className="mt-3 rounded-lg bg-ink px-3 py-1.5 text-xs font-semibold text-shell"
+          >
+            Copier les identifiants
+          </button>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-line bg-paper p-4 md:p-5">
+        <div className="text-sm font-semibold">Ouvrir un accès</div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="prenom.nom@entreprise.fr" className={SAISIE} aria-label="Adresse e-mail du RH" />
+          <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Prénom Nom (facultatif)" className={SAISIE} aria-label="Nom du RH" />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} placeholder="Mot de passe (10 caractères au moins)" className={`${SAISIE} min-w-[220px] flex-1 font-mono`} aria-label="Mot de passe" />
+          <button onClick={() => setMotDePasse(motDePasseAuHasard())} className="rounded-xl border border-line bg-card px-3.5 text-sm font-medium transition hover:border-ink">Générer</button>
+          <button onClick={creer} disabled={enCours || !email || motDePasse.length < 10} className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-shell transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40">
+            {enCours ? "…" : "Créer l'accès"}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
 

@@ -10,18 +10,13 @@ import {
   supprimerEspace,
 } from "@/lib/espaces-pro";
 import type { EspacePro, Regles } from "@/lib/espaces";
-import { getUser } from "@/lib/supabase/auth";
+import { exigerEquipe } from "@/lib/supabase/auth";
 
 type Reponse = { ok: true; espace: EspacePro } | { ok: false; erreur: string };
 
-/**
- * Une action serveur répond depuis n'importe quelle adresse du site, y compris
- * les pages publiques : le garde de /dashboard ne suffit pas à la protéger.
- * Ces actions règlent la cote et l'habillage des devis — la session se vérifie ici.
- */
-async function exigerEquipe() {
-  if (!(await getUser())) throw new Error("Session expirée : reconnectez-vous.");
-}
+// Une action serveur répond depuis n'importe quelle adresse du site, y compris
+// les pages publiques : le garde de /dashboard ne suffit pas à la protéger.
+// Chacune vérifie donc elle-même que c'est l'équipe qui l'appelle.
 
 const echec = (e: unknown): Reponse => ({ ok: false, erreur: e instanceof Error ? e.message : "Erreur inconnue" });
 

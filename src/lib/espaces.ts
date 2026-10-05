@@ -88,6 +88,10 @@ export interface EspacePro {
   mail_message: string;
   devis_mention: string;
 
+  // ── Espace RH
+  /** Montrer aux RH de l'entreprise le coût estimé des déménagements. */
+  rh_couts: boolean;
+
   created_at: string;
   updated_at: string;
 }
@@ -234,6 +238,8 @@ export function urlLogo(e: Pick<EspacePro, "code" | "logo" | "updated_at">, base
  * changer la cote d'un espace ne doit pas rechiffrer les demandes passées.
  */
 export interface EspaceDeDemande {
+  /** L'identifiant de l'espace : c'est par lui que l'espace RH retrouve ses demandes. */
+  id: string;
   slug: string;
   nom: string;
   ajustement_volume: number;
@@ -244,6 +250,7 @@ export interface EspaceDeDemande {
 
 export function instantane(e: EspacePro): EspaceDeDemande {
   return {
+    id: e.id,
     slug: e.slug,
     nom: e.nom,
     ajustement_volume: e.ajustement_volume,
@@ -260,6 +267,7 @@ export function espaceDeLaDemande(req: { raw_payload?: unknown } | null | undefi
   const o = e as Partial<EspaceDeDemande>;
   if (typeof o.slug !== "string" || typeof o.nom !== "string") return null;
   return {
+    id: typeof o.id === "string" ? o.id : "",
     slug: o.slug,
     nom: o.nom,
     ajustement_volume: typeof o.ajustement_volume === "number" ? o.ajustement_volume : 0,
@@ -307,6 +315,7 @@ export function espaceVide(nom = "", maintenant = new Date().toISOString()): Esp
     mail_objet: "",
     mail_message: "",
     devis_mention: "",
+    rh_couts: true,
     created_at: maintenant,
     updated_at: maintenant,
   };
@@ -382,6 +391,7 @@ export function normaliser(brut: Partial<EspacePro>): EspacePro {
     couleur: couleurValide(brut.couleur) ?? COULEUR_BAILLY,
     code: typeof brut.code === "string" ? brut.code : "",
     rotation: Math.max(0, Math.floor(Number(brut.rotation) || 0)),
+    rh_couts: brut.rh_couts !== false,
     grand_compte: brut.grand_compte === true,
     propres: Array.isArray(brut.propres) ? CLES_REGLES.filter((c) => brut.propres!.includes(c)) : [],
     questions_masquees: masquees,

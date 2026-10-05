@@ -50,3 +50,37 @@ export async function getUser() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+/**
+ * Qui est connecté. Deux sortes de comptes partagent la même authentification :
+ * l'équipe Bailly, et les comptes RH — ceux des entreprises clientes, rattachés
+ * chacun à un espace pro (`app_metadata`, que seul le serveur peut écrire).
+ */
+export type Acces =
+  | { id: string; email: string; role: "equipe" }
+  | { id: string; email: string; role: "rh"; espaceId: string; nom: string };
+
+export async function getAcces(): Promise<Acces | null> {
+  const user = await getUser();
+  if (!user) return null;
+  const m = (user.app_metadata ?? {}) as { role?: string; espace_id?: string };
+  if (m.role === "rh")
+    return {
+      id: user.id,
+      email: user.email ?? "",
+      role: "rh",
+      espaceId: m.espace_id ?? "",
+      nom: String((user.user_metadata as { nom?: string } | null)?.nom ?? ""),
+    };
+  return { id: user.id, email: user.email ?? "", role: "equipe" };
+}
+
+/**
+ * Réserve une action à l'équipe Bailly. Une session ne suffit pas : un compte
+ * RH en a une aussi, et il ne doit rien pouvoir régler.
+ */
+export async function exigerEquipe() {
+  const acces = await getAcces();
+  if (!acces) throw new Error("Session expirée : reconnectez-vous.");
+  if (acces.role !== "equipe") throw new Error("Réservé à l'équipe Bailly.");
+}

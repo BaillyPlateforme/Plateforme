@@ -69,6 +69,21 @@ export default async function LoginPage({
             <LoginForm redirect={target} />
           </div>
 
+          {/* L'autre porte : celle des RH des entreprises clientes. Même
+              authentification, autre espace — chacun y voit son entreprise. */}
+          <div className="reveal mt-4" style={delay(460)}>
+            <Link
+              href="/rh/connexion"
+              className="group flex w-full items-center justify-between gap-3 rounded-lg border border-line bg-card px-4 py-3 text-left transition hover:border-ink"
+            >
+              <span>
+                <span className="block text-sm font-medium">Espace RH</span>
+                <span className="block text-[12px] text-ink-soft">Entreprises : suivez la mobilité de vos collaborateurs</span>
+              </span>
+              <span aria-hidden className="text-ink-soft transition-transform group-hover:translate-x-0.5 group-hover:text-ink">→</span>
+            </Link>
+          </div>
+
           <div
             className="reveal flex items-center gap-2 pt-5 text-[11.5px] text-ink-soft"
             style={delay(520)}
