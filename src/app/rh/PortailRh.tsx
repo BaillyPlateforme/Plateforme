@@ -128,9 +128,14 @@ export default function PortailRh({ apercu }: { apercu: string | null }) {
           <div className="text-[12px] text-ink-soft">{donnees.apercu ? "Aperçu de l'équipe Bailly" : "Connecté"}</div>
           <div className="mt-0.5 truncate text-[13.5px] font-semibold">{donnees.compte?.nom || donnees.compte?.email || espace.nom}</div>
           {donnees.apercu ? (
-            <Link href="/dashboard/espaces-pro" className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-ink hover:text-ink">
-              <Icone nom="gauche" taille={12} trait={2.4} /> Retour à l&apos;espace équipe
-            </Link>
+            <div className="mt-3 grid gap-1.5 text-[12.5px] font-medium">
+              <Link href="/rh" className="inline-flex items-center gap-1.5 text-brand-ink hover:text-ink">
+                <Icone nom="immeuble" taille={12} /> Changer d&apos;entreprise
+              </Link>
+              <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-ink-soft hover:text-ink">
+                <Icone nom="gauche" taille={12} trait={2.4} /> Retour à l&apos;espace équipe
+              </Link>
+            </div>
           ) : (
             <form action={quitterEspaceRh}>
               <button type="submit" className="mt-3 text-[12.5px] font-medium text-ink-soft transition hover:text-ink">
@@ -682,7 +687,7 @@ function ChoixEspace({ choix }: { choix: Choix[] }) {
             </Link>
           ))}
         </div>
-        <Link href="/dashboard/espaces-pro" className="mt-8 inline-flex items-center gap-2 text-[13px] font-medium text-ink-soft hover:text-ink">
+        <Link href="/dashboard" className="mt-8 inline-flex items-center gap-2 text-[13px] font-medium text-ink-soft hover:text-ink">
           <Icone nom="gauche" taille={13} trait={2.4} /> Retour à l&apos;espace équipe
         </Link>
       </div>

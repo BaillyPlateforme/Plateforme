@@ -15,6 +15,9 @@ export const ITEMS: Item[] = [
   { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
   { href: "/dashboard/clients", label: "Clients", icon: <IconCard /> },
   { href: "/dashboard/espaces-pro", label: "Espaces pro", icon: <IconImmeuble /> },
+  // Hors de l'espace équipe : l'espace RH des entreprises clientes, que
+  // l'équipe ouvre pour voir ce que voit un client. On y choisit l'entreprise.
+  { href: "/rh", label: "Espace RH", icon: <IconRh /> },
   { href: "/dashboard/rappels", label: "Rappels", icon: <IconTelephone /> },
   { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
   { href: "/dashboard/statistiques", label: "Statistiques", icon: <IconTrend /> },
@@ -176,6 +179,7 @@ function IconPanneau() {
   );
 }
 function IconGrid() { return <svg {...S}><rect x="3" y="3" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="2" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="2" /><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" /></svg>; }
+function IconRh() { return <svg {...S}><circle cx="9" cy="8" r="3.2" /><path d="M2.8 20c.5-3.4 3-5.4 6.2-5.4s5.700 2 6.200 5.400M16 4.900a3.200 3.200 0 0 1 0 6.200M18.200 14.900c1.700.700 2.800 2.300 3 5.100" /></svg>; }
 function IconImmeuble() { return <svg {...S}><rect x="4" y="2.5" width="16" height="19" rx="2.5" /><path d="M9.5 21.5v-4h5v4M8.5 7h.01M12 7h.01M15.5 7h.01M8.5 11h.01M12 11h.01M15.5 11h.01" /></svg>; }
 function IconInbox() { return <svg {...S}><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>; }
 function IconDoc() { return <svg {...S}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6M8 13h8M8 17h5" /></svg>; }
