@@ -536,13 +536,30 @@ h2.font-serif {
     0 28px 52px -40px rgba(27, 26, 24, 0.4);
 }
 
-/* La carte dont un champ a la main passe devant ses voisines. La liste des
-   villes déborde de sa carte ; or chaque carte garde, de son animation
-   d'entrée, son propre plan d'empilement, et la carte suivante — venue après
-   dans la page — recouvrait la liste. */
-.bloc:focus-within {
+/* La carte dont un champ a la main — ou dont une liste de villes est ouverte —
+   passe devant ses voisines. La liste déborde de sa carte ; or chaque carte
+   garde, de son animation d'entrée, son propre plan d'empilement, et la carte
+   suivante — venue après dans la page — recouvrait la liste. La seconde règle
+   ne dépend pas du champ actif : un remplissage automatique du navigateur
+   ouvrait la liste sans que la carte ait la main. */
+.bloc:focus-within,
+.bloc:has(.liste-villes) {
   position: relative;
   z-index: 20;
+}
+
+/* Le remplissage automatique du navigateur repeint le champ en jaune ou en
+   bleu, et rien ne permet de changer cette couleur. On en repousse l'arrivée
+   indéfiniment : le champ garde le fond du formulaire. */
+.champ:-webkit-autofill,
+.champ:-webkit-autofill:hover,
+.champ:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-ink);
+  caret-color: var(--color-ink);
+  transition:
+    background-color 100000s ease-in-out 0s,
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 /* Le dégradé des titres part du noir : de nuit, il partirait du fond. */

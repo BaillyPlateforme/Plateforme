@@ -107,7 +107,16 @@ export function AddressInput({
   };
 
   return (
-    <div ref={box} className="relative">
+    <div
+      ref={box}
+      className="relative"
+      // La liste n'a de sens que tant que le champ a la main. Sans cela, passer
+      // au champ suivant par la touche Tab laissait la première liste ouverte :
+      // deux listes à la fois, l'une sur l'autre.
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -120,18 +129,32 @@ export function AddressInput({
           else if (e.key === "Escape") setOpen(false);
         }}
         placeholder={placeholder}
+        // Le champ a sa propre liste de suggestions : celle du navigateur et
+        // celles des gestionnaires de mots de passe n'ont rien à y proposer.
         autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open && sugg.length > 0}
+        data-form-type="other"
+        data-lpignore="true"
+        data-1p-ignore
         className="champ pl-11"
       />
       <span className="pointer-events-none absolute left-4 top-6 -translate-y-1/2 text-ink-soft">
         <Icone nom="pin" taille={17} />
       </span>
       {open && sugg.length > 0 && (
-        <ul className="animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
+        <ul className="liste-villes animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
           {sugg.map((p, i) => (
             <li key={i}>
               <button
                 type="button"
+                // Hors du parcours de la touche Tab : au clavier, la liste se
+                // parcourt aux flèches, et Tab passe au champ suivant — sinon
+                // il fallait traverser six suggestions pour y arriver.
+                tabIndex={-1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => choose(p)}
                 onMouseEnter={() => setActive(i)}
