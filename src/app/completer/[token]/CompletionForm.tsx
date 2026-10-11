@@ -4,6 +4,7 @@ import { useState } from "react";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { completeRequest } from "@/lib/actions/completion";
+import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { AddressInput } from "@/app/demande/AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo } from "@/app/demande/cadre";
 import { Bloc, CarteChoix, Field, Icone, TextInput, YesNo, type NomIcone } from "@/app/demande/ui";
@@ -420,12 +421,12 @@ function Merci({ volume, email }: { volume: number | null; email: string | null 
             : "Nos experts reviennent vers vous très vite."}
         </p>
         <a
-          href="tel:+33169103520"
+          href={TEL_AGENCE_LIEN}
           className="reveal mt-8 inline-flex h-12 items-center gap-2.5 rounded-full border border-line-strong bg-card px-6 text-[14.5px] font-semibold transition hover:border-ink"
           style={delai(240)}
         >
           <Icone nom="tel" taille={15} />
-          01 69 10 35 20
+          {TEL_AGENCE}
         </a>
       </div>
     </div>

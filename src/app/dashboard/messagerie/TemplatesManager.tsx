@@ -7,6 +7,7 @@ import {
   PIECES_JOINTES,
   TEMPLATE_BLOCS,
   TEMPLATE_VARIABLES,
+  TEL_AGENCE,
   eventLabel,
   pieceJointeDuModele,
 } from "@/lib/messaging";
@@ -250,9 +251,10 @@ const EXEMPLE = {
   montant_ttc: 2160,
   validite: "15/12/2026",
   entreprise_nom: "Bailly Déménagement",
-  entreprise_tel: "01 69 10 35 20",
+  entreprise_tel: TEL_AGENCE,
   entreprise_email: "contact@demenagements-bailly.com",
   lien_estimation: "#",
+  lien_rappel: "#",
   lien_completion: "#",
 };
 

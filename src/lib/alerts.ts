@@ -138,6 +138,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         montant_ttc: tait ? undefined : (fullCtx.montant_ttc ?? est?.montant_ttc),
         montant_ht: tait ? undefined : (fullCtx.montant_ht ?? est?.montant_ht),
         lien_estimation: est && base ? `${base}/api/devis/${est.devisId}/pdf` : "",
+        lien_rappel: est && base && ctx.request_id ? `${base}/rappel/${ctx.request_id}` : "",
       });
 
       const sujetPrevu =

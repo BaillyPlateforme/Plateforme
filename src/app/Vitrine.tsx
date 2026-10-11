@@ -6,6 +6,7 @@ import Reveal from "./Reveal";
 import SiteHeader from "./SiteHeader";
 import { Icone, type NomIcone } from "./demande/ui";
 import { FORMULES, PRESTATIONS, TRANCHES_DISTANCE, TVA_DEFAUT, type Formule } from "@/lib/pricing/grille";
+import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
@@ -25,7 +26,7 @@ const PORTEE_KM = String(TRANCHES_DISTANCE[TRANCHES_DISTANCE.length - 1].max).re
   " ",
 );
 
-const AGENCE = { lien: "tel:+33169103520", numero: "01 69 10 35 20" };
+const AGENCE = { lien: TEL_AGENCE_LIEN, numero: TEL_AGENCE };
 
 /** Ce que choisit le visiteur : l'un des deux parcours de devis. */
 export type Parcours = "express" | "complet";
@@ -587,7 +588,7 @@ function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) =>
           <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[170px]" />
           <p className="mt-5 text-[16px] font-medium text-brand-ink">Déménagez où vous voulez&nbsp;!</p>
           <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-ink-soft">
-            Membre FIDI et IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.
+            Membre IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.
           </p>
         </div>
 

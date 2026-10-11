@@ -32,7 +32,9 @@ export const PIECES_JOINTES: { key: "" | "estimation"; label: string; aide: stri
 ];
 
 /** Le standard de l'agence, quand les réglages n'en donnent pas. */
-export const TEL_AGENCE = "01 69 10 35 20";
+export const TEL_AGENCE = "01 69 10 35 35";
+/** Le même numéro, sous la forme qu'attend un lien « tel: ». */
+export const TEL_AGENCE_LIEN = `tel:+33${TEL_AGENCE.replace(/\D/g, "").slice(1)}`;
 
 /**
  * La pièce jointe d'un modèle.
@@ -110,6 +112,7 @@ export const TEMPLATE_VARIABLES: { token: string; label: string; groupe: string 
 
   { token: "{{lien_completion}}", label: "Lien pour compléter la demande", groupe: "Liens" },
   { token: "{{lien_estimation}}", label: "Lien vers l'estimation en ligne", groupe: "Liens" },
+  { token: "{{lien_rappel}}", label: "Lien « Je souhaite être rappelé »", groupe: "Liens" },
 ];
 
 /**
@@ -124,7 +127,7 @@ export const TEMPLATE_BLOCS: { token: string; label: string; aide: string }[] = 
   { token: "{{bloc_estimation}}", label: "Carte de l'estimation", aide: "Les lignes du chiffrage, le total HT, et le TTC en grand. Rien ne s'affiche tant que l'estimation n'existe pas." },
   { token: "{{bouton_estimation}}", label: "Bouton « Voir mon estimation »", aide: "Ouvre l'estimation en PDF." },
   { token: "{{bouton_completer}}", label: "Bouton « Compléter ma demande »", aide: "Renvoie vers le formulaire de complétion." },
-  { token: "{{bloc_suite}}", label: "Étapes « Et maintenant ? »", aide: "Ce qui se passe ensuite, en trois étapes numérotées." },
+  { token: "{{bloc_suite}}", label: "Étapes « Et maintenant ? »", aide: "Ce qui se passe ensuite, en trois étapes numérotées, et le bouton « Je souhaite être rappelé » dès que l'estimation existe." },
   { token: "{{bloc_contact}}", label: "Carte « Une question ? »", aide: "Téléphone et adresse de l'agence." },
 ];
 

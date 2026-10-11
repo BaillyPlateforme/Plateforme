@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 
 /**
  * Le lien de complétion a déjà servi, ou n'existe pas.
@@ -43,10 +44,10 @@ export default function LienExpire() {
             Faire une estimation
           </Link>
           <a
-            href="tel:+33169103520"
+            href={TEL_AGENCE_LIEN}
             className="inline-flex h-12 items-center rounded-full border border-line-strong bg-card px-6 text-[14.5px] font-semibold transition hover:border-ink"
           >
-            01 69 10 35 20
+            {TEL_AGENCE}
           </a>
         </div>
       </div>

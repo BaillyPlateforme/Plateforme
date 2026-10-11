@@ -31,6 +31,7 @@ import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo
 import { ListeMeubles, MODES_VOLUME, SaisieVolume, volumeDe, type ListItem, type VolumeMode } from "./volume";
 import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic, type QuestionCle } from "@/lib/espaces";
 import { situerVille } from "@/lib/trajet";
+import { SUPPLEMENTS, type NiveauGarantie } from "@/lib/pricing/grille";
 
 /* ============================ Types ============================ */
 
@@ -52,6 +53,9 @@ type Address = {
   passage_ascenseur: YN;
   passage_escalier: YN;
   surface: string;
+  /** Le client ne connaît pas la surface : il donne son type de logement à la place. */
+  surface_inconnue: boolean;
+  logement: string;
   difficulte_acces: YN;
   type_difficulte: string;
   stationnement: YN;
@@ -113,7 +117,7 @@ const ETAPES: { cle: EtapeCle; label: string; sous: string; eyebrow: string; ava
   { cle: "vous", label: "Vous", sous: "Coordonnées et projet", eyebrow: "Informations personnelles", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "Une question, un projet ? Nous vous accompagnons à chaque étape." },
   { cle: "depart", label: "Départ", sous: "Adresse et accès", eyebrow: "Adresse de départ", avant: "D'où ", accent: "partez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès actuelles." },
   { cle: "arrivee", label: "Arrivée", sous: "Adresse et accès", eyebrow: "Adresse d'arrivée", avant: "Où ", accent: "allez-vous", apres: " ?", sub: "L'adresse et les conditions d'accès à l'arrivée." },
-  { cle: "prestations", label: "Prestations", sous: "Votre formule", eyebrow: "Prestations", avant: "Que devons-nous ", accent: "prendre en charge", apres: " ?", sub: "Trois formules, comparées ligne par ligne. Vous choisissez, nous nous occupons du reste." },
+  { cle: "prestations", label: "Prestations", sous: "Votre formule", eyebrow: "Prestations", avant: "Que devons-nous ", accent: "prendre en charge", apres: " ?", sub: "Trois formules, côte à côte. Vous choisissez, nous nous occupons du reste." },
   { cle: "emballage", label: "Emballage", sous: "Meubles à démonter", eyebrow: "Prestation d'emballage", avant: "Vos meubles à ", accent: "démonter", apres: "", sub: "Pour préparer au mieux le démontage et le remontage." },
   { cle: "inventaire", label: "Inventaire", sous: "Volume à déménager", eyebrow: "Inventaire", avant: "Quel ", accent: "volume", apres: " à déménager ?", sub: "Trois façons de l'estimer — dont l'analyse par photo." },
   { cle: "commentaires", label: "Commentaires", sous: "Relecture et envoi", eyebrow: "Commentaires", avant: "Un dernier ", accent: "mot", apres: " ?", sub: "Vérifiez vos informations et ajoutez vos précisions." },
@@ -156,17 +160,21 @@ function etapesDe(espace: EspacePublic | undefined) {
 const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 // Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
 // et le Luxe rembourse à l'identique — pas à neuf.
-const GARANTIES: { key: "standard" | "luxe"; titre: string; texte: string; badge: string }[] = [
+// Le taux est affiché, et lu dans la grille : le client voit ce que son choix
+// change à son prix.
+const tauxGarantie = (n: NiveauGarantie) =>
+  `Son coût : ${(SUPPLEMENTS.garantie.niveaux[n].taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée.`;
+const GARANTIES: { key: NiveauGarantie; titre: string; texte: string; badge: string }[] = [
   {
     key: "standard",
     titre: "Garantie dommages standard",
-    texte: "Garantie avec tableau de vétusté pour le mobilier.",
+    texte: `Garantie avec tableau de vétusté pour le mobilier. ${tauxGarantie("standard")}`,
     badge: "Franchise de 300 € par sinistre",
   },
   {
     key: "luxe",
     titre: "Garantie dommages Luxe",
-    texte: "Garantie en valeur de remplacement à l'identique et sans vétusté.",
+    texte: `Garantie en valeur de remplacement à l'identique et sans vétusté. ${tauxGarantie("luxe")}`,
     badge: "Sans franchise",
   },
 ];
@@ -214,9 +222,13 @@ const MEUBLES: {
 const emptyAddress: Address = {
   adresse: "", complement: "", ville: "", region: "", code_postal: "", pays: "France",
   etage: "", duplex: "", ascenseur: "", taille_ascenseur: "", passage_ascenseur: "",
-  passage_escalier: "", surface: "", difficulte_acces: "", type_difficulte: "", stationnement: "",
+  passage_escalier: "", surface: "", surface_inconnue: false, logement: "",
+  difficulte_acces: "", type_difficulte: "", stationnement: "",
   portage_m: "",
 };
+
+/** Les mêmes intitulés que le comparateur de devis. */
+const LOGEMENTS = ["Studio", "T1", "T2", "T3", "T4", "T5+", "Maison"];
 
 const initial: FormState = {
   type_client: "particulier", prenom: "", nom: "", tel: "", email: "",
@@ -1017,7 +1029,7 @@ function VousStep({ form, patch, masque }: StepProps & AvecMasque) {
   const garantie = !masque("valeur_mobilier") || !masque("garantie");
   return (
     <div className="space-y-5">
-      <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous envoyer l'estimation et vous rappeler.">
+      <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous envoyer l'estimation, et vous rappeler si vous le demandez.">
         <div className="space-y-5">
           {!masque("type_client") && (
             <Field groupe label="Vous êtes *">
@@ -1123,7 +1135,7 @@ function VousStep({ form, patch, masque }: StepProps & AvecMasque) {
           <div>
             <Ligne
               label="Avez-vous des objets de 80 à 150 kg ?"
-              aide="Aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif."
+              aide="Aquarium de plus de 150 litres, frigo américain, juke-box, flipper, cave à vin, petit coffre-fort, buffet en bois massif…"
             >
               <YesNo value={form.articles_lourds} onChange={(v) => patch({ articles_lourds: v })} />
             </Ligne>
@@ -1207,14 +1219,34 @@ function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { 
       >
         <div className="grid grid-cols-2 gap-4">
           <Field label="Étage" hint="0 = RDC"><TextInput type="number" min={0} value={a.etage} onChange={(e) => set({ etage: e.target.value })} placeholder="3" /></Field>
-          <Field label="Surface habitable"><TextInput type="number" min={0} unite="m²" value={a.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" /></Field>
+          <Field label="Surface habitable *">
+            <TextInput type="number" min={0} unite="m²" value={a.surface_inconnue ? "" : a.surface} disabled={a.surface_inconnue}
+              onChange={(e) => set({ surface: e.target.value })} placeholder={a.surface_inconnue ? "—" : "65"} />
+          </Field>
         </div>
+        {/* La surface est obligatoire, mais tout le monde ne la connaît pas :
+            le type de logement la remplace alors. */}
+        <div className="mt-3">
+          <Pill active={a.surface_inconnue} onClick={() => set({ surface_inconnue: !a.surface_inconnue })}>
+            Je ne connais pas la surface
+          </Pill>
+        </div>
+        {a.surface_inconnue && (
+          <div className="animate-step-in mt-3 rounded-[20px] bg-subtle p-4">
+            <Field groupe label="Votre type de logement *">
+              <div className="flex flex-wrap gap-2">
+                {LOGEMENTS.map((l) => (
+                  <Pill key={l} active={a.logement === l} onClick={() => set({ logement: l })}>{l}</Pill>
+                ))}
+              </div>
+            </Field>
+          </div>
+        )}
         {/* Toutes les questions restent posées. Les masquer tant qu'un étage
             n'était pas saisi donnait un bloc à moitié vide, et le client ne
             savait pas ce qu'on attendait de lui. */}
         {!masque("acces_logement") && (
           <div className="mt-3">
-            <Ligne label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></Ligne>
             <Ligne label="Ascenseur ?"><YesNo value={a.ascenseur} onChange={(v) => set({ ascenseur: v })} /></Ligne>
             {a.ascenseur === "oui" && (
               <div className="animate-step-in mb-4 space-y-1 rounded-[20px] bg-subtle p-4">
@@ -1225,6 +1257,8 @@ function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { 
               </div>
             )}
             <Ligne label="Vos meubles passent-ils par l'escalier ?"><YesNo value={a.passage_escalier} onChange={(v) => set({ passage_escalier: v })} /></Ligne>
+            {/* Le duplex vient en dernier : demande de Céline, à ne pas remonter. */}
+            <Ligne label="Duplex ?"><YesNo value={a.duplex} onChange={(v) => set({ duplex: v })} /></Ligne>
           </div>
         )}
       </Bloc>
@@ -1543,6 +1577,9 @@ function accesLisible(a: Address) {
   const bouts: string[] = [];
   const etage = parseInt(a.etage, 10);
   if (!isNaN(etage)) bouts.push(etage === 0 ? "rez-de-chaussée" : `${etage}${etage === 1 ? "er" : "e"} étage`);
+  if (a.surface_inconnue) {
+    if (a.logement) bouts.push(a.logement);
+  } else if (parseFloat(a.surface) > 0) bouts.push(`${parseFloat(a.surface)} m²`);
   if (a.duplex === "oui") bouts.push("duplex");
   if (!isNaN(etage) && etage > 0) bouts.push(a.ascenseur === "oui" ? "avec ascenseur" : "sans ascenseur");
   const portage = parseInt(a.portage_m, 10);
@@ -1765,14 +1802,25 @@ function manque(cle: EtapeCle, form: FormState): string | null {
     }
     // La ville est le minimum : sans elle, ni distance ni prix.
     case "depart":
-      return form.depart.ville.trim() ? null : "Indiquez la ville de départ";
+      if (!form.depart.ville.trim()) return "Indiquez la ville de départ";
+      return surfaceManquante(form.depart);
     case "arrivee":
-      return form.arrivee.ville.trim() ? null : "Indiquez la ville d'arrivée";
+      if (!form.arrivee.ville.trim()) return "Indiquez la ville d'arrivée";
+      return surfaceManquante(form.arrivee);
     case "inventaire":
       return computeVolume(form) != null ? null : "Renseignez le volume à déménager";
     default:
       return null;
   }
+}
+
+/**
+ * Céline : « que la surface habitable soit une mention obligatoire ». Qui ne
+ * la connaît pas le dit, et donne son type de logement à la place.
+ */
+function surfaceManquante(a: Address): string | null {
+  if (a.surface_inconnue) return a.logement ? null : "Indiquez votre type de logement";
+  return parseFloat(a.surface) > 0 ? null : "Indiquez la surface habitable";
 }
 
 /** La période retenue quand le client n'en donne pas. */
@@ -1866,7 +1914,9 @@ function buildPayload(form: FormState) {
   const toAddr = (a: Address) => ({
     adresse: a.adresse || undefined, code_postal: a.code_postal || undefined, ville: a.ville || undefined,
     etage: a.etage ? parseInt(a.etage, 10) : undefined, ascenseur: yn(a.ascenseur),
-    surface: a.surface ? parseFloat(a.surface) : undefined, stationnement: yn(a.stationnement),
+    surface: !a.surface_inconnue && a.surface ? parseFloat(a.surface) : undefined,
+    type_logement: a.surface_inconnue ? a.logement || undefined : undefined,
+    stationnement: yn(a.stationnement),
     portage_m: a.portage_m ? parseInt(a.portage_m, 10) : undefined,
     acces_difficile: yn(a.difficulte_acces),
   });

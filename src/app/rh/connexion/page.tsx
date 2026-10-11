@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import ThemeClair from "@/components/ThemeClair";
+import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import ConnexionRh from "./ConnexionRh";
 
 export const metadata: Metadata = {
@@ -40,8 +41,8 @@ export default function ConnexionRhPage() {
         </div>
         <p className="mt-6 text-center text-[12.5px] text-ink-soft">
           Pas encore d&apos;accès ? Votre interlocuteur Bailly Déménagement vous en ouvre un.{" "}
-          <a href="tel:+33169103520" className="font-semibold text-ink underline-offset-4 hover:underline">
-            01 69 10 35 20
+          <a href={TEL_AGENCE_LIEN} className="font-semibold text-ink underline-offset-4 hover:underline">
+            {TEL_AGENCE}
           </a>
         </p>
         {/* Un compte de l'équipe se connecte ici aussi : il choisit ensuite

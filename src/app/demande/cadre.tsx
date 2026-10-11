@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { Icone } from "./ui";
 
 /*
@@ -16,7 +17,7 @@ import { Icone } from "./ui";
  * les boutons suivent sans rien savoir de l'espace.
  */
 
-export const AGENCE = { lien: "tel:+33169103520", numero: "01 69 10 35 20" };
+export const AGENCE = { lien: TEL_AGENCE_LIEN, numero: TEL_AGENCE };
 
 export const delai = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 

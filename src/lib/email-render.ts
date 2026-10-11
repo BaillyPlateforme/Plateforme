@@ -232,16 +232,24 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
     case "{{bouton_completer}}":
       return lien("lien_completion") ? bouton("Compléter ma demande", lien("lien_completion")) : "";
 
-    case "{{bloc_suite}}":
+    case "{{bloc_suite}}": {
       // La première étape dit où en est le dossier : l'estimation est faite,
       // ou elle est en cours. Les deux suivantes ne changent pas.
+      //
+      // On n'annonce pas d'appel : c'est le client qui confirme son intérêt,
+      // par le bouton — et c'est ce clic qui l'inscrit au tableau des rappels.
+      const rappel = v.montant_ttc ? lien("lien_rappel") : "";
+      const suite =
+        "un conseiller vous appelle pour finaliser l'estimation, par téléphone ou lors d'une visite technique, gratuite et sans engagement.";
       return (
         sousTitre("Et maintenant ?") +
         etapes([
           v.montant_ttc
             ? [
-                "Un conseiller vous appelle",
-                "Il confirme l'estimation avec vous, par téléphone ou lors d'une visite technique, gratuite et sans engagement.",
+                "Vous confirmez votre intérêt",
+                rappel
+                  ? `Cliquez sur « Je souhaite être rappelé » : ${suite}`
+                  : `Répondez à ce message ou appelez-nous : ${suite}`,
               ]
             : [
                 "Nous étudions votre demande",
@@ -249,8 +257,10 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
               ],
           ["Vous recevez un devis ferme", "Sous 24 heures ouvrées après votre accord."],
           ["Nous bloquons votre date", "Équipes et camions sont réservés dès que le devis est signé."],
-        ])
+        ]) +
+        (rappel ? bouton("Je souhaite être rappelé", rappel) : "")
       );
+    }
 
     case "{{bloc_contact}}":
       return carteContact({

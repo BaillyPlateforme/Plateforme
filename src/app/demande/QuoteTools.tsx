@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import TrajetMap from "@/components/TrajetMap";
-import { Enseigne, halo, type Marque } from "./cadre";
+import { AGENCE, Enseigne, halo, type Marque } from "./cadre";
 import { Icone } from "./ui";
 
 /* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
@@ -303,8 +303,9 @@ export function InstantResult({
             visite technique, gratuite et sans engagement.
           </p>
           <p className="mx-auto mt-3 max-w-[58ch] text-[14px] leading-relaxed text-ink-soft">
-            Si cette proposition vous intéresse, le plus simple est de nous appeler : nous bloquons
-            votre date, et vous recevez un devis ferme sous 24 heures ouvrées.
+            Si cette proposition vous intéresse, cliquez sur «&nbsp;Je souhaite être rappelé&nbsp;» :
+            un conseiller vous appelle, bloque votre date, et vous recevez un devis ferme sous
+            24 heures ouvrées.
           </p>
           <ActionsFin requestId={requestId} onNewQuote={onNewQuote} />
           <p className="mt-6 text-[12px] text-ink-soft">
@@ -327,8 +328,9 @@ function Puce({ children }: { children: React.ReactNode }) {
 /**
  * Les actions de fin : être rappelé, appeler, ou refaire un devis.
  *
- * Le client n'a pas toujours envie d'appeler. Un clic suffit : la demande
- * remonte dans le tableau des rappels de l'équipe, classée par potentiel.
+ * C'est le client qui confirme son intérêt : personne ne l'appelle tant
+ * qu'il n'a pas cliqué. Un clic suffit : la demande remonte dans le tableau
+ * des rappels de l'équipe, classée par potentiel.
  * Le bouton tourne un instant, puis laisse la place à une confirmation —
  * sans elle, le client ne sait pas si son clic a été pris en compte.
  */
@@ -391,17 +393,17 @@ function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?:
             ) : (
               <>
                 <Icone nom="tel" taille={15} trait={2.2} />
-                {etat === "echec" ? "Réessayer" : "Être rappelé"}
+                {etat === "echec" ? "Réessayer" : "Je souhaite être rappelé"}
               </>
             )}
           </button>
         )}
         <a
-          href="tel:+33169103520"
+          href={AGENCE.lien}
           className="inline-flex h-12 items-center gap-2 rounded-full border border-line-strong px-5 text-[14px] font-semibold transition hover:border-ink"
         >
           <Icone nom="tel" taille={15} />
-          01 69 10 35 20
+          {AGENCE.numero}
         </a>
         {onNewQuote && (
           <button

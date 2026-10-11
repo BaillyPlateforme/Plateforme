@@ -32,6 +32,7 @@ import { effacerEspace, enleverLogo, nouveauLien, sauverEspace, sauverRegles, te
 import { ajouterCompteRh, comptesRh, nouveauMotDePasseRh, retirerCompteRh } from "@/lib/actions/rh";
 import type { CompteRh } from "@/lib/rh";
 import { rendreEmail } from "@/lib/email-render";
+import { TEL_AGENCE } from "@/lib/messaging";
 
 type Entreprise = { nom: string | null; email: string | null; tel: string | null };
 
@@ -1265,10 +1266,10 @@ function ApercuMail({
         distance: 540,
         date: "2026-11-15",
         entreprise_nom: nom,
-        entreprise_tel: entreprise.tel || "01 69 10 35 20",
+        entreprise_tel: entreprise.tel || TEL_AGENCE,
         entreprise_email: entreprise.email || "",
         ...(avecPrix
-          ? { reference: "DEV-2026-0042", validite: "15/12/2026", montant_ht: 1800, montant_ttc: 2160, lien_estimation: "#" }
+          ? { reference: "DEV-2026-0042", validite: "15/12/2026", montant_ht: 1800, montant_ttc: 2160, lien_estimation: "#", lien_rappel: "#" }
           : {}),
       },
       lignes: avecPrix
@@ -1278,7 +1279,7 @@ function ApercuMail({
           ]
         : undefined,
       base,
-      entreprise: { nom, email: entreprise.email ?? undefined, tel: entreprise.tel || "01 69 10 35 20" },
+      entreprise: { nom, email: entreprise.email ?? undefined, tel: entreprise.tel || TEL_AGENCE },
       pieceJointe: avecPrix,
       espace: {
         nom: nomEnseigne(espace),

@@ -5,6 +5,7 @@ import {
   Font,
   Image,
   LinearGradient,
+  Link,
   Page,
   Path,
   RadialGradient,
@@ -116,7 +117,8 @@ const s = StyleSheet.create({
   montant: { fontSize: 10.5, fontWeight: 700 },
 
   /* Totaux */
-  totaux: { marginTop: 10, alignItems: "flex-end" },
+  bilan: { marginTop: 10, flexDirection: "row", alignItems: "flex-end", justifyContent: "flex-end" },
+  totaux: { alignItems: "flex-end" },
   totalRow: { flexDirection: "row", width: 230, paddingVertical: 4 },
   totalLabel: { flex: 1, textAlign: "right", color: C.gris, fontSize: 9.5, paddingRight: 14 },
   totalVal: { width: 86, textAlign: "right", fontSize: 9.5, fontWeight: 500 },
@@ -128,6 +130,12 @@ const s = StyleSheet.create({
   mentions: { marginTop: 14, backgroundColor: C.creme, borderRadius: 11, padding: 12, borderLeftWidth: 3, borderLeftColor: C.jaune },
   mentionTitre: { fontSize: 9.5, fontWeight: 700, marginBottom: 5 },
   mention: { fontSize: 8, color: "#5b5750", lineHeight: 1.45, marginBottom: 2 },
+
+  /* Le bouton de rappel */
+  rappel: { flex: 1, marginRight: 22, alignItems: "flex-start" },
+  rappelTitre: { fontSize: 10.5, fontWeight: 700 },
+  rappelTexte: { fontSize: 8, color: "#5b5750", marginTop: 3, lineHeight: 1.45 },
+  rappelBouton: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 16, fontSize: 9.5, fontWeight: 700, textDecoration: "none" },
 
   /* Pied de page */
   pied: { position: "absolute", bottom: 0, left: 0, right: 0 },
@@ -215,6 +223,11 @@ export function DevisPdf({
   trajet?: PdfTrajet;
   espace?: PdfEspace | null;
 }) {
+  // Le bouton « Je souhaite être rappelé » : il lui faut l'adresse du site et
+  // la demande d'où vient l'estimation. Sans l'une ou l'autre, pas de bouton.
+  const base = (settings.base_url || "").replace(/\/$/, "");
+  const lienRappel = base && devis.request_id ? `${base}/rappel/${devis.request_id}` : null;
+
   // La teinte : le jaune de Bailly, ou la couleur de l'espace pro et ses
   // variantes lisibles — sur noir pour l'en-tête, en texte pour le reste.
   const p = espace ? palette(espace.couleur) : null;
@@ -349,18 +362,33 @@ export function DevisPdf({
               </View>
             ))}
 
-            <View style={s.totaux}>
-              <View style={s.totalRow}>
-                <Text style={s.totalLabel}>Total HT</Text>
-                <Text style={s.totalVal}>{eur(devis.montant_ht)}</Text>
-              </View>
-              <View style={s.totalRow}>
-                <Text style={s.totalLabel}>TVA {tauxTva} %</Text>
-                <Text style={s.totalVal}>{eur(devis.montant_tva)}</Text>
-              </View>
-              <View style={s.ttcBloc}>
-                <Text style={[s.ttcLabel, { color: t.surNoir }]}>TOTAL TTC</Text>
-                <Text style={s.ttcVal}>{eur(devis.montant_ttc)}</Text>
+            <View style={s.bilan} wrap={false}>
+              {/* Confirmer son intérêt : à gauche des totaux, là où la page est
+                  vide — sous les mentions, l'encadré partait seul en page 2. */}
+              {lienRappel ? (
+                <View style={s.rappel}>
+                  <Text style={s.rappelTitre}>Cette estimation vous intéresse ?</Text>
+                  <Text style={s.rappelTexte}>
+                    Confirmez-le d&apos;un clic : un conseiller vous appelle pour la finaliser avec vous.
+                  </Text>
+                  <Link src={lienRappel} style={[s.rappelBouton, { backgroundColor: t.accent, color: t.dessus }]}>
+                    Je souhaite être rappelé
+                  </Link>
+                </View>
+              ) : null}
+              <View style={s.totaux}>
+                <View style={s.totalRow}>
+                  <Text style={s.totalLabel}>Total HT</Text>
+                  <Text style={s.totalVal}>{eur(devis.montant_ht)}</Text>
+                </View>
+                <View style={s.totalRow}>
+                  <Text style={s.totalLabel}>TVA {tauxTva} %</Text>
+                  <Text style={s.totalVal}>{eur(devis.montant_tva)}</Text>
+                </View>
+                <View style={s.ttcBloc}>
+                  <Text style={[s.ttcLabel, { color: t.surNoir }]}>TOTAL TTC</Text>
+                  <Text style={s.ttcVal}>{eur(devis.montant_ttc)}</Text>
+                </View>
               </View>
             </View>
           </View>
