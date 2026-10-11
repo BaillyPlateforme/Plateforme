@@ -2,7 +2,8 @@
 
 import { useState, type CSSProperties } from "react";
 import { FORMULES, type Formule } from "@/lib/pricing/grille";
-import { Choice, Icone, Radio } from "./ui";
+import { halo } from "./cadre";
+import { Choice, Icone, Radio, type NomIcone } from "./ui";
 
 export type Presta = "moi" | "bailly" | "";
 export type Prestations = {
@@ -25,8 +26,7 @@ export const LIGNES_CARTE: { key: keyof Prestations; label: string }[] = [
 type Classe = {
   key: Formule;
   accroche: string;
-  /** L'en-tête de la carte : clair, à la couleur de marque, puis sombre. */
-  bandeau: string;
+  icone: NomIcone;
   vedette?: boolean;
   prestations: Prestations;
 };
@@ -35,20 +35,20 @@ const CLASSES: Classe[] = [
   {
     key: "eco",
     accroche: "Vous emballez, nous transportons",
-    bandeau: "bg-subtle text-ink",
+    icone: "carton",
     prestations: { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   },
   {
     key: "standard",
     accroche: "Nous emballons le fragile",
-    bandeau: "bg-brand text-sur-brand",
+    icone: "verre",
     vedette: true,
     prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   },
   {
     key: "luxe",
     accroche: "Vous n'avez rien à toucher",
-    bandeau: "bg-[#1b1a18] text-white",
+    icone: "couronne",
     prestations: { fragile: "bailly", embNonFragile: "bailly", debNonFragile: "bailly", demontage: "bailly", transport: "moi" },
   },
 ];
@@ -89,13 +89,16 @@ export function nomFormule(p: Prestations): string | null {
 }
 
 /**
- * Le choix de la formule : trois cartes côte à côte, à la manière des tarifs
- * d'un billet d'avion — le modèle donné par Céline.
+ * Le choix de la formule : trois cartes côte à côte.
  *
- * Chaque carte porte son nom, son bouton « Sélectionner », ce qu'elle
- * inclut, puis, sous le trait, ce qui reste au client. Rien de plus : le
- * tableau des trente-cinq gestes était « beaucoup trop détaillé ». La formule
- * se lit toujours dans les cinq cases du formulaire : rien d'autre n'est stocké.
+ * Le fond vient du modèle de Céline, les tarifs d'un billet d'avion : chaque
+ * carte dit ce qu'elle inclut, puis, sous le trait, ce qui reste au client —
+ * à la place du tableau des trente-cinq gestes, « beaucoup trop détaillé ».
+ * La forme est celle des onglets d'origine : la carte blanche posée sur le
+ * panneau teinté, qui passe à la couleur de marque quand on la retient.
+ *
+ * La formule se lit toujours dans les cinq cases du formulaire : rien d'autre
+ * n'est stocké.
  */
 export default function ChoixFormule({
   value,
@@ -105,20 +108,42 @@ export default function ChoixFormule({
   onChange: (p: Prestations) => void;
 }) {
   const choix = formuleRetenue(value);
+  const index = CLASSES.findIndex((c) => c.key === choix);
   const transportSeul = choix === "transport";
   const [carte, setCarte] = useState(false);
 
   return (
     <div className="space-y-4">
-      <div role="radiogroup" aria-label="Formule de déménagement" className="reveal grid gap-4 md:grid-cols-3">
-        {CLASSES.map((c) => (
-          <CarteFormule
-            key={c.key}
-            classe={c}
-            active={choix === c.key}
-            onClick={() => onChange({ ...c.prestations })}
-          />
-        ))}
+      <div
+        role="radiogroup"
+        aria-label="Formule de déménagement"
+        className="bloc reveal relative overflow-clip rounded-[28px] border border-line bg-subtle"
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0">
+          <div className="halo absolute -left-32 -top-40 h-[440px] w-[440px]" style={halo(46)} />
+          <div className="halo absolute -right-24 bottom-[-220px] h-[420px] w-[420px]" style={halo(26)} />
+        </div>
+
+        <div className="relative z-10 px-3 pb-4 pt-6 sm:px-5 sm:pb-6 sm:pt-8">
+          <div className="px-2 pb-7">
+            <p className="eyebrow text-brand-ink">Trois formules</p>
+            <p className="font-serif mt-2.5 text-[22px] leading-[1.1] xl:text-[25px]">
+              Choisissez votre niveau de service
+            </p>
+          </div>
+
+          <div className="grid gap-x-3 gap-y-6 md:grid-cols-3">
+            {CLASSES.map((c, i) => (
+              <CarteFormule
+                key={c.key}
+                classe={c}
+                actif={index === i}
+                attenue={index >= 0 && index !== i}
+                onClick={() => onChange({ ...c.prestations })}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ── La quatrième voie : le transport, et rien d'autre ── */}
@@ -237,73 +262,147 @@ export default function ChoixFormule({
   );
 }
 
-/** Une formule : l'en-tête, le bouton, ce qui est inclus, ce qui ne l'est pas. */
-function CarteFormule({ classe, active, onClick }: { classe: Classe; active: boolean; onClick: () => void }) {
+/**
+ * Une formule : en haut l'onglet d'origine — blanc et un peu translucide, puis
+ * plein à la couleur de marque —, en dessous ce qu'elle inclut et ce qu'elle
+ * laisse au client.
+ */
+function CarteFormule({
+  classe,
+  actif,
+  attenue,
+  onClick,
+}: {
+  classe: Classe;
+  actif: boolean;
+  /** Une autre formule est retenue : celle-ci s'efface un peu. */
+  attenue: boolean;
+  onClick: () => void;
+}) {
   const inclus = SERVICES.filter((s) => s.inclus(classe.prestations));
   const reste = SERVICES.filter((s) => !s.inclus(classe.prestations));
   return (
-    // La place de l'étiquette « Conseillé » est réservée au-dessus des trois
-    // cartes : celle du milieu ne fait pas descendre ses voisines.
-    <div className={`relative flex flex-col ${classe.vedette ? "pt-7" : "md:pt-7"}`}>
+    // La carte monte par une translation, jamais par sa hauteur : l'agrandir
+    // au survol poussait ce qui suit de quelques pixels, et l'écran tremblait
+    // dès que la souris passait d'une formule à l'autre.
+    <div
+      className={`relative flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        actif ? "" : "md:translate-y-2 md:hover:translate-y-1"
+      }`}
+    >
       {classe.vedette && (
-        <span className="absolute inset-x-0 top-0 flex h-7 items-center gap-1.5 rounded-t-[14px] bg-[#1b1a18] px-4 text-[11.5px] font-semibold text-white">
-          <span aria-hidden>★</span> Conseillé
+        <span
+          className={`absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2.5 py-1 text-[9.5px] font-bold uppercase tracking-[0.08em] shadow-md transition-colors duration-300 ${
+            actif ? "bg-[#1b1a18] text-brand-clair" : "bg-brand text-sur-brand"
+          }`}
+        >
+          Le plus choisi
         </span>
       )}
       <button
         type="button"
         role="radio"
-        aria-checked={active}
+        aria-checked={actif}
         onClick={onClick}
-        className={`flex w-full flex-1 flex-col overflow-hidden border bg-card text-left outline-none transition-[border-color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
-          classe.vedette ? "rounded-b-[18px]" : "rounded-[18px]"
-        } ${
-          active
-            ? "border-ink ring-1 ring-ink shadow-[0_22px_40px_-28px_rgba(27,26,24,0.55)]"
-            : "border-line-strong hover:border-ink-soft"
+        className={`group relative flex w-full flex-1 flex-col overflow-hidden rounded-[18px] border text-left outline-none transition-[background-color,border-color,box-shadow,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ink active:brightness-95 ${
+          actif
+            ? "border-brand bg-card shadow-[0_18px_44px_-18px_color-mix(in_srgb,var(--color-brand)_85%,transparent)]"
+            : `border-white bg-card/70 shadow-[0_10px_30px_-22px_rgba(27,26,24,0.45)] hover:bg-card ${
+                attenue ? "opacity-80 hover:opacity-100" : ""
+              }`
         }`}
       >
-        <span className={`block px-4 py-4 ${classe.bandeau}`}>
-          <span className="block text-[16px] font-bold leading-tight">{NOM[classe.key]}</span>
-          <span className="mt-1 block text-[12.5px] leading-snug opacity-80">{classe.accroche}</span>
-        </span>
+        {/* ── L'onglet ── */}
+        <span
+          className={`relative flex flex-col overflow-hidden px-3.5 pb-5 pt-5 transition-colors duration-300 xl:px-4 ${
+            actif ? "bg-brand text-sur-brand" : "text-ink"
+          }`}
+        >
+          {actif && <span aria-hidden className="eclat" />}
 
-        <span className="block px-3 pt-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand-clair">
+            <Icone nom={classe.icone} taille={18} />
+          </span>
+
+          <span className="font-serif mt-3 block text-[17px] leading-tight">{NOM[classe.key]}</span>
+          <span className={`mt-1 block text-[12px] leading-snug md:min-h-[2.75em] ${actif ? "opacity-75" : "text-ink-soft"}`}>
+            {classe.accroche}
+          </span>
+
+          <span className="mt-3 flex items-baseline gap-1">
+            <span className="font-serif text-[25px] leading-none tnum">{inclus.length}</span>
+            <span className={`text-[11.5px] ${actif ? "opacity-70" : "text-ink-soft"}`}>
+              / {SERVICES.length} prestations
+            </span>
+          </span>
+          <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${actif ? "bg-[#1b1a18]/15" : "bg-line-strong"}`}>
+            <span
+              className="block h-full rounded-full bg-[#1b1a18]"
+              style={{ width: `${(inclus.length / SERVICES.length) * 100}%` }}
+            />
+          </span>
+
           <span
-            className={`flex h-11 items-center justify-center gap-2 rounded-[10px] text-[14px] font-semibold transition-colors duration-200 ${
-              active ? "bg-[#1b1a18] text-white" : "bg-subtle text-ink"
+            className={`mt-3.5 flex h-9 items-center justify-center gap-1.5 rounded-full text-[12.5px] font-semibold transition-colors duration-300 ${
+              actif
+                ? "bg-[#1b1a18] text-white"
+                : "border border-line-strong text-ink group-hover:border-ink"
             }`}
           >
-            {active && <Icone nom="check" taille={14} trait={3} className="coche-or" />}
-            {active ? "Sélectionnée" : "Sélectionner"}
+            {actif ? (
+              <>
+                <span className="relative inline-flex">
+                  <span className="onde absolute inset-0 rounded-full" />
+                  <Icone nom="check" taille={13} trait={3.2} className="coche-pop coche-or" />
+                </span>
+                Choisie
+              </>
+            ) : (
+              "Choisir"
+            )}
           </span>
         </span>
 
-        <span className="block flex-1 px-4 pb-4 pt-4">
+        {/* ── Ce qu'elle inclut, puis ce qui reste au client ── */}
+        <span
+          className={`flex flex-1 flex-col border-t px-3.5 pb-4 pt-4 text-ink transition-colors duration-300 xl:px-4 ${
+            actif ? "border-brand bg-brand/14" : "border-line/70"
+          }`}
+        >
           <span className="block text-[12.5px] font-bold">Inclus</span>
-          <span className="mt-2.5 block space-y-2.5">
+          <span className="mt-2.5 block flex-1 space-y-2.5">
             {inclus.map((s) => (
               <span key={s.label} className="flex gap-2.5 text-[13px] leading-snug">
-                <Icone nom="check" taille={15} trait={2.8} className="mt-px shrink-0 text-good" />
+                {/* La couleur change, rien ne bouge : des coches qui rebondissent
+                    à chaque clic faisaient vibrer toute la colonne. */}
+                <span
+                  className={`mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full transition-colors duration-300 ${
+                    actif ? "coche-retenue" : "bg-brand text-sur-brand"
+                  }`}
+                >
+                  <Icone nom="check" taille={10} trait={3.4} />
+                </span>
                 <span>{s.label}</span>
               </span>
             ))}
           </span>
-        </span>
 
-        {reste.length > 0 && (
-          <span className="mx-4 block space-y-2.5 border-t border-line pb-4 pt-3.5">
-            {reste.map((s) => (
-              <span key={s.label} className="flex gap-2.5 text-[13px] leading-snug text-ink-soft">
-                <Icone nom="croix" taille={15} trait={2.8} className="mt-px shrink-0 text-danger" />
-                <span>
-                  <span className="sr-only">Non inclus : </span>
-                  {s.label}
+          {reste.length > 0 && (
+            <span className={`mt-4 block space-y-2.5 border-t pt-3.5 ${actif ? "border-brand/50" : "border-line"}`}>
+              {reste.map((s) => (
+                <span key={s.label} className="flex gap-2.5 text-[13px] leading-snug text-ink-soft">
+                  <span className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                    <Icone nom="croix" taille={12} trait={2.6} />
+                  </span>
+                  <span>
+                    <span className="sr-only">Non inclus : </span>
+                    {s.label}
+                  </span>
                 </span>
-              </span>
-            ))}
-          </span>
-        )}
+              ))}
+            </span>
+          )}
+        </span>
       </button>
     </div>
   );
