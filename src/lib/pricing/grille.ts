@@ -22,10 +22,54 @@
 
 export type Formule = "eco" | "standard" | "luxe";
 
-export const FORMULES: { key: Formule; label: string; description: string }[] = [
-  { key: "eco", label: "Économique", description: "Le client emballe, Bailly transporte et remonte." },
-  { key: "standard", label: "Standard", description: "Bailly emballe le fragile et l'électroménager." },
-  { key: "luxe", label: "Premium", description: "Bailly emballe et déballe tout, y compris les meubles fixés." },
+/**
+ * Les trois formules, dans les mots de Christian Guinnebault (12/10/2026).
+ * La page d'accueil et le formulaire les lisent ici : ils disent la même chose.
+ */
+export const FORMULES: {
+  key: Formule;
+  label: string;
+  description: string;
+  /** À qui elle s'adresse, en une ligne. */
+  accroche: string;
+  /** Ce qu'elle comprend. */
+  points: string[];
+}[] = [
+  {
+    key: "eco",
+    label: "Économique",
+    description: "Le client emballe, Bailly transporte et remonte le mobilier.",
+    accroche: "Pour les budgets serrés et pour nos clients qui ont le temps",
+    points: [
+      "Vous emballez et faites la mise en cartons",
+      "Nous chargeons, démontons et remontons votre mobilier",
+      "Démontage et remontage des meubles courants si nécessaire",
+      "Véhicule capitonné et personnel spécialisé",
+    ],
+  },
+  {
+    key: "standard",
+    label: "Standard",
+    description: "Bailly emballe tous vos objets fragiles.",
+    accroche: "Notre formule « best seller » depuis 40 ans",
+    points: [
+      "Nous emballons tous vos objets fragiles",
+      "Nous mettons en penderies vos vêtements sur cintres",
+      "Démontage et remontage du mobilier",
+    ],
+  },
+  {
+    key: "luxe",
+    label: "Premium",
+    description: "Bailly emballe tous vos biens, fragiles et non fragiles.",
+    accroche: "Pour nos clients désireux d'un déménagement clef en main",
+    points: [
+      "Nous emballons tout, le fragile comme le non fragile",
+      "Vos meubles sont démontés et remontés",
+      "Vos vêtements sont sous penderies, votre literie sous housses",
+      "Nous évacuons et récupérons nos emballages",
+    ],
+  },
 ];
 
 /** Tranches de volume. La première se facture au forfait, les autres au m³. */

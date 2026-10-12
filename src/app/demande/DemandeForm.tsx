@@ -367,7 +367,7 @@ function PromessesExpress({ sansPrix = false }: { sansPrix?: boolean }) {
       ]
     : [
         ["eclair", "Deux minutes", "Quatre questions, pas une de plus."],
-        ["euro", "Le prix tout de suite", "Calculé sur notre grille, celle du commercial."],
+        ["euro", "Une estimation en temps réel", "Calculée à partir de notre grille tarifaire, puis confirmée par notre conseiller."],
         ["bouclier", "Sans engagement", "Vous gardez l'estimation, et vous nous rappelez quand vous voulez."],
       ];
   return (

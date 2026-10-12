@@ -219,7 +219,7 @@ ${apercu ? `<div style="display:none;font-size:1px;color:${COULEURS.fond};line-h
               </tr>
             </table>
             <div style="margin-top:24px;border-top:1px solid #3a3936;padding-top:18px;font-size:11.5px;line-height:1.7;color:#8f8c86;">
-              ${echapper(nom)} · BD Moving Group — membre IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.<br>
+              ${echapper(nom)} · BD Moving Group — membre IAM, Chambre Syndicale du Déménagement, certifié ISO 9001, 14001 et 45001, norme Ecovadis.<br>
               Ce message vous est adressé à la suite de votre demande d'estimation. Il ne constitue pas un devis contractuel.
             </div>
           </td>

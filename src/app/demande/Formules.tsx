@@ -25,7 +25,6 @@ export const LIGNES_CARTE: { key: keyof Prestations; label: string }[] = [
 
 type Classe = {
   key: Formule;
-  accroche: string;
   icone: NomIcone;
   vedette?: boolean;
   prestations: Prestations;
@@ -34,20 +33,17 @@ type Classe = {
 const CLASSES: Classe[] = [
   {
     key: "eco",
-    accroche: "Vous emballez, nous transportons",
     icone: "carton",
     prestations: { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   },
   {
     key: "standard",
-    accroche: "Nous emballons le fragile",
     icone: "verre",
     vedette: true,
     prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   },
   {
     key: "luxe",
-    accroche: "Vous n'avez rien à toucher",
     icone: "couronne",
     prestations: { fragile: "bailly", embNonFragile: "bailly", debNonFragile: "bailly", demontage: "bailly", transport: "moi" },
   },
@@ -56,20 +52,8 @@ const CLASSES: Classe[] = [
 /** La formule retenue pour le client quand il n'en choisit aucune : la plus choisie. */
 export const PRESTATIONS_PAR_DEFAUT: Prestations = { ...CLASSES[1].prestations };
 
-const NOM = Object.fromEntries(FORMULES.map((f) => [f.key, f.label])) as Record<Formule, string>;
-
-/**
- * Ce qu'une carte énumère : le transport, toujours inclus, puis les quatre
- * services du formulaire. Inclus ou non, c'est lu dans les cases de la
- * formule — la carte ne peut pas dire autre chose que ce qui sera chiffré.
- */
-const SERVICES: { label: string; inclus: (p: Prestations) => boolean }[] = [
-  { label: "Chargement, transport et déchargement", inclus: () => true },
-  ...LIGNES_CARTE.filter((l) => l.key !== "transport").map((l) => ({
-    label: l.label,
-    inclus: (p: Prestations) => p[l.key] === "bailly",
-  })),
-];
+/** Le nom, l'accroche et les points de chaque formule : ceux de la grille, comme sur la page d'accueil. */
+const FICHE = Object.fromEntries(FORMULES.map((f) => [f.key, f])) as Record<Formule, (typeof FORMULES)[number]>;
 
 /** Ce que les cinq cases disent du choix du client. */
 export function formuleRetenue(p: Prestations): Formule | "transport" | "carte" | null {
@@ -85,17 +69,18 @@ export function nomFormule(p: Prestations): string | null {
   if (choix === null) return null;
   if (choix === "transport") return "Transport seul";
   if (choix === "carte") return "Sur mesure";
-  return NOM[choix];
+  return FICHE[choix].label;
 }
 
 /**
  * Le choix de la formule : trois cartes côte à côte.
  *
  * Le fond vient du modèle de Céline, les tarifs d'un billet d'avion : chaque
- * carte dit ce qu'elle inclut, puis, sous le trait, ce qui reste au client —
- * à la place du tableau des trente-cinq gestes, « beaucoup trop détaillé ».
- * La forme est celle des onglets d'origine : la carte blanche posée sur le
- * panneau teinté, qui passe à la couleur de marque quand on la retient.
+ * carte dit à qui elle s'adresse et ce qu'elle inclut — à la place du tableau
+ * des trente-cinq gestes, « beaucoup trop détaillé ». Les mots sont ceux de
+ * Christian, les mêmes que sur la page d'accueil. La forme est celle des
+ * onglets d'origine : la carte blanche posée sur le panneau teinté, qui passe
+ * à la couleur de marque quand on la retient.
  *
  * La formule se lit toujours dans les cinq cases du formulaire : rien d'autre
  * n'est stocké.
@@ -264,8 +249,7 @@ export default function ChoixFormule({
 
 /**
  * Une formule : en haut l'onglet d'origine — blanc et un peu translucide, puis
- * plein à la couleur de marque —, en dessous ce qu'elle inclut et ce qu'elle
- * laisse au client.
+ * plein à la couleur de marque —, en dessous ce qu'elle inclut.
  */
 function CarteFormule({
   classe,
@@ -279,8 +263,7 @@ function CarteFormule({
   attenue: boolean;
   onClick: () => void;
 }) {
-  const inclus = SERVICES.filter((s) => s.inclus(classe.prestations));
-  const reste = SERVICES.filter((s) => !s.inclus(classe.prestations));
+  const fiche = FICHE[classe.key];
   return (
     // La carte monte par une translation, jamais par sa hauteur : l'agrandir
     // au survol poussait ce qui suit de quelques pixels, et l'écran tremblait
@@ -324,22 +307,11 @@ function CarteFormule({
             <Icone nom={classe.icone} taille={18} />
           </span>
 
-          <span className="font-serif mt-3 block text-[17px] leading-tight">{NOM[classe.key]}</span>
-          <span className={`mt-1 block text-[12px] leading-snug md:min-h-[2.75em] ${actif ? "opacity-75" : "text-ink-soft"}`}>
-            {classe.accroche}
-          </span>
-
-          <span className="mt-3 flex items-baseline gap-1">
-            <span className="font-serif text-[25px] leading-none tnum">{inclus.length}</span>
-            <span className={`text-[11.5px] ${actif ? "opacity-70" : "text-ink-soft"}`}>
-              / {SERVICES.length} prestations
-            </span>
-          </span>
-          <span className={`mt-2 block h-1.5 overflow-hidden rounded-full ${actif ? "bg-[#1b1a18]/15" : "bg-line-strong"}`}>
-            <span
-              className="block h-full rounded-full bg-[#1b1a18]"
-              style={{ width: `${(inclus.length / SERVICES.length) * 100}%` }}
-            />
+          <span className="font-serif mt-3 block text-[17px] leading-tight">{fiche.label}</span>
+          {/* Pas de compteur : « pas nécessaire », et il ne compterait plus rien
+              de ce que la carte énumère. */}
+          <span className={`mt-1.5 block text-[12.5px] leading-snug md:min-h-[4.2em] ${actif ? "opacity-75" : "text-ink-soft"}`}>
+            {fiche.accroche}
           </span>
 
           <span
@@ -363,7 +335,7 @@ function CarteFormule({
           </span>
         </span>
 
-        {/* ── Ce qu'elle inclut, puis ce qui reste au client ── */}
+        {/* ── Ce qu'elle inclut ── */}
         <span
           className={`flex flex-1 flex-col border-t px-3.5 pb-4 pt-4 text-ink transition-colors duration-300 xl:px-4 ${
             actif ? "border-brand bg-brand/14" : "border-line/70"
@@ -371,8 +343,8 @@ function CarteFormule({
         >
           <span className="block text-[12.5px] font-bold">Inclus</span>
           <span className="mt-2.5 block flex-1 space-y-2.5">
-            {inclus.map((s) => (
-              <span key={s.label} className="flex gap-2.5 text-[13px] leading-snug">
+            {fiche.points.map((point) => (
+              <span key={point} className="flex gap-2.5 text-[13px] leading-snug">
                 {/* La couleur change, rien ne bouge : des coches qui rebondissent
                     à chaque clic faisaient vibrer toute la colonne. */}
                 <span
@@ -382,26 +354,10 @@ function CarteFormule({
                 >
                   <Icone nom="check" taille={10} trait={3.4} />
                 </span>
-                <span>{s.label}</span>
+                <span>{point}</span>
               </span>
             ))}
           </span>
-
-          {reste.length > 0 && (
-            <span className={`mt-4 block space-y-2.5 border-t pt-3.5 ${actif ? "border-brand/50" : "border-line"}`}>
-              {reste.map((s) => (
-                <span key={s.label} className="flex gap-2.5 text-[13px] leading-snug text-ink-soft">
-                  <span className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                    <Icone nom="croix" taille={12} trait={2.6} />
-                  </span>
-                  <span>
-                    <span className="sr-only">Non inclus : </span>
-                    {s.label}
-                  </span>
-                </span>
-              ))}
-            </span>
-          )}
         </span>
       </button>
     </div>

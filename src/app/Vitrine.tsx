@@ -5,20 +5,11 @@ import type { CSSProperties } from "react";
 import Reveal from "./Reveal";
 import SiteHeader from "./SiteHeader";
 import { Icone, type NomIcone } from "./demande/ui";
-import { FORMULES, PRESTATIONS, TRANCHES_DISTANCE, TVA_DEFAUT, type Formule } from "@/lib/pricing/grille";
+import { FORMULES, TRANCHES_DISTANCE, TVA_DEFAUT, type Formule } from "@/lib/pricing/grille";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
-/* Le nombre de gestes pris en charge par Bailly, formule par formule : il est
-   lu dans la grille plutôt que recopié, pour ne jamais mentir sur la page. */
-const LIGNES = PRESTATIONS.flatMap((c) => c.lignes);
-const TOTAL = LIGNES.length;
-const COMPTE: Record<Formule, number> = {
-  eco: LIGNES.filter((l) => l.eco === "Bailly").length,
-  standard: LIGNES.filter((l) => l.standard === "Bailly").length,
-  luxe: LIGNES.filter((l) => l.luxe === "Bailly").length,
-};
 // Espace fine insécable entre les milliers : toLocaleString dépend de l'ICU
 // embarqué par le serveur, qui ne la met pas toujours.
 const PORTEE_KM = String(TRANCHES_DISTANCE[TRANCHES_DISTANCE.length - 1].max).replace(
@@ -101,13 +92,13 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
           </div>
 
           <h1 className="font-serif reveal mt-6 text-balance text-[44px] sm:text-[56px] xl:text-[66px]" style={delay(160)}>
-            Votre déménagement, <span className="text-brand">chiffré tout de suite</span>
+            Votre déménagement, <span className="text-brand">estimé en temps réel</span>
           </h1>
 
           <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-white/85 sm:text-[18px]" style={delay(260)}>
             Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
-            tombe aussitôt, calculée sur notre grille tarifaire — la même que celle du commercial,
-            au centime près.
+            tombe aussitôt, calculée à partir de notre grille tarifaire et confirmée par la suite
+            par notre conseiller commercial.
           </p>
 
           <ul className="reveal mt-8 flex flex-wrap gap-x-7 gap-y-3" style={delay(360)}>
@@ -158,7 +149,7 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
           <Chiffre valeur="3 min" legende="pour une estimation complète" />
           <Chiffre valeur="3" legende="formules, de l'économique au premium" />
           <Chiffre valeur={`${PORTEE_KM} km`} legende="de portée, France entière" />
-          <Chiffre valeur="1 grille" legende="même tarif en ligne et au bureau" />
+          <Chiffre valeur="1 grille" legende="tarifaire, pour chaque estimation en ligne" />
         </div>
       </div>
     </section>
@@ -266,7 +257,7 @@ const ETAPES: { titre: string; texte: string; icone: NomIcone }[] = [
   {
     titre: "Vous décrivez",
     texte:
-      "Adresses, volume, étages, ascenseur, distance de portage. Chaque réponse pèse dans le prix — rien n'est demandé pour rien.",
+      "Adresses, volume, étages, ascenseur, distance de portage. Chaque réponse ajuste l'estimation — rien n'est laissé au hasard.",
     icone: "crayon",
   },
   {
@@ -278,13 +269,15 @@ const ETAPES: { titre: string; texte: string; icone: NomIcone }[] = [
   {
     titre: "Le prix s'affiche",
     texte:
-      "Transport, monte-meubles, portage, garanties : chaque ligne est détaillée, et les trois formules sont comparées côte à côte.",
+      "Transport, monte-meubles, portage, garanties : chaque ligne est détaillée avec la possibilité d'étudier nos 3 formules de déménagement.",
     icone: "euro",
   },
   {
-    titre: "Un commercial reprend la main",
+    titre: "Notre conseiller commercial reprend la main",
+    // Christian écrivait « vous contacte » ; Céline ne veut pas qu'on annonce
+    // d'appel : c'est le client qui demande à être rappelé.
     texte:
-      "Votre demande arrive dans le poste de pilotage. Un devis ferme vous est envoyé, sur la base de ce que vous avez rempli.",
+      "Votre demande arrive dans le poste de pilotage. Notre conseiller analyse votre demande et vous rappelle, dès que vous le souhaitez, en vue de l'établissement du devis définitif.",
     icone: "tel",
   },
 ];
@@ -300,7 +293,7 @@ function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
               Quatre étapes, et <span className="gradient-text">le prix est là</span>
             </>
           }
-          texte="Pas de rappel obligatoire, pas de visite pour savoir combien ça coûte. Le calcul est le nôtre, appliqué sur place, avec le détail de chaque ligne."
+          texte="Pas de rappel obligatoire ni de visite dans un premier temps pour déterminer votre budget. Vous obtenez une estimation en ligne détaillée mettant en avant notre rapport qualité / prix / service."
         />
 
         <ol className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -347,24 +340,6 @@ function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 
 const ICONE_FORMULE: Record<Formule, NomIcone> = { eco: "carton", standard: "verre", luxe: "couronne" };
 
-const RESUME: Record<Formule, string[]> = {
-  eco: [
-    "Vous emballez, nous chargeons et remontons",
-    "Démontage et remontage des meubles courants",
-    "Véhicule et personnel spécialisé",
-  ],
-  standard: [
-    "Nous emballons le fragile et l'électroménager",
-    "Cartons et protections fournis",
-    "Démontage, remontage et mise en place",
-  ],
-  luxe: [
-    "Nous emballons et déballons tout",
-    "Meubles fixés démontés et reposés",
-    "Rangement et évacuation des emballages",
-  ],
-};
-
 function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
   return (
     <section id="formules" className="scroll-mt-20 border-y border-line bg-card py-24 lg:py-32">
@@ -409,23 +384,14 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
                   {f.description}
                 </p>
 
+                {/* À la place du compteur de gestes, « pas nécessaire » : à qui
+                    la formule s'adresse. */}
                 <div className={`mt-6 border-t pt-6 ${vedette ? "border-[#1b1a18]/15" : "border-line-strong"}`}>
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-serif text-[46px] leading-none tnum">{COMPTE[f.key]}</span>
-                    <span className={`text-[14px] ${vedette ? "opacity-75" : "text-ink-soft"}`}>
-                      gestes pris en charge sur {TOTAL}
-                    </span>
-                  </div>
-                  <div className={`mt-4 h-2 overflow-hidden rounded-full ${vedette ? "bg-[#1b1a18]/15" : "bg-line-strong"}`}>
-                    <div
-                      className={`draw-line h-full rounded-full ${vedette ? "bg-[#1b1a18]" : "bg-ink"}`}
-                      style={{ width: `${(COMPTE[f.key] / TOTAL) * 100}%` }}
-                    />
-                  </div>
+                  <p className="font-serif text-[20px] leading-snug lg:min-h-[2.75em]">{f.accroche}</p>
                 </div>
 
-                <ul className="mt-7 flex-1 space-y-3.5">
-                  {RESUME[f.key].map((l) => (
+                <ul className="mt-6 flex-1 space-y-3.5">
+                  {f.points.map((l) => (
                     <li key={l} className="flex gap-3 text-[15px] leading-snug">
                       <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
                         <Icone nom="check" taille={11} trait={3.4} />
@@ -462,8 +428,8 @@ function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
 /* ─────────────────────────── Ce qui change ─────────────────────────── */
 
 const PROMESSES: { titre: string; texte: string; icone: NomIcone }[] = [
-  { titre: "Un prix tout de suite", texte: "Pas d'attente, pas de rappel obligatoire pour connaître le montant.", icone: "eclair" },
-  { titre: "La grille du commercial", texte: "Le calcul en ligne est le nôtre, au centime près.", icone: "reglages" },
+  { titre: "Une estimation en temps réel", texte: "Pas d'attente, pas de rappel obligatoire pour connaître votre budget.", icone: "eclair" },
+  { titre: "Notre grille tarifaire", texte: "L'estimation est calculée à partir de notre grille, puis confirmée par notre conseiller commercial.", icone: "reglages" },
   { titre: "Le volume par la photo", texte: "Pièce par pièce, vos photos estiment ce qu'il y a à déménager.", icone: "photo" },
   { titre: "Chaque ligne détaillée", texte: "Transport, portage, monte-meubles, garanties : rien n'est caché.", icone: "liste" },
   { titre: "Sans engagement", texte: "Vous gardez l'estimation et vous nous rappelez quand vous voulez.", icone: "bouclier" },
@@ -588,7 +554,8 @@ function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) =>
           <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[170px]" />
           <p className="mt-5 text-[16px] font-medium text-brand-ink">Déménagez où vous voulez&nbsp;!</p>
           <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-ink-soft">
-            Membre IAM, accrédité FAIM, certifié ISO 9001, 14001 et 45001.
+            Membre IAM, Chambre Syndicale du Déménagement, certifié ISO 9001, 14001 et 45001, norme
+            Ecovadis.
           </p>
         </div>
 
