@@ -52,11 +52,41 @@ export const CATALOG: Array<{ label: string; volume: number; groupe: string }> =
   { label: "Piano droit", volume: 1.2, groupe: "Divers" },
 ];
 
-// Repères de volume total par type de logement (mode "explicite").
-export const LOGEMENT_HINTS: Array<{ label: string; volume: number }> = [
-  { label: "Studio", volume: 10 },
-  { label: "T2", volume: 20 },
-  { label: "T3", volume: 30 },
-  { label: "T4", volume: 45 },
-  { label: "Maison", volume: 60 },
-];
+/**
+ * Le volume estimé d'après le logement, pour qui ne connaît pas ses mètres
+ * cubes et n'envoie pas de photos.
+ *
+ * Ce sont les repères courants de la profession, pas un relevé : environ un
+ * mètre cube pour deux mètres carrés habitables, plus ou moins selon ce que
+ * le logement contient, et ce que les annexes ajoutent. Tout est ici, pour
+ * que Bailly ajuste un chiffre sans toucher au formulaire.
+ */
+export const REPERE_LOGEMENT = {
+  /** Mètres cubes par mètre carré habitable, pour un logement normalement meublé. */
+  m3ParM2: 0.5,
+
+  /** Le volume retenu quand la surface n'est pas donnée. */
+  types: [
+    { label: "Studio", volume: 10 },
+    { label: "T1", volume: 15 },
+    { label: "T2", volume: 20 },
+    { label: "T3", volume: 30 },
+    { label: "T4", volume: 45 },
+    { label: "T5+", volume: 55 },
+    { label: "Maison", volume: 60 },
+  ],
+
+  ameublement: [
+    { key: "peu", label: "Peu meublé", aide: "L'essentiel, des placards à moitié vides.", coef: 0.8 },
+    { key: "normal", label: "Normalement meublé", aide: "Un logement habité, sans excès.", coef: 1 },
+    { key: "tres", label: "Très meublé", aide: "Beaucoup de meubles, de livres, de rangements pleins.", coef: 1.25 },
+  ],
+
+  /** Ce qu'une annexe à vider ajoute, en mètres cubes. */
+  annexes: [
+    { key: "cave", label: "Cave", volume: 3 },
+    { key: "garage", label: "Garage", volume: 6 },
+    { key: "grenier", label: "Grenier ou combles", volume: 5 },
+    { key: "exterieur", label: "Jardin, terrasse ou balcon", volume: 3 },
+  ],
+} as const;

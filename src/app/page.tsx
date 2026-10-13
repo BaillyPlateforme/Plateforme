@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ mode?: string }>;
+  /** `integre=1` : la page est affichée dans un cadre, sur le site officiel. */
+  searchParams: Promise<{ mode?: string; integre?: string }>;
 }) {
-  const [{ mode }, library, settings] = await Promise.all([
+  const [{ mode, integre }, library, settings] = await Promise.all([
     searchParams,
     listLibraryPhotos(),
     getSettings(),
@@ -27,6 +28,7 @@ export default async function Page({
       instant={settings.resultat_instantane}
       annee={new Date().getFullYear()}
       parcoursInitial={mode === "express" || mode === "complet" ? mode : null}
+      integre={integre === "1"}
     />
   );
 }

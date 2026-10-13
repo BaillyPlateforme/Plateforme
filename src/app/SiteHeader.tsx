@@ -49,18 +49,6 @@ export default function SiteHeader({
           />
         </Link>
 
-        <nav className="hidden items-center gap-8 text-[13.5px] md:flex">
-          <a href="#parcours" className="site-link transition">
-            Comment ça marche
-          </a>
-          <a href="#formules" className="site-link transition">
-            Nos formules
-          </a>
-          <a href="#promesses" className="site-link transition">
-            Pourquoi nous
-          </a>
-        </nav>
-
         <div className="flex items-center gap-2.5">
           <button
             type="button"

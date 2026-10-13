@@ -2,10 +2,9 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import Reveal from "./Reveal";
 import SiteHeader from "./SiteHeader";
 import { Icone, type NomIcone } from "./demande/ui";
-import { FORMULES, TRANCHES_DISTANCE, TVA_DEFAUT, type Formule } from "@/lib/pricing/grille";
+import { TRANCHES_DISTANCE } from "@/lib/pricing/grille";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
@@ -22,27 +21,101 @@ const AGENCE = { lien: TEL_AGENCE_LIEN, numero: TEL_AGENCE };
 /** Ce que choisit le visiteur : l'un des deux parcours de devis. */
 export type Parcours = "express" | "complet";
 
+/**
+ * La page d'accueil du devis : le choix entre le devis express et le devis
+ * complet, et rien d'autre.
+ *
+ * Elle a d'abord été une vitrine entière — le parcours en quatre étapes, les
+ * formules, les promesses. Le devis s'affiche désormais dans le site officiel,
+ * qui présente déjà Bailly : il ne reste ici que les deux portes d'entrée.
+ */
 export default function Vitrine({
   onChoisir,
   annee,
+  integre = false,
 }: {
   onChoisir: (p: Parcours) => void;
   annee: number;
+  /** Affichée dans une page du site officiel : ni en-tête, ni photo, ni pied. */
+  integre?: boolean;
 }) {
+  if (integre) return <ChoixIntegre onChoisir={onChoisir} />;
   return (
     <>
       <SiteHeader onChoisir={onChoisir} />
 
       <main className="flex-1">
         <Hero onChoisir={onChoisir} />
-        <Parcours onChoisir={onChoisir} />
-        <Formules onChoisir={onChoisir} />
-        <Promesses onChoisir={onChoisir} />
-        <Fin onChoisir={onChoisir} />
       </main>
 
       <Pied annee={annee} onChoisir={onChoisir} />
     </>
+  );
+}
+
+/** Les deux portes, telles qu'elles s'ouvrent sur chacune des deux versions de la page. */
+function Portes({ onChoisir, d = 0 }: { onChoisir: (p: Parcours) => void; d?: number }) {
+  return (
+    <>
+      <Porte
+        onClick={() => onChoisir("express")}
+        d={d}
+        accent
+        icone="eclair"
+        duree="≈ 2 minutes"
+        titre="Devis express"
+        desc="Une estimation rapide, sans détour. De quoi savoir tout de suite à quoi vous en tenir."
+        points={["Vos coordonnées", "Votre trajet", "Volume : saisie ou photos"]}
+        cta="Commencer le devis express"
+      />
+      <Porte
+        onClick={() => onChoisir("complet")}
+        d={d + 100}
+        icone="liste"
+        duree="Sur mesure"
+        titre="Devis complet"
+        desc="Le dossier détaillé, pour un devis au plus juste : vos accès, vos prestations, vos garanties."
+        points={["Conditions d'accès", "Prestations et formule", "Garantie et inventaire"]}
+        cta="Commencer le devis complet"
+      />
+    </>
+  );
+}
+
+/**
+ * Le choix, dans une page du site officiel.
+ *
+ * Le site a son menu, son titre et sa photo : ici, un titre court et les deux
+ * portes côte à côte, sur le fond clair du formulaire qui suivra.
+ */
+function ChoixIntegre({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
+  return (
+    <section className="relative overflow-hidden bg-paper px-4 py-9 text-ink sm:px-7 sm:py-12">
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        <div className="halo absolute -right-48 -top-56 h-[640px] w-[640px]" style={{ "--halo": "color-mix(in srgb, var(--color-brand) 22%, transparent)" } as CSSProperties} />
+      </div>
+
+      <div className="relative z-10 mx-auto w-full max-w-[1060px]">
+        <p className="eyebrow reveal text-brand-ink">Votre devis en ligne</p>
+        <h1 className="font-serif reveal mt-4 text-balance text-[32px] sm:text-[44px]" style={delay(60)}>
+          Votre déménagement, <span className="gradient-text">estimé en temps réel</span>
+        </h1>
+        <p className="reveal mt-4 max-w-[64ch] text-[15.5px] leading-relaxed text-ink-soft sm:text-[16.5px]" style={delay(120)}>
+          Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
+          tombe aussitôt, calculée à partir de notre grille tarifaire et confirmée par la suite
+          par notre conseiller commercial.
+        </p>
+
+        <div className="mt-8 grid items-stretch gap-4 md:grid-cols-2">
+          <Portes onChoisir={onChoisir} d={200} />
+        </div>
+
+        <a href={AGENCE.lien} className="reveal mt-7 inline-flex items-center gap-2.5 text-[14px] text-ink-soft transition hover:text-ink" style={delay(380)}>
+          <Icone nom="tel" taille={15} />
+          Ou appelez-nous : <span className="font-semibold text-ink">{AGENCE.numero}</span>
+        </a>
+      </div>
+    </section>
   );
 }
 
@@ -118,27 +191,7 @@ function Hero({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
             cartes et salissait toute la composition. */}
         <div className="relative">
           <div className="relative space-y-4">
-            <Porte
-              onClick={() => onChoisir("express")}
-              d={380}
-              accent
-              icone="eclair"
-              duree="≈ 2 minutes"
-              titre="Devis express"
-              desc="Une estimation rapide, sans détour. De quoi savoir tout de suite à quoi vous en tenir."
-              points={["Vos coordonnées", "Votre trajet", "Volume : saisie ou photos"]}
-              cta="Commencer le devis express"
-            />
-            <Porte
-              onClick={() => onChoisir("complet")}
-              d={480}
-              icone="liste"
-              duree="Sur mesure"
-              titre="Devis complet"
-              desc="Le dossier détaillé, pour un devis au plus juste : vos accès, vos prestations, vos garanties."
-              points={["Conditions d'accès", "Prestations et formule", "Garantie et inventaire"]}
-              cta="Commencer le devis complet"
-            />
+            <Portes onChoisir={onChoisir} d={380} />
           </div>
         </div>
       </div>
@@ -188,7 +241,7 @@ function Porte({
     <button
       type="button"
       onClick={onClick}
-      className={`reveal group relative block w-full rounded-[26px] p-6 text-left shadow-[0_24px_50px_-32px_rgba(27,26,24,0.4)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_34px_60px_-32px_rgba(27,26,24,0.5)] active:translate-y-0 sm:p-8 ${
+      className={`reveal group relative block h-full w-full rounded-[26px] p-6 text-left shadow-[0_24px_50px_-32px_rgba(27,26,24,0.4)] transition-[translate,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_34px_60px_-32px_rgba(27,26,24,0.5)] active:translate-y-0 sm:p-8 ${
         accent ? "bg-brand text-sur-brand" : "border border-line bg-card text-ink"
       }`}
       style={delay(d)}
@@ -239,310 +292,6 @@ function Chiffre({ valeur, legende }: { valeur: string; legende: string }) {
   );
 }
 
-/* ─────────────────────────── En-tête de section ─────────────────────────── */
-
-function Entete({ surtitre, titre, texte }: { surtitre: string; titre: React.ReactNode; texte: string }) {
-  return (
-    <Reveal className="max-w-[54ch]">
-      <p className="eyebrow text-brand-ink">{surtitre}</p>
-      <h2 className="font-serif mt-4 text-balance text-[36px] sm:text-[46px]">{titre}</h2>
-      <p className="mt-5 text-[16.5px] leading-relaxed text-ink-soft">{texte}</p>
-    </Reveal>
-  );
-}
-
-/* ─────────────────────────── Parcours client ─────────────────────────── */
-
-const ETAPES: { titre: string; texte: string; icone: NomIcone }[] = [
-  {
-    titre: "Vous décrivez",
-    texte:
-      "Adresses, volume, étages, ascenseur, distance de portage. Chaque réponse ajuste l'estimation — rien n'est laissé au hasard.",
-    icone: "crayon",
-  },
-  {
-    titre: "Les photos font le volume",
-    texte:
-      "Pièce par pièce, vos photos donnent une estimation du volume à déménager. Les doublons sont écartés.",
-    icone: "photo",
-  },
-  {
-    titre: "Le prix s'affiche",
-    texte:
-      "Transport, monte-meubles, portage, garanties : chaque ligne est détaillée avec la possibilité d'étudier nos 3 formules de déménagement.",
-    icone: "euro",
-  },
-  {
-    titre: "Notre conseiller commercial reprend la main",
-    // Christian écrivait « vous contacte » ; Céline ne veut pas qu'on annonce
-    // d'appel : c'est le client qui demande à être rappelé.
-    texte:
-      "Votre demande arrive dans le poste de pilotage. Notre conseiller analyse votre demande et vous rappelle, dès que vous le souhaitez, en vue de l'établissement du devis définitif.",
-    icone: "tel",
-  },
-];
-
-function Parcours({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
-  return (
-    <section id="parcours" className="scroll-mt-20 bg-paper py-24 lg:py-32">
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
-        <Entete
-          surtitre="Le parcours client"
-          titre={
-            <>
-              Quatre étapes, et <span className="gradient-text">le prix est là</span>
-            </>
-          }
-          texte="Pas de rappel obligatoire ni de visite dans un premier temps pour déterminer votre budget. Vous obtenez une estimation en ligne détaillée mettant en avant notre rapport qualité / prix / service."
-        />
-
-        <ol className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {ETAPES.map((e, i) => (
-            <Reveal
-              as="li"
-              key={e.titre}
-              delay={i * 90}
-              className="bloc group flex flex-col rounded-[26px] border border-line bg-card p-7"
-            >
-              <div className="flex items-center justify-between">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-ink transition-colors duration-300 group-hover:bg-[#1b1a18] group-hover:text-brand-clair">
-                  <Icone nom={e.icone} taille={21} />
-                </span>
-                <span className="font-serif text-[42px] leading-none text-line-strong transition-colors duration-300 group-hover:text-brand-mid">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-              </div>
-              <h3 className="mt-7 text-[18px] font-semibold leading-snug tracking-[-0.01em]">{e.titre}</h3>
-              <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">{e.texte}</p>
-            </Reveal>
-          ))}
-        </ol>
-
-        <Reveal delay={220} className="mt-10 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <button
-            type="button"
-            onClick={() => onChoisir("express")}
-            className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-ink pl-6 pr-2 text-[15px] font-semibold text-shell shadow-[0_18px_34px_-18px_rgba(27,26,24,0.8)] transition active:scale-[0.98]"
-          >
-            Demander mon estimation
-            <Fleche />
-          </button>
-          <span className="text-[14px] text-ink-soft">
-            Sans engagement · réponse d&apos;un commercial sous 24 h ouvrées
-          </span>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────── Formules ─────────────────────────── */
-
-const ICONE_FORMULE: Record<Formule, NomIcone> = { eco: "carton", standard: "verre", luxe: "couronne" };
-
-function Formules({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
-  return (
-    <section id="formules" className="scroll-mt-20 border-y border-line bg-card py-24 lg:py-32">
-      <div className="mx-auto w-full max-w-[1200px] px-6 lg:px-10">
-        <Entete
-          surtitre="Nos formules"
-          titre={
-            <>
-              Vous choisissez ce que <span className="gradient-text">vous nous confiez</span>
-            </>
-          }
-          texte="Trois niveaux de prise en charge, du carton que vous faites vous-même au déménagement où vous n'avez rien à toucher."
-        />
-
-        <div className="mt-16 grid items-stretch gap-5 lg:grid-cols-3">
-          {FORMULES.map((f, i) => {
-            // La formule la plus choisie prend la couleur de marque : elle se
-            // détache des deux autres sans assombrir la page.
-            const vedette = f.key === "standard";
-            return (
-              <Reveal
-                key={f.key}
-                delay={i * 110}
-                className={`relative flex flex-col rounded-[28px] border p-7 sm:p-8 ${
-                  vedette
-                    ? "border-brand bg-brand text-sur-brand shadow-[0_40px_70px_-44px_rgba(27,26,24,0.6)] lg:-my-3"
-                    : "bloc border-line bg-paper"
-                }`}
-              >
-                {vedette && (
-                  <span className="absolute -top-3.5 left-8 rounded-full bg-[#1b1a18] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-brand-clair">
-                    Le plus choisi
-                  </span>
-                )}
-                <div className="flex items-center gap-3.5">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#1b1a18] text-brand-clair">
-                    <Icone nom={ICONE_FORMULE[f.key]} taille={21} />
-                  </span>
-                  <h3 className="font-serif text-[26px] leading-none">{f.label}</h3>
-                </div>
-                <p className={`mt-5 min-h-[52px] text-[15.5px] leading-relaxed ${vedette ? "opacity-80" : "text-ink-soft"}`}>
-                  {f.description}
-                </p>
-
-                {/* À la place du compteur de gestes, « pas nécessaire » : à qui
-                    la formule s'adresse. */}
-                <div className={`mt-6 border-t pt-6 ${vedette ? "border-[#1b1a18]/15" : "border-line-strong"}`}>
-                  <p className="font-serif text-[20px] leading-snug lg:min-h-[2.75em]">{f.accroche}</p>
-                </div>
-
-                <ul className="mt-6 flex-1 space-y-3.5">
-                  {f.points.map((l) => (
-                    <li key={l} className="flex gap-3 text-[15px] leading-snug">
-                      <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
-                        <Icone nom="check" taille={11} trait={3.4} />
-                      </span>
-                      {l}
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  type="button"
-                  onClick={() => onChoisir("complet")}
-                  className={`group mt-9 inline-flex h-[52px] items-center justify-between gap-3 rounded-full pl-6 pr-2 text-[15px] font-semibold transition active:scale-[0.98] ${
-                    vedette ? "bg-[#1b1a18] text-white" : "bg-ink text-shell"
-                  }`}
-                >
-                  Estimer avec cette formule
-                  <Fleche />
-                </button>
-              </Reveal>
-            );
-          })}
-        </div>
-
-        <Reveal delay={260} className="mt-10 max-w-[90ch] text-[14px] leading-relaxed text-ink-soft">
-          Prix établis au volume et à la distance, sur notre grille. Suppléments détaillés ligne
-          par ligne sur le devis : portage, monte-meubles, charges lourdes, garanties. TVA {TVA_DEFAUT} %.
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────── Ce qui change ─────────────────────────── */
-
-const PROMESSES: { titre: string; texte: string; icone: NomIcone }[] = [
-  { titre: "Une estimation en temps réel", texte: "Pas d'attente, pas de rappel obligatoire pour connaître votre budget.", icone: "eclair" },
-  { titre: "Notre grille tarifaire", texte: "L'estimation est calculée à partir de notre grille, puis confirmée par notre conseiller commercial.", icone: "reglages" },
-  { titre: "Le volume par la photo", texte: "Pièce par pièce, vos photos estiment ce qu'il y a à déménager.", icone: "photo" },
-  { titre: "Chaque ligne détaillée", texte: "Transport, portage, monte-meubles, garanties : rien n'est caché.", icone: "liste" },
-  { titre: "Sans engagement", texte: "Vous gardez l'estimation et vous nous rappelez quand vous voulez.", icone: "bouclier" },
-  { titre: "Une date tenue", texte: "Équipes et camions sont réservés dès l'accord sur le devis.", icone: "calendrier" },
-];
-
-function Promesses({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
-  return (
-    <section id="promesses" className="scroll-mt-20 bg-paper py-24 lg:py-32">
-      <div className="mx-auto grid w-full max-w-[1200px] gap-14 px-6 lg:grid-cols-[minmax(0,400px)_1fr] lg:gap-16 lg:px-10">
-        <div>
-          <Entete
-            surtitre="Ce qui change"
-            titre={
-              <>
-                Un déménagement <span className="gradient-text">sans zone d&apos;ombre</span>
-              </>
-            }
-            texte="Vous savez ce que vous payez, et pourquoi. Le devis reprend ligne par ligne ce que vous avez rempli — rien ne s'ajoute en cours de route."
-          />
-
-          <Reveal delay={120} className="mt-9 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => onChoisir("express")}
-              className="group inline-flex h-[52px] items-center gap-3 rounded-full bg-ink pl-6 pr-2 text-[15px] font-semibold text-shell transition active:scale-[0.98]"
-            >
-              Faire mon estimation
-              <Fleche />
-            </button>
-            <a
-              href="#formules"
-              className="inline-flex h-[52px] items-center rounded-full border border-line-strong bg-card px-6 text-[15px] font-semibold transition hover:border-ink"
-            >
-              Voir les formules
-            </a>
-          </Reveal>
-
-          <Reveal delay={180} as="p" className="mt-7 flex items-center gap-2.5 text-[13px] text-ink-soft">
-            <Icone nom="bouclier" taille={15} />
-            Vos données restent chez nous · hébergement en Europe
-          </Reveal>
-        </div>
-
-        <div className="grid content-start gap-4 sm:grid-cols-2">
-          {PROMESSES.map((o, i) => (
-            <Reveal
-              key={o.titre}
-              delay={i * 70}
-              className="bloc rounded-[22px] border border-line bg-card p-6"
-            >
-              <span className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-brand text-sur-brand">
-                <Icone nom={o.icone} taille={20} />
-              </span>
-              <p className="mt-5 text-[17px] font-semibold leading-snug">{o.titre}</p>
-              <p className="mt-2 text-[14.5px] leading-relaxed text-ink-soft">{o.texte}</p>
-            </Reveal>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ─────────────────────────── Dernier appel ─────────────────────────── */
-
-function Fin({ onChoisir }: { onChoisir: (p: Parcours) => void }) {
-  return (
-    <section className="border-t border-line bg-card px-6 py-20 lg:px-10 lg:py-24">
-      {/* Le dernier appel est un aplat de la couleur de marque : il ferme la
-          page sur une note vive, pas sur un bloc noir. */}
-      <Reveal className="relative mx-auto w-full max-w-[1200px] overflow-hidden rounded-[36px] bg-brand px-7 py-16 text-center text-sur-brand sm:px-14 sm:py-20">
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="halo absolute -left-32 -top-40 h-[460px] w-[460px]" style={{ "--halo": "rgba(255,255,255,0.5)" } as CSSProperties} />
-          <div className="halo absolute -bottom-48 -right-24 h-[480px] w-[480px]" style={{ "--halo": "rgba(255,255,255,0.32)" } as CSSProperties} />
-        </div>
-
-        <div className="relative z-10">
-          <p className="eyebrow opacity-70">Votre estimation</p>
-          <h2 className="font-serif mx-auto mt-4 max-w-[17ch] text-balance text-[36px] sm:text-[52px]">
-            Combien coûte votre déménagement&nbsp;?
-          </h2>
-          <p className="mx-auto mt-5 max-w-[50ch] text-[17px] leading-relaxed opacity-80">
-            La réponse tient en trois minutes. Vous gardez le devis, vous nous rappelez quand
-            vous voulez.
-          </p>
-          <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => onChoisir("express")}
-              className="group inline-flex h-14 items-center gap-3 rounded-full bg-[#1b1a18] pl-7 pr-2.5 text-[15.5px] font-semibold text-white shadow-[0_22px_44px_-20px_rgba(27,26,24,0.7)] transition active:scale-[0.98]"
-            >
-              Faire mon estimation
-              <Fleche />
-            </button>
-            <button
-              type="button"
-              onClick={() => onChoisir("complet")}
-              className="inline-flex h-14 items-center rounded-full border border-current px-7 text-[15.5px] font-semibold transition hover:bg-white/30"
-            >
-              Devis complet
-            </button>
-          </div>
-          <a href={AGENCE.lien} className="mt-8 inline-flex items-center gap-2.5 text-[14.5px] opacity-80 transition hover:opacity-100">
-            <Icone nom="tel" taille={15} />
-            Ou appelez-nous : <span className="font-semibold">{AGENCE.numero}</span>
-          </a>
-        </div>
-      </Reveal>
-    </section>
-  );
-}
-
 /* ─────────────────────────── Pied de page ─────────────────────────── */
 
 function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) => void }) {
@@ -571,16 +320,6 @@ function Pied({ annee, onChoisir }: { annee: number; onChoisir: (p: Parcours) =>
               <button type="button" onClick={() => onChoisir("complet")} className={lien}>
                 Devis complet
               </button>
-            </li>
-            <li>
-              <a href="#formules" className={lien}>
-                Nos formules
-              </a>
-            </li>
-            <li>
-              <a href="#parcours" className={lien}>
-                Comment ça marche
-              </a>
             </li>
           </ul>
         </div>

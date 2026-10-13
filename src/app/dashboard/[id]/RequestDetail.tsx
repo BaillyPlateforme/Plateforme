@@ -209,6 +209,10 @@ function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<st
   const espace = espaceDeLaDemande(r);
   const cote = espace?.ajustement_volume ?? 0;
   const retenu = r.volume_m3 != null && cote !== 0 ? volumeChiffre(Number(r.volume_m3), cote) : null;
+  // Un volume déduit du logement est enregistré comme déclaré : la description
+  // qui l'accompagne dit à l'équipe que c'est un repère, pas un relevé.
+  const repere = (r.raw_payload as { details?: { repere_logement?: { resume?: string } } } | null)?.details
+    ?.repere_logement?.resume;
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-6">
@@ -227,7 +231,7 @@ function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<st
           </div>
         )}
         <div className="rounded-full bg-paper px-3 py-1 text-sm text-ink-soft">
-          Méthode : {r.volume_method === "ai" ? "photos (IA)" : r.volume_method === "list" ? "liste" : r.volume_method === "explicit" ? "déclaré" : "—"}
+          Méthode : {r.volume_method === "ai" ? "photos (IA)" : r.volume_method === "list" ? "liste" : r.volume_method === "explicit" ? (repere ? `estimé d'après le logement (${repere})` : "déclaré") : "—"}
         </div>
       </div>
       {retenu != null && espace && (

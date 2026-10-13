@@ -1,27 +1,93 @@
 "use client";
 
-import { CATALOG, LOGEMENT_HINTS } from "@/lib/catalog";
+import { CATALOG, REPERE_LOGEMENT } from "@/lib/catalog";
 import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
-import { Field, Icone, Pill, TextInput, type NomIcone } from "./ui";
+import { Choice, Field, Icone, Pill, TextInput, type NomIcone } from "./ui";
 
 /*
- * Le volume à déménager, et ses trois façons de l'estimer. Partagé par le
+ * Le volume à déménager, et ses façons de l'estimer : le saisir, lister ses
+ * meubles, envoyer des photos, ou décrire son logement. Partagé par le
  * formulaire de devis et la page de complétion.
  */
 
-export type VolumeMode = "explicit" | "list" | "ai";
+export type VolumeMode = "explicit" | "list" | "ai" | "logement";
 export type ListItem = { label: string; quantite: number; volume_unitaire_m3: number };
 
+type Ameublement = (typeof REPERE_LOGEMENT.ameublement)[number]["key"];
+
+/** Le logement décrit par le client, pour en déduire un volume. */
+export type Repere = {
+  type: string;
+  surface: string;
+  ameublement: Ameublement;
+  /** Les annexes à vider : cave, garage… */
+  annexes: string[];
+};
+
+export const REPERE_VIDE: Repere = { type: "", surface: "", ameublement: "normal", annexes: [] };
+
+const arrondi = (n: number) => Math.round(n * 100) / 100;
+const fr = (n: number) => String(arrondi(n)).replace(".", ",");
+
+/**
+ * Le calcul du repère, ligne par ligne — le même pour le chiffre retenu et
+ * pour le détail montré au client.
+ *
+ * La surface prime sur le type : elle dit plus précisément ce qu'il y a à
+ * déménager. Sans elle, c'est le volume courant du type de logement.
+ */
+export function detailRepere(r: Repere): { lignes: [string, string][]; volume: number } | null {
+  const surface = parseFloat(r.surface);
+  const type = REPERE_LOGEMENT.types.find((t) => t.label === r.type);
+  const lignes: [string, string][] = [];
+  let base: number;
+  if (surface > 0) {
+    base = surface * REPERE_LOGEMENT.m3ParM2;
+    lignes.push([`${fr(surface)} m² × ${fr(REPERE_LOGEMENT.m3ParM2)} m³`, `${fr(base)} m³`]);
+  } else if (type) {
+    base = type.volume;
+    lignes.push([`${type.label}, volume courant`, `${fr(base)} m³`]);
+  } else return null;
+
+  const meuble = REPERE_LOGEMENT.ameublement.find((a) => a.key === r.ameublement) ?? REPERE_LOGEMENT.ameublement[1];
+  if (meuble.coef !== 1) lignes.push([meuble.label, `× ${fr(meuble.coef)}`]);
+  let volume = base * meuble.coef;
+
+  for (const annexe of REPERE_LOGEMENT.annexes) {
+    if (!r.annexes.includes(annexe.key)) continue;
+    volume += annexe.volume;
+    lignes.push([annexe.label, `+ ${fr(annexe.volume)} m³`]);
+  }
+  // Au mètre cube près : un repère n'a pas de décimales à promettre.
+  return { lignes, volume: Math.round(volume) };
+}
+
+/** Le logement, dit en une ligne — pour le récapitulatif et pour l'équipe. */
+export function repereLisible(r: Repere): string {
+  const meuble = REPERE_LOGEMENT.ameublement.find((a) => a.key === r.ameublement);
+  const annexes = REPERE_LOGEMENT.annexes.filter((a) => r.annexes.includes(a.key)).map((a) => a.label.toLowerCase());
+  return [r.type, parseFloat(r.surface) > 0 ? `${fr(parseFloat(r.surface))} m²` : "", meuble?.label.toLowerCase() ?? "", ...annexes]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** Le volume retenu selon la méthode choisie, ou rien tant qu'il n'est pas connu. */
-export function volumeDe(mode: VolumeMode, saisi: string, items: ListItem[], photos: AnalyzedPhoto[]): number | null {
+export function volumeDe(
+  mode: VolumeMode,
+  saisi: string,
+  items: ListItem[],
+  photos: AnalyzedPhoto[],
+  repere: Repere = REPERE_VIDE,
+): number | null {
   if (mode === "explicit") {
     const v = parseFloat(saisi);
-    return isNaN(v) ? null : Math.round(v * 100) / 100;
+    return isNaN(v) ? null : arrondi(v);
   }
   if (mode === "list") {
     if (items.length === 0) return null;
-    return Math.round(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0) * 100) / 100;
+    return arrondi(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0));
   }
+  if (mode === "logement") return detailRepere(repere)?.volume ?? null;
   return photos.length === 0 ? null : volumePhotos(photos);
 }
 
@@ -29,28 +95,111 @@ export const MODES_VOLUME: { key: VolumeMode; icone: NomIcone; titre: string; te
   { key: "explicit", icone: "carton", titre: "Je connais mon volume", texte: "Vous saisissez le nombre de mètres cubes." },
   { key: "list", icone: "liste", titre: "Je liste mes meubles", texte: "Meuble par meuble, le volume se calcule." },
   { key: "ai", icone: "photo", titre: "J'envoie des photos", texte: "L'analyse de vos photos estime le volume." },
+  { key: "logement", icone: "maison", titre: "Je décris mon logement", texte: "Type, surface, ameublement : le volume s'en déduit." },
 ];
 
-
-/** Le volume saisi à la main, avec des repères par type de logement. */
+/** Le volume saisi à la main. */
 export function SaisieVolume({ valeur, onChange }: { valeur: string; onChange: (v: string) => void }) {
   return (
-    <div className="space-y-5">
-      <Field label="Volume estimé">
-        <div className="sm:max-w-[260px]">
-          <TextInput type="number" min={0} step="0.5" unite="m³" value={valeur} onChange={(e) => onChange(e.target.value)} placeholder="25" />
-        </div>
-      </Field>
-      <Field groupe label="Repères par logement" hint="un clic remplit le champ">
+    <Field label="Volume estimé">
+      <div className="sm:max-w-[260px]">
+        <TextInput type="number" min={0} step="0.5" unite="m³" value={valeur} onChange={(e) => onChange(e.target.value)} placeholder="25" />
+      </div>
+    </Field>
+  );
+}
+
+/**
+ * Le volume déduit du logement.
+ *
+ * C'était une rangée de pastilles sous la saisie directe : un clic, un chiffre
+ * rond. C'est désormais une façon d'estimer à part entière, pour qui ne
+ * connaît pas ses mètres cubes — quatre questions, et le calcul montré ligne
+ * par ligne, pour que le client voie d'où vient le chiffre.
+ */
+export function RepereLogement({
+  valeur,
+  onChange,
+  sansVolume = false,
+}: {
+  valeur: Repere;
+  onChange: (r: Repere) => void;
+  /** Un espace pro peut taire les mètres cubes : la description suffit alors. */
+  sansVolume?: boolean;
+}) {
+  const set = (p: Partial<Repere>) => onChange({ ...valeur, ...p });
+  const detail = detailRepere(valeur);
+  const meuble = REPERE_LOGEMENT.ameublement.find((a) => a.key === valeur.ameublement);
+  const basculer = (cle: string) =>
+    set({ annexes: valeur.annexes.includes(cle) ? valeur.annexes.filter((a) => a !== cle) : [...valeur.annexes, cle] });
+
+  return (
+    <div className="space-y-6">
+      <Field groupe label="Votre type de logement">
         <div className="flex flex-wrap gap-2">
-          {LOGEMENT_HINTS.map((h) => (
-            <Pill key={h.label} active={valeur === String(h.volume)} onClick={() => onChange(String(h.volume))}>
-              {h.label}
-              <span className="ml-1.5 opacity-60">~{h.volume} m³</span>
+          {REPERE_LOGEMENT.types.map((t) => (
+            <Pill key={t.label} active={valeur.type === t.label} onClick={() => set({ type: valeur.type === t.label ? "" : t.label })}>
+              {t.label}
             </Pill>
           ))}
         </div>
       </Field>
+
+      <Field label="Surface habitable" hint="si vous la connaissez : l'estimation est plus précise">
+        <div className="sm:max-w-[260px]">
+          <TextInput type="number" min={0} unite="m²" value={valeur.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" />
+        </div>
+      </Field>
+
+      <Field groupe label="Votre logement est…">
+        <Choice
+          plein
+          options={REPERE_LOGEMENT.ameublement.map((a) => [a.key, a.label] as [string, string])}
+          value={valeur.ameublement}
+          onChange={(v) => set({ ameublement: v as Ameublement })}
+        />
+        {meuble && <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{meuble.aide}</p>}
+      </Field>
+
+      <Field groupe label="Des annexes à vider ?" hint="plusieurs choix possibles">
+        <div className="flex flex-wrap gap-2">
+          {REPERE_LOGEMENT.annexes.map((a) => (
+            <Pill key={a.key} active={valeur.annexes.includes(a.key)} onClick={() => basculer(a.key)}>
+              {a.label}
+            </Pill>
+          ))}
+        </div>
+      </Field>
+
+      {/* ── Le résultat, et d'où il vient ── */}
+      {!detail ? (
+        <p className="flex gap-2.5 rounded-[18px] border border-dashed border-line-strong px-4 py-3.5 text-[13.5px] leading-snug text-ink-soft">
+          <Icone nom="info" taille={16} className="mt-px shrink-0" />
+          Indiquez votre type de logement ou sa surface : {sansVolume ? "nos équipes en déduisent le volume." : "le volume s'affiche aussitôt."}
+        </p>
+      ) : sansVolume ? (
+        <p className="flex gap-2.5 rounded-[18px] bg-brand-soft px-4 py-3.5 text-[13.5px] leading-snug text-brand-ink">
+          <Icone nom="check" taille={16} trait={2.6} className="mt-px shrink-0" />
+          C&apos;est noté : nos équipes déduisent le volume de cette description.
+        </p>
+      ) : (
+        <div className="animate-step-in overflow-hidden rounded-[20px] border border-line">
+          {detail.lignes.map(([quoi, combien]) => (
+            <div key={quoi} className="flex items-center justify-between gap-4 border-b border-line px-4 py-2.5 text-[13.5px]">
+              <span className="text-ink-mid">{quoi}</span>
+              <span className="tnum font-medium">{combien}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-4 bg-subtle px-4 py-3.5">
+            <span className="text-[14px] font-semibold">Volume estimé</span>
+            <span className="font-serif text-[22px] tnum">≈ {detail.volume} m³</span>
+          </div>
+          <p className="px-4 py-3 text-[12.5px] leading-snug text-ink-soft">
+            Un repère, établi sur les ratios habituels de la profession. Notre conseiller l&apos;affine avec vous
+            avant le devis définitif.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

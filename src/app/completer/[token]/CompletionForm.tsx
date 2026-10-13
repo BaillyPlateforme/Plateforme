@@ -11,6 +11,8 @@ import { Bloc, CarteChoix, Field, Icone, TextInput, YesNo, type NomIcone } from 
 import {
   ListeMeubles,
   MODES_VOLUME,
+  REPERE_VIDE,
+  RepereLogement,
   SaisieVolume,
   volumeDe,
   type ListItem,
@@ -89,12 +91,13 @@ export default function CompletionForm({
   const [explicitVolume, setExplicitVolume] = useState("");
   const [items, setItems] = useState<ListItem[]>([]);
   const [photos, setPhotos] = useState<AnalyzedPhoto[]>([]);
+  const [repere, setRepere] = useState(REPERE_VIDE);
 
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const volume = volumeDe(mode, explicitVolume, items, photos);
+  const volume = volumeDe(mode, explicitVolume, items, photos, repere);
 
   // Les points à compléter, et où ils en sont.
   const points: { cle: string; label: string; fait: boolean }[] = [
@@ -119,7 +122,8 @@ export default function CompletionForm({
     try {
       const r = await completeRequest(token, {
         volume_m3: manque.volume ? volume : null,
-        volume_method: volume != null && manque.volume ? mode : null,
+        // Le volume déduit du logement est enregistré comme un volume déclaré.
+        volume_method: volume != null && manque.volume ? (mode === "logement" ? "explicit" : mode) : null,
         photos: mode === "ai" && manque.volume ? (photos as never) : undefined,
         items: mode === "list" && manque.volume ? items : undefined,
         client: { nom, tel },
@@ -217,7 +221,7 @@ export default function CompletionForm({
         )}
         {manque.volume && (
           <>
-            <div className="reveal grid gap-3 sm:grid-cols-3" style={delai(suivant())}>
+            <div className="reveal grid gap-3 sm:grid-cols-2 xl:grid-cols-4" style={delai(suivant())}>
               {MODES_VOLUME.map((m) => (
                 <CarteChoix
                   key={m.key}
@@ -240,6 +244,7 @@ export default function CompletionForm({
                 {mode === "explicit" && <SaisieVolume valeur={explicitVolume} onChange={setExplicitVolume} />}
                 {mode === "list" && <ListeMeubles items={items} onChange={setItems} />}
                 {mode === "ai" && <PhotoAnalyzer library={library} photos={photos} onChange={setPhotos} />}
+                {mode === "logement" && <RepereLogement valeur={repere} onChange={setRepere} />}
               </Bloc>
             </div>
           </>

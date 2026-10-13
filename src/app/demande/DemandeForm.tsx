@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Bloc,
   CarteChoix,
@@ -24,11 +24,24 @@ import ChoixFormule, {
   type Prestations,
 } from "./Formules";
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
-import { volumePhotos, type AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
+import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
-import { ListeMeubles, MODES_VOLUME, SaisieVolume, volumeDe, type ListItem, type VolumeMode } from "./volume";
+import { remonter, useIntegre, usePleinEcran } from "./integration";
+import {
+  ListeMeubles,
+  MODES_VOLUME,
+  REPERE_VIDE,
+  RepereLogement,
+  SaisieVolume,
+  detailRepere,
+  repereLisible,
+  volumeDe,
+  type ListItem,
+  type Repere,
+  type VolumeMode,
+} from "./volume";
 import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic, type QuestionCle } from "@/lib/espaces";
 import { situerVille } from "@/lib/trajet";
 import { SUPPLEMENTS, type NiveauGarantie } from "@/lib/pricing/grille";
@@ -97,6 +110,8 @@ type FormState = {
   explicitVolume: string;
   items: ListItem[];
   photos: AnalyzedPhoto[];
+  /** Le logement décrit, quand le volume s'en déduit. */
+  repere: Repere;
   // Étape 7
   commentaire: string;
 };
@@ -236,7 +251,7 @@ const initial: FormState = {
   depart: { ...emptyAddress }, arrivee: { ...emptyAddress },
   prestations: { fragile: "", embNonFragile: "", debNonFragile: "", demontage: "", transport: "" },
   emballage: { ikea: "", ikeaPrecision: "", anciens: "", anciensPrecision: "", specifiques: "", specifiquesPrecision: "" },
-  volumeMode: "explicit", explicitVolume: "", items: [], photos: [],
+  volumeMode: "explicit", explicitVolume: "", items: [], photos: [], repere: REPERE_VIDE,
   commentaire: "",
 };
 
@@ -254,7 +269,8 @@ const DEMO: FormState = {
 const EXPRESS_VIDE = {
   nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
   dateMode: "date" as PeriodeMode, date: "", periode: "",
-  volMode: "explicit" as "explicit" | "ai", explicitVolume: "", photos: [] as AnalyzedPhoto[],
+  volMode: "explicit" as "explicit" | "ai" | "logement", explicitVolume: "", photos: [] as AnalyzedPhoto[],
+  repere: REPERE_VIDE,
 };
 
 
@@ -412,6 +428,8 @@ function ExpressForm({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // L'écran d'envoi remplace le formulaire : on le montre par le haut.
+  useEffect(() => { if (submitting) remonter(); }, [submitting]);
   const [departCoord, setDepartCoord] = useState<Place | null>(null);
   const [arriveeCoord, setArriveeCoord] = useState<Place | null>(null);
   const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
@@ -468,9 +486,9 @@ function ExpressForm({
     return () => clearTimeout(id);
   }, []);
 
-  const volume = f.volMode === "explicit"
-    ? (isNaN(parseFloat(f.explicitVolume)) ? null : Math.round(parseFloat(f.explicitVolume) * 100) / 100)
-    : (f.photos.length ? volumePhotos(f.photos) : null);
+  // Sans photos permises, il reste la saisie et la description du logement.
+  const volMode = f.volMode === "ai" && masque("volume_photos") ? "explicit" : f.volMode;
+  const volume = volumeDe(volMode, f.explicitVolume, [], f.photos, f.repere);
 
   const coordOk = f.nom.trim().length > 0 && /.+@.+\..+/.test(f.email);
   const trajetOk = f.departVille.trim().length > 0 && f.arriveeVille.trim().length > 0;
@@ -494,9 +512,11 @@ function ExpressForm({
     setError(null);
     const pause = new Promise((r) => setTimeout(r, affichePrix ? 0 : 900));
     try {
-      const volumePayload = f.volMode === "explicit"
-        ? { method: "explicit" as const, volume_m3: parseFloat(f.explicitVolume) }
-        : { method: "ai" as const, photos: f.photos };
+      // Le volume déduit du logement part comme un volume déclaré ; la
+      // description l'accompagne, pour que l'équipe sache d'où il vient.
+      const volumePayload = volMode === "ai"
+        ? { method: "ai" as const, photos: f.photos }
+        : { method: "explicit" as const, volume_m3: volume ?? 0 };
       const res = await fetch("/api/requests", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -508,7 +528,10 @@ function ExpressForm({
           distance_km: distanceKm ?? undefined,
           volume: volumePayload,
           type_client: "particulier",
-          details: { express: true } as unknown as Record<string, unknown>,
+          details: {
+            express: true,
+            ...(volMode === "logement" ? { repere_logement: { ...f.repere, resume: repereLisible(f.repere) } } : {}),
+          } as unknown as Record<string, unknown>,
           espace: espace?.slug, espace_code: espace?.code,
         }),
       });
@@ -526,7 +549,7 @@ function ExpressForm({
   if (done || submitting) {
     return affichePrix ? (
       <InstantResult requestId={done} volume={volume} count={doneCount} theme={theme} marque={marque}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); remonter(); }}
       />
     ) : !done ? (
       <Envoi theme={theme} marque={marque} />
@@ -660,23 +683,38 @@ function ExpressForm({
           <Bloc
             icone="carton"
             titre="Votre volume"
-            sous={masque("volume_photos") ? "Indiquez le volume à déménager." : "Saisissez-le, ou laissez vos photos l'estimer."}
+            sous={
+              masque("volume_photos")
+                ? "Saisissez-le, ou décrivez votre logement."
+                : "Saisissez-le, laissez vos photos l'estimer, ou décrivez votre logement."
+            }
             delai={210}
           >
-            {!masque("volume_photos") && (
-              <Field groupe label="Volume à déménager *">
-                <div className="sm:max-w-md">
-                  <Choice plein options={[["explicit", "Je connais mon volume"], ["ai", "J'envoie des photos"]]} value={f.volMode} onChange={(v) => set({ volMode: v as "explicit" | "ai" })} />
-                </div>
-              </Field>
-            )}
-            <div key={f.volMode} className={`animate-step-in ${masque("volume_photos") ? "" : "mt-4"}`}>
-              {f.volMode === "explicit" || masque("volume_photos") ? (
+            <Field groupe label="Volume à déménager *">
+              <div className={`grid gap-3 ${masque("volume_photos") ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+                {MODES_VOLUME.filter((m) => m.key !== "list" && !(m.key === "ai" && masque("volume_photos"))).map((m) => (
+                  <CarteChoix
+                    key={m.key}
+                    active={volMode === m.key}
+                    onClick={() => set({ volMode: m.key as typeof f.volMode })}
+                    icone={m.icone}
+                    titre={m.titre}
+                    texte={m.texte}
+                  />
+                ))}
+              </div>
+            </Field>
+            <div key={volMode} className="animate-step-in mt-5">
+              {volMode === "explicit" && (
                 <SaisieVolume valeur={f.explicitVolume} onChange={(explicitVolume) => set({ explicitVolume })} />
-              ) : (
+              )}
+              {volMode === "ai" && (
                 <div className={montreVolume ? "" : "sans-volume"}>
                   <PhotoAnalyzer library={library} photos={f.photos} onChange={(photos) => set({ photos })} showTotal={montreVolume} />
                 </div>
+              )}
+              {volMode === "logement" && (
+                <RepereLogement valeur={f.repere} onChange={(repere) => set({ repere })} sansVolume={!montreVolume} />
               )}
             </div>
           </Bloc>
@@ -748,8 +786,16 @@ function CompleteForm({
   }, [cleTrajet]);
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
 
-  // À chaque changement d'étape, on remonte en haut de la page.
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
+  // À chaque changement d'étape, on remonte en haut de la page — pas au
+  // premier affichage : intégré au site officiel, le devis ne doit pas tirer
+  // cette page vers lui dès qu'elle se charge.
+  const arrivee = useRef(true);
+  useEffect(() => {
+    if (arrivee.current) { arrivee.current = false; return; }
+    remonter(true);
+  }, [step]);
+  // L'écran d'envoi remplace le formulaire : on le montre par le haut.
+  useEffect(() => { if (submitting) remonter(); }, [submitting]);
 
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }));
 
@@ -796,7 +842,7 @@ function CompleteForm({
   // La page vient de changer d'enseigne sous les yeux du client, alors qu'il
   // était en train de saisir plus bas : on le ramène en haut, là où c'est dit.
   useEffect(() => {
-    if (reconnu) window.scrollTo({ top: 0, behavior: "smooth" });
+    if (reconnu) remonter(true);
   }, [reconnu]);
 
   /** Le raccourci de démonstration : tout rempli d'un exemple, et droit à la relecture. */
@@ -1387,18 +1433,35 @@ function VolumeStep({
       ? m.texte
       : m.key === "list"
         ? "Meuble par meuble : nos équipes en déduisent le volume."
-        : "Nos équipes estiment le volume d'après vos photos.";
+        : m.key === "logement"
+          ? "Type, surface, ameublement : nos équipes en déduisent le volume."
+          : "Nos équipes estiment le volume d'après vos photos.";
+  // Le départ a déjà dit la surface, ou à défaut le type de logement : la
+  // description en repart, plutôt que de les redemander.
+  const choisir = (cle: VolumeMode) =>
+    patch({
+      volumeMode: cle,
+      ...(cle === "logement" && !form.repere.type && !form.repere.surface
+        ? {
+            repere: {
+              ...form.repere,
+              type: form.depart.logement,
+              surface: form.depart.surface_inconnue ? "" : form.depart.surface,
+            },
+          }
+        : {}),
+    });
   const actif = modes.find((m) => m.key === form.volumeMode) ?? modes[0];
   const mode = actif.key;
   return (
     <div className="space-y-5">
       {modes.length > 1 && (
-        <div className={`reveal grid gap-3 ${modes.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        <div className={`reveal grid gap-3 ${modes.length === 3 ? "sm:grid-cols-3" : modes.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2"}`}>
           {modes.map((m) => (
             <CarteChoix
               key={m.key}
               active={mode === m.key}
-              onClick={() => patch({ volumeMode: m.key })}
+              onClick={() => choisir(m.key)}
               icone={m.icone}
               titre={m.titre}
               texte={texte(m)}
@@ -1412,6 +1475,9 @@ function VolumeStep({
           {mode === "list" && <ListeMeubles items={form.items} onChange={(items) => patch({ items })} sansVolume={!montreVolume} />}
           {mode === "ai" && (
             <PhotoAnalyzer library={library} photos={form.photos} onChange={(photos) => patch({ photos })} showTotal={montreVolume} />
+          )}
+          {mode === "logement" && (
+            <RepereLogement valeur={form.repere} onChange={(repere) => patch({ repere })} sansVolume={!montreVolume} />
           )}
         </Bloc>
       </div>
@@ -1641,6 +1707,7 @@ const METHODE_VOLUME: Record<VolumeMode, string> = {
   explicit: "volume saisi",
   list: "liste de meubles",
   ai: "analyse de photos",
+  logement: "d'après votre logement",
 };
 
 /**
@@ -1752,16 +1819,20 @@ function SuccessScreen({
   /** Le mot de la fin d'un espace pro, à la place du texte par défaut. */
   message?: string;
 }) {
+  const integre = useIntegre();
+  const plein = usePleinEcran();
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink" style={theme}>
+    <div className={`relative flex ${plein} items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink`} style={theme}>
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="halo absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" style={halo(30)} />
       </div>
 
       <div className="relative z-10 w-full max-w-lg text-center">
-        <div className="flex justify-center">
-          <Enseigne marque={marque} />
-        </div>
+        {!integre && (
+          <div className="flex justify-center">
+            <Enseigne marque={marque} />
+          </div>
+        )}
         <div className="reveal mx-auto mt-10 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_10px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
           <Icone nom="check" taille={28} trait={3} className="coche-pop" />
         </div>
@@ -1785,7 +1856,7 @@ function SuccessScreen({
 /* ============================ Helpers ============================ */
 
 function computeVolume(form: FormState): number | null {
-  return volumeDe(form.volumeMode, form.explicitVolume, form.items, form.photos);
+  return volumeDe(form.volumeMode, form.explicitVolume, form.items, form.photos, form.repere);
 }
 
 /** Ce qu'il manque pour passer à l'étape suivante — ou rien. */
@@ -1923,6 +1994,9 @@ function buildPayload(form: FormState) {
 
   let volume;
   if (form.volumeMode === "explicit") volume = { method: "explicit" as const, volume_m3: parseFloat(form.explicitVolume) };
+  // Le volume déduit du logement part comme un volume déclaré ; la description
+  // l'accompagne dans le détail, pour que l'équipe sache d'où il vient.
+  else if (form.volumeMode === "logement") volume = { method: "explicit" as const, volume_m3: detailRepere(form.repere)?.volume ?? 0 };
   else if (form.volumeMode === "list") volume = { method: "list" as const, items: form.items };
   else if (form.photos.length > 0) volume = { method: "ai" as const, photos: form.photos };
 
@@ -1956,6 +2030,12 @@ function buildPayload(form: FormState) {
     commentaire: form.commentaire || undefined,
     prestations: form.prestations as unknown as Record<string, string>,
     // tout le détail brut (adresses complètes, emballage, etc.) conservé
-    details: { depart: form.depart, arrivee: form.arrivee, emballage: form.emballage, demenagement: form.demenagement } as unknown as Record<string, unknown>,
+    details: {
+      depart: form.depart,
+      arrivee: form.arrivee,
+      emballage: form.emballage,
+      demenagement: form.demenagement,
+      ...(form.volumeMode === "logement" ? { repere_logement: { ...form.repere, resume: repereLisible(form.repere) } } : {}),
+    } as unknown as Record<string, unknown>,
   };
 }

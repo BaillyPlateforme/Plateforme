@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
+import { useIntegre, usePleinEcran } from "./integration";
 import { Icone } from "./ui";
 
 /*
@@ -177,14 +178,20 @@ export function Cadre({
   onRemplir?: () => void;
 }) {
   const largeur = large ? "max-w-[1060px]" : "max-w-[860px]";
+  // Dans une page du site officiel, le panneau et l'enseigne feraient doublon
+  // avec son menu : il ne reste que le formulaire, sur une colonne.
+  const integre = useIntegre();
+  const plein = usePleinEcran();
   return (
     <div
-      className="min-h-dvh bg-paper text-ink lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]"
+      className={`${plein} bg-paper text-ink ${
+        integre ? "" : "lg:grid lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[380px_minmax(0,1fr)]"
+      }`}
       style={theme}
     >
-      {panneau}
+      {!integre && panneau}
 
-      <main className="relative flex min-h-dvh min-w-0 flex-col">
+      <main className={`relative flex ${plein} min-w-0 flex-col`}>
         <div className="sticky top-0 z-40 h-[3px] w-full bg-line">
           <div
             className="h-full rounded-r-full bg-brand transition-[width] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
@@ -198,17 +205,20 @@ export function Cadre({
         </div>
 
         {/* Sur téléphone, le panneau disparaît : il en reste l'enseigne et l'étape. */}
-        <div className="relative z-10 flex items-center justify-between gap-3 border-b border-line bg-card px-5 py-3 lg:hidden">
-          <Enseigne marque={marque} compact />
-          <span className="shrink-0 text-[12px] font-medium text-ink-soft">{etiquette}</span>
-        </div>
+        {!integre && (
+          <div className="relative z-10 flex items-center justify-between gap-3 border-b border-line bg-card px-5 py-3 lg:hidden">
+            <Enseigne marque={marque} compact />
+            <span className="shrink-0 text-[12px] font-medium text-ink-soft">{etiquette}</span>
+          </div>
+        )}
 
         <div className={`relative z-10 mx-auto w-full flex-1 px-5 pb-14 pt-6 sm:px-8 lg:px-12 lg:pt-9 ${largeur}`}>
           <div className="flex items-center justify-between gap-4">
             {onBack ? (
               <button type="button" onClick={onBack} className={RETOUR}>
                 <Icone nom="gauche" taille={14} trait={2.2} className="transition-transform duration-300 group-hover:-translate-x-0.5" />
-                Accueil
+                {/* Sur le site officiel, « Accueil » désignerait le sien. */}
+                {integre ? "Choix du devis" : "Accueil"}
               </button>
             ) : (
               <Link href="/" className={RETOUR}>
@@ -219,7 +229,7 @@ export function Cadre({
             <div className="flex items-center gap-2.5">
               {/* Le raccourci de démonstration : un éclair sans libellé, à peine
                   visible, pour qui présente l'outil sans tout saisir. */}
-              {onRemplir && (
+              {onRemplir && !integre && (
                 <button
                   type="button"
                   onClick={onRemplir}

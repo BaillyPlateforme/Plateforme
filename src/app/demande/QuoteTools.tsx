@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import TrajetMap from "@/components/TrajetMap";
 import { AGENCE, Enseigne, halo, type Marque } from "./cadre";
+import { useIntegre, usePleinEcran } from "./integration";
 import { Icone } from "./ui";
 
 /* ---------- Résultat instantané : génération puis devis complet (PDF + montant) ---------- */
@@ -45,6 +46,8 @@ export function InstantResult({
     "Application de nos tarifs…",
     "Préparation de votre estimation…",
   ];
+  const integre = useIntegre();
+  const plein = usePleinEcran();
   const [progress, setProgress] = useState(4);
   const [ready, setReady] = useState(false);
   const [devis, setDevis] = useState<DevisData | null>(null);
@@ -193,15 +196,17 @@ export function InstantResult({
 
   // Devis unique : on affiche le montant, le résumé et le PDF complet.
   return (
-    <div className="min-h-dvh bg-paper text-ink" style={theme}>
+    <div className={`${plein} bg-paper text-ink`} style={theme}>
       <section className="relative overflow-hidden px-5 pb-32 pt-10 sm:pb-36 sm:pt-12">
         <div aria-hidden className="pointer-events-none absolute inset-0">
           <div className="halo absolute left-1/2 top-[-260px] h-[760px] w-[760px] -translate-x-1/2" style={halo(34)} />
         </div>
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <div className="flex justify-center">
-            <Enseigne marque={marque} />
-          </div>
+          {!integre && (
+            <div className="flex justify-center">
+              <Enseigne marque={marque} />
+            </div>
+          )}
           <div className="reveal mx-auto mt-9 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-sur-brand shadow-[0_0_0_9px_color-mix(in_srgb,var(--color-brand)_22%,transparent)]">
             <Icone nom="check" taille={24} trait={3} className="coche-pop" />
           </div>
@@ -434,14 +439,18 @@ function Scene({
   theme?: CSSProperties;
   marque?: Marque | null;
 }) {
+  const integre = useIntegre();
+  const plein = usePleinEcran();
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink" style={theme}>
+    <div className={`relative flex ${plein} flex-col items-center justify-center overflow-hidden bg-paper px-6 py-16 text-ink`} style={theme}>
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="halo absolute left-1/2 top-1/2 h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2" style={halo(30)} />
       </div>
-      <div className="relative z-10 mb-10">
-        <Enseigne marque={marque} />
-      </div>
+      {!integre && (
+        <div className="relative z-10 mb-10">
+          <Enseigne marque={marque} />
+        </div>
+      )}
       <div className="relative z-10 flex w-full justify-center">{children}</div>
     </div>
   );
