@@ -530,7 +530,7 @@ function ExpressForm({
           type_client: "particulier",
           details: {
             express: true,
-            ...(volMode === "logement" ? { repere_logement: { ...f.repere, resume: repereLisible(f.repere) } } : {}),
+            ...(volMode === "logement" ? { repere_logement: { type: f.repere.type, resume: f.repere.type } } : {}),
           } as unknown as Record<string, unknown>,
           espace: espace?.slug, espace_code: espace?.code,
         }),
@@ -685,8 +685,8 @@ function ExpressForm({
             titre="Votre volume"
             sous={
               masque("volume_photos")
-                ? "Saisissez-le, ou décrivez votre logement."
-                : "Saisissez-le, laissez vos photos l'estimer, ou décrivez votre logement."
+                ? "Saisissez-le, ou indiquez votre type de logement."
+                : "Saisissez-le, laissez vos photos l'estimer, ou indiquez votre type de logement."
             }
             delai={210}
           >
@@ -699,7 +699,8 @@ function ExpressForm({
                     onClick={() => set({ volMode: m.key as typeof f.volMode })}
                     icone={m.icone}
                     titre={m.titre}
-                    texte={m.texte}
+                    // Ici, la description du logement se réduit à son type.
+                    texte={m.key === "logement" ? "Studio, T2, T3… : le volume s'en déduit." : m.texte}
                   />
                 ))}
               </div>
@@ -714,7 +715,7 @@ function ExpressForm({
                 </div>
               )}
               {volMode === "logement" && (
-                <RepereLogement valeur={f.repere} onChange={(repere) => set({ repere })} sansVolume={!montreVolume} />
+                <RepereLogement simple valeur={f.repere} onChange={(repere) => set({ repere })} sansVolume={!montreVolume} />
               )}
             </div>
           </Bloc>

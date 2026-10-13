@@ -121,14 +121,22 @@ export function RepereLogement({
   valeur,
   onChange,
   sansVolume = false,
+  simple = false,
 }: {
   valeur: Repere;
   onChange: (r: Repere) => void;
   /** Un espace pro peut taire les mètres cubes : la description suffit alors. */
   sansVolume?: boolean;
+  /**
+   * Le devis express ne demande que le type de logement : il doit tenir en
+   * deux minutes. La surface, l'ameublement et les annexes restent au devis
+   * complet.
+   */
+  simple?: boolean;
 }) {
   const set = (p: Partial<Repere>) => onChange({ ...valeur, ...p });
-  const detail = detailRepere(valeur);
+  // En version simple, seul le type compte — quoi que l'état contienne d'autre.
+  const detail = detailRepere(simple ? { ...REPERE_VIDE, type: valeur.type } : valeur);
   const meuble = REPERE_LOGEMENT.ameublement.find((a) => a.key === valeur.ameublement);
   const basculer = (cle: string) =>
     set({ annexes: valeur.annexes.includes(cle) ? valeur.annexes.filter((a) => a !== cle) : [...valeur.annexes, cle] });
@@ -140,42 +148,48 @@ export function RepereLogement({
           {REPERE_LOGEMENT.types.map((t) => (
             <Pill key={t.label} active={valeur.type === t.label} onClick={() => set({ type: valeur.type === t.label ? "" : t.label })}>
               {t.label}
+              {simple && !sansVolume && <span className="ml-1.5 opacity-60">~{t.volume} m³</span>}
             </Pill>
           ))}
         </div>
       </Field>
 
-      <Field label="Surface habitable" hint="si vous la connaissez : l'estimation est plus précise">
-        <div className="sm:max-w-[260px]">
-          <TextInput type="number" min={0} unite="m²" value={valeur.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" />
-        </div>
-      </Field>
+      {!simple && (
+        <>
+          <Field label="Surface habitable" hint="si vous la connaissez : l'estimation est plus précise">
+            <div className="sm:max-w-[260px]">
+              <TextInput type="number" min={0} unite="m²" value={valeur.surface} onChange={(e) => set({ surface: e.target.value })} placeholder="65" />
+            </div>
+          </Field>
 
-      <Field groupe label="Votre logement est…">
-        <Choice
-          plein
-          options={REPERE_LOGEMENT.ameublement.map((a) => [a.key, a.label] as [string, string])}
-          value={valeur.ameublement}
-          onChange={(v) => set({ ameublement: v as Ameublement })}
-        />
-        {meuble && <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{meuble.aide}</p>}
-      </Field>
+          <Field groupe label="Votre logement est…">
+            <Choice
+              plein
+              options={REPERE_LOGEMENT.ameublement.map((a) => [a.key, a.label] as [string, string])}
+              value={valeur.ameublement}
+              onChange={(v) => set({ ameublement: v as Ameublement })}
+            />
+            {meuble && <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{meuble.aide}</p>}
+          </Field>
 
-      <Field groupe label="Des annexes à vider ?" hint="plusieurs choix possibles">
-        <div className="flex flex-wrap gap-2">
-          {REPERE_LOGEMENT.annexes.map((a) => (
-            <Pill key={a.key} active={valeur.annexes.includes(a.key)} onClick={() => basculer(a.key)}>
-              {a.label}
-            </Pill>
-          ))}
-        </div>
-      </Field>
+          <Field groupe label="Des annexes à vider ?" hint="plusieurs choix possibles">
+            <div className="flex flex-wrap gap-2">
+              {REPERE_LOGEMENT.annexes.map((a) => (
+                <Pill key={a.key} active={valeur.annexes.includes(a.key)} onClick={() => basculer(a.key)}>
+                  {a.label}
+                </Pill>
+              ))}
+            </div>
+          </Field>
+        </>
+      )}
 
       {/* ── Le résultat, et d'où il vient ── */}
       {!detail ? (
         <p className="flex gap-2.5 rounded-[18px] border border-dashed border-line-strong px-4 py-3.5 text-[13.5px] leading-snug text-ink-soft">
           <Icone nom="info" taille={16} className="mt-px shrink-0" />
-          Indiquez votre type de logement ou sa surface : {sansVolume ? "nos équipes en déduisent le volume." : "le volume s'affiche aussitôt."}
+          {simple ? "Choisissez votre type de logement" : "Indiquez votre type de logement ou sa surface"} :{" "}
+          {sansVolume ? "nos équipes en déduisent le volume." : "le volume s'affiche aussitôt."}
         </p>
       ) : sansVolume ? (
         <p className="flex gap-2.5 rounded-[18px] bg-brand-soft px-4 py-3.5 text-[13.5px] leading-snug text-brand-ink">
@@ -184,7 +198,8 @@ export function RepereLogement({
         </p>
       ) : (
         <div className="animate-step-in overflow-hidden rounded-[20px] border border-line">
-          {detail.lignes.map(([quoi, combien]) => (
+          {/* Un seul choix, un seul chiffre : il n'y a pas de calcul à détailler. */}
+          {!simple && detail.lignes.map(([quoi, combien]) => (
             <div key={quoi} className="flex items-center justify-between gap-4 border-b border-line px-4 py-2.5 text-[13.5px]">
               <span className="text-ink-mid">{quoi}</span>
               <span className="tnum font-medium">{combien}</span>
