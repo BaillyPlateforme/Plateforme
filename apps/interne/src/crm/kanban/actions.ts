@@ -122,7 +122,7 @@ export async function deplacerDossier(id: number, vers: string, choix: Choix = {
       erreur:
         g.genre === "signer"
           ? "La signature n'a pas été enregistrée : ce devis n'est plus ouvert, ou un autre devis du dossier est déjà signé."
-          : `Le dossier n'est pas passé en « ${NOM[vers]} » : rechargez la page pour voir son état actuel.`,
+          : `Le dossier n'est pas passé en « ${NOM[vers]} » : rechargez la page pour voir son état actuel.`,
     };
   }
   const message: Record<string, string> = {

@@ -179,6 +179,10 @@
   cursor: grabbing !important;
   user-select: none;
 }
+/* Pendant le glisser, la planche défile seule près des bords : l'aimantation des colonnes (écran étroit) la contrarierait. */
+.planche.glissement {
+  scroll-snap-type: none;
+}
 
 .colonne,
 .repliee {
@@ -410,31 +414,40 @@
   }
 }
 
-/* La raison d'un refus, sous l'en-tête de la colonne visée. */
-.refus {
-  position: absolute;
-  top: 84px;
-  left: 10px;
-  right: 10px;
-  z-index: 3;
+/* Sous la carte qu'on tient : ce que fera le dépôt, ou la raison du refus. */
+.legende {
+  position: fixed;
+  z-index: 81;
   display: flex;
   align-items: flex-start;
-  gap: 9px;
+  gap: 8px;
+  width: max-content;
   margin: 0;
-  padding: 11px 13px;
+  padding: 9px 13px;
   border-radius: 14px;
-  background: var(--encre);
+  background: linear-gradient(135deg, #3a22c4, #7a52ff);
   color: #fff;
   font-size: 12.5px;
-  font-weight: 550;
+  font-weight: 650;
   line-height: 1.45;
-  box-shadow: 0 18px 34px -16px rgba(20, 18, 31, 0.75);
+  box-shadow: 0 18px 34px -16px rgba(46, 31, 158, 0.75);
   pointer-events: none;
   animation: monte 0.16s ease-out;
 }
-.refus svg {
+.legende svg {
   flex: none;
-  margin-top: 1px;
+  margin-top: 2px;
+}
+.legendeDessus {
+  transform: translateY(-100%);
+  animation: none;
+}
+.legendeRefus {
+  background: var(--encre);
+  font-weight: 550;
+  box-shadow: 0 18px 34px -16px rgba(20, 18, 31, 0.75);
+}
+.legendeRefus svg {
   color: #ff8fb1;
 }
 @keyframes monte {
@@ -512,25 +525,6 @@
 }
 .chevronDroite {
   transform: rotate(-90deg);
-}
-.bulleDepot {
-  position: absolute;
-  top: 50%;
-  right: calc(100% + 10px);
-  z-index: 3;
-  padding: 8px 13px;
-  border-radius: 999px;
-  background: var(--c);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 14px 26px -14px rgba(20, 18, 31, 0.7);
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-.bulleRefus {
-  background: var(--encre);
 }
 
 /* ───────── Une carte ───────── */

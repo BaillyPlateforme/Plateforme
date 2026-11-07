@@ -49,7 +49,9 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     etat.map((c) => (c.id === m.id ? { ...c, statut: m.statut, majLe: new Date().toISOString() } : c)),
   );
   const planche = useRef<HTMLDivElement>(null);
-  const saisie = useRef<{ id: number; hauteur: number } | null>(null);
+  // La carte saisie : lue par les rappels du glisser (référence) ; sa hauteur, par le rendu (état).
+  const saisie = useRef<{ id: number } | null>(null);
+  const [hauteur, setHauteur] = useState(120);
   const fermerMessage = useCallback(() => setMessage(null), []);
 
   // Les filtres vivent dans l'adresse : un rechargement ou un lien partagé les garde.
@@ -125,7 +127,8 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
   const carteGlissee = glisse ? affichees.find((c) => c.id === glisse.ligneId) ?? null : null;
 
   const saisir = (e: React.PointerEvent<HTMLElement>, c: Carte) => {
-    saisie.current = { id: c.id, hauteur: e.currentTarget.offsetHeight };
+    saisie.current = { id: c.id };
+    setHauteur(e.currentTarget.offsetHeight);
     commencer(e, c.id);
   };
   const ouvrir = (c: Carte) => {
@@ -139,7 +142,7 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     const visee = glisse?.cible === statut;
     const v = carteGlissee ? verdict(carteGlissee, statut) : null;
     const etat = !carteGlissee || !v ? undefined : v.ok ? "possible" : "interdit";
-    // « Perdu » est repliée par défaut ; « Nouveau », vide, aussi : aucun dépôt n'y mène, les dossiers y naissent.
+    // « Perdu » est repliée par défaut ; « Nouveau », vide, aussi : aucun dépôt n'y mène, les dossiers y naissent.
     const replie = (statut === "perdu" && !perdus) || (statut === "prospect" && liste.length === 0);
 
     if (replie) {
@@ -159,7 +162,6 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
             </span>
             {pliable && <Icone nom="chevron" taille={16} className={s.chevronDroite} />}
           </button>
-          {visee && v && <span className={`${s.bulleDepot} ${v.ok ? "" : s.bulleRefus}`}>{v.ok ? INTITULE[v.geste.genre] : "Impossible"}</span>}
         </section>
       );
     }
@@ -190,7 +192,7 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
         </header>
         <div className={s.corps} data-corps="">
           {visee && v?.ok && (
-            <div className={s.place} style={{ ["--h" as string]: `${saisie.current?.hauteur ?? 120}px` }} aria-hidden>
+            <div className={s.place} style={{ ["--h" as string]: `${hauteur}px` }} aria-hidden>
               <span>
                 <Icone nom="fleche" taille={15} />
                 {INTITULE[v.geste.genre]}
@@ -214,12 +216,6 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
             </div>
           )}
         </div>
-        {visee && v && !v.ok && (
-          <p className={s.refus} role="status">
-            <Picto nom="alerte" taille={15} />
-            {v.raison}
-          </p>
-        )}
       </section>
     );
   };
@@ -289,7 +285,28 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
       </div>
 
       {glisse && carteGlissee && (
-        <CarteDossier carte={carteGlissee} flottante style={{ left: glisse.x - glisse.dx, top: glisse.y - glisse.dy, width: glisse.largeur }} />
+        <>
+          <CarteDossier carte={carteGlissee} flottante style={{ left: glisse.x - glisse.dx, top: glisse.y - glisse.dy, width: glisse.largeur }} />
+          {/* Sous la carte qu'on tient : ce que fera le dépôt, ou pourquoi il est refusé. */}
+          {(() => {
+            const v = glisse.cible ? verdict(carteGlissee, glisse.cible as Statut) : null;
+            if (!v) return null;
+            const haut = glisse.y - glisse.dy;
+            const bas = haut + hauteur + 10;
+            // Trop près du bas de l'écran (au doigt, souvent) : la légende passe au-dessus de la carte.
+            const dessus = bas + 80 > window.innerHeight;
+            return (
+              <p
+                className={`${s.legende} ${v.ok ? "" : s.legendeRefus} ${dessus ? s.legendeDessus : ""}`}
+                style={{ left: Math.max(8, glisse.x - glisse.dx), top: dessus ? haut - 10 : bas, maxWidth: Math.min(Math.max(glisse.largeur, 300), window.innerWidth - 16) }}
+                role="status"
+              >
+                {v.ok ? <Icone nom="fleche" taille={14} /> : <Picto nom="alerte" taille={15} />}
+                <span>{v.ok ? `${INTITULE[v.geste.genre]} · « ${NOM[glisse.cible as Statut]} »` : v.raison}</span>
+              </p>
+            );
+          })()}
+        </>
       )}
 
       {depot && (
@@ -428,7 +445,7 @@ function FenetreDepot({ depot, commerciaux, onFermer, onValider }: { depot: Depo
   const [mode, setMode] = useState<"phys" | "visio">("phys");
   const [commercialId, setCommercialId] = useState<number | null>(carte.commercialId ?? commerciaux[0]?.id ?? null);
 
-  const sous = `${carte.client} · ${carte.ref} · vers « ${NOM[vers]} »`;
+  const sous = `${carte.client} · ${carte.ref} · vers « ${NOM[vers]} »`;
   const annuler = (
     <button type="button" className={s.boutonClair} onClick={onFermer}>
       Annuler
@@ -464,7 +481,7 @@ function FenetreDepot({ depot, commerciaux, onFermer, onValider }: { depot: Depo
         <Fenetre titre="Quel devis le client a-t-il signé ?" sousTitre={sous} picto="crayon" taille="etroite" onFermer={onFermer} pied={<>{annuler}{valider("Enregistrer la signature", devisId ? { devisId } : null)}</>}>
           <div className={s.fenetreCorps}>
             {choixDevis}
-            <p className={s.aide}>Les autres formules passent en « Non retenu ». Le dossier passe en « Signé ».</p>
+            <p className={s.aide}>Les autres formules passent en « Non retenu ». Le dossier passe en « Signé ».</p>
           </div>
         </Fenetre>
       );
@@ -489,7 +506,7 @@ function FenetreDepot({ depot, commerciaux, onFermer, onValider }: { depot: Depo
         <Fenetre titre="Établir les devis ?" sousTitre={sous} picto="etincelle" taille="etroite" onFermer={onFermer} pied={<>{annuler}{valider("Établir les 3 formules", {})}</>}>
           <div className={s.fenetreCorps}>
             <p className={s.texte}>
-              Les formules Économique, Standard et Premium sont calculées sur le volume du dossier ({m3(carte.volume)}) et enregistrées en brouillon. Le dossier passe en « {NOM[vers]} ».
+              Les formules Économique, Standard et Premium sont calculées sur le volume du dossier ({m3(carte.volume)}) et enregistrées en brouillon. Le dossier passe en « {NOM[vers]} ».
             </p>
           </div>
         </Fenetre>
@@ -547,7 +564,7 @@ function FenetreDepot({ depot, commerciaux, onFermer, onValider }: { depot: Depo
                 </label>
               ))}
             </div>
-            <p className={s.aide}>La facture est marquée payée aujourd&apos;hui. Le dossier passe en « Terminé ».</p>
+            <p className={s.aide}>La facture est marquée payée aujourd&apos;hui. Le dossier passe en « Terminé ».</p>
           </div>
         </Fenetre>
       );
