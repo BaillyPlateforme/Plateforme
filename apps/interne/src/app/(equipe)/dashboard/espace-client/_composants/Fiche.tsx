@@ -14,6 +14,7 @@ import { TYPES_DOCUMENTS, verifierFichier } from "@/lib/espace-client/schemas";
 import type { StatutDevis } from "@/lib/espace-client/types";
 import { LISTE_SEGMENTS } from "@/lib/espace-client/segments";
 import type { vueDossier } from "@/lib/espace-client/vues-equipe";
+import EnTeteSection from "../../EnTeteSection";
 import { BandeauMode, Bouton, Carte, Champ, LienBouton, Pastille, Retour, champ, dateFr, dateHeureFr, euro, useAction, usePorte, zoneTexte } from "./socle";
 
 type Donnees = NonNullable<ReturnType<typeof vueDossier>>;
@@ -30,63 +31,65 @@ const TYPE_ACCEPTATION: Record<string, string> = {
 /** La fiche d'un dossier, vue de l'équipe : tout ce que voit le client, et tout ce qu'on peut y faire. */
 export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }) {
   const porte = usePorte();
-  const { base, racine } = porte;
+  const { base } = porte;
   const { donnees, erreur, recharger } = useRessource<Donnees>(`${base}/dossier/${id}`);
   const cree = useSearchParams().get("cree");
   const action = useAction(recharger);
 
-  if (erreur) return <Echec message={erreur} onRetry={recharger} />;
-  if (!donnees) return <Squelette lignes={10} />;
+  if (erreur)
+    return (
+      <div>
+        <EnTeteSection propre surtitre="Espace client · Dossier" titre="Dossier client" />
+        <Echec message={erreur} onRetry={recharger} />
+      </div>
+    );
+  if (!donnees)
+    return (
+      <div>
+        <EnTeteSection propre surtitre="Espace client · Dossier" titre="Dossier client" texte="Chargement du dossier…" />
+        <Squelette lignes={10} />
+      </div>
+    );
   const { dossier, client } = donnees;
   const termine = dossier.statut === "termine";
 
   return (
     <div className="space-y-5">
-      <Link href={racine} className="text-[13px] text-ink-soft hover:text-ink">
-        ← Tous les dossiers
-      </Link>
-      <BandeauMode mode={donnees.mode} />
-
-      <header className="relative isolate overflow-hidden rounded-[18px] bg-nuit p-6 text-white">
-        <div className="absolute inset-0 -z-20 bg-cover bg-center opacity-45" style={{ backgroundImage: `url('${dossier.photo}')` }} />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-nuit via-nuit/85 to-nuit/30" />
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex flex-wrap gap-1.5">
-              <Pastille ton="attente">{dossier.reference}</Pastille>
-              <Pastille>{donnees.segment.libelle}</Pastille>
-              {donnees.crm != null && <Pastille ton="ok">Relié au CRM</Pastille>}
-              <Pastille>{STATUT_DOSSIER[dossier.statut]}</Pastille>
-              {(client.masquer_devis || client.masquer_factures) && <Pastille ton="attente">{[client.masquer_devis && "devis", client.masquer_factures && "factures"].filter(Boolean).join(" et ")} masqués</Pastille>}
-            </div>
-            <h2 className="mt-3 text-[30px] font-bold leading-tight tracking-tight">
-              {dossier.ville_depart} → {dossier.ville_arrivee}
-            </h2>
-            <p className="mt-1 text-[13.5px] text-white/80">
-              {client.societe ? `${client.societe} · ` : ""}
-              {[client.civilite, client.prenom, client.nom].filter(Boolean).join(" ")} · {client.email} · du {dateFr(dossier.periode_debut)} au {dateFr(dossier.periode_fin)} · {dossier.volume_m3} m³
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {donnees.crm != null && !porte.demo && (
-              <Link href={`/dossiers/${donnees.crm}#espace-client`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/30 px-3.5 py-2 text-[13px] font-medium text-white transition hover:border-white">
-                Dossier du CRM
-              </Link>
-            )}
-            <Bouton variante="jaune" disabled={action.enCours} onClick={() => action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu))}>
-              Envoyer le lien d&apos;accès
-            </Bouton>
-            <Bouton variante="contour" className="!border-white/30 !bg-transparent !text-white" disabled={action.enCours} onClick={() => confirm("Couper toutes les sessions ouvertes de ce client ?") && action.lancer(() => revoquerSessions(id))}>
-              Couper les sessions
-            </Bouton>
-            {!termine && (
-              <Bouton variante="contour" className="!border-white/30 !bg-transparent !text-white" disabled={action.enCours} onClick={() => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id))}>
-                Fin de chantier signée
-              </Bouton>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* L'en-tête de la section, au trajet du dossier : bandeau puis onglets. */}
+      <div>
+        <EnTeteSection
+          propre
+          surtitre={`Espace client · ${dossier.reference}`}
+          titre={`${dossier.ville_depart} → ${dossier.ville_arrivee}`}
+          texte={[client.societe, [client.civilite, client.prenom, client.nom].filter(Boolean).join(" "), client.email].filter(Boolean).join(" · ")}
+          etiquettes={[
+            donnees.segment.libelle,
+            STATUT_DOSSIER[dossier.statut],
+            donnees.crm != null && "Relié au CRM",
+            `${dateFr(dossier.periode_debut).slice(0, 5)} → ${dateFr(dossier.periode_fin)}`,
+            `${dossier.volume_m3} m³`,
+            (client.masquer_devis || client.masquer_factures) && `${[client.masquer_devis && "Devis", client.masquer_factures && "factures"].filter(Boolean).join(" et ")} masqués`,
+          ]}
+        >
+          <button type="button" disabled={action.enCours} onClick={() => action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu))}>
+            Envoyer le lien d&apos;accès
+          </button>
+          {donnees.crm != null && !porte.demo && (
+            <Link href={`/dossiers/${donnees.crm}#espace-client`} data-ton="contour">
+              Dossier du CRM
+            </Link>
+          )}
+          <button type="button" data-ton="contour" disabled={action.enCours} onClick={() => confirm("Couper toutes les sessions ouvertes de ce client ?") && action.lancer(() => revoquerSessions(id))}>
+            Couper les sessions
+          </button>
+          {!termine && (
+            <button type="button" data-ton="contour" disabled={action.enCours} onClick={() => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id))}>
+              Fin de chantier signée
+            </button>
+          )}
+        </EnTeteSection>
+        <BandeauMode mode={donnees.mode} />
+      </div>
       {cree && !action.resultat && <p className="rounded-xl bg-good-soft px-3.5 py-2.5 text-[13px] font-medium text-good">✓ Dossier créé. L&apos;espace du client est prêt.</p>}
       <Retour r={action.resultat} apercu={ouvrirApercu} />
 

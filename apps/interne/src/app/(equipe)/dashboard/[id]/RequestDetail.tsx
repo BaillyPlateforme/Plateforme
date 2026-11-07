@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import ApercuDevis from "@/components/ApercuDevis";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE, traceDeLaDemande } from "../status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, isIncomplete, missingFields, PIPELINE, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
 import TrajetMap from "@/components/TrajetMap";
 import VersLeCrm from "./VersLeCrm";
+import EnTeteSection from "../EnTeteSection";
 
 const TABS = ["Infos", "Analyse", "Trajet", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
@@ -36,43 +36,24 @@ export default function RequestDetail({
   const badge = parcoursBadge(trace);
 
   return (
-    <div className="mt-4">
-      {/* En-tête */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
-        <div>
-          <h1 className="font-serif text-3xl">{r.client_nom ?? "Demande"}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-ink-soft">
-            <span>{r.client_email}</span>
-            {r.client_tel && <span>· {r.client_tel}</span>}
-            <span>· reçue le {new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à {new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</span>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${sourceClass(r.source)}`}>
-              {sourceLabel(r.source)}
-            </span>
-            {espace && (
-              <Link
-                href="/dashboard/espaces-pro"
-                title="Demande venue d'un espace pro"
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESPACE_CLASSE}`}
-              >
-                {espaceLabel(espace.nom)}
-              </Link>
-            )}
-            {badge && <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PARCOURS_CLASSE}`}>{badge}</span>}
-            {isIncomplete(trace) ? (
-              <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">Incomplète</span>
-            ) : (
-              <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-good">Complète</span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusPicker
-            value={r.status}
-            onChange={(s) => start(() => updateStatus(r.id, s))}
-            disabled={pending}
-          />
-        </div>
-      </div>
+    <div>
+      {/* L'en-tête de la section, au nom du client : bandeau puis onglets. */}
+      <EnTeteSection
+        propre
+        surtitre={`Questionnaires · Demande reçue le ${new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à ${new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`}
+        titre={r.client_nom ?? "Demande"}
+        texte={[r.client_email, r.client_tel].filter(Boolean).join(" · ")}
+        etiquettes={[
+          sourceLabel(r.source),
+          espace && espaceLabel(espace.nom),
+          badge,
+          (r.depart_ville || r.arrivee_ville) && `${r.depart_ville ?? "?"} → ${r.arrivee_ville ?? "?"}`,
+          r.volume_m3 != null && `${r.volume_m3} m³`,
+          isIncomplete(trace) ? "Incomplète" : "Complète",
+        ]}
+      >
+        <StatusPicker value={r.status} onChange={(s) => start(() => updateStatus(r.id, s))} disabled={pending} />
+      </EnTeteSection>
 
       <VersLeCrm requestId={r.id} dossierCrm={dossierCrm} espaceClient={espaceClient} />
 
@@ -705,7 +686,7 @@ function StatusPicker({
       value={value}
       onChange={(e) => onChange(e.target.value as RequestStatus)}
       disabled={disabled}
-      className="rounded-xl border border-line bg-card px-3 py-2 text-sm font-medium outline-none focus:border-accent disabled:opacity-50"
+      aria-label="Statut de la demande"
     >
       {STATUS_ORDER.map((s) => (
         <option key={s} value={s}>

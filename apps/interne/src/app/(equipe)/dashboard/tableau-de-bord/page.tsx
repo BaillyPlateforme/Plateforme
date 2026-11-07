@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import EnTeteSection from "../EnTeteSection";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import { Aires, BarresEmpilees, BarresGroupees, Popularite } from "./Charts";
@@ -26,6 +27,7 @@ export default function TableauDeBordPage() {
   if (erreur) {
     return (
       <div>
+        <EnTetePage />
         <Echec message={erreur} onRetry={recharger} />
       </div>
     );
@@ -33,11 +35,30 @@ export default function TableauDeBordPage() {
   if (!donnees) {
     return (
       <div>
+        <EnTetePage />
         <Squelette lignes={8} />
       </div>
     );
   }
   return <Contenu d={donnees} />;
+}
+
+/**
+ * L'en-tête de la section, comme sur chaque page : le bandeau, puis les
+ * onglets. Celui-ci porte les chiffres des 90 derniers jours et mène à la
+ * file d'attente.
+ */
+function EnTetePage({ demandes, devis }: { demandes?: number; devis?: number }) {
+  return (
+    <EnTeteSection
+      propre
+      surtitre={`Questionnaires · ${FENETRE} derniers jours`}
+      titre="Vue d'ensemble"
+      texte="L'activité de l'agence, du formulaire client au camion chargé."
+      etiquettes={demandes === undefined ? undefined : [`${nf.format(demandes)} demandes`, `${nf.format(devis ?? 0)} devis`]}
+      action={{ label: "Ouvrir la file d'attente", href: "/dashboard?statut=new" }}
+    />
+  );
 }
 
 /* ─────────────── les séries du graphique, par période ─────────────── */
@@ -124,8 +145,9 @@ function Contenu({ d }: { d: Donnees }) {
     .slice(0, 6);
 
   return (
-    <div className="space-y-5 px-5 py-5 md:px-7 md:py-6">
-      <Banniere demandes={requests.length} devis={devis.length} />
+    <div>
+      <EnTetePage demandes={requests.length} devis={devis.length} />
+      <div className="space-y-5">
 
       {/* ── Les quatre tuiles ── */}
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -391,6 +413,7 @@ function Contenu({ d }: { d: Donnees }) {
           </div>
         </Carte>
       </div>
+      </div>
     </div>
   );
 }
@@ -407,95 +430,6 @@ function pct(part: number, tout: number) {
  * La bannière de la maquette : un bandeau en dégradé du sable au vert, une
  * accroche, un bouton blanc, et le dessin isométrique à droite.
  */
-function Banniere({ demandes, devis }: { demandes: number; devis: number }) {
-  return (
-    <section
-      className="relative overflow-hidden rounded-[26px] px-7 py-7 text-white shadow-[0_30px_60px_-38px_rgba(76,29,149,0.85)] md:px-9 md:py-8"
-      style={{
-        background:
-          "radial-gradient(640px 320px at 88% 0%, rgba(196,181,253,0.5), transparent 62%), radial-gradient(520px 340px at 0% 110%, rgba(59,7,100,0.65), transparent 60%), linear-gradient(135deg, #4c1d95 0%, #6d28d9 48%, #8b5cf6 100%)",
-      }}
-    >
-      <div className="relative flex flex-wrap items-center justify-between gap-8">
-        <div className="min-w-0">
-          <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-white/78">
-            Questionnaires · {FENETRE} derniers jours · {nf.format(demandes)} demandes · {devis} devis
-          </p>
-          <h1 className="mt-3 max-w-[26ch] text-[28px] font-extrabold leading-[1.1] tracking-[-0.03em] md:text-[34px]">
-            L&apos;activité de l&apos;agence, du formulaire client au camion chargé
-          </h1>
-          <Link
-            href="/dashboard?statut=new"
-            className="mt-6 inline-flex h-12 items-center gap-3 rounded-full bg-white pl-5 pr-1.5 text-[15px] font-bold text-[#17142b] shadow-[0_14px_30px_-16px_rgba(23,20,43,0.6)] transition hover:-translate-y-px"
-          >
-            Ouvrir la file d&apos;attente
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#17142b] text-white">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M5 12h14M13 6l6 6-6 6" />
-              </svg>
-            </span>
-          </Link>
-        </div>
-        <Isometrie />
-      </div>
-    </section>
-  );
-}
-
-/**
- * Le dessin du bandeau : des colonnes et des rouages posés sur un plan
- * isométrique, dans l'esprit de la maquette.
- */
-function Isometrie() {
-  const face = (x: number, y: number, h: number, w: number, clair: string, sombre: string) => (
-    <g key={`${x}-${y}-${h}`}>
-      <path d={`M${x} ${y} l${w} ${w / 2} l0 ${h} l-${w} -${w / 2}z`} fill={sombre} />
-      <path d={`M${x} ${y} l-${w} ${w / 2} l0 ${h} l${w} -${w / 2}z`} fill={clair} />
-      <path d={`M${x} ${y} l${w} ${w / 2} l-${w} ${w / 2} l-${w} -${w / 2}z`} fill="#ffffff" />
-    </g>
-  );
-
-  return (
-    <svg width="260" height="170" viewBox="0 0 260 170" fill="none" className="hidden shrink-0 md:block" aria-hidden>
-      {/* le plan */}
-      <path d="M130 30 240 92 130 154 20 92z" fill="#ffffff" fillOpacity="0.1" />
-      <path d="M130 30 240 92 130 154 20 92z" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="1.5" />
-
-      {face(96, 46, 52, 22, "#f6f5f2", "#c9c6bd")}
-      {face(130, 64, 34, 22, "#ffffff", "#d6d3ca")}
-      {face(164, 44, 58, 22, "#f6f5f2", "#c9c6bd")}
-      {face(130, 28, 22, 14, "#c4b5fd", "#8b5cf6")}
-
-      {/* les rouages */}
-      <g transform="translate(74 112)">
-        <circle r="17" fill="#ffffff" fillOpacity="0.95" />
-        <circle r="7" fill="var(--color-nuit)" />
-        {Array.from({ length: 8 }).map((_, i) => (
-          <rect
-            key={i}
-            x="-3"
-            y="-23"
-            width="6"
-            height="7"
-            rx="1.5"
-            fill="#ffffff"
-            fillOpacity="0.95"
-            transform={`rotate(${i * 45})`}
-          />
-        ))}
-      </g>
-      <g transform="translate(108 132)">
-        <circle r="12" fill="var(--color-brand)" />
-        <circle r="5" fill="var(--color-nuit)" />
-        {Array.from({ length: 6 }).map((_, i) => (
-          <rect key={i} x="-2.5" y="-17" width="5" height="6" rx="1.2" fill="var(--color-brand)" transform={`rotate(${i * 60})`} />
-        ))}
-      </g>
-
-      <path d="M186 36c22 10 34 26 30 44" stroke="var(--color-brand)" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 6" />
-    </svg>
-  );
-}
 
 /**
  * Une jauge du panneau de droite : libellé et valeur en tête, piste en

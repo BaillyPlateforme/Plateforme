@@ -3,35 +3,68 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SANS_BANDEAU, ongletActif, sectionDe, type Onglet } from "@/crm/sections";
+import { aEnTetePropre, ongletActif, sectionDe, type Onglet } from "@/crm/sections";
 import Bandeau from "@/ui/Bandeau";
+import type { NomIcone } from "@/ui/icones";
 import { metaDe } from "./nav-meta";
 import s from "./section.module.css";
 
+type Contenu = {
+  surtitre?: string;
+  titre?: string;
+  texte?: React.ReactNode;
+  action?: { label: string; href: string; icone?: NomIcone };
+  etiquettes?: (string | false | null | undefined)[];
+  /** Les boutons de la page (statut, envoi…), posés dans le bandeau. */
+  children?: React.ReactNode;
+};
+
 /**
- * L'en-tête des sections venues de l'espace équipe : le bandeau du CRM (nom
- * de la section en surtitre, titre et phrase de la page), puis les onglets de
- * la section en pilules.
+ * L'en-tête des sections venues de l'espace équipe (questionnaires, espace
+ * client, réglages) : TOUJOURS le bandeau du CRM, à hauteur fixe, puis les
+ * onglets de la section en dessous — même taille, même place, sur chaque page.
+ *
+ * Posé sans réglage par la mise en page des sections, il prend le nom de la
+ * section et le titre de la page (nav-meta.ts). Les pages qui ont mieux à dire
+ * (la vue d'ensemble et ses chiffres, la fiche d'une demande, celle d'un
+ * dossier client) le posent elles-mêmes, en tête, avec leur contenu : la mise
+ * en page s'efface alors pour elles (voir `aEnTetePropre`), si bien qu'il n'y
+ * a jamais deux en-têtes l'un sous l'autre.
  */
-export default function EnTeteSection() {
+export default function EnTeteSection({ propre = false, ...contenu }: Contenu & { propre?: boolean }) {
   const chemin = usePathname();
   const section = sectionDe(chemin);
+  if (!propre && (!section || aEnTetePropre(chemin))) return null;
   const meta = metaDe(chemin);
-  if (!section) return null;
-  const actifDansPlus = section.plus?.find((o) => ongletActif(o, chemin));
 
   return (
     <>
-      {!SANS_BANDEAU.has(chemin) && <Bandeau surtitre={section.nom} titre={meta.titre} texte={meta.sous} />}
-      <nav className={s.onglets} aria-label={section.nom}>
-        {section.onglets.map((o) => (
-          <Link key={o.href} href={o.href} className={s.onglet} aria-current={ongletActif(o, chemin) ? "page" : undefined}>
-            {o.label}
-          </Link>
-        ))}
-        {section.plus && <Plus onglets={section.plus} actif={actifDansPlus?.label} chemin={chemin} />}
-      </nav>
+      <Bandeau
+        surtitre={contenu.surtitre ?? section?.nom ?? ""}
+        titre={contenu.titre ?? meta.titre}
+        texte={propre ? contenu.texte : meta.sous}
+        action={contenu.action}
+        etiquettes={contenu.etiquettes}
+        fixe
+      >
+        {contenu.children}
+      </Bandeau>
+      {section && <Onglets chemin={chemin} section={section} />}
     </>
+  );
+}
+
+function Onglets({ chemin, section }: { chemin: string; section: NonNullable<ReturnType<typeof sectionDe>> }) {
+  const actifDansPlus = section.plus?.find((o) => ongletActif(o, chemin));
+  return (
+    <nav className={s.onglets} aria-label={section.nom}>
+      {section.onglets.map((o) => (
+        <Link key={o.href} href={o.href} className={s.onglet} aria-current={ongletActif(o, chemin) ? "page" : undefined}>
+          {o.label}
+        </Link>
+      ))}
+      {section.plus && <Plus onglets={section.plus} actif={actifDansPlus?.label} chemin={chemin} />}
+    </nav>
   );
 }
 

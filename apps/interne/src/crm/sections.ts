@@ -67,8 +67,19 @@ export const SECTIONS: Section[] = [
   },
 ];
 
-/** Les pages qui portent déjà leur propre bandeau : la section n'en ajoute pas. */
-export const SANS_BANDEAU = new Set(["/dashboard/tableau-de-bord"]);
+/**
+ * Les pages qui posent elles-mêmes l'en-tête de la section (bandeau puis
+ * onglets), avec leur propre contenu : la vue d'ensemble et ses chiffres, la
+ * fiche d'une demande, la fiche d'un dossier client. La mise en page des
+ * sections ne le pose pas pour elles.
+ */
+export function aEnTetePropre(chemin: string): boolean {
+  return (
+    chemin === "/dashboard/tableau-de-bord" ||
+    /^\/dashboard\/[0-9a-f]{8}-[0-9a-f-]{27,}\/?$/.test(chemin) ||
+    chemin.startsWith("/dashboard/espace-client/dossiers/")
+  );
+}
 
 /** La section d'une adresse sous /dashboard, ou rien pour une page du CRM. */
 export function sectionDe(chemin: string): Section | null {

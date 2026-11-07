@@ -144,9 +144,14 @@ export const dateFr = (iso: string) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) 
 export const dateHeureFr = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 export const euro = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 
-/** Le bandeau qui dit où vivent les données et si les messages partent vraiment. */
+/**
+ * Le bandeau qui dit où vivent les données et si les messages partent
+ * vraiment. Il ne parle qu'en démonstration : en base, l'état des envois se
+ * lit dans les Réglages de la section et sur chaque message (« journalisé »).
+ */
 export function BandeauMode({ mode }: { mode: { donnees: string; envoi: boolean; demoEquipe: boolean } }) {
   const { demo } = usePorte();
+  if (mode.donnees !== "demo" && !demo) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
       {mode.donnees === "demo" ? <Pastille ton="attente">Données de démonstration, en mémoire</Pastille> : <Pastille ton="ok">Données en base (tables ec_*, cloisonnées par client)</Pastille>}

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getRequestDetail } from "@/lib/requests";
 import { dossierDeLaDemande } from "@/lib/espace-client/demandes";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -48,9 +47,6 @@ export default async function RequestPage({
 
   return (
     <div>
-      <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
-        ← Toutes les demandes
-      </Link>
       <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} />
     </div>
   );

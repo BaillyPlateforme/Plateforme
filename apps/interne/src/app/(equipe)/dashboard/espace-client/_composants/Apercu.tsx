@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Icone } from "@/ui/icones";
 import { useMemo, useState } from "react";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
@@ -44,17 +45,27 @@ export function Apercu() {
   return (
     <div className="space-y-5">
       <BandeauMode mode={donnees.mode} />
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {/* Les quatre tuiles, du même dessin que celles des Questionnaires. */}
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { l: "Dossiers en cours", v: k.actifs, f: "tous" as const },
-          { l: "Conditions de livraison manquantes (J−21)", v: k.alertes, f: "alertes" as const, chaud: k.alertes > 0 },
-          { l: "Nombres de cartons à saisir", v: k.cartonsASaisir, lien: `${racine}/cartons` },
-          { l: "Déclarations SAV ouvertes", v: k.savOuverts, lien: `${racine}/sav` },
+          { l: "Dossiers en cours", v: k.actifs, f: "tous" as const, icone: "dossierClient" as const, fond: "#7c3aed", encre: "#fff" },
+          { l: "Conditions de livraison manquantes", v: k.alertes, f: "alertes" as const, chaud: k.alertes > 0, pastille: "J−21", icone: "horloge" as const, fond: "#17142b", encre: "#fff" },
+          { l: "Cartons à saisir", v: k.cartonsASaisir, lien: `${racine}/cartons`, icone: "boite" as const, fond: "#0ea5e9", encre: "#fff" },
+          { l: "Déclarations SAV ouvertes", v: k.savOuverts, lien: `${racine}/sav`, icone: "etoile" as const, fond: "#a78bfa", encre: "#fff" },
         ].map((x) => {
+          const actif = !x.lien && filtre === x.f;
           const corps = (
             <>
-              <p className="text-[12px] text-ink-soft">{x.l}</p>
-              <p className={`mt-2 text-[34px] font-bold leading-none tabular-nums ${x.chaud ? "text-danger" : ""}`}>{x.v}</p>
+              <div className="flex items-start justify-between gap-3">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full ring-1 ring-ink/10" style={{ background: x.fond, color: x.encre }}>
+                  <Icone nom={x.icone} taille={20} />
+                </span>
+                <span className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${actif ? "bg-brand text-white" : "bg-subtle text-ink-soft"}`}>
+                  {x.lien ? "Ouvrir" : actif ? "Filtre actif" : (x.pastille ?? "Filtrer")}
+                </span>
+              </div>
+              <div className="mt-6 text-[14.5px] text-ink-soft">{x.l}</div>
+              <div className={`mt-1.5 text-[26px] font-bold leading-none tabular-nums ${x.chaud ? "text-danger" : ""}`}>{x.v}</div>
             </>
           );
           return x.lien ? (
@@ -62,7 +73,7 @@ export function Apercu() {
               {corps}
             </Link>
           ) : (
-            <button key={x.l} onClick={() => setFiltre(x.f!)} className={`rounded-[18px] p-5 text-left transition hover:-translate-y-0.5 ${filtre === x.f ? "bg-brand-soft" : "bg-card"}`}>
+            <button key={x.l} onClick={() => setFiltre(x.f!)} aria-pressed={actif} className={`rounded-[18px] bg-card p-5 text-left transition hover:-translate-y-0.5 ${actif ? "ring-2 ring-brand" : ""}`}>
               {corps}
             </button>
           );

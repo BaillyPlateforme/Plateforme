@@ -26,7 +26,7 @@ export default function VersLeCrm({
   ];
 
   return (
-    <section className="mt-6 overflow-hidden rounded-[18px] bg-nuit text-white" aria-label="Le dossier de cette demande">
+    <section className="overflow-hidden rounded-[18px] bg-nuit text-white" aria-label="Le dossier de cette demande">
       <div className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Un dossier, deux faces</p>
