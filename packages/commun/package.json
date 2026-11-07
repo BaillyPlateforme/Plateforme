@@ -1,0 +1,9 @@
+{
+  "name": "@bailly/commun",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Le code partagé des apps externe et interne : lib, composants, feuille de style.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

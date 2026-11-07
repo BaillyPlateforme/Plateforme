@@ -1,15 +1,24 @@
 {
   "name": "bailly-plateforme",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "engines": {
     "node": "22.x"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev:externe": "npm run dev -w @bailly/externe",
+    "dev:interne": "npm run dev -w @bailly/interne",
+    "build:externe": "npm run build -w @bailly/externe",
+    "build:interne": "npm run build -w @bailly/interne",
+    "start:externe": "npm run start -w @bailly/externe",
+    "start:interne": "npm run start -w @bailly/interne",
+    "build": "npm run build:externe && npm run build:interne",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
