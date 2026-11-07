@@ -5,7 +5,7 @@ import { lireSession } from "@/lib/supabase/session-proxy";
  * L'app interne : l'espace de l'équipe Bailly. Tout y demande une session ;
  * un compte RH n'y entre pas — ni ses pages, ni ses données.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const s = await lireSession(request);
 
   if (!s.valide) {

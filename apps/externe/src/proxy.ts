@@ -8,7 +8,7 @@ import { lireSession } from "@/lib/supabase/session-proxy";
  * client ; un visiteur sans session est renvoyé vers la connexion des RH.
  * (L'espace client gère sa propre session.)
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const s = await lireSession(request);
 
   // La connexion des RH est la seule page de ce côté qui s'ouvre sans session.

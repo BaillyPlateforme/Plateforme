@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * La session Supabase lue dans le middleware d'une app, et rafraîchie au
+ * La session Supabase lue dans le proxy d'une app, et rafraîchie au
  * besoin. Les deux apps (externe et interne) s'en servent : chacune garde ses
  * propres règles d'accès, mais la lecture du jeton est la même.
  *

@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
   experimental: {
+    /** Deux mises en page racines (l'équipe, le CRM) : la 404 des adresses inconnues est autonome. */
+    globalNotFound: true,
     /**
      * Cache de routeur côté client.
      *
