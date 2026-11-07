@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { conteneur } from "@/crm/lib/data2";
+import { dispatchDuConteneur } from "@/crm/dispatch/donnees";
 import { ajouterAuConteneur, retirerDuConteneur, majConteneur } from "@/crm/actions2";
 import { m3, nomClient, dateFr } from "@/crm/lib/format";
 import type { Row } from "@/crm/lib/db";
@@ -12,7 +13,7 @@ const COULEURS = ["#7c3aed", "#0ea5e9", "#f59e0b", "#16a34a", "#e11d48", "#14b8a
 
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const c = await conteneur(id);
+  const [c, dispatch] = await Promise.all([conteneur(id), dispatchDuConteneur(id)]);
   if (!c) notFound();
   const utilise = c.lignes.reduce((a: number, l: Row) => a + l.volume, 0);
   const villes = [...new Set(c.lignes.map((l: Row) => l.ville_livraison ?? "Sans ville"))] as string[];
@@ -53,6 +54,15 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
             <div className="fld w12"><button className="btn primary sm">Enregistrer</button></div>
           </form>
           <p className="sub" style={{ marginTop: 14 }}>Groupeur : {c.groupeur ?? "—"}<br />Départ prévu : {dateFr(c.depart_prevu)}</p>
+          {/* Les colonnes de dispatch qui représentent ce conteneur (src/crm/dispatch). */}
+          <h3 style={{ marginTop: 22 }}>Dispatch</h3>
+          {dispatch.length === 0 ? (
+            <p className="sub">Aucun plan de dispatch ne lui est relié. <Link href="/conteneurs/dispatch" style={{ color: "var(--accent)", fontWeight: 600 }}>Dispatch international</Link></p>
+          ) : dispatch.map((x: Row) => (
+            <Link key={x.id} href={`/conteneurs/dispatch/${x.plan_id}`} className="sub" style={{ display: "block", marginTop: 6 }}>
+              <b style={{ color: "var(--ink)" }}>{x.libelle}</b>{x.verrouillee_le ? " · validé" : ""}<br />{x.plan} · {x.nb} client{x.nb > 1 ? "s" : ""} · {m3(x.volume)}{x.capacite ? ` / ${m3(x.capacite)}` : ""}
+            </Link>
+          ))}
         </section>
       </div>
     </div>

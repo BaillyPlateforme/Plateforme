@@ -156,4 +156,58 @@ alter table crm.conteneurs enable row level security;
 alter table crm.conteneur_dossiers enable row level security;
 alter table crm.modeles_messages enable row level security;
 alter table crm.operations enable row level security;
+-- Dispatch des conteneurs internationaux (§5 du cahier des charges), voir
+-- src/crm/dispatch : un plan par groupage, ses imports, ses clients (lignes),
+-- les colonnes du Kanban (conteneurs, tournées, dates, zones), les
+-- propositions de regroupement et l'historique. La place d'un client est sa
+-- colonne et son rang dans la colonne ; sans colonne, il est « à répartir ».
+create table if not exists crm.dispatch_plans (
+  id serial primary key, nom text not null, sens text not null default 'export' check (sens in ('export','import')),
+  port text, date_reference date, notes text,
+  capacite_20 numeric(6,2) not null default 33, capacite_40 numeric(6,2) not null default 67,
+  demo boolean not null default false, cree_par int references crm.utilisateurs(id) on delete set null,
+  cree_le timestamptz not null default now(), maj_le timestamptz not null default now()
+);
+create table if not exists crm.dispatch_colonnes (
+  id serial primary key, plan_id int not null references crm.dispatch_plans(id) on delete cascade,
+  genre text not null default 'conteneur' check (genre in ('conteneur','tournee','date','zone')),
+  libelle text not null, taille text check (taille in ('20','40')), capacite numeric(7,2), zone text, jour date,
+  conteneur_id int references crm.conteneurs(id) on delete set null, ordre double precision not null default 0,
+  verrouillee_le timestamptz, verrouillee_par int references crm.utilisateurs(id) on delete set null,
+  cree_le timestamptz not null default now()
+);
+create table if not exists crm.dispatch_imports (
+  id serial primary key, plan_id int not null references crm.dispatch_plans(id) on delete cascade,
+  source text not null check (source in ('csv','excel','manuel','demo')), fichier text, nb_lignes int not null default 0,
+  correspondance jsonb, importe_par int references crm.utilisateurs(id) on delete set null, importe_le timestamptz not null default now()
+);
+create table if not exists crm.dispatch_lignes (
+  id serial primary key, plan_id int not null references crm.dispatch_plans(id) on delete cascade,
+  import_id int references crm.dispatch_imports(id) on delete set null,
+  colonne_id int references crm.dispatch_colonnes(id) on delete set null, rang double precision not null default 0,
+  client text not null, ville text, pays text, volume numeric(7,2) not null default 0, remarques text, telephone text,
+  dossier_id int references crm.dossiers(id) on delete set null, cree_le timestamptz not null default now()
+);
+create table if not exists crm.dispatch_propositions (
+  id serial primary key, plan_id int not null references crm.dispatch_plans(id) on delete cascade,
+  methode text not null check (methode in ('ia','regles')), modele text, repli text, duree_ms int,
+  parametres jsonb not null default '{}', contenu jsonb not null,
+  statut text not null default 'proposee' check (statut in ('proposee','appliquee','ecartee')),
+  demandee_par int references crm.utilisateurs(id) on delete set null, cree_le timestamptz not null default now(), traitee_le timestamptz
+);
+create table if not exists crm.dispatch_historique (
+  id serial primary key, plan_id int not null references crm.dispatch_plans(id) on delete cascade,
+  ligne_id int references crm.dispatch_lignes(id) on delete set null, colonne_id int references crm.dispatch_colonnes(id) on delete set null,
+  action text not null, libelle text not null, details jsonb,
+  utilisateur_id int references crm.utilisateurs(id) on delete set null, cree_le timestamptz not null default now()
+);
+create index if not exists idx_dispatch_colonnes_plan on crm.dispatch_colonnes(plan_id, ordre);
+create index if not exists idx_dispatch_lignes_plan on crm.dispatch_lignes(plan_id, colonne_id, rang);
+create index if not exists idx_dispatch_historique_plan on crm.dispatch_historique(plan_id, cree_le desc);
+alter table crm.dispatch_plans enable row level security;
+alter table crm.dispatch_colonnes enable row level security;
+alter table crm.dispatch_imports enable row level security;
+alter table crm.dispatch_lignes enable row level security;
+alter table crm.dispatch_propositions enable row level security;
+alter table crm.dispatch_historique enable row level security;
 `;

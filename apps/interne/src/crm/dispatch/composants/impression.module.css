@@ -1,0 +1,312 @@
+/*
+ * Les documents imprimables du dispatch (feuilles de conteneur ou de
+ * tournée, récapitulatif par conteneur) : la mise en page A4 du devis
+ * Bailly — le noir et le jaune du logo —, une feuille par page.
+ */
+.feuille {
+  --jaune: #f5d033;
+  --jaune-doux: #fdf6d6;
+  --noir: #1b1a18;
+  --gris: #615f68;
+  --filet: #e9e7e2;
+  --fond: #f6f5f2;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto 40px;
+  padding: 14mm 13mm 12mm;
+  background: #fff;
+  color: var(--noir);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.45;
+  box-shadow: 0 30px 70px -40px rgba(27, 26, 24, 0.45);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  display: flex;
+  flex-direction: column;
+  break-after: page;
+}
+.feuille:last-of-type {
+  break-after: auto;
+}
+.entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 7mm;
+  border-bottom: 1px solid var(--filet);
+}
+.logo {
+  display: block;
+  width: 46mm;
+  height: auto;
+}
+.agence {
+  margin-top: 3mm;
+  font-size: 8pt;
+  line-height: 1.55;
+  color: var(--gris);
+}
+.agence b {
+  color: var(--noir);
+}
+.reference {
+  text-align: right;
+  max-width: 105mm;
+}
+.etiquette {
+  display: inline-block;
+  padding: 1.1mm 3mm;
+  border-radius: 999px;
+  background: var(--jaune);
+  font-size: 7.2pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.reference h1 {
+  margin: 3mm 0 1mm;
+  font-size: 19pt;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.reference p {
+  margin: 0;
+  font-size: 8.6pt;
+  color: var(--gris);
+}
+.resume {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 3mm;
+  margin-top: 6mm;
+}
+.case {
+  padding: 3.2mm 3.8mm;
+  border-radius: 3.5mm;
+  background: var(--fond);
+}
+.case.noire {
+  background: var(--noir);
+  color: #fff;
+}
+.case small {
+  display: block;
+  font-size: 7pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+.case.noire small {
+  color: var(--jaune);
+}
+.case b {
+  display: block;
+  margin-top: 0.8mm;
+  font-size: 10.5pt;
+  font-weight: 750;
+}
+.case span {
+  display: block;
+  font-size: 8pt;
+  color: var(--gris);
+}
+.case.noire span {
+  color: rgba(255, 255, 255, 0.72);
+}
+.jauge {
+  position: relative;
+  height: 2.6mm;
+  margin-top: 4mm;
+  border-radius: 999px;
+  background: var(--fond);
+  overflow: hidden;
+}
+.jauge i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--jaune);
+}
+.jauge.depasse i {
+  background: #e11d48;
+}
+.titre {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  margin: 7mm 0 3mm;
+  font-size: 11.5pt;
+  font-weight: 800;
+}
+.titre::before {
+  content: "";
+  width: 2.2mm;
+  height: 5mm;
+  border-radius: 1mm;
+  background: var(--jaune);
+}
+.titre em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: var(--gris);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th {
+  padding: 2mm 1.8mm;
+  border-bottom: 1.4px solid var(--noir);
+  text-align: left;
+  font-size: 7pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+.table td {
+  padding: 2.3mm 1.8mm;
+  border-bottom: 1px solid var(--filet);
+  vertical-align: top;
+}
+.table tr {
+  break-inside: avoid;
+}
+.table .n {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table .petit {
+  font-size: 8pt;
+  color: var(--gris);
+}
+.rang {
+  display: grid;
+  place-items: center;
+  width: 6mm;
+  height: 6mm;
+  border-radius: 50%;
+  background: var(--noir);
+  color: var(--jaune);
+  font-size: 7.5pt;
+  font-weight: 800;
+}
+.client {
+  font-weight: 700;
+}
+/* Les noms et les villes ne se coupent pas : ce sont les remarques qui passent à la ligne. */
+.colClient {
+  min-width: 38mm;
+}
+.colLieu {
+  min-width: 30mm;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.visa {
+  width: 14mm;
+}
+.visa span {
+  display: block;
+  width: 10mm;
+  height: 6mm;
+  border-radius: 1.5mm;
+  border: 1px dashed #b9b5ab;
+}
+.total td {
+  border-bottom: 0;
+  background: var(--jaune-doux);
+  font-weight: 800;
+}
+.vide {
+  padding: 8mm;
+  border-radius: 3.5mm;
+  background: var(--fond);
+  color: var(--gris);
+  text-align: center;
+}
+.notes {
+  margin-top: 6mm;
+  padding: 4mm 5mm;
+  border-radius: 3.5mm;
+  border: 1px dashed #c9c6bd;
+  min-height: 22mm;
+  font-size: 8.5pt;
+  color: var(--gris);
+}
+.bloc {
+  margin-top: 5mm;
+  break-inside: avoid;
+}
+.bloc h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 3mm;
+  margin: 0 0 1.5mm;
+  font-size: 10pt;
+  font-weight: 800;
+}
+.bloc h3 span {
+  font-size: 8pt;
+  font-weight: 600;
+  color: var(--gris);
+}
+.barre {
+  display: inline-block;
+  width: 18mm;
+  height: 2mm;
+  margin-right: 2mm;
+  border-radius: 999px;
+  background: var(--fond);
+  vertical-align: middle;
+  overflow: hidden;
+}
+.barre i {
+  display: block;
+  height: 100%;
+  background: var(--jaune);
+}
+.barre.depasse i {
+  background: #e11d48;
+}
+.statut {
+  display: inline-block;
+  padding: 0.6mm 2.2mm;
+  border-radius: 999px;
+  background: var(--fond);
+  font-size: 7.5pt;
+  font-weight: 700;
+}
+.statut.valide {
+  background: var(--noir);
+  color: var(--jaune);
+}
+.pied {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-top: auto;
+  padding-top: 5mm;
+  border-top: 1px solid var(--filet);
+  font-size: 7.3pt;
+  color: var(--gris);
+}
+.pied b {
+  color: var(--noir);
+}
+
+@media print {
+  .feuille {
+    margin: 0;
+    box-shadow: none;
+    min-height: 297mm;
+  }
+}

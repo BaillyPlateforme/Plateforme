@@ -56,7 +56,8 @@ export const GROUPES: Groupe[] = [
       { href: "/exploitation", label: "Planning d'exploitation", icone: "grille" },
       { href: "/lettres-de-voiture", label: "Lettres de voiture", icone: "camion" },
       { href: "/garde-meuble", label: "Garde-meuble", icone: "entrepot" },
-      { href: "/conteneurs", label: "Conteneurs", icone: "bateau" },
+      { href: "/conteneurs", label: "Conteneurs", icone: "bateau", actif: (c) => sous("/conteneurs")(c) && !sous("/conteneurs/dispatch")(c) },
+      { href: "/conteneurs/dispatch", label: "Dispatch international", icone: "dispatch" },
     ],
   },
   {
