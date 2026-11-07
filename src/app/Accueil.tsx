@@ -35,10 +35,28 @@ export default function Accueil({
   integre?: boolean;
 }) {
   const [choix, setChoix] = useState<Choix | null>(initial);
+  // La porte ouverte. Une adresse qui en impose une la garde ; sinon, revenir
+  // d'un devis ramène à ses deux branches, et « Retour » aux trois portes.
+  const [ouvert, setOuvert] = useState<Filtre>(filtre ?? (initial && initial.parcours !== "mutation" ? initial.parcours : null));
+  const impose = filtre != null;
 
   const choisir = (c: Choix) => {
     setChoix(c);
+    if (!impose) setOuvert(c.parcours === "mutation" ? null : c.parcours);
     remonter();
+  };
+
+  const ouvrir = (f: Filtre) => {
+    setOuvert(f);
+    // Les branches remplacent les trois portes au même endroit. Sur un
+    // téléphone, où les portes sont empilées, on a pu cliquer la dernière bien
+    // plus bas : on ramène le regard sur le haut du bloc s'il est sorti de l'écran.
+    requestAnimationFrame(() => {
+      if (integre) return remonter(true);
+      const bloc = document.getElementById("portes");
+      const haut = bloc?.getBoundingClientRect().top ?? 0;
+      if (bloc && (haut < 0 || haut > window.innerHeight - 220)) bloc.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const revenir = () => {
@@ -56,7 +74,7 @@ export default function Accueil({
       ) : choix?.parcours === "entreprise" ? (
         choix.transfert === "projet" ? <FormulaireProjet onBack={revenir} /> : <FormulaireTransfert onBack={revenir} />
       ) : (
-        <Vitrine onChoisir={choisir} annee={annee} integre={integre} filtre={filtre} />
+        <Vitrine onChoisir={choisir} annee={annee} integre={integre} filtre={ouvert} onOuvrir={ouvrir} impose={impose} />
       )}
     </Integre>
   );

@@ -28,37 +28,48 @@ export type Choix =
   | { parcours: "mutation" }
   | { parcours: "entreprise"; transfert: "simple" | "projet" };
 
-/** Une seule porte ouverte : le bloc du site officiel dédié à un public. */
+/**
+ * La porte ouverte : le particulier ou l'entreprise, dont on montre alors les
+ * deux branches. Rien d'ouvert : les trois portes.
+ */
 export type Filtre = "particulier" | "entreprise" | null;
 
 /**
  * La page d'accueil des questionnaires : trois portes, une par public.
  *
  * Christian, le 4 novembre : « Vous êtes un particulier — Vous déménagez votre
- * entreprise — Vous êtes muté ». Le particulier garde son estimation en ligne,
- * en express ou en complet ; le salarié muté et l'entreprise remplissent une
- * demande sans prix, que suit une visite, une visio ou un appel.
+ * entreprise — Vous êtes muté ». Trois portes distinctes d'abord ; le choix
+ * du devis vient ensuite, derrière la porte : express ou complet pour le
+ * particulier, petit transfert ou projet important pour l'entreprise. Le
+ * salarié muté va droit à sa demande.
  */
 export default function Vitrine({
   onChoisir,
   annee,
   integre = false,
   filtre = null,
+  onOuvrir,
+  impose = false,
 }: {
   onChoisir: (c: Choix) => void;
   annee: number;
   /** Affichée dans une page du site officiel : ni en-tête, ni photo, ni pied. */
   integre?: boolean;
-  /** Le bloc du site n'ouvre qu'une porte : on n'en montre que les branches. */
+  /** La porte ouverte, dont on montre les deux branches. */
   filtre?: Filtre;
+  /** Ouvre une porte — ou les referme toutes, avec `null`. */
+  onOuvrir: (f: Filtre) => void;
+  /** La porte a été ouverte par l'adresse (un bloc du site dédié à un public) : pas de retour aux trois. */
+  impose?: boolean;
 }) {
-  if (integre) return <ChoixIntegre onChoisir={onChoisir} filtre={filtre} />;
+  const portes = { onChoisir, filtre, onOuvrir, impose };
+  if (integre) return <ChoixIntegre {...portes} />;
   return (
     <>
       <SiteHeader onChoisir={onChoisir} />
 
       <main className="flex-1">
-        <Hero onChoisir={onChoisir} filtre={filtre} />
+        <Hero {...portes} />
       </main>
 
       <Pied annee={annee} onChoisir={onChoisir} />
@@ -124,8 +135,15 @@ function PortesEntreprise({ onChoisir, d = 0 }: { onChoisir: (c: Choix) => void;
   );
 }
 
-/** Les trois portes, une par public. */
-function PortesParcours({ onChoisir, d = 0, clair = false }: { onChoisir: (c: Choix) => void; d?: number; clair?: boolean }) {
+type Portes = {
+  onChoisir: (c: Choix) => void;
+  filtre: Filtre;
+  onOuvrir: (f: Filtre) => void;
+  impose: boolean;
+};
+
+/** Les trois portes, une par public : un seul bouton chacune. */
+function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Portes, "filtre" | "impose"> & { d?: number; clair?: boolean }) {
   return (
     <>
       <PorteParcours
@@ -135,12 +153,9 @@ function PortesParcours({ onChoisir, d = 0, clair = false }: { onChoisir: (c: Ch
         icone="user"
         badge="Estimation en ligne"
         qui="Vous êtes un particulier"
-        titre="Votre estimation"
-        desc="Calculée sur notre grille tarifaire, à l'écran en quelques minutes."
-        actions={[
-          { label: "Devis express · 2 min", onClick: () => onChoisir({ parcours: "particulier", mode: "express" }) },
-          { label: "Devis complet", onClick: () => onChoisir({ parcours: "particulier", mode: "complet" }) },
-        ]}
+        desc="Votre estimation, calculée sur notre grille tarifaire et affichée à l'écran : en express ou en détail."
+        cta="Je suis un particulier"
+        onClick={() => onOuvrir("particulier")}
       />
       <PorteParcours
         d={d + 100}
@@ -148,12 +163,9 @@ function PortesParcours({ onChoisir, d = 0, clair = false }: { onChoisir: (c: Ch
         icone="immeuble"
         badge="Rappel rapide"
         qui="Vous déménagez votre entreprise"
-        titre="Votre transfert"
         desc="Quelques postes ou tout un site : décrivez votre projet, un conseiller vous recontacte rapidement."
-        actions={[
-          { label: "Un petit transfert", onClick: () => onChoisir({ parcours: "entreprise", transfert: "simple" }) },
-          { label: "Un projet important", onClick: () => onChoisir({ parcours: "entreprise", transfert: "projet" }) },
-        ]}
+        cta="Je déménage mon entreprise"
+        onClick={() => onOuvrir("entreprise")}
       />
       <PorteParcours
         d={d + 200}
@@ -161,11 +173,46 @@ function PortesParcours({ onChoisir, d = 0, clair = false }: { onChoisir: (c: Ch
         icone="route"
         badge="Visite ou visio"
         qui="Vous êtes muté(e)"
-        titre="Votre mutation"
         desc="Décrivez votre déménagement : votre conseiller organise la visite avec vous, selon l'accord de votre entreprise."
-        actions={[{ label: "Faire ma demande", onClick: () => onChoisir({ parcours: "mutation" }) }]}
+        cta="Je suis muté(e)"
+        onClick={() => onChoisir({ parcours: "mutation" })}
       />
     </>
+  );
+}
+
+/** Ce que montre le bloc des portes : les trois, ou les deux branches de celle qu'on a ouverte. */
+function BlocPortes({ onChoisir, filtre, onOuvrir, impose, d, clair = false }: Portes & { d: number; clair?: boolean }) {
+  if (!filtre) {
+    return (
+      <div className="grid items-stretch gap-4 lg:grid-cols-3">
+        <PortesParcours onChoisir={onChoisir} onOuvrir={onOuvrir} d={d} clair={clair} />
+      </div>
+    );
+  }
+  return (
+    <div>
+      {!impose && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button
+            type="button"
+            onClick={() => onOuvrir(null)}
+            className={`group inline-flex h-10 items-center gap-2 rounded-full pl-2 pr-4 text-[14px] font-semibold transition ${
+              clair ? "border border-line-strong bg-card text-ink hover:border-ink" : "bg-white/12 text-white backdrop-blur hover:bg-white/20"
+            }`}
+          >
+            <Icone nom="gauche" taille={16} trait={2.4} className="transition-transform group-hover:-translate-x-0.5" />
+            Retour
+          </button>
+          <span className={`text-[15px] font-semibold ${clair ? "text-ink" : "text-white"}`}>
+            {filtre === "particulier" ? "Vous êtes un particulier : choisissez votre devis" : "Vous déménagez votre entreprise : quel est votre projet ?"}
+          </span>
+        </div>
+      )}
+      <div className="grid items-stretch gap-4 md:grid-cols-2">
+        {filtre === "particulier" ? <PortesParticulier onChoisir={onChoisir} d={impose ? d : 0} /> : <PortesEntreprise onChoisir={onChoisir} d={impose ? d : 0} />}
+      </div>
+    </div>
   );
 }
 
@@ -176,7 +223,8 @@ function PortesParcours({ onChoisir, d = 0, clair = false }: { onChoisir: (c: Ch
  * portes, sur le fond clair du formulaire qui suivra. Un bloc dédié à un seul
  * public — le particulier ou l'entreprise — n'en montre que les deux branches.
  */
-function ChoixIntegre({ onChoisir, filtre }: { onChoisir: (c: Choix) => void; filtre: Filtre }) {
+function ChoixIntegre(portes: Portes) {
+  const { filtre } = portes;
   const entete =
     filtre === "entreprise"
       ? {
@@ -214,14 +262,8 @@ function ChoixIntegre({ onChoisir, filtre }: { onChoisir: (c: Choix) => void; fi
           {entete.texte}
         </p>
 
-        <div className={`mt-8 grid items-stretch gap-4 ${filtre ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
-          {filtre === "particulier" ? (
-            <PortesParticulier onChoisir={onChoisir} d={200} />
-          ) : filtre === "entreprise" ? (
-            <PortesEntreprise onChoisir={onChoisir} d={200} />
-          ) : (
-            <PortesParcours onChoisir={onChoisir} d={200} clair />
-          )}
+        <div className="mt-8">
+          <BlocPortes {...portes} d={200} clair />
         </div>
 
         <a href={AGENCE.lien} className="reveal mt-7 inline-flex items-center gap-2.5 text-[14px] text-ink-soft transition hover:text-ink" style={delay(480)}>
@@ -259,7 +301,7 @@ function Fleche({ sombre = false }: { sombre?: boolean }) {
  * et reste entière ; seul le côté du texte s'assombrit, pour que le titre se
  * lise en blanc (photo : Unsplash, licence libre).
  */
-function Hero({ onChoisir, filtre }: { onChoisir: (c: Choix) => void; filtre: Filtre }) {
+function Hero(portes: Portes) {
   return (
     <section className="relative flex min-h-[100svh] flex-col overflow-hidden bg-[#1b1a18] text-white">
       {/* La photo de fond, en haute définition. Le voile ne couvre que le côté
@@ -303,14 +345,8 @@ function Hero({ onChoisir, filtre }: { onChoisir: (c: Choix) => void; filtre: Fi
         {/* Les portes, côte à côte sous le titre : trois publics, trois
             cartes pleines. Rien derrière : une carte translucide sur la photo
             se salissait de ce qui passait dessous. */}
-        <div id="portes" className={`grid scroll-mt-24 items-stretch gap-4 ${filtre ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
-          {filtre === "particulier" ? (
-            <PortesParticulier onChoisir={onChoisir} d={380} />
-          ) : filtre === "entreprise" ? (
-            <PortesEntreprise onChoisir={onChoisir} d={380} />
-          ) : (
-            <PortesParcours onChoisir={onChoisir} d={380} />
-          )}
+        <div id="portes" className="scroll-mt-24">
+          <BlocPortes {...portes} d={380} />
         </div>
       </div>
 
@@ -402,8 +438,8 @@ function Porte({
 }
 
 /**
- * Une porte des trois publics : qui elle accueille, ce qu'elle offre, et ses
- * branches — chacune un vrai bouton, la première mise en avant.
+ * Une porte des trois publics : qui elle accueille, ce qu'elle offre, et un
+ * seul bouton — toute la carte. Le choix du devis vient derrière.
  */
 function PorteParcours({
   accent,
@@ -411,9 +447,9 @@ function PorteParcours({
   icone,
   badge,
   qui,
-  titre,
   desc,
-  actions,
+  cta,
+  onClick,
   d,
 }: {
   accent?: boolean;
@@ -422,19 +458,21 @@ function PorteParcours({
   icone: NomIcone;
   badge: string;
   qui: string;
-  titre: string;
   desc: string;
-  actions: { label: string; onClick: () => void }[];
+  cta: string;
+  onClick: () => void;
   d: number;
 }) {
   return (
-    <div
-      className={`reveal flex h-full flex-col rounded-[26px] p-6 sm:p-7 ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`reveal group flex h-full w-full flex-col rounded-[26px] p-6 text-left transition-[translate,box-shadow] duration-300 hover:-translate-y-1 active:translate-y-0 sm:p-7 ${
         accent ? "bg-brand text-sur-brand" : "border border-line bg-card text-ink"
-      } ${clair ? "bloc" : "shadow-[0_24px_50px_-32px_rgba(27,26,24,0.45)]"}`}
+      } ${clair ? "bloc" : "shadow-[0_24px_50px_-32px_rgba(27,26,24,0.45)] hover:shadow-[0_34px_60px_-32px_rgba(27,26,24,0.55)]"}`}
       style={delay(d)}
     >
-      <div className="flex items-center justify-between gap-4">
+      <span className="flex w-full items-center justify-between gap-4">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#1b1a18] text-brand-clair sm:h-12 sm:w-12 sm:rounded-2xl">
           <Icone nom={icone} taille={20} />
         </span>
@@ -445,38 +483,14 @@ function PorteParcours({
         >
           {badge}
         </span>
-      </div>
-      <p className={`mt-6 text-[13.5px] font-semibold ${accent ? "opacity-75" : "text-brand-ink"}`}>{qui}</p>
-      <h2 className="font-serif mt-1.5 text-[26px] leading-tight sm:text-[30px]">{titre}</h2>
-      <p className={`mt-3 flex-1 text-[15px] leading-relaxed ${accent ? "opacity-80" : "text-ink-soft"}`}>{desc}</p>
-      <div className="mt-6 space-y-2.5">
-        {actions.map((a, i) =>
-          i === 0 ? (
-            <button
-              key={a.label}
-              type="button"
-              onClick={a.onClick}
-              className="group flex h-12 w-full items-center justify-between gap-3 rounded-full bg-[#1b1a18] pl-5 pr-1.5 text-left text-[14.5px] font-semibold text-white transition active:scale-[0.98]"
-            >
-              {a.label}
-              <Fleche />
-            </button>
-          ) : (
-            <button
-              key={a.label}
-              type="button"
-              onClick={a.onClick}
-              className={`group flex h-12 w-full items-center justify-between gap-3 rounded-full border pl-5 pr-4 text-left text-[14.5px] font-semibold transition active:scale-[0.98] ${
-                accent ? "border-[#1b1a18]/30 hover:border-[#1b1a18]" : "border-line-strong hover:border-ink"
-              }`}
-            >
-              {a.label}
-              <Icone nom="droite" taille={16} trait={2.4} className="transition-transform duration-300 group-hover:translate-x-0.5" />
-            </button>
-          ),
-        )}
-      </div>
-    </div>
+      </span>
+      <span className="font-serif mt-6 block text-[26px] leading-tight sm:text-[30px]">{qui}</span>
+      <span className={`mt-3 block flex-1 text-[15px] leading-relaxed ${accent ? "opacity-80" : "text-ink-soft"}`}>{desc}</span>
+      <span className="mt-6 flex h-12 w-full items-center justify-between gap-3 rounded-full bg-[#1b1a18] pl-5 pr-1.5 text-[14.5px] font-semibold text-white">
+        {cta}
+        <Fleche />
+      </span>
+    </button>
   );
 }
 
