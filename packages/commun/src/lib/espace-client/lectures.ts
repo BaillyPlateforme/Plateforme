@@ -29,6 +29,9 @@ export function snapshotDe(d: Donnees, dossierId: string): DossierSnapshot | nul
     conditions: du(d.conditions_livraison)[0] ?? null,
     livraisons: du(d.livraisons_cartons).sort((a, b) => b.date_samedi.localeCompare(a.date_samedi)),
     sav: du(d.sav_declarations).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    // La visite technique (migration 0013) : les créneaux à choisir, puis les visites, la plus récente d'abord.
+    creneaux: du(d.creneaux ?? []).sort((a, b) => a.debut.localeCompare(b.debut)),
+    visites: du(d.visites ?? []).sort((a, b) => (b.debut ?? "").localeCompare(a.debut ?? "")),
   };
 }
 

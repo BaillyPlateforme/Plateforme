@@ -125,6 +125,8 @@ function depart(): Donnees {
     services: SERVICES_PAR_DEFAUT.map((s) => ({ ...s })),
     notifications: [],
     sessions_paiement: [],
+    creneaux: [],
+    visites: [],
   };
 }
 

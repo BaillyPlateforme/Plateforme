@@ -201,6 +201,8 @@ export interface DocumentFichier {
   requirement_id: string | null;
   created_by: string;
   created_at: string;
+  /** Le compte-rendu de visite signé dont ce document est le PDF (migration 0013). */
+  crm_visite_id?: number | null;
 }
 
 /** Une photo jointe à un formulaire : conditions de livraison ou déclaration d'avarie. */
@@ -391,6 +393,52 @@ export interface SessionPaiement {
   created_at: string;
 }
 
+/**
+ * Un créneau de visite technique proposé au client (migration 0013). Il
+ * projette un créneau du CRM, qui tient le planning des commerciaux : le
+ * client le choisit ici, la réservation se fait dans le CRM.
+ */
+export interface CreneauVisite {
+  id: string;
+  dossier_id: string;
+  crm_creneau_id: number;
+  crm_proposition_id: number;
+  debut: string;
+  duree_min: number;
+  mode: "sur_place" | "visio";
+  statut: "propose" | "retenu" | "libere";
+  /** Le commercial qui viendra. */
+  conseiller: string;
+  /** Le client a demandé d'autres créneaux. */
+  autres_demandes_le: string | null;
+}
+
+export type StatutVisite = "planifiee" | "en_cours" | "realisee" | "signee";
+
+/** Une visite technique du dossier, et le résumé de son compte-rendu une fois signé (migration 0013). */
+export interface VisiteTechnique {
+  id: string;
+  dossier_id: string;
+  /** « r12 » : le rendez-vous 12 du CRM ; « v7 » : une visite saisie sans rendez-vous. */
+  cle: string;
+  crm_rendez_vous_id: number | null;
+  crm_visite_id: number | null;
+  debut: string | null;
+  duree_min: number | null;
+  mode: "sur_place" | "visio";
+  conseiller: string;
+  statut: StatutVisite;
+  signe_le: string | null;
+  signataire: string | null;
+  /** L'empreinte SHA-256 du contenu signé. */
+  empreinte: string | null;
+  volume_m3: number | null;
+  pieces: number | null;
+  photos: number | null;
+  /** Le PDF du compte-rendu, parmi les documents du dossier. */
+  document_id: string | null;
+}
+
 export interface Donnees {
   version: number;
   conseillers: Conseiller[];
@@ -409,4 +457,6 @@ export interface Donnees {
   services: Service[];
   notifications: Notification[];
   sessions_paiement: SessionPaiement[];
+  creneaux: CreneauVisite[];
+  visites: VisiteTechnique[];
 }

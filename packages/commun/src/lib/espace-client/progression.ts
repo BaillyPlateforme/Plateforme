@@ -6,11 +6,12 @@
  */
 
 import type {
-  Acceptation, Client, ConditionsLivraison, DeclarationValeurs, Devis, DocumentFichier,
-  DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration, TypeClient,
+  Acceptation, Client, ConditionsLivraison, CreneauVisite, DeclarationValeurs, Devis, DocumentFichier,
+  DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration, TypeClient, VisiteTechnique,
 } from "./types";
 import { euros, jourMois, nomPays, parseDate, pluriel } from "./format";
 import { segmentDe } from "./segments";
+import { heureParis } from "../visite/regles";
 
 export interface DossierSnapshot {
   client: Client;
@@ -24,12 +25,16 @@ export interface DossierSnapshot {
   conditions: ConditionsLivraison | null;
   livraisons: LivraisonCartons[];
   sav: SavDeclaration[];
+  /** Les créneaux de visite proposés, du plus proche au plus lointain. */
+  creneaux: CreneauVisite[];
+  /** Les visites techniques, la plus récente d'abord. */
+  visites: VisiteTechnique[];
 }
 
 export type StatutEtape = "fait" | "a_faire" | "en_attente";
 
 export interface Etape {
-  cle: "devis" | "prise_en_charge" | "conditions" | "valeurs" | "cgv" | "segment" | "pays" | "cartons" | "solde" | "realise";
+  cle: "visite" | "devis" | "prise_en_charge" | "conditions" | "valeurs" | "cgv" | "segment" | "pays" | "cartons" | "solde" | "realise";
   titre: string;
   statut: StatutEtape;
   /** La ligne sous le titre : « Fait le 2 septembre », « Questionnaire à compléter »… */
@@ -99,11 +104,54 @@ export function livraisonCourante(livraisons: LivraisonCartons[]) {
 
 const fait = (iso: string | null | undefined) => (iso ? `Fait le ${jourMois(iso)}` : "Fait");
 
+// --- La visite technique (§3.2, migration 0013) ------------------------------------------------------
+
+/** Les créneaux de visite que le client peut encore choisir. */
+export const creneauxAChoisir = (s: Pick<DossierSnapshot, "creneaux">, now = new Date()) =>
+  s.creneaux.filter((c) => c.statut === "propose" && parseDate(c.debut) > now).sort((a, b) => a.debut.localeCompare(b.debut));
+
+/** La visite en cours, sinon la prochaine visite prévue. */
+export const visiteAVenir = (s: Pick<DossierSnapshot, "visites">) =>
+  s.visites.find((v) => v.statut === "en_cours") ??
+  s.visites.filter((v) => v.statut === "planifiee" && v.debut).sort((a, b) => a.debut!.localeCompare(b.debut!))[0] ??
+  null;
+
+/** Le dernier compte-rendu de visite signé. */
+export const dernierCompteRendu = (s: Pick<DossierSnapshot, "visites">) =>
+  s.visites.filter((v) => v.statut === "signee").sort((a, b) => (b.signe_le ?? "").localeCompare(a.signe_le ?? ""))[0] ?? null;
+
+/**
+ * L'étape « Visite technique », en tête de frise. Elle se montre dès que la
+ * visite passe par l'outil (créneaux proposés, visite réservée, compte-rendu)
+ * et, pour un dossier qui n'a encore ni devis ni commande, en attente des
+ * créneaux. Un dossier plus avancé dont la visite n'est pas passée par
+ * l'outil ne la montre pas : rien ne permet d'en dire quoi que ce soit.
+ */
+function etapeVisite(s: DossierSnapshot, now: Date): Etape | null {
+  const base = { cle: "visite" as const, titre: "Visite technique", cible: "visite" };
+  const enCours = s.visites.find((v) => v.statut === "en_cours");
+  if (enCours) return { ...base, statut: "en_attente", detail: "Visite en cours" };
+  const choix = creneauxAChoisir(s, now);
+  if (choix.length) return { ...base, statut: "a_faire", detail: `${pluriel(choix.length, "créneau", "créneaux")} à choisir` };
+  const prevue = visiteAVenir(s);
+  if (prevue?.debut) return { ...base, statut: "en_attente", detail: `Le ${jourMois(prevue.debut)} à ${heureParis(prevue.debut)}` };
+  const cr = dernierCompteRendu(s);
+  if (cr) return { ...base, statut: "fait", detail: `Compte-rendu signé le ${jourMois(cr.signe_le!)}` };
+  const realisee = s.visites.find((v) => v.statut === "realisee");
+  if (realisee) return { ...base, statut: "fait", detail: realisee.debut ? `Réalisée le ${jourMois(realisee.debut)}` : "Réalisée" };
+  const avance = !!s.dossier.commande_le || s.dossier.statut === "termine" || s.devis.length > 0 || s.client.masquer_devis;
+  return avance ? null : { ...base, statut: "en_attente", detail: "Créneaux à venir", cible: null };
+}
+
 export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
   const { client, dossier } = s;
   const segment = segmentDe(client.type);
   const termine = dossier.statut === "termine";
   const etapes: Etape[] = [];
+
+  // 0 · La visite technique, quand elle passe par l'outil.
+  const visite = etapeVisite(s, now);
+  if (visite) etapes.push(visite);
 
   // 1 · Devis accepté, et arrhes réglées pour qui paie en ligne. Un militaire
   //     n'a ni devis ni arrhes : sa prise en charge vient de l'administration.
@@ -211,6 +259,13 @@ export function avancement(frise: Etape[]) {
 /** Le texte de la carte « Prochaine étape », repris de la micro démo. */
 export function texteProchaineEtape(e: Etape, s: DossierSnapshot): [string, string] {
   switch (e.cle) {
+    case "visite": {
+      const n = creneauxAChoisir(s).length;
+      return [
+        "Choisissez le créneau de votre visite technique",
+        `Votre conseiller vous propose ${pluriel(n, "créneau", "créneaux")} : choisissez celui qui vous convient, ou demandez-en d'autres.`,
+      ];
+    }
     case "devis":
       return devisRetenu(s.devis)
         ? ["Réglez vos arrhes", "Le paiement des arrhes bloque vos dates. Paiement en ligne sécurisé, reçu immédiat."]
