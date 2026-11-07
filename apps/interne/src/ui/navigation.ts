@@ -46,6 +46,8 @@ export const GROUPES: Groupe[] = [
       { href: "/planning", label: "Planning commercial", icone: "calendrier" },
       { href: "/visites", label: "Visites techniques", icone: "oeil" },
       { href: "/dossiers", label: "Clients et dossiers", icone: "clients" },
+      { href: "/kanban", label: "Kanban", icone: "kanban" },
+      { href: "/parcours", label: "Parcours", icone: "parcours" },
       { href: "/devis", label: "Devis", icone: "devis" },
       { href: "/factures", label: "Factures", icone: "facture" },
     ],
