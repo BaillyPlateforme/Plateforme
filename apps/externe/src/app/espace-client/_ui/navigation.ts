@@ -12,6 +12,10 @@ export type Pilule = { cle: string; label: string; href: string; point?: boolean
 export function pilules(e: Espace): Pilule[] {
   const base = `/espace-client/${e.dossier.reference}`;
   const out: Pilule[] = [{ cle: "accueil", label: "Mon déménagement", href: base }];
+  // La visite technique, dès qu'elle passe par l'outil : créneaux à choisir (point jaune), visite réservée, compte-rendu.
+  if (e.creneaux.length || e.visites.length) {
+    out.push({ cle: "visite", label: "Ma visite", href: `${base}/visite`, point: e.frise.some((x) => x.cle === "visite" && x.statut === "a_faire") });
+  }
   if (e.vis.devis) out.push({ cle: "devis", label: "Mes devis", href: `${base}/devis` });
   out.push({ cle: "documents", label: "Mes documents", href: `${base}/documents`, point: e.vis.documentsAFaire > 0 });
   if (e.vis.factures) out.push({ cle: "factures", label: "Mes factures", href: e.vis.devis ? `${base}/devis#factures` : `${base}/devis` });

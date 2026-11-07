@@ -18,6 +18,9 @@ const MESSAGES: Record<string, string> = {
   message: "Message envoyé à votre conseiller.",
   service: "Demande transmise à votre conseiller.",
   bienvenue: "Bienvenue dans votre espace client.",
+  // La visite technique.
+  "visite-reservee": "Visite réservée : votre conseiller l'a dans son planning.",
+  "visite-demande": "Demande transmise à votre conseiller : il vous propose d'autres créneaux.",
 };
 
 /**
