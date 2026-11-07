@@ -1,0 +1,373 @@
+/*
+ * La visite technique dans le CRM : la section de la fiche du dossier, la
+ * page Visites et les créneaux proposés du planning. Les couleurs suivent
+ * celles du CRM (variables de crm.css), avec la palette de l'app interne en
+ * repli (indigo #4b2fe0, vert #14c27d).
+ */
+
+.section {
+  position: relative;
+  overflow: hidden;
+  /* L'ancre #visite tombe sous la barre du haut de la coque, pas derrière. */
+  scroll-margin-top: 96px;
+}
+.section::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--accent, #4b2fe0);
+}
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.etat {
+  display: grid;
+  gap: 10px;
+}
+.ligne {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line, #e4e2ee);
+  background: #fff;
+}
+.ligne > div:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ligne b {
+  font-size: 14px;
+  text-transform: none;
+}
+.ligne b::first-letter {
+  text-transform: uppercase;
+}
+.ligne small {
+  font-size: 12.5px;
+  color: var(--muted, #6b6785);
+}
+.ligneEnCours {
+  border-color: #f6d58b;
+  background: #fffaf0;
+}
+.ligneAlerte {
+  border-color: #f6d58b;
+  background: #fffbf2;
+}
+.ligneSignee {
+  border-color: #bfe8d3;
+  background: #f5fcf8;
+}
+.ligneSignee .pastille {
+  background: #14c27d;
+  color: #fff;
+}
+.pastille {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-style: normal;
+  background: var(--soft, #ece8ff);
+  color: var(--accent, #4b2fe0);
+}
+.pastille :global(.ic) {
+  width: 18px;
+  height: 18px;
+}
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.rappel {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: #e3f6ec;
+  color: #13784c;
+  font-size: 12px;
+  font-weight: 650;
+}
+.rappelKo {
+  background: #f4f4f7;
+  color: var(--muted, #6b6785);
+}
+.puces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.puces span {
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--soft, #ece8ff);
+  color: var(--accent, #4b2fe0);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.puces span::first-letter {
+  text-transform: uppercase;
+}
+.puces .pucePassee {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.demande {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff3d6;
+  color: #7a4a00;
+  font-size: 13px;
+}
+.vide {
+  padding: 18px;
+  border-radius: 14px;
+  background: #f7f7fa;
+  color: var(--muted, #6b6785);
+  font-size: 13.5px;
+}
+.flash {
+  margin: -4px 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.flash small {
+  display: block;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.ok {
+  background: #e3f6ec;
+  color: #13784c;
+}
+.info {
+  background: var(--soft, #ece8ff);
+  color: var(--accent, #4b2fe0);
+}
+.ko {
+  background: #fde8e6;
+  color: #a02a21;
+}
+
+/* Le panneau des créneaux */
+.panneau {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f7f7fb;
+  border: 1px solid var(--line, #e4e2ee);
+}
+.panneauTete b {
+  display: block;
+  font-size: 15px;
+}
+.panneauTete span {
+  font-size: 12.5px;
+  color: var(--muted, #6b6785);
+}
+.reglages {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr;
+  gap: 8px;
+}
+.reglages label,
+.autre {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.reglages span,
+.autre > span,
+.jour small {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted, #6b6785);
+  letter-spacing: 0.02em;
+}
+.reglages select,
+.autre input {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e4e2ee);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+}
+.jours {
+  display: grid;
+  gap: 8px;
+}
+.jour {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.jour small::first-letter {
+  text-transform: uppercase;
+}
+.jour > div {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.creneau {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line, #e4e2ee);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  user-select: none;
+}
+.creneau input {
+  accent-color: var(--accent, #4b2fe0);
+}
+.coche {
+  border-color: var(--accent, #4b2fe0);
+  background: var(--soft, #ece8ff);
+  color: var(--accent, #4b2fe0);
+}
+.autre {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.autre > span {
+  flex: none;
+  width: 122px;
+}
+.autre input {
+  flex: 1;
+}
+.boutons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.boutons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted, #6b6785);
+}
+
+/* Le planning : un créneau proposé tient la place, en pointillé */
+.propose {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  border: 1.5px dashed var(--accent, #4b2fe0);
+  background: repeating-linear-gradient(135deg, rgba(75, 47, 224, 0.06) 0 6px, rgba(75, 47, 224, 0.12) 6px 12px);
+  color: var(--accent, #4b2fe0);
+  font-size: 11.5px;
+  line-height: 1.25;
+  overflow: hidden;
+}
+.propose b {
+  font-size: 11.5px;
+}
+.rappelTag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #e3f6ec;
+  color: #13784c;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* La page Visites */
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+}
+.page > * {
+  min-width: 0;
+}
+.tableau {
+  overflow-x: auto;
+}
+.rangee {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .rangee {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.liste {
+  display: grid;
+  gap: 8px;
+}
+.liste a.ligne:hover {
+  border-color: var(--accent, #4b2fe0);
+}
+.heure {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--soft, #ece8ff);
+  color: var(--accent, #4b2fe0);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+}
+.titreBloc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.titreBloc h3 {
+  font-size: 16px;
+}
+.titreBloc span {
+  font-size: 12.5px;
+  color: var(--muted, #6b6785);
+}

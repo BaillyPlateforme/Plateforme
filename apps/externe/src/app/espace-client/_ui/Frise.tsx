@@ -8,6 +8,7 @@ import { Icone } from "./Icone";
 const d = (n: number) => ({ "--d": n }) as CSSProperties;
 
 const ICONE_ETAPE: Record<Etape["cle"], string> = {
+  visite: "calendar",
   devis: "devis",
   prise_en_charge: "shield",
   segment: "documents",

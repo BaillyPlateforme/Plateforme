@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import type { Espace } from "@/lib/espace-client/espace";
 import { estRecent, eurosAffiches, heure, jourMois, pluriel } from "@/lib/espace-client/format";
-import { arrhesPayees, devisRetenu, livraisonCourante } from "@/lib/espace-client/progression";
+import { arrhesPayees, creneauxAChoisir, dernierCompteRendu, devisRetenu, livraisonCourante, visiteAVenir } from "@/lib/espace-client/progression";
+import { heureParis } from "@/lib/visite/regles";
 import { segmentDe } from "@/lib/espace-client/segments";
 import { Icone } from "./Icone";
 
@@ -38,6 +39,41 @@ export function Tuiles({ e, services, tutos }: { e: Espace; services: number; tu
   const { dossier, vis } = e;
   const base = `/espace-client/${dossier.reference}`;
   const tuiles: Tuile[] = [];
+
+  // La visite technique, quand elle passe par l'outil : créneaux à choisir, visite réservée, compte-rendu signé.
+  const choix = creneauxAChoisir(e);
+  const prevue = visiteAVenir(e);
+  const cr = dernierCompteRendu(e);
+  if (choix.length || prevue || cr) {
+    tuiles.push({
+      cle: "visite", span: 4, href: `${base}/visite`,
+      html: (
+        <>
+          <span className="ti"><Icone nom="calendar" /></span>
+          <div>
+            <h3>Ma visite technique</h3>
+            {choix.length ? (
+              <>
+                <div className="big num" style={{ marginTop: 4 }}>{pluriel(choix.length, "créneau", "créneaux")}</div>
+                <p>proposés par votre conseiller : choisissez le vôtre.</p>
+              </>
+            ) : prevue?.debut ? (
+              <>
+                <div className="big num" style={{ marginTop: 4 }}>{jourMois(prevue.debut)}</div>
+                <p>à {heureParis(prevue.debut)}{prevue.conseiller ? `, avec ${prevue.conseiller}` : ""}</p>
+              </>
+            ) : cr ? (
+              <p>Compte-rendu signé le {jourMois(cr.signe_le!)}{cr.volume_m3 ? ` · ${cr.volume_m3} m³ relevés` : ""}.</p>
+            ) : null}
+          </div>
+          <div className="foot">
+            {choix.length ? <span className="badge todo">À choisir</span> : prevue ? <span className="badge plain">Réservée</span> : <span className="badge ok">Signé</span>}
+            <Va />
+          </div>
+        </>
+      ),
+    });
+  }
 
   if (vis.devis) {
     const enAttente = e.devis.find((x) => x.statut === "envoye");

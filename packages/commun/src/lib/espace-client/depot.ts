@@ -35,7 +35,7 @@ export type Ligne<K extends Table> = Donnees[K][number];
 export const TABLES: Table[] = [
   "conseillers", "clients", "dossiers", "devis", "factures", "document_requirements", "documents", "acceptations",
   "declarations_valeurs", "conditions_livraison", "livraisons_cartons", "sav_declarations", "tutos", "services",
-  "notifications", "sessions_paiement",
+  "notifications", "sessions_paiement", "creneaux", "visites",
 ];
 
 export const nomTable = (t: Table) => `ec_${t}`;
@@ -108,7 +108,7 @@ export function donneesVides(): Donnees {
     version: VERSION_DONNEES,
     conseillers: [], clients: [], dossiers: [], devis: [], factures: [], document_requirements: [], documents: [], acceptations: [],
     declarations_valeurs: [], conditions_livraison: [], livraisons_cartons: [], sav_declarations: [], tutos: [], services: [],
-    notifications: [], sessions_paiement: [],
+    notifications: [], sessions_paiement: [], creneaux: [], visites: [],
   };
 }
 
@@ -140,6 +140,8 @@ export function restreindre(d: Donnees, clientId: string): Donnees {
     services: d.services.filter((s) => s.actif),
     notifications: [],
     sessions_paiement: du(d.sessions_paiement),
+    creneaux: du(d.creneaux),
+    visites: du(d.visites),
   };
 }
 
@@ -239,6 +241,15 @@ const JOURNAL_MAX = 1000;
 
 type Requeteur = ReturnType<typeof createServiceClient>;
 
+/**
+ * Les tables de la visite technique (migration 0015). Tant que la migration
+ * n'est pas appliquée, elles manquent : l'espace se lit sans elles plutôt que
+ * de tomber en entier.
+ */
+const TABLES_0015 = new Set<Table>(["creneaux", "visites"]);
+const tableAbsente = (table: Table, e: { code?: string; message?: string }) =>
+  TABLES_0015.has(table) && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|does not exist/i.test(e.message ?? ""));
+
 async function lireTable<K extends Table>(db: Requeteur, table: K): Promise<Ligne<K>[]> {
   const tout: Ligne<K>[] = [];
   const max = table === "notifications" ? JOURNAL_MAX : Infinity;
@@ -246,6 +257,7 @@ async function lireTable<K extends Table>(db: Requeteur, table: K): Promise<Lign
     let q = db.from(nomTable(table)).select("*");
     q = table === "notifications" ? q.order("sent_at", { ascending: false }) : q.order("id");
     const { data, error } = await avecDelai(q.range(debut, Math.min(debut + LOT, max) - 1));
+    if (error && tableAbsente(table, error)) return [];
     if (error) throw new Error(`Lecture de ${nomTable(table)} impossible : ${error.message}`);
     tout.push(...(data ?? []).map((l) => normaliser<Ligne<K>>(l)));
     if ((data ?? []).length < LOT) break;
@@ -296,6 +308,7 @@ class DepotBase implements DepotDonnees {
     const filtre = async <K extends Table>(table: K, colonne: string, valeurs: string[]): Promise<Ligne<K>[]> => {
       if (!valeurs.length) return [];
       const { data, error } = await avecDelai(db.from(nomTable(table)).select("*").in(colonne, valeurs));
+      if (error && tableAbsente(table, error)) return [];
       if (error) throw new Error(`Lecture de ${nomTable(table)} impossible : ${error.message}`);
       return (data ?? []).map((l) => normaliser<Ligne<K>>(l));
     };
@@ -307,6 +320,7 @@ class DepotBase implements DepotDonnees {
     [
       d.conseillers, d.devis, d.factures, d.documents, d.acceptations, d.declarations_valeurs, d.conditions_livraison,
       d.livraisons_cartons, d.sav_declarations, d.sessions_paiement, d.document_requirements, d.tutos, d.services,
+      d.creneaux, d.visites,
     ] = await Promise.all([
       filtre("conseillers", "id", clients.map((c) => c.conseiller_id)),
       filtre("devis", "dossier_id", ids),
@@ -321,6 +335,8 @@ class DepotBase implements DepotDonnees {
       lireTable(db, "document_requirements"),
       lireTable(db, "tutos"),
       lireTable(db, "services"),
+      filtre("creneaux", "dossier_id", ids),
+      filtre("visites", "dossier_id", ids),
     ]);
     return restreindre(d, clientId);
   }

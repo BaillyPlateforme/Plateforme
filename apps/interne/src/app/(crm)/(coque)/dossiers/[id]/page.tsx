@@ -15,6 +15,7 @@ import { EspaceClient } from "@/crm/components/EspaceClient";
 import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
+import SectionVisite from "@/crm/visites/composants/SectionVisite";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ const DEVIS_ST: Record<string, string> = { brouillon: "Brouillon", envoye: "Envo
 const LV_ST: Record<string, string> = { a_planifier: "À planifier", planifiee: "Planifiée", en_cours: "En cours", livree: "Livrée" };
 const DESTS = ["Arrivée", "Garde-meuble", "Don", "Déchetterie", "Autre adresse"];
 
-export default async function Fiche({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string }> }) {
+export default async function Fiche({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string }> }) {
   const id = Number((await params).id);
   const sp = await searchParams;
   const d = await getDossier(id);
@@ -138,6 +139,9 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
         </form>
 
         <EspaceClient d={d} commerciaux={users.filter((u) => u.role === "commercial")} espace={sp.espace} message={sp.m} />
+
+        {/* La visite technique (§3.2) : créneaux, rendez-vous, saisie sur la tablette, comptes-rendus signés. */}
+        <SectionVisite d={d} commerciaux={users.filter((u) => u.role === "commercial")} sp={sp} />
 
         <section className="card inv">
           <div className="card-h"><h3>Inventaire · {m3(d.volume)}</h3>

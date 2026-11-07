@@ -31,7 +31,8 @@ export type ModeleEmail =
   | "message_conseiller"
   | "service_demande"
   | "demande_avis"
-  | "recap_cartons_equipe";
+  | "recap_cartons_equipe"
+  | "creneaux_visite";
 
 export interface Rendu {
   sujet: string;
@@ -266,6 +267,19 @@ ${lignes.map((l) => `<tr><td style="${td}font-weight:700;">${l.ordre ?? "–"}</
           base, preheader: `${payload.total} cartons à préparer · ${lignes.length} livraison(s)`, signature,
           mention: "Message automatique de la plateforme Bailly : récapitulatif de la tournée de cartons, la veille.",
           corps: `${p(`Tournée des cartons du <b>${s("jour")}</b> : <b>${lignes.length} livraison${lignes.length > 1 ? "s" : ""}</b>, <b>${s("total")} cartons à préparer</b>, dans l'ordre de passage calculé.`)}${tableau}${Number(payload.incomplets) > 0 ? p(`<b>${s("incomplets")} livraison(s) sans créneau ou sans nombre de cartons</b> : ces clients ne reçoivent pas le message de la veille.`) : ""}${p("Les bons de livraison sont joints en PDF : la page récapitulative, puis un bon par client.")}${encadre(lien(payload.chemin), "Ouvrir les cartons du samedi")}`,
+        }),
+      };
+    }
+
+    // La visite technique (§3.2) : les créneaux que le commercial propose, à choisir dans l'espace.
+    case "creneaux_visite": {
+      const creneaux = (Array.isArray(payload.creneaux) ? payload.creneaux : []).map(String);
+      return {
+        sujet: `Votre visite technique : ${creneaux.length} créneaux à choisir`,
+        texte: `Bonjour ${payload.salutation},\n\n${payload.conseiller} vous propose ${creneaux.length} créneaux pour la visite technique de votre déménagement :\n${creneaux.map((c) => `- ${c}`).join("\n")}\n\nChoisissez celui qui vous convient dans votre espace client : ${lien(payload.chemin)}\n\n${signature.nom}`,
+        html: cadre({
+          base, preheader: `${creneaux.length} créneaux proposés pour votre visite technique.`, signature,
+          corps: `${bonjour}${p(`${s("conseiller")} vous propose <b>${creneaux.length} créneaux</b> pour la visite technique de votre déménagement :`)}<ul style="margin:0 0 16px;padding-left:20px;">${creneaux.map((c) => `<li style="margin:0 0 6px;">${esc(c)}</li>`).join("")}</ul>${p("Choisissez celui qui vous convient depuis votre espace client. Aucun ne vous convient ? Vous pouvez y demander d'autres créneaux.")}${encadre(lien(payload.chemin), "Choisir mon créneau")}`,
         }),
       };
     }

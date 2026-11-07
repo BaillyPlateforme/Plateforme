@@ -12,6 +12,8 @@
  * règle écrite exprès. Le serveur du CRM, propriétaire des tables, n'est pas
  * concerné.
  */
+import { SCHEMA_VISITES } from "@/crm/visites/schema";
+
 export const SCHEMA = `
 create schema if not exists crm;
 create table if not exists crm.utilisateurs (
@@ -320,4 +322,4 @@ do $$ begin
 end $$;
 create index if not exists idx_modeles_dossier_usage on crm.modeles_dossier(utilisations desc, dernier_usage desc);
 alter table crm.modeles_dossier enable row level security;
-`;
+${SCHEMA_VISITES}`;

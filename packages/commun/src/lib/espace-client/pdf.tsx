@@ -33,7 +33,7 @@ try {
 }
 
 const LOGO = path.join(process.cwd(), "public", "marque", "bailly-logo-blanc.png");
-const C = { noir: "#1b1a18", jaune: "#f5d033", gris: "#615f68", trait: "#e9e7e2", fond: "#f6f5f2", creme: "#fdf6d6", or: "#8a6f00" };
+export const C = { noir: "#1b1a18", jaune: "#f5d033", gris: "#615f68", trait: "#e9e7e2", fond: "#f6f5f2", creme: "#fdf6d6", or: "#8a6f00" };
 
 const s = StyleSheet.create({
   page: { fontFamily: "RobotoEC", fontSize: 10, color: C.noir, paddingBottom: 60 },
@@ -69,7 +69,7 @@ const s = StyleSheet.create({
   ligneKv: { flexDirection: "row", paddingVertical: 6, borderBottomWidth: 0.6, borderBottomColor: C.trait },
 });
 
-function Entete({ droite, sous }: { droite: string; sous?: string }) {
+export function Entete({ droite, sous }: { droite: string; sous?: string }) {
   return (
     <>
       <View style={s.bandeau}>
@@ -86,7 +86,7 @@ function Entete({ droite, sous }: { droite: string; sous?: string }) {
   );
 }
 
-function Pied({ texte }: { texte: string }) {
+export function Pied({ texte }: { texte: string }) {
   return (
     <Text style={s.pied} fixed>
       {texte}
@@ -111,7 +111,7 @@ function BlocClient({ client, dossier }: { client: Client; dossier: Dossier }) {
   );
 }
 
-const enBuffer = async (doc: React.ReactElement) => Buffer.from(await renderToBuffer(doc as Parameters<typeof renderToBuffer>[0]));
+export const enBuffer = async (doc: React.ReactElement) => Buffer.from(await renderToBuffer(doc as Parameters<typeof renderToBuffer>[0]));
 
 export function pdfDevis(client: Client, dossier: Dossier, devis: Devis) {
   return enBuffer(

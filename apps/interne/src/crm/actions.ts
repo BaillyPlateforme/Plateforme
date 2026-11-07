@@ -10,6 +10,7 @@ import { envoyerConfirmationRdv } from "@/crm/rdv/sms";
 import { randomBytes } from "node:crypto";
 import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
 import { oublierCandidats } from "@/crm/creation/donnees";
+import { instantParis } from "@/lib/visite/regles";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -257,10 +258,13 @@ export async function facturePayee(id: number, facture: number) {
 /* ---------- planning ---------- */
 export async function creerRdv(f: FormData) {
   const u = await currentUser();
-  const debut = new Date(`${s(f, "date")}T${s(f, "heure") ?? "09:00"}`);
-  const dossierId = n(f, "dossier_id");
-  const rdv = await q1<{ id: number }>("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes) values($1,$2,$3,$4,$5,$6,$7,$8) returning id",
-    [n(f, "commercial_id") ?? u.id, dossierId, s(f, "type") ?? "phys", s(f, "titre") ?? "Rendez-vous", s(f, "lieu"), debut.toISOString(), n(f, "duree_min") ?? 60, s(f, "notes")]);
+  // L'heure saisie est celle de Paris, quel que soit le fuseau du serveur. Une journée entière
+  // (« journée visio ») se pose à midi, sans durée ni dossier : elle informe, elle ne bloque aucun créneau.
+  const journee = f.get("journee") === "on";
+  const debut = instantParis(s(f, "date") ?? new Date().toISOString().slice(0, 10), journee ? "12:00" : s(f, "heure") ?? "09:00");
+  const dossierId = journee ? null : n(f, "dossier_id");
+  const rdv = await q1<{ id: number }>("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes,journee) values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id",
+    [n(f, "commercial_id") ?? u.id, dossierId, s(f, "type") ?? "phys", s(f, "titre") ?? "Rendez-vous", s(f, "lieu"), debut.toISOString(), journee ? 0 : n(f, "duree_min") ?? 60, s(f, "notes"), journee]);
   if (dossierId) {
     await q("update dossiers set statut='visite' where id=$1 and statut='prospect'", [dossierId]);
     await log(dossierId, `${s(f, "type") === "visio" ? "Visio" : "Visite"} planifiée`);
@@ -273,5 +277,7 @@ export async function creerRdv(f: FormData) {
   refresh();
   redirect(`/planning?semaine=${debut.toISOString().slice(0, 10)}`);
 }
-export async function terminerRdv(rdv: number, devisEtabli: boolean) { await exiger(); await q("update rendez_vous set termine=true, devis_etabli=$2 where id=$1", [rdv, devisEtabli]); refresh(); }
-export async function supprimerRdv(rdv: number) { await exiger(); await q("delete from rendez_vous where id=$1", [rdv]); refresh(); }
+// Un rendez-vous de visite terminé ou supprimé : l'espace client du dossier suit (visite technique, migration 0015).
+// « Terminé ✓ » ne défait jamais un devis établi : devis_etabli ne peut que passer à vrai (bug relevé par l'audit Créagidem).
+export async function terminerRdv(rdv: number, devisEtabli: boolean) { await exiger(); const r = await q1<{ dossier_id: number | null }>("update rendez_vous set termine=true, devis_etabli=(devis_etabli or $2) where id=$1 returning dossier_id", [rdv, devisEtabli]); await projeterEspace(r?.dossier_id); refresh(); }
+export async function supprimerRdv(rdv: number) { await exiger(); const r = await q1<{ dossier_id: number | null }>("delete from rendez_vous where id=$1 returning dossier_id", [rdv]); await projeterEspace(r?.dossier_id); refresh(); }

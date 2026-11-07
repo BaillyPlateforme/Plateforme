@@ -21,7 +21,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "migrations": "node scripts/appliquer-migrations.mjs",
     "semer:espace-client": "node scripts/semer-espace-client.mjs",
-    "semer:terrain": "node scripts/semer-terrain.mjs"
+    "semer:terrain": "node scripts/semer-terrain.mjs",
+    "semer:visites": "node scripts/semer-visites.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
