@@ -1,4 +1,5 @@
 import type { RequestStatus } from "@/lib/types";
+import { SANS_PRIX, libelleParcours, parcoursDeLaDemande, type TraceParcours } from "@/lib/parcours";
 
 export const STATUS_META: Record<RequestStatus, { label: string; className: string }> = {
   new: { label: "Nouvelle", className: "bg-peach-soft text-peach-ink" },
@@ -40,23 +41,38 @@ export const espaceLabel = (nom: string) => nom.replace(/^espace\s+pro\s+standar
 
 // Une demande est incomplète si un jeton de complétion est en attente,
 // ou s'il lui manque le volume ou une adresse.
-export function isIncomplete(r: {
+export function isIncomplete(r: TraceParcours & {
   completion_token?: string | null;
   volume_m3: number | null;
   depart_ville: string | null;
   arrivee_ville: string | null;
 }): boolean {
-  return !!r.completion_token || r.volume_m3 == null || !r.depart_ville || !r.arrivee_ville;
+  // Mutations et entreprises n'ont pas de volume à donner : la visite le mesurera.
+  const sansVolume = SANS_PRIX.has(parcoursDeLaDemande(r));
+  return !!r.completion_token || (!sansVolume && r.volume_m3 == null) || !r.depart_ville || !r.arrivee_ville;
 }
 
+/**
+ * La porte d'entrée d'une demande, quand ce n'est pas le parcours particulier :
+ * « Mutation », « Entreprise · petit transfert »… Une mutation passée par un
+ * espace pro porte déjà le nom de l'entreprise : on ne la répète pas.
+ */
+export function parcoursBadge(r: TraceParcours): string | null {
+  const p = parcoursDeLaDemande(r);
+  if (p === "particulier") return null;
+  if (p === "mutation" && r.espace_nom) return null;
+  return libelleParcours(r);
+}
+export const PARCOURS_CLASSE = "bg-brand-soft text-brand-ink";
+
 // Liste des informations manquantes (pour l'afficher sur la demande).
-export function missingFields(r: {
+export function missingFields(r: TraceParcours & {
   volume_m3: number | null;
   depart_ville: string | null;
   arrivee_ville: string | null;
 }): string[] {
   const out: string[] = [];
-  if (r.volume_m3 == null) out.push("Volume à déménager");
+  if (r.volume_m3 == null && !SANS_PRIX.has(parcoursDeLaDemande(r))) out.push("Volume à déménager");
   if (!r.depart_ville) out.push("Adresse de départ");
   if (!r.arrivee_ville) out.push("Adresse d'arrivée");
   return out;
@@ -64,3 +80,17 @@ export function missingFields(r: {
 
 // Étapes principales du parcours (l'avancée d'une demande).
 export const PIPELINE: RequestStatus[] = ["new", "analyzing", "qualified", "quoted", "won"];
+
+/** Le parcours d'une demande complète, lu dans ce que le formulaire a envoyé. */
+export function traceDeLaDemande(r: { raw_payload?: Record<string, unknown> | null }, espaceNom?: string | null): TraceParcours & { express?: string | null } {
+  const raw = (r.raw_payload ?? {}) as { mutation_pro?: unknown; details?: Record<string, unknown> };
+  const d = raw.details ?? {};
+  const texte = (v: unknown) => (v == null ? null : String(v));
+  return {
+    parcours: texte(d.parcours),
+    transfert: texte(d.transfert),
+    mutation: texte(raw.mutation_pro),
+    express: texte(d.express),
+    espace_nom: espaceNom ?? null,
+  };
+}

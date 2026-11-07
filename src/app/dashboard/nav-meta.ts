@@ -2,6 +2,9 @@
 export const META: Record<string, { titre: string; sous?: string }> = {
   "/dashboard": { titre: "Demandes", sous: "Tout ce qui arrive, du formulaire comme des mails" },
   "/dashboard/tableau-de-bord": { titre: "Tableau de bord", sous: "L'activité en un coup d'œil" },
+  "/dashboard/leads": { titre: "Suivi des leads", sous: "Chaque demande du site, du premier contact au chiffre d'affaires" },
+  "/dashboard/espace-client": { titre: "Espace client", sous: "Les dossiers de vos clients, de la visite au SAV" },
+  "/dashboard/crm": { titre: "BaillyCRM", sous: "L'outil métier de Bailly, en préparation" },
   "/dashboard/devis": { titre: "Devis", sous: "Chiffrages établis et envoyés" },
   "/dashboard/clients": { titre: "Clients", sous: "Historique par adresse e-mail" },
   "/dashboard/espaces-pro": { titre: "Espaces pro", sous: "Un lien et un parcours par entreprise" },

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { STATUS_META, scoreColor, sourceLabel, sourceClass, ESPACE_CLASSE, espaceLabel } from "./status";
+import { STATUS_META, scoreColor, sourceLabel, sourceClass, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE } from "./status";
 import type { RequestRow } from "@/lib/types";
 
 export const SEUIL = 70;
@@ -63,6 +63,9 @@ export default function FocusVue({ requests }: { requests: RequestRow[] }) {
                 </span>
                 {r.espace_nom && (
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ESPACE_CLASSE}`}>{espaceLabel(r.espace_nom)}</span>
+                )}
+                {parcoursBadge(r) && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${PARCOURS_CLASSE}`}>{parcoursBadge(r)}</span>
                 )}
                 <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${STATUS_META[r.status].className}`}>
                   {STATUS_META[r.status].label}

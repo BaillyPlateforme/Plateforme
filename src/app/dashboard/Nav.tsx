@@ -8,25 +8,81 @@ import { signOut } from "@/lib/actions/auth";
 
 export type Item = { href: string; label: string; icon: React.ReactNode };
 
-/** Le menu de la maquette : une seule liste, aérée, sans intertitre. */
-export const ITEMS: Item[] = [
-  { href: "/dashboard/tableau-de-bord", label: "Tableau de bord", icon: <IconGrid /> },
-  { href: "/dashboard", label: "Demandes", icon: <IconInbox /> },
-  { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
-  { href: "/dashboard/clients", label: "Clients", icon: <IconCard /> },
-  { href: "/dashboard/espaces-pro", label: "Espaces pro", icon: <IconImmeuble /> },
-  // Hors de l'espace équipe : l'espace RH des entreprises clientes, que
-  // l'équipe ouvre pour voir ce que voit un client. On y choisit l'entreprise.
-  { href: "/rh", label: "Espace RH", icon: <IconRh /> },
-  { href: "/dashboard/rappels", label: "Rappels", icon: <IconTelephone /> },
-  { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
-  { href: "/dashboard/statistiques", label: "Statistiques", icon: <IconTrend /> },
-  { href: "/dashboard/messagerie", label: "Messagerie", icon: <IconMail /> },
-  { href: "/dashboard/workflow", label: "Workflow", icon: <IconFlow /> },
-  { href: "/dashboard/simulateur", label: "Simulateur", icon: <IconCalc /> },
-  { href: "/dashboard/campagne", label: "Campagne", icon: <IconDes /> },
-  { href: "/dashboard/playground", label: "Playground", icon: <IconBadge /> },
+/**
+ * Les trois modules de l'application, chacun avec son menu.
+ *
+ * - Questionnaires : les trois portes du site et tout ce qui en découle —
+ *   les leads, les rappels, les statistiques, les espaces pro, les messages
+ *   automatiques —, plus les outils qui règlent le chiffrage.
+ * - Espace client : les dossiers des clients, de la visite au SAV.
+ * - BaillyCRM : l'outil métier qui remplacera Créagidem ; il regroupe pour
+ *   l'instant les devis, les clients et l'agenda.
+ *
+ * Les adresses ne changent pas : un lien déjà envoyé à l'équipe reste bon.
+ */
+export type Module = {
+  cle: "questionnaires" | "espace-client" | "crm";
+  label: string;
+  sous: string;
+  /** La page où mène le module quand on le choisit. */
+  accueil: string;
+  items: Item[];
+  /** Les outils, rangés à part sous le menu. */
+  outils?: Item[];
+};
+
+export const MODULES: Module[] = [
+  {
+    cle: "questionnaires",
+    label: "Questionnaires",
+    sous: "Particuliers, mutations, entreprises",
+    accueil: "/dashboard/tableau-de-bord",
+    items: [
+      { href: "/dashboard/tableau-de-bord", label: "Tableau de bord", icon: <IconGrid /> },
+      { href: "/dashboard/leads", label: "Suivi des leads", icon: <IconTrend /> },
+      { href: "/dashboard", label: "Demandes", icon: <IconInbox /> },
+      { href: "/dashboard/rappels", label: "Rappels", icon: <IconTelephone /> },
+      { href: "/dashboard/statistiques", label: "Statistiques", icon: <IconTrend /> },
+      { href: "/dashboard/espaces-pro", label: "Espaces pro", icon: <IconImmeuble /> },
+      // Hors de l'espace équipe : l'espace RH des entreprises clientes, que
+      // l'équipe ouvre pour voir ce que voit un client. On y choisit l'entreprise.
+      { href: "/rh", label: "Espace RH", icon: <IconRh /> },
+      { href: "/dashboard/messagerie", label: "Messagerie", icon: <IconMail /> },
+    ],
+    outils: [
+      { href: "/dashboard/workflow", label: "Workflow", icon: <IconFlow /> },
+      { href: "/dashboard/simulateur", label: "Simulateur", icon: <IconCalc /> },
+      { href: "/dashboard/campagne", label: "Campagne", icon: <IconDes /> },
+      { href: "/dashboard/playground", label: "Playground", icon: <IconBadge /> },
+    ],
+  },
+  {
+    cle: "espace-client",
+    label: "Espace client",
+    sous: "Les dossiers, de la visite au SAV",
+    accueil: "/dashboard/espace-client",
+    items: [{ href: "/dashboard/espace-client", label: "Dossiers", icon: <IconCard /> }],
+  },
+  {
+    cle: "crm",
+    label: "BaillyCRM",
+    sous: "L'outil métier",
+    accueil: "/dashboard/crm",
+    items: [
+      { href: "/dashboard/crm", label: "Vue d'ensemble", icon: <IconGrid /> },
+      { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
+      { href: "/dashboard/clients", label: "Clients", icon: <IconCard /> },
+      { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
+    ],
+  },
 ];
+
+/** Le module d'une page : celui dont un élément de menu la contient. */
+export function moduleDe(pathname: string): Module {
+  const contient = (href: string) =>
+    href === "/dashboard" ? pathname === "/dashboard" : pathname === href || pathname.startsWith(`${href}/`);
+  return MODULES.find((m) => [...m.items, ...(m.outils ?? [])].some((i) => contient(i.href))) ?? MODULES[0];
+}
 
 /** Les réglages : le jeton du compte, dans la barre du haut, les ouvre. */
 export const REGLAGES = [
@@ -47,6 +103,7 @@ export default function Nav({
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+  const courant = moduleDe(pathname);
 
   return (
     <div className="flex h-full w-[248px] flex-col rounded-[22px] bg-card px-4 py-5">
@@ -73,26 +130,51 @@ export default function Nav({
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto">
-        {ITEMS.map((l) => {
-          const active = isActive(l.href);
+      {/* Les trois modules : on passe de l'un à l'autre sans quitter l'espace équipe. */}
+      <div className="mb-4 rounded-[16px] bg-subtle p-1" role="tablist" aria-label="Modules">
+        {MODULES.map((m) => {
+          const actif = m.cle === courant.cle;
           return (
             <Link
-              key={l.href}
-              href={l.href}
+              key={m.cle}
+              href={m.accueil}
               onClick={onNaviguer}
-              aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-[14.5px] transition ${
-                active
-                  ? "bg-brand font-semibold text-[#1b1a18]"
-                  : "text-ink-mid hover:bg-subtle hover:text-ink"
+              role="tab"
+              aria-selected={actif}
+              className={`flex items-center gap-2.5 rounded-[12px] px-3 py-2 transition ${
+                actif ? "bg-card shadow-[0_6px_16px_-10px_rgba(27,26,24,0.45)]" : "hover:bg-card/60"
               }`}
             >
-              <span className="shrink-0">{l.icon}</span>
-              <span className="truncate">{l.label}</span>
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[9px] text-[11px] font-black ${
+                  actif ? "bg-[#1b1a18] text-brand" : "bg-card text-ink-soft"
+                }`}
+              >
+                {m.cle === "questionnaires" ? "Q" : m.cle === "espace-client" ? "EC" : "CRM"}
+              </span>
+              <span className="min-w-0">
+                <span className={`block truncate text-[13.5px] leading-tight ${actif ? "font-semibold text-ink" : "text-ink-mid"}`}>
+                  {m.label}
+                </span>
+                {actif && <span className="block truncate text-[11px] leading-tight text-ink-soft">{m.sous}</span>}
+              </span>
             </Link>
           );
         })}
+      </div>
+
+      <nav className="flex-1 space-y-0.5 overflow-y-auto">
+        {courant.items.map((l) => (
+          <LienMenu key={l.href} item={l} actif={isActive(l.href)} onNaviguer={onNaviguer} />
+        ))}
+        {courant.outils && (
+          <>
+            <p className="eyebrow px-3.5 pb-1.5 pt-4 text-ink-soft">Outils</p>
+            {courant.outils.map((l) => (
+              <LienMenu key={l.href} item={l} actif={isActive(l.href)} onNaviguer={onNaviguer} petit />
+            ))}
+          </>
+        )}
       </nav>
 
       <FileAttente nouvelles={nouvelles} />
@@ -108,6 +190,32 @@ export default function Nav({
         </button>
       </form>
     </div>
+  );
+}
+
+function LienMenu({
+  item,
+  actif,
+  onNaviguer,
+  petit = false,
+}: {
+  item: Item;
+  actif: boolean;
+  onNaviguer?: () => void;
+  petit?: boolean;
+}) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onNaviguer}
+      aria-current={actif ? "page" : undefined}
+      className={`flex items-center gap-3.5 rounded-xl px-3.5 transition ${petit ? "py-2 text-[13.5px]" : "py-2.5 text-[14.5px]"} ${
+        actif ? "bg-brand font-semibold text-[#1b1a18]" : "text-ink-mid hover:bg-subtle hover:text-ink"
+      }`}
+    >
+      <span className="shrink-0">{item.icon}</span>
+      <span className="truncate">{item.label}</span>
+    </Link>
   );
 }
 

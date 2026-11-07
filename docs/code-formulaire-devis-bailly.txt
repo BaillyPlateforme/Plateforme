@@ -1,0 +1,41 @@
+<!--
+  Formulaire de devis Bailly Déménagement — code d'intégration
+
+  À coller tel quel dans un widget « HTML » d'Elementor, à l'endroit de la
+  page où le formulaire doit apparaître, sur toute la largeur.
+
+  Un seul réglage possible : « scroll-margin-top:110px » correspond à la
+  hauteur du menu fixé en haut de l'écran. À augmenter si le haut du
+  formulaire passe sous le menu quand on change d'étape.
+
+  Sans autre réglage, le formulaire s'ouvre sur les trois portes :
+  « Vous êtes un particulier », « Vous déménagez votre entreprise »,
+  « Vous êtes muté ». Pour une page dédiée à l'une d'elles, ajouter à la
+  fin de l'adresse (src) :
+
+    &parcours=particulier              les deux devis des particuliers
+    &parcours=particulier&mode=express le devis express, directement
+    &parcours=particulier&mode=complet le devis complet, directement
+    &parcours=entreprise               le petit transfert et le projet important
+    &parcours=entreprise&transfert=simple  le petit transfert, directement
+    &parcours=entreprise&transfert=projet  le projet important, directement
+    &parcours=mutation                 la demande des salariés mutés
+
+  Exemple, pour la page « Mutation professionnelle » du site :
+  src="https://bailly-plateforme.up.railway.app/?integre=1&parcours=mutation"
+-->
+<iframe id="bailly-devis"
+        src="https://bailly-plateforme.up.railway.app/?integre=1"
+        title="Devis en ligne — Bailly Déménagement"
+        loading="eager" data-no-lazy="1"
+        style="display:block;width:100%;height:900px;border:0;scroll-margin-top:110px"></iframe>
+<script>
+(function () {
+  var cadre = document.getElementById("bailly-devis");
+  window.addEventListener("message", function (e) {
+    if (e.source !== cadre.contentWindow || !e.data || e.data.source !== "bailly-devis") return;
+    if (e.data.hauteur) cadre.style.height = e.data.hauteur + "px";
+    if (e.data.haut) cadre.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+})();
+</script>

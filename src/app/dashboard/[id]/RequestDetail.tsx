@@ -5,7 +5,7 @@ import ApercuDevis from "@/components/ApercuDevis";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
 import type { RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE, ESPACE_CLASSE, espaceLabel } from "../status";
+import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, missingFields, PIPELINE, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
 import TrajetMap from "@/components/TrajetMap";
@@ -23,8 +23,10 @@ export default function RequestDetail({
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
   const [pending, start] = useTransition();
-  const missing = missingFields(r);
   const espace = espaceDeLaDemande(r);
+  const trace = { ...r, ...traceDeLaDemande(r, espace?.nom) };
+  const missing = missingFields(trace);
+  const badge = parcoursBadge(trace);
 
   return (
     <div className="mt-4">
@@ -48,7 +50,8 @@ export default function RequestDetail({
                 {espaceLabel(espace.nom)}
               </Link>
             )}
-            {isIncomplete(r) ? (
+            {badge && <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PARCOURS_CLASSE}`}>{badge}</span>}
+            {isIncomplete(trace) ? (
               <span className="rounded-full bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">Incomplète</span>
             ) : (
               <span className="rounded-full bg-good/15 px-2 py-0.5 text-xs font-medium text-good">Complète</span>
