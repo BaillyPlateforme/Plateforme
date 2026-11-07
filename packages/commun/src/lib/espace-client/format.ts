@@ -47,9 +47,23 @@ export function heure(hhmm: string) {
   return `${Number(h)} h ${m}`;
 }
 
-/** « du 14 au 15 octobre 2026 », « le 12 octobre 2026 », « du 16 novembre au 18 décembre 2026 ». */
+/**
+ * Un mois entier, du 1er au dernier jour : la période d'un dossier dont le
+ * CRM ne connaît que le mois prévu. Rend « janvier 2027 », ou null.
+ */
+export function moisEntier(debut: string, fin: string): string | null {
+  const m = /^(\d{4})-(\d{2})-01$/.exec(debut);
+  if (!m) return null;
+  const dernier = new Date(Date.UTC(Number(m[1]), Number(m[2]), 0)).getUTCDate();
+  if (fin !== `${m[1]}-${m[2]}-${String(dernier).padStart(2, "0")}`) return null;
+  return parseDate(debut).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: TZ });
+}
+
+/** « du 14 au 15 octobre 2026 », « le 12 octobre 2026 », « du 16 novembre au 18 décembre 2026 », « en janvier 2027 ». */
 export function periode(debut: string, fin: string) {
   if (debut === fin) return `le ${dateLongue(debut)}`;
+  const mois = moisEntier(debut, fin);
+  if (mois) return `en ${mois}`;
   const a = parseDate(debut);
   const b = parseDate(fin);
   if (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()) {
@@ -61,6 +75,8 @@ export function periode(debut: string, fin: string) {
 
 /** Le format de la page de garde du modèle : « du 12/11/2026 au 13/11/2026 ». */
 export function periodeCompacte(debut: string, fin: string) {
+  const mois = moisEntier(debut, fin);
+  if (mois) return `en ${mois}`;
   return debut === fin ? `le ${dateCourte(debut)}` : `du ${dateCourte(debut)} au ${dateCourte(fin)}`;
 }
 

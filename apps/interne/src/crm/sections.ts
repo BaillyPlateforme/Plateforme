@@ -47,10 +47,10 @@ export const SECTIONS: Section[] = [
     accueil: "/dashboard/espace-client",
     onglets: [
       { href: "/dashboard/espace-client", label: "Dossiers" },
-      { href: "/dashboard/espace-client/nouveau", label: "Nouveau dossier" },
+      { href: "/dashboard/espace-client/nouveau", label: "Ouvrir un espace" },
       { href: "/dashboard/espace-client/cartons", label: "Cartons du samedi" },
       { href: "/dashboard/espace-client/sav", label: "SAV" },
-      { href: "/dashboard/espace-client/destinations", label: "Pièces par destination" },
+      { href: "/dashboard/espace-client/destinations", label: "Pièces à fournir" },
       { href: "/dashboard/espace-client/journal", label: "Journal des messages" },
       { href: "/dashboard/espace-client/reglages", label: "Réglages" },
     ],

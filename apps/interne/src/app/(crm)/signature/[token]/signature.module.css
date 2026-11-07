@@ -214,6 +214,16 @@
   color: #fff;
   font-style: normal;
 }
+/* Une autre formule du dossier est retenue : celle-ci n'est plus à signer. */
+.ferme {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #f6f5f2;
+  color: #4a4740;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
 .contact {
   margin-top: 18px;
   font-size: 13.5px;

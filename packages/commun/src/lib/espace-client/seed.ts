@@ -1,7 +1,13 @@
 /*
  * Le jeu de démonstration, repris de la v0 — entièrement fictif (noms,
  * adresses, numéros). Dossiers A à D : les quatre profils du brief. Dossiers
- * E à I : de quoi remplir une tournée de cartons un samedi.
+ * E à I : de quoi remplir une tournée de cartons un samedi. Dossiers J et K
+ * (profils E et F) : un militaire et un logement social, les deux segments
+ * du cahier des charges ajoutés avec le lien au CRM.
+ *
+ * En base, scripts/semer-espace-client.mjs relie chaque dossier à un dossier
+ * fictif du CRM : les devis, factures et paiements ci-dessous y sont semés,
+ * puis reviennent dans l'espace par la projection (migration 0012).
  *
  * Les dates de la v0 tombaient en septembre et octobre 2026 : passé ce cap,
  * le déménagement de Claire aurait déjà eu lieu et la démonstration ne
@@ -27,7 +33,8 @@ import type { Donnees, DocumentRequirement, Service, Tuto } from "./types";
 const REFERENCE = Date.UTC(2026, 8, 11);
 const T = "2026-09-01T09:00:00.000Z";
 
-export const VERSION_DONNEES = 1;
+/** 2 : les segments militaire et logement social (profils E et F), les pièces par segment. */
+export const VERSION_DONNEES = 2;
 
 /** Décale toutes les dates d'un objet du même nombre de jours. */
 function decaler<T>(valeur: T, jours: number): T {
@@ -47,14 +54,18 @@ function decaler<T>(valeur: T, jours: number): T {
 
 /** Les pièces à fournir de départ (v0) : la liste réelle est à fournir par Bailly. */
 export const PIECES_PAR_DEFAUT: DocumentRequirement[] = [
-  { id: "rq-id", pays: null, libelle: "Pièce d'identité", description: "Carte d'identité ou passeport en cours de validité, recto verso.", obligatoire: true, ordre: 1 },
-  { id: "rq-ca-bsf186", pays: "CA", libelle: "Liste des marchandises (formulaire BSF186)", description: "Inventaire détaillé et valorisé des biens importés, à présenter à l'Agence des services frontaliers du Canada.", obligatoire: true, ordre: 10 },
-  { id: "rq-ca-passeport", pays: "CA", libelle: "Passeport de chaque membre du foyer", description: "Page d'identité, valable au moins 6 mois après l'arrivée.", obligatoire: true, ordre: 11 },
-  { id: "rq-ca-permis", pays: "CA", libelle: "Permis de travail ou confirmation de résidence permanente", description: "Justifie le statut d'immigrant ou de travailleur temporaire.", obligatoire: true, ordre: 12 },
-  { id: "rq-ca-bail", pays: "CA", libelle: "Bail ou attestation de logement au Canada", description: "Adresse de livraison au Canada.", obligatoire: false, ordre: 13 },
-  { id: "rq-us-cbp", pays: "US", libelle: "Formulaire CBP 3299", description: "Déclaration d'entrée en franchise des effets personnels.", obligatoire: true, ordre: 10 },
-  { id: "rq-us-visa", pays: "US", libelle: "Passeport et visa", description: "Visa en cours de validité pour chaque personne.", obligatoire: true, ordre: 11 },
-  { id: "rq-gb-tor", pays: "GB", libelle: "Formulaire ToR01 (Transfer of Residence)", description: "Exonération des droits sur les effets personnels.", obligatoire: true, ordre: 10 },
+  { id: "rq-id", pays: null, segment: null, libelle: "Pièce d'identité", description: "Carte d'identité ou passeport en cours de validité, recto verso.", obligatoire: true, ordre: 1 },
+  { id: "rq-ca-bsf186", pays: "CA", segment: null, libelle: "Liste des marchandises (formulaire BSF186)", description: "Inventaire détaillé et valorisé des biens importés, à présenter à l'Agence des services frontaliers du Canada.", obligatoire: true, ordre: 10 },
+  { id: "rq-ca-passeport", pays: "CA", segment: null, libelle: "Passeport de chaque membre du foyer", description: "Page d'identité, valable au moins 6 mois après l'arrivée.", obligatoire: true, ordre: 11 },
+  { id: "rq-ca-permis", pays: "CA", segment: null, libelle: "Permis de travail ou confirmation de résidence permanente", description: "Justifie le statut d'immigrant ou de travailleur temporaire.", obligatoire: true, ordre: 12 },
+  { id: "rq-ca-bail", pays: "CA", segment: null, libelle: "Bail ou attestation de logement au Canada", description: "Adresse de livraison au Canada.", obligatoire: false, ordre: 13 },
+  { id: "rq-us-cbp", pays: "US", segment: null, libelle: "Formulaire CBP 3299", description: "Déclaration d'entrée en franchise des effets personnels.", obligatoire: true, ordre: 10 },
+  { id: "rq-us-visa", pays: "US", segment: null, libelle: "Passeport et visa", description: "Visa en cours de validité pour chaque personne.", obligatoire: true, ordre: 11 },
+  { id: "rq-gb-tor", pays: "GB", segment: null, libelle: "Formulaire ToR01 (Transfer of Residence)", description: "Exonération des droits sur les effets personnels.", obligatoire: true, ordre: 10 },
+  // Les pièces propres à un segment, nommées par le cahier des charges (§2). Libellés à faire valider par Bailly.
+  { id: "rq-mil-mutation", pays: null, segment: "militaire", libelle: "Ordre de mutation", description: "L'ordre de mutation délivré par votre administration.", obligatoire: true, ordre: 2 },
+  { id: "rq-mil-carte", pays: null, segment: "militaire", libelle: "Carte militaire", description: "Recto verso.", obligatoire: true, ordre: 3 },
+  { id: "rq-ls-bailleur", pays: null, segment: "logement_social", libelle: "Documents du bailleur", description: "Les documents remis par votre bailleur pour ce déménagement.", obligatoire: true, ordre: 2 },
 ];
 
 /** Tutos de la v0, vignettes de la micro démo. Contenus provisoires. */
@@ -82,6 +93,8 @@ export const PROFILS_DEMO = [
   { lettre: "B", email: "julien.roussel@example.com", reference: "BD-2026-0152", titre: "International · Marseille → Montréal", detail: "Devis à accepter et arrhes à payer, pièces du Canada, conteneur" },
   { lettre: "C", email: "mobilite.atlantique@example.com", reference: "BD-2026-0139", titre: "Grand compte · Nantes → Bordeaux", detail: "Devis et factures masqués" },
   { lettre: "D", email: "claire.dumont@example.com", reference: "BD-2024-0311", titre: "Ancien dossier · Lille → Paris", detail: "Terminé : SAV, sélecteur de dossiers" },
+  { lettre: "E", email: "thomas.lefort@example.com", reference: "BD-2026-0165", titre: "Militaire · Brest → Toulon", detail: "Prise en charge par l'administration, ordre de mutation et carte militaire" },
+  { lettre: "F", email: "fatou.diallo@example.com", reference: "BD-2026-0166", titre: "Logement social · Créteil → Vitry-sur-Seine", detail: "Pièces du bailleur, SAV ouvert, bailleur prévenu" },
 ] as const;
 
 /**
@@ -139,6 +152,10 @@ export function amorcer(now = new Date()): Donnees {
       { id: "cl-fabre", type: "particulier", civilite: "Monsieur", prenom: "Antoine", nom: "Fabre", societe: null, email: "antoine.fabre@example.com", telephone: "06 56 78 90 12", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
       { id: "cl-marchal", type: "particulier", civilite: "Madame", prenom: "Inès", nom: "Marchal", societe: null, email: "ines.marchal@example.com", telephone: "06 67 89 01 23", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-marc", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
       { id: "cl-perrin", type: "particulier", civilite: "Monsieur", prenom: "Karim", nom: "Perrin", societe: null, email: "karim.perrin@example.com", telephone: "06 78 90 12 34", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      // E · militaire : prise en charge par l'administration, ni devis ni factures à l'écran.
+      { id: "cl-lefort", type: "militaire", civilite: "Monsieur", prenom: "Thomas", nom: "Lefort", societe: null, email: "thomas.lefort@example.com", telephone: "06 81 22 43 65", masquer_devis: true, masquer_factures: true, conseiller_id: "eq-marc", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      // F · logement social : pièces du bailleur, bailleur prévenu des avaries.
+      { id: "cl-diallo", type: "logement_social", civilite: "Madame", prenom: "Fatou", nom: "Diallo", societe: null, email: "fatou.diallo@example.com", telephone: "06 72 18 39 50", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
     ],
 
     dossiers: [
@@ -156,6 +173,10 @@ export function amorcer(now = new Date()): Donnees {
       { ...national, ...sansConteneur, id: "do-g", client_id: "cl-fabre", reference: "BD-2026-0160", ville_depart: "Sceaux", ville_arrivee: "Toulouse", adresse_depart: "25 rue Houdan, 92330 Sceaux", adresse_arrivee: "11 rue d'Alsace-Lorraine, 31000 Toulouse", periode_debut: "2026-10-16", periode_fin: "2026-10-17", statut: "en_preparation", volume_m3: 36, formule: "Confort", photo: "/espace-client/interieur-3.jpg", created_at: T },
       { ...national, ...sansConteneur, id: "do-h", client_id: "cl-marchal", reference: "BD-2026-0161", ville_depart: "Saint-Cloud", ville_arrivee: "Annecy", adresse_depart: "40 boulevard de la République, 92210 Saint-Cloud", adresse_arrivee: "6 rue Royale, 74000 Annecy", periode_debut: "2026-10-19", periode_fin: "2026-10-20", statut: "en_preparation", volume_m3: 26, formule: "Essentielle", photo: "/espace-client/interieur-4.jpg", created_at: T },
       { ...national, ...sansConteneur, id: "do-i", client_id: "cl-perrin", reference: "BD-2026-0163", ville_depart: "Neuilly-sur-Seine", ville_arrivee: "Bordeaux", adresse_depart: "3 rue du Château, 92200 Neuilly-sur-Seine", adresse_arrivee: "14 rue Sainte-Catherine, 33000 Bordeaux", periode_debut: "2026-10-22", periode_fin: "2026-10-23", statut: "en_preparation", volume_m3: 30, formule: "Confort", photo: "/espace-client/bordeaux.jpg", created_at: T },
+      // E · Brest → Toulon — militaire, prise en charge confirmée par l'administration.
+      { ...national, ...sansConteneur, id: "do-j", client_id: "cl-lefort", reference: "BD-2026-0165", ville_depart: "Brest", ville_arrivee: "Toulon", adresse_depart: "14 rue de Siam, 29200 Brest", adresse_arrivee: "27 boulevard de Strasbourg, 83000 Toulon", periode_debut: "2026-10-27", periode_fin: "2026-10-28", statut: "en_preparation", volume_m3: 38, formule: "à définir", logement: "T4 · 82 m²", photo: "/espace-client/interieur-3.jpg", commande_le: "2026-09-04T10:00:00.000Z", created_at: "2026-08-29T09:00:00.000Z" },
+      // F · Créteil → Vitry-sur-Seine — logement social, déménagement passé : le SAV est ouvert.
+      { ...national, ...sansConteneur, id: "do-k", client_id: "cl-diallo", reference: "BD-2026-0166", ville_depart: "Créteil", ville_arrivee: "Vitry-sur-Seine", adresse_depart: "5 allée du Commerce, 94000 Créteil", adresse_arrivee: "18 avenue Paul-Vaillant-Couturier, 94400 Vitry-sur-Seine", periode_debut: "2026-09-07", periode_fin: "2026-09-08", statut: "planifie", volume_m3: 22, formule: "Standard", logement: "T3 · 64 m²", photo: "/espace-client/interieur-2.jpg", commande_le: "2026-08-20T17:00:00.000Z", bailleur_nom: "Habitat du Val Fleuri", bailleur_email: "relogement@habitat-valfleuri.example.com", created_at: "2026-08-12T09:00:00.000Z" },
     ],
 
     devis: [
@@ -204,6 +225,17 @@ export function amorcer(now = new Date()): Donnees {
         montant_ht: 1650, montant_ttc: 1980, arrhes_pourcentage: 30, statut: "accepte",
         emis_le: "2024-04-22", valide_jusqu_au: "2024-05-22", accepte_le: "2024-04-25",
       },
+      {
+        id: "dv-k1", dossier_id: "do-k", numero: "DV-2026-0166-1", formule: "Standard",
+        lignes: [
+          { libelle: "Transport, chargement et livraison", montant_ht: 1450 },
+          { libelle: "Démontage / remontage du mobilier", montant_ht: 150 },
+          { libelle: "Emballage des objets fragiles", montant_ht: 166.67 },
+        ],
+        inclus: [],
+        montant_ht: 1766.67, montant_ttc: 2120, arrhes_pourcentage: 30, statut: "accepte",
+        emis_le: "2026-08-14", valide_jusqu_au: "2026-10-13", accepte_le: "2026-08-20",
+      },
     ],
 
     factures: [
@@ -213,6 +245,8 @@ export function amorcer(now = new Date()): Donnees {
       { id: "fa-d1", dossier_id: "do-d", devis_id: "dv-d1", numero: "FA-2024-0188", type: "arrhes", libelle: "Arrhes 30 % — devis DV-2024-0311-1", montant_ttc: 594, statut: "payee", emise_le: "2024-04-25", echeance: "2024-05-02", periode: null, payee_le: "2024-04-26", paiement_ref: "SIM-19C0E4" },
       { id: "fa-d2", dossier_id: "do-d", devis_id: "dv-d1", numero: "FA-2024-0231", type: "solde", libelle: "Solde du déménagement Lille → Paris", montant_ttc: 1386, statut: "payee", emise_le: "2024-06-01", echeance: "2024-06-10", periode: null, payee_le: "2024-06-08", paiement_ref: "SIM-5B77D0" },
       { id: "fa-d3", dossier_id: "do-d", devis_id: null, numero: "FA-2024-0266", type: "garde_meubles", libelle: "Garde-meubles — box 6 m³", montant_ttc: 89, statut: "payee", emise_le: "2024-07-01", echeance: "2024-07-10", periode: "2024-07", payee_le: "2024-07-04", paiement_ref: "SIM-A0D211" },
+      { id: "fa-k1", dossier_id: "do-k", devis_id: "dv-k1", numero: "FA-2026-0470", type: "arrhes", libelle: "Arrhes 30 %", montant_ttc: 636, statut: "payee", emise_le: "2026-08-20", echeance: "2026-08-20", periode: null, payee_le: "2026-08-20", paiement_ref: "SIM-3C81F2" },
+      { id: "fa-k2", dossier_id: "do-k", devis_id: "dv-k1", numero: "FA-2026-0471", type: "solde", libelle: "Solde du déménagement", montant_ttc: 1484, statut: "payee", emise_le: "2026-09-01", echeance: "2026-09-01", periode: null, payee_le: "2026-09-03", paiement_ref: "HORS-LIGNE" },
     ],
 
     documents: [
@@ -227,6 +261,9 @@ export function amorcer(now = new Date()): Donnees {
       { id: "doc-c2", dossier_id: "do-c", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-c/cni-collaborateur.pdf", nom_fichier: "cni-collaborateur.pdf", taille_octets: 298700, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-atlantique", created_at: "2026-08-21T09:40:00.000Z" },
       { id: "doc-d1", dossier_id: "do-d", categorie: "transport", libelle: "Lettre de voiture signée", source: "equipe", chemin: "fichiers/do-d/lettre-de-voiture.pdf", nom_fichier: "lettre-de-voiture.pdf", taille_octets: 156000, mime: "application/pdf", requirement_id: null, created_by: "eq-nadia", created_at: "2024-06-13T18:00:00.000Z" },
       { id: "doc-d2", dossier_id: "do-d", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-d/cni-dumont.pdf", nom_fichier: "cni-dumont.pdf", taille_octets: 402110, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-dumont", created_at: "2024-05-02T10:00:00.000Z" },
+      { id: "doc-j1", dossier_id: "do-j", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-j/cni-lefort.pdf", nom_fichier: "cni-lefort.pdf", taille_octets: 312400, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-lefort", created_at: "2026-09-02T19:10:00.000Z" },
+      { id: "doc-j2", dossier_id: "do-j", categorie: "segment", libelle: "Ordre de mutation", source: "client", chemin: "fichiers/do-j/ordre-mutation.pdf", nom_fichier: "ordre-mutation.pdf", taille_octets: 228900, mime: "application/pdf", requirement_id: "rq-mil-mutation", created_by: "cl-lefort", created_at: "2026-09-02T19:12:00.000Z" },
+      { id: "doc-k1", dossier_id: "do-k", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-k/cni-diallo.pdf", nom_fichier: "cni-diallo.pdf", taille_octets: 287300, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-diallo", created_at: "2026-08-21T18:30:00.000Z" },
     ],
 
     acceptations: [
@@ -244,6 +281,12 @@ export function amorcer(now = new Date()): Donnees {
       { id: "ac-d-rgpd", dossier_id: "do-d", type: "rgpd", version_texte: "RGPD-2024.1", accepted_at: "2024-04-25T20:00:30.000Z", ip: "203.0.113.24", user_agent: "Mozilla/5.0 (iPhone)" },
       { id: "ac-d-cl", dossier_id: "do-d", type: "conditions_livraison", version_texte: "COND-LIV-2024.1", accepted_at: "2024-05-30T19:00:00.000Z", ip: "203.0.113.24", user_agent: "Mozilla/5.0 (iPhone)" },
       { id: "ac-d-dv", dossier_id: "do-d", type: "declaration_valeurs", version_texte: "DECL-VAL-2024.1", accepted_at: "2024-05-28T19:00:00.000Z", ip: "203.0.113.24", user_agent: "Mozilla/5.0 (iPhone)" },
+      { id: "ac-j-cgv", dossier_id: "do-j", type: "cgv", version_texte: "CGV-2026.1", accepted_at: "2026-09-02T19:05:00.000Z", ip: "198.51.100.42", user_agent: "Mozilla/5.0 (Linux; Android 16)" },
+      { id: "ac-j-rgpd", dossier_id: "do-j", type: "rgpd", version_texte: "RGPD-2026.1", accepted_at: "2026-09-02T19:05:20.000Z", ip: "198.51.100.42", user_agent: "Mozilla/5.0 (Linux; Android 16)" },
+      { id: "ac-k-dv", dossier_id: "do-k", type: "devis", version_texte: "DV-2026-0166-1", objet: "DV-2026-0166-1", accepted_at: "2026-08-20T16:58:00.000Z", ip: "192.0.2.77", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X)" },
+      { id: "ac-k-cgv", dossier_id: "do-k", type: "cgv", version_texte: "CGV-2026.1", accepted_at: "2026-08-20T17:01:00.000Z", ip: "192.0.2.77", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X)" },
+      { id: "ac-k-rgpd", dossier_id: "do-k", type: "rgpd", version_texte: "RGPD-2026.1", accepted_at: "2026-08-20T17:01:15.000Z", ip: "192.0.2.77", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X)" },
+      { id: "ac-k-cl", dossier_id: "do-k", type: "conditions_livraison", version_texte: "COND-LIV-2026.1", accepted_at: "2026-08-28T20:40:00.000Z", ip: "192.0.2.77", user_agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X)" },
     ],
 
     declarations_valeurs: [
@@ -277,6 +320,7 @@ export function amorcer(now = new Date()): Donnees {
       { id: "cl-liv-b", dossier_id: "do-b", adresse_livraison: "2150 rue Saint-Denis, Montréal (QC) H2X 3K9", etage: 3, ascenseur: false, ascenseur_dimensions: null, escalier: "droit", distance_portage_m: 15, acces_poids_lourd: "oui", stationnement: "autorisation", particularites_rue: ["Aucune"], monte_meuble: "a_evaluer", horaires_restreints: "Pas de livraison avant 8 h (règlement municipal)", photos: [], commentaire: "Escalier extérieur typique du Plateau, prévoir le monte-meuble.", valide_at: "2026-09-09T20:15:00.000Z" },
       { id: "cl-liv-c", dossier_id: "do-c", adresse_livraison: "22 cours de l'Intendance, 33000 Bordeaux", etage: 2, ascenseur: true, ascenseur_dimensions: { largeur: 100, profondeur: 130, hauteur: 210 }, escalier: "droit", distance_portage_m: 20, acces_poids_lourd: "non", stationnement: "autorisation", particularites_rue: ["Rue piétonne"], monte_meuble: "non", horaires_restreints: "Zone piétonne : accès véhicules de 6 h à 11 h", photos: [], commentaire: null, valide_at: "2026-08-22T10:30:00.000Z" },
       { id: "cl-liv-d", dossier_id: "do-d", adresse_livraison: "12 rue de la Roquette, 75011 Paris", etage: 4, ascenseur: true, ascenseur_dimensions: { largeur: 80, profondeur: 100, hauteur: 200 }, escalier: "droit", distance_portage_m: 10, acces_poids_lourd: "oui", stationnement: "autorisation", particularites_rue: ["Aucune"], monte_meuble: "non", horaires_restreints: null, photos: [], commentaire: null, valide_at: "2024-05-30T19:00:00.000Z" },
+      { id: "cl-liv-k", dossier_id: "do-k", adresse_livraison: "18 avenue Paul-Vaillant-Couturier, 94400 Vitry-sur-Seine", etage: 6, ascenseur: true, ascenseur_dimensions: { largeur: 100, profondeur: 120, hauteur: 210 }, escalier: "droit", distance_portage_m: 25, acces_poids_lourd: "oui", stationnement: "reserve_client", particularites_rue: ["Aucune"], monte_meuble: "non", horaires_restreints: null, photos: [], commentaire: "Badge de la résidence remis par le gardien.", valide_at: "2026-08-28T20:40:00.000Z" },
     ],
 
     livraisons_cartons: [

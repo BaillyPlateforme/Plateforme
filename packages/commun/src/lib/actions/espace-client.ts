@@ -9,12 +9,14 @@ import { bornesCartons, CAPACITE_SAMEDI } from "@/lib/espace-client/cartons";
 import { emailEquipe, estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
 import { depot, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { cheminFichier, deposerFichier, octets } from "@/lib/espace-client/fichiers";
-import { aujourdhui, jourLong, joursRestants, nomClient, salutation } from "@/lib/espace-client/format";
+import { aujourdhui, dateLongue, jourLong, joursRestants, nomClient, salutation } from "@/lib/espace-client/format";
 import { conseillerDe, signatureDe } from "@/lib/espace-client/lectures";
 import { estProfilDemo } from "@/lib/espace-client/seed";
 import { notifier } from "@/lib/espace-client/notifier";
 import { paiements, traiterEvenement } from "@/lib/espace-client/paiement";
 import { arrhesPayees, livraisonEffectuee, montantArrhes, requirementsApplicables } from "@/lib/espace-client/progression";
+import { noterDansLeCrm, signerDevisCrm } from "@/lib/espace-client/crm";
+import { segmentDe } from "@/lib/espace-client/segments";
 import { occupationSamedis } from "@/lib/espace-client/samedi";
 import {
   acceptationsSchema, avarieSchema, conditionsLivraisonSchema, connexionSchema, declarationValeursSchema, erreursDe,
@@ -162,14 +164,14 @@ export async function deposerPiece(reference: string, _: EtatFormulaire, fd: For
   if (erreur) return { erreurs: { fichier: erreur } };
 
   const requirementId = String(fd.get("requirement_id") ?? "") || null;
-  const piece = requirementId ? requirementsApplicables(dossier, d.document_requirements).find((r) => r.id === requirementId) : null;
+  const piece = requirementId ? requirementsApplicables(dossier, client.type, d.document_requirements).find((r) => r.id === requirementId) : null;
   if (requirementId && !piece) return { erreurs: { fichier: "Cette pièce n'est pas demandée pour votre dossier." } };
   const libelle = piece?.libelle ?? (String(fd.get("libelle") ?? "").trim().slice(0, 80) || "Document");
 
   const chemin = cheminFichier(dossier.id, fichier!.name);
   await deposerFichier(chemin, await octets(fichier!), fichier!.type);
   await depot().inserer("documents", {
-    id: nouvelId(), dossier_id: dossier.id, categorie: piece?.pays ? "pays" : piece ? "identite" : "autre", libelle, source: "client",
+    id: nouvelId(), dossier_id: dossier.id, categorie: piece?.pays ? "pays" : piece?.segment ? "segment" : piece ? "identite" : "autre", libelle, source: "client",
     chemin, nom_fichier: fichier!.name, taille_octets: fichier!.size, mime: fichier!.type, requirement_id: piece?.id ?? null,
     created_by: client.id, created_at: maintenant(),
   });
@@ -323,6 +325,18 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
     dossier_id: dossier.id, canal: "email", modele: "avarie_recue", destinataire: client.email,
     payload: { salutation: salutation(client), numero, objets: r.data.objets, chemin: `/espace-client/${dossier.reference}/sav`, signature },
   });
+  // Logement social : le bailleur est prévenu de chaque déclaration (cahier des charges, §2).
+  if (client.type === "logement_social" && dossier.bailleur_email) {
+    await notifier.envoyer({
+      dossier_id: dossier.id, canal: "email", modele: "avarie_bailleur", destinataire: dossier.bailleur_email,
+      payload: {
+        bailleur: dossier.bailleur_nom ?? "", locataire: nomClient(client), reference: dossier.reference, numero, reserves: r.data.reserves_emises,
+        date_constat: dateLongue(r.data.date_constat), objets: r.data.objets, adresse: dossier.adresse_arrivee, nb_photos: pieces.length,
+        signature: { nom: `${conseiller.prenom} ${conseiller.nom}`.trim(), role: "Conseiller", telephone: conseiller.telephone },
+      },
+    });
+  }
+  await noterDansLeCrm(dossier.crm_dossier_id, `Avarie déclarée par le client dans son espace (${numero}) : ${r.data.objets}`);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/sav?ok=avarie`);
 }
@@ -331,7 +345,8 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
 
 export async function payerArrhes(reference: string, devisId: string) {
   const { client, dossier, d } = await contexte(reference);
-  if (client.type !== "particulier" || client.masquer_devis) throw new Error("Paiement des arrhes indisponible pour ce compte.");
+  // Grands comptes et militaires ne règlent rien en ligne (cahier des charges, §3.3).
+  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Paiement des arrhes indisponible pour ce compte.");
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
   const payable = !!devis && devis.arrhes_pourcentage > 0 && (devis.statut === "envoye" || (devis.statut === "accepte" && !arrhesPayees(devis, d.factures)));
   if (!devis || !payable) redirect(`/espace-client/${reference}/devis`);
@@ -342,12 +357,19 @@ export async function payerArrhes(reference: string, devisId: string) {
   redirect(url);
 }
 
-/** Un devis sans arrhes s'accepte d'un clic : l'acceptation est horodatée comme les autres. */
+/**
+ * Un devis sans arrhes s'accepte d'un clic : l'acceptation est horodatée
+ * comme les autres. Un devis du CRM est signé dans le CRM, par la même règle
+ * que la page /signature (un seul devis signé par dossier), puis revient ici
+ * par la projection.
+ */
 export async function accepterDevis(reference: string, devisId: string) {
   const { client, dossier, d } = await contexte(reference);
-  if (client.type !== "particulier" || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
+  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
-  if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0) {
+  if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0 && typeof devis.crm_devis_id === "number") {
+    await signerDevisCrm(devis.crm_devis_id, await traces());
+  } else if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0) {
     const t = await traces();
     // Accepté une seule fois, même sur deux clics simultanés.
     if (await depot().modifier("devis", devis.id, { statut: "accepte", accepte_le: aujourdhui() }, { statut: "envoye" })) {

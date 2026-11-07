@@ -4,6 +4,8 @@ import { randomBytes } from "node:crypto";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { jetonValide } from "@/crm/lib/data2";
+import { headers } from "next/headers";
+import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -23,6 +25,8 @@ async function log(dossierId: number | null, libelle: string) {
   const u = await currentUser();
   await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [dossierId, u.id, libelle]);
   if (dossierId) await q("update dossiers set maj_le=now() where id=$1", [dossierId]);
+  // Le dossier a changé : son espace client suit (voir lib/espace.ts).
+  await projeterEspace(dossierId);
 }
 /** Rafraîchit les pages du CRM, et elles seules (voir actions.ts). */
 const refresh = (id?: number) => { revalidatePath("/(crm)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
@@ -110,15 +114,19 @@ export async function envoyerPourSignature(dossierId: number, devisId: number) {
  * La signature du client, depuis /signature/[token], sans session. Le jeton
  * désigne le devis ; il ne signe qu'un devis encore ouvert (brouillon ou
  * envoyé), et seulement si aucun autre devis du dossier n'est déjà signé.
+ *
+ * La règle est tenue par la base (ec_signer_devis_crm, migration 0012) : la
+ * même que pour l'acceptation dans l'espace client, sous le même verrou —
+ * deux signatures simultanées, ici et dans l'espace, n'en font qu'une. Si le
+ * dossier a un espace client, l'acceptation y est horodatée avec l'adresse IP
+ * et le navigateur, et le devis signé y apparaît aussitôt.
  */
 export async function signerParToken(token: string) {
   if (!jetonValide(token)) return;
-  const v = await q1<{ id: number; dossier_id: number; statut: string }>("select id, dossier_id, statut from devis where token=$1", [token]);
-  if (!v || !["brouillon", "envoye"].includes(v.statut)) return;
-  if (await q1("select 1 from devis where dossier_id=$1 and id<>$2 and statut='signe'", [v.dossier_id, v.id])) return;
-  await q("update devis set statut='refuse' where dossier_id=$1 and id<>$2 and statut in ('brouillon','envoye')", [v.dossier_id, v.id]);
-  await q("update devis set statut='signe', signe_le=now() where id=$1", [v.id]);
-  await q("update dossiers set statut='commande', maj_le=now() where id=$1 and statut in ('prospect','visite','devis')", [v.dossier_id]);
-  await q("insert into activite(dossier_id,libelle) values($1,$2)", [v.dossier_id, "Devis signé électroniquement par le client"]);
+  const v = await q1<{ id: number; dossier_id: number }>("select id, dossier_id from devis where token=$1", [token]);
+  if (!v) return;
+  const h = await headers();
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "inconnue";
+  await signerDevisUnique(v.id, "lien", { ip, userAgent: (h.get("user-agent") ?? "inconnu").slice(0, 400) });
   refresh(v.dossier_id); revalidatePath(`/signature/${token}`);
 }

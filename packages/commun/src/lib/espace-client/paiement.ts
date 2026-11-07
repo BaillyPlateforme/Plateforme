@@ -1,10 +1,11 @@
 import "server-only";
+import { arrhesCrm, estRelie, facturePayeeCrm } from "./crm";
 import { depot, maintenant, nouvelId } from "./depot";
 import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 import { signer, verifier } from "./signature";
 import { aujourdhui, euros, salutation } from "./format";
-import type { Facture, SessionPaiement } from "./types";
+import type { Dossier, Facture, SessionPaiement } from "./types";
 
 /*
  * Le paiement en ligne, derrière une interface : la page est hébergée par le
@@ -95,9 +96,39 @@ export async function traiterEvenement(corps: string, signature: string | null):
 
   const dossier = await db.trouver("dossiers", session.dossier_id);
   if (!dossier) return { ok: false, message: "Dossier introuvable." };
-  const d = await db.lireDuClient(dossier.client_id);
   const jour = aujourdhui();
 
+  // Un dossier relié au CRM : c'est le CRM qui encaisse (devis signé, paiement,
+  // facture réglée), et l'espace qui suit par la projection. Si le CRM ne
+  // répond pas, la session repasse « ouverte » : le prestataire rejoue
+  // l'événement, et rien n'est inscrit deux fois (une session, un paiement).
+  if (estRelie(dossier)) {
+    const avant = await db.lireDuClient(dossier.client_id);
+    try {
+      if (session.cible === "facture") {
+        const f = avant.factures.find((x) => x.id === session.cible_id);
+        if (typeof f?.crm_facture_id !== "number") throw new Error("Facture du CRM introuvable.");
+        await facturePayeeCrm(f.crm_facture_id, ev.reference);
+      } else {
+        const devis = avant.devis.find((x) => x.id === session.cible_id);
+        if (typeof devis?.crm_devis_id !== "number") throw new Error("Devis du CRM introuvable.");
+        await arrhesCrm({ crmDevisId: devis.crm_devis_id, sessionId: session.id, montant: session.montant, pourcentage: devis.arrhes_pourcentage, reference: ev.reference });
+        // L'acceptation horodatée, depuis l'endroit où le client a lancé le paiement.
+        if (devis.statut !== "accepte" && session.trace) {
+          await db.inserer("acceptations", {
+            id: nouvelId(), dossier_id: devis.dossier_id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: session.created_at, ...session.trace,
+          });
+        }
+      }
+    } catch (e) {
+      await db.modifier("sessions_paiement", session.id, { statut: "ouverte", reference: null }, { statut: "payee" });
+      return { ok: false, message: `Paiement non inscrit au CRM : ${e instanceof Error ? e.message : "erreur inconnue"}.` };
+    }
+    await confirmerAuClient(dossier, session, ev.reference);
+    return { ok: true, message: "Paiement enregistré." };
+  }
+
+  const d = await db.lireDuClient(dossier.client_id);
   if (session.cible === "facture") {
     await db.modifier("factures", session.cible_id, { statut: "payee", payee_le: jour, paiement_ref: ev.reference });
   } else {
@@ -125,22 +156,27 @@ export async function traiterEvenement(corps: string, signature: string | null):
     }
   }
 
-  const client = d.clients[0];
-  if (client) {
-    await notifier.envoyer({
-      dossier_id: dossier.id,
-      canal: "email",
-      modele: "paiement_confirme",
-      destinataire: client.email,
-      payload: {
-        salutation: salutation(client),
-        montant: euros(session.montant),
-        libelle: session.libelle,
-        reference: ev.reference,
-        chemin: `/espace-client/${dossier.reference}/devis#factures`,
-        signature: signatureDe(conseillerDe(d, client.conseiller_id)),
-      },
-    });
-  }
+  await confirmerAuClient(dossier, session, ev.reference);
   return { ok: true, message: "Paiement enregistré." };
+}
+
+/** L'e-mail « Paiement reçu » au client. */
+async function confirmerAuClient(dossier: Dossier, session: SessionPaiement, reference: string) {
+  const d = await depot().lireDuClient(dossier.client_id);
+  const client = d.clients[0];
+  if (!client) return;
+  await notifier.envoyer({
+    dossier_id: dossier.id,
+    canal: "email",
+    modele: "paiement_confirme",
+    destinataire: client.email,
+    payload: {
+      salutation: salutation(client),
+      montant: euros(session.montant),
+      libelle: session.libelle,
+      reference,
+      chemin: `/espace-client/${dossier.reference}/devis#factures`,
+      signature: signatureDe(conseillerDe(d, client.conseiller_id)),
+    },
+  });
 }

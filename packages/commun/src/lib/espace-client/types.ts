@@ -12,7 +12,11 @@
  * deux fois a deux dossiers, et chacun garde ses pièces.
  */
 
-export type TypeClient = "particulier" | "grand_compte";
+/**
+ * Le segment du client (cahier des charges, §2) : ses règles de visibilité,
+ * ses pièces à fournir et sa frise en dépendent (segments.ts).
+ */
+export type TypeClient = "particulier" | "grand_compte" | "militaire" | "logement_social";
 
 /** Le conseiller présenté au client : nom, ligne directe, adresse. */
 export interface Conseiller {
@@ -20,9 +24,12 @@ export interface Conseiller {
   prenom: string;
   nom: string;
   email: string;
+  /** Vide : l'espace affiche le standard de l'agence. */
   telephone: string;
   /** Un conseiller fictif du jeu de démonstration. */
   demo: boolean;
+  /** L'utilisateur du CRM dont il est la fiche : le commercial du dossier (migration 0012). */
+  crm_utilisateur_id?: number | null;
 }
 
 export interface Client {
@@ -66,6 +73,17 @@ export interface Dossier {
   reference: string;
   /** La demande des questionnaires d'où vient le dossier, s'il y en a une. */
   request_id: string | null;
+  /**
+   * Le dossier du CRM dont l'espace est la face client (migration 0012). Le
+   * CRM tient alors le client, le trajet, les dates, les devis et les
+   * factures : ils arrivent ici par projection et ne se modifient que là-bas.
+   */
+  crm_dossier_id?: number | null;
+  /** Passé en commande dans le CRM : devis signé, ou prise en charge sans devis d'un militaire. */
+  commande_le?: string | null;
+  /** Logement social : le bailleur, prévenu de chaque déclaration de SAV. Réglé dans l'espace. */
+  bailleur_nom?: string | null;
+  bailleur_email?: string | null;
   ville_depart: string;
   ville_arrivee: string;
   adresse_depart: string;
@@ -113,6 +131,8 @@ export interface LigneDevis {
 export interface Devis {
   id: string;
   dossier_id: string;
+  /** Le devis du CRM qu'il projette : il ne se modifie que dans le CRM. */
+  crm_devis_id?: number | null;
   numero: string;
   formule: string;
   lignes: LigneDevis[];
@@ -134,6 +154,10 @@ export type StatutFacture = "a_payer" | "payee" | "en_retard";
 export interface Facture {
   id: string;
   dossier_id: string;
+  /** La facture du CRM qu'elle projette. */
+  crm_facture_id?: number | null;
+  /** Ou le paiement du CRM (les arrhes), montré comme une facture réglée. */
+  crm_paiement_id?: number | null;
   devis_id: string | null;
   numero: string;
   type: TypeFacture;
@@ -153,6 +177,8 @@ export interface DocumentRequirement {
   id: string;
   /** null : exigée quelle que soit la destination. */
   pays: string | null;
+  /** null : exigée quel que soit le segment ; sinon, des seuls clients de ce segment. */
+  segment: TypeClient | null;
   libelle: string;
   description: string;
   obligatoire: boolean;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { stats } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { Line, Gauge } from "@/crm/components/charts";
-import { eur, m3, nomClient, STATUTS, TYPES, photoPour } from "@/crm/lib/format";
+import { eur, m3, nomClient, STATUTS, TYPES_PLURIEL, photoPour } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
@@ -54,7 +54,7 @@ export default async function Tableau() {
         <section className="card c4">
           <div className="card-h"><h3>Répartition clients</h3><small>90 jours</small></div>
           <div className="split">{s.repart.map((r, i) => <i key={r.type} className={cls[i % 4]} style={{ flex: r.n }} />)}</div>
-          <ul className="legend2">{s.repart.map((r, i) => <li key={r.type}><i className={cls[i % 4]} />{TYPES[r.type]}s<b>{Math.round((r.n / totRep) * 100)} %</b></li>)}</ul>
+          <ul className="legend2">{s.repart.map((r, i) => <li key={r.type}><i className={cls[i % 4]} />{TYPES_PLURIEL[r.type] ?? r.type}<b>{Math.round((r.n / totRep) * 100)} %</b></li>)}</ul>
         </section>
         <section className="card c8">
           <div className="card-h"><h3>Prochains déménagements</h3><Link className="btn ghost sm" href="/commandes">Tout voir</Link></div>

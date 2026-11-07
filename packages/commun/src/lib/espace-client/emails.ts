@@ -26,6 +26,7 @@ export type ModeleEmail =
   | "paiement_confirme"
   | "avarie_recue"
   | "avarie_equipe"
+  | "avarie_bailleur"
   | "message_conseiller"
   | "service_demande"
   | "demande_avis";
@@ -61,9 +62,14 @@ interface Cadre {
   pastille?: string | null;
   corps: string;
   signature: Signature;
+  /** La mention du bas, quand le destinataire n'est pas le client : le bailleur d'un logement social. */
+  mention?: string;
 }
 
-function cadre({ base, preheader, photo, pastille, corps, signature }: Cadre) {
+const MENTION_CLIENT =
+  "Vous recevez cet e-mail car un dossier de déménagement est ouvert à votre nom chez Bailly Déménagement. Cet e-mail ne contient aucune pièce jointe : tous vos documents sont dans votre espace client.";
+
+function cadre({ base, preheader, photo, pastille, corps, signature, mention = MENTION_CLIENT }: Cadre) {
   const logo = `${base}/marque/bailly-logo-blanc.png`;
   const logoNoir = `${base}/marque/bailly-logo.png`;
   const photoUrl = photo ? `${base}${photo}` : null;
@@ -92,8 +98,7 @@ function cadre({ base, preheader, photo, pastille, corps, signature }: Cadre) {
     <p style="margin:14px 0 0;"><strong style="color:#111111;">${esc(signature.nom)}</strong><br>${esc(signature.role)} · Bailly Déménagement<br>${esc(signature.telephone)}</p>
   </td></tr>
   <tr><td style="padding:22px 26px 26px;font-family:${POLICE};font-size:12px;line-height:18px;color:#999999;border-top:1px solid #eeeeee;">
-    Vous recevez cet e-mail car un dossier de déménagement est ouvert à votre nom chez Bailly Déménagement.
-    Cet e-mail ne contient aucune pièce jointe : tous vos documents sont dans votre espace client.
+    ${esc(mention)}
   </td></tr>
 </table>
 </td></tr></table></body></html>`;
@@ -206,6 +211,19 @@ ${encadre(url, "Accéder à mon espace client", [
         html: cadre({
           base, preheader: `${payload.client} · ${payload.objets}`, signature,
           corps: `${p(`<b>${s("client")}</b> vient de déclarer une avarie sur le dossier ${s("reference")}.`)}${p(`Déclaration ${s("numero")} · ${payload.reserves ? "réserves émises à la livraison" : "<b>sans réserves</b> à la livraison"}<br>Constatée le ${s("date_constat")} · ${s("nb_photos")} photo(s)`)}${p(`<b>${s("objets")}</b><br>${s("description")}`)}${encadre(lien(payload.chemin), "Ouvrir le dossier")}`,
+        }),
+      };
+
+    // Logement social : le bailleur est prévenu d'une déclaration de son locataire.
+    // Le message s'en tient aux faits déclarés ; ni délai ni prise en charge n'y sont promis.
+    case "avarie_bailleur":
+      return {
+        sujet: `Déclaration d'avarie de votre locataire — dossier ${payload.reference}`,
+        texte: `Bonjour, ${payload.locataire} a déclaré une avarie (${payload.numero}) après son déménagement par Bailly Déménagement : ${payload.objets}. Constatée le ${payload.date_constat}, au ${payload.adresse}.`,
+        html: cadre({
+          base, preheader: `${payload.locataire} · ${payload.objets}`, signature,
+          mention: "Vous recevez cet e-mail car vous êtes indiqué comme bailleur du logement dans un dossier de déménagement de Bailly Déménagement.",
+          corps: `${p(payload.bailleur ? `Bonjour ${s("bailleur")},` : "Bonjour,")}${p(`Votre locataire <b>${s("locataire")}</b> vient de déclarer une avarie après son déménagement par Bailly Déménagement (dossier ${s("reference")}).`)}${p(`Déclaration ${s("numero")} · ${payload.reserves ? "réserves émises à la livraison" : "sans réserves à la livraison"}<br>Constatée le ${s("date_constat")} · ${s("nb_photos")} photo(s)<br>Logement : ${s("adresse")}`)}${p(`<b>${s("objets")}</b>`)}${p("Votre interlocuteur chez Bailly Déménagement suit la déclaration : vous pouvez le joindre au numéro ci-dessous.")}`,
         }),
       };
 

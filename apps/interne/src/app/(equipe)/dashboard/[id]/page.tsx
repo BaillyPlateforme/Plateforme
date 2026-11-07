@@ -5,6 +5,7 @@ import { dossierDeLaDemande } from "@/lib/espace-client/demandes";
 import { createServiceClient } from "@/lib/supabase/server";
 import { qualifyRequest } from "@/lib/qualification";
 import { env } from "@/lib/env";
+import { q1 } from "@/crm/lib/db";
 import RequestDetail from "./RequestDetail";
 
 export const dynamic = "force-dynamic";
@@ -39,15 +40,18 @@ export default async function RequestPage({
     }),
   );
 
-  // L'espace client déjà ouvert pour cette demande : la fiche y mène plutôt que d'en ouvrir un second.
-  const espaceClient = await dossierDeLaDemande(id);
+  // Le dossier du CRM et l'espace client déjà ouverts pour cette demande : la fiche y mène plutôt que d'en créer d'autres.
+  const [espaceClient, dossierCrm] = await Promise.all([
+    dossierDeLaDemande(id),
+    q1<{ id: number; ref: string }>("select id, ref from dossiers where request_id=$1", [id]).catch(() => undefined),
+  ]);
 
   return (
     <div>
       <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
         ← Toutes les demandes
       </Link>
-      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} />
+      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} />
     </div>
   );
 }

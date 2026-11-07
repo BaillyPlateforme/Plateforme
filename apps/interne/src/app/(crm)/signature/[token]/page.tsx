@@ -31,6 +31,8 @@ export default async function Signature({ params }: { params: Promise<{ token: s
   const dossier = await getDossier(v.dossier_id);
   if (!dossier) notFound();
   const signe = v.statut === "signe";
+  // Une autre formule du dossier a été signée, ici ou dans l'espace client : celle-ci n'est plus ouverte.
+  const ferme = v.statut === "refuse";
   // Le document ne montre que la formule envoyée pour signature.
   const document = { ...dossier, devis: dossier.devis.filter((x: { id?: unknown }) => x.id === v.id) };
 
@@ -54,8 +56,9 @@ export default async function Signature({ params }: { params: Promise<{ token: s
         <small>Votre devis</small>
         <h1>Bonjour {nomClient(v)}</h1>
         <p>
-          Bailly Déménagement vous a envoyé votre devis {v.numero} (dossier {v.ref}) pour signature électronique. Relisez-le
-          ci-dessous, puis donnez votre accord dans la carte{signe ? "" : " à droite"}.
+          {ferme
+            ? `Voici votre devis ${v.numero} (dossier ${v.ref}). Une autre formule de votre dossier a été retenue : celui-ci reste consultable, il n'est plus à signer.`
+            : `Bailly Déménagement vous a envoyé votre devis ${v.numero} (dossier ${v.ref}) pour signature électronique. Relisez-le ci-dessous, puis donnez votre accord dans la carte${signe ? "" : " à droite"}.`}
         </p>
       </section>
 
@@ -65,7 +68,7 @@ export default async function Signature({ params }: { params: Promise<{ token: s
         </div>
 
         <aside className={s.carte}>
-          <h2>{signe ? "Devis signé" : "Votre accord"}</h2>
+          <h2>{signe ? "Devis signé" : ferme ? "Devis non retenu" : "Votre accord"}</h2>
           <div className={s.lignes}>
             <div className={s.ligne}>
               <span>Trajet</span>
@@ -97,6 +100,8 @@ export default async function Signature({ params }: { params: Promise<{ token: s
               </i>
               <span>Merci, votre devis est signé. Votre conseiller vous contactera pour fixer les dates.</span>
             </div>
+          ) : ferme ? (
+            <p className={s.ferme}>Une autre formule de votre dossier a déjà été retenue : ce devis n&apos;est plus ouvert à la signature. Votre conseiller reste à votre disposition.</p>
           ) : (
             <form action={signerParToken.bind(null, token)}>
               <label className={s.accord}>

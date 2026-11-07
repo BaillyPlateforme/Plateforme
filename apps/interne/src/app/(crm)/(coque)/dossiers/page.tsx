@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listDossiers } from "@/crm/lib/data";
 import { DossierTable } from "@/crm/components/DossierTable";
-import { TYPES } from "@/crm/lib/format";
+import { TYPES_PLURIEL } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export default async function Dossiers({ searchParams }: { searchParams: Promise
   return (
     <div className="view dossiers">
       <Bandeau surtitre={`Commercial · ${rows.length} dossier${rows.length > 1 ? "s" : ""}${sp.q ? ` pour « ${sp.q} »` : ""}`} titre="Clients & dossiers" texte="Chaque client, chaque déménagement : de la visite au devis, de la commande à la facture." action={{ label: "Nouveau dossier", href: "/dossiers/nouveau", icone: "plus" }} />
-      <div className="filters"><Link href={href()} className={!sp.type ? "on" : ""}>Tous</Link>{Object.entries(TYPES).map(([k, v]) => <Link key={k} href={href(k)} className={sp.type === k ? "on" : ""}>{v}s</Link>)}</div>
+      <div className="filters"><Link href={href()} className={!sp.type ? "on" : ""}>Tous</Link>{Object.entries(TYPES_PLURIEL).map(([k, v]) => <Link key={k} href={href(k)} className={sp.type === k ? "on" : ""}>{v}</Link>)}</div>
       <DossierTable rows={rows} />
     </div>
   );

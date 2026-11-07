@@ -9,6 +9,7 @@ import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
 import { litiges as getLitiges } from "@/crm/lib/data2";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
+import { EspaceClient } from "@/crm/components/EspaceClient";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,9 @@ const DEVIS_ST: Record<string, string> = { brouillon: "Brouillon", envoye: "Envo
 const LV_ST: Record<string, string> = { a_planifier: "À planifier", planifiee: "Planifiée", en_cours: "En cours", livree: "Livrée" };
 const DESTS = ["Arrivée", "Garde-meuble", "Don", "Déchetterie", "Autre adresse"];
 
-export default async function Fiche({ params }: { params: Promise<{ id: string }> }) {
+export default async function Fiche({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string }> }) {
   const id = Number((await params).id);
+  const sp = await searchParams;
   const d = await getDossier(id);
   if (!d) notFound();
   const lit = await getLitiges(id);
@@ -94,6 +96,7 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
               <div className="fld w4"><label>Date ferme</label><span className="sub" style={{ paddingTop: 10 }}>{d.date_chargement ? dateFr(d.date_chargement, { day: "numeric", month: "long", year: "numeric" }) : "Pas de date : voir Planification"}</span></div>
               <div className="fld w4"><label>Commercial</label><select name="commercial_id" defaultValue={d.commercial_id ?? ""}><option value="">—</option>{users.filter((u) => u.role === "commercial").map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}</select></div>
               <div className="fld w4"><label>Dossier traité par</label><select name="traite_par_id" defaultValue={d.traite_par_id ?? ""}><option value="">—</option>{users.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}</select></div>
+              <div className="fld w4"><label>Type de client</label><select name="type_client" defaultValue={d.type}>{Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
             </div>
           </section>
           <section className="card note">
@@ -104,6 +107,8 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
             <div className="sec-actions"><button className="btn primary sm">Enregistrer la fiche</button></div>
           </section>
         </form>
+
+        <EspaceClient d={d} commerciaux={users.filter((u) => u.role === "commercial")} espace={sp.espace} message={sp.m} />
 
         <section className="card inv">
           <div className="card-h"><h3>Inventaire · {m3(d.volume)}</h3>

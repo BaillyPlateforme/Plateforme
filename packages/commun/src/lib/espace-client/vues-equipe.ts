@@ -9,6 +9,7 @@ import { aujourdhui, heure, joursRestants, nomClient, PAYS } from "./format";
 import { conseillerDe, snapshotDe } from "./lectures";
 import { PHOTOS } from "./photos";
 import { avancement, calculerFrise, estInternationalSuivi, prochaineEtape } from "./progression";
+import { LISTE_SEGMENTS, segmentDe } from "./segments";
 import { distanceKm, PARAMS_TOURNEE } from "./tournee";
 import type { Donnees } from "./types";
 
@@ -35,10 +36,13 @@ export function vueApercu(d: Donnees) {
       const bloquante = frise.find((e) => e.bloquante && e.statut !== "fait");
       const j = joursRestants(dossier.periode_debut);
       const termine = dossier.statut === "termine";
+      const conseiller = conseillerDe(d, s.client.conseiller_id);
       return {
         id: dossier.id,
         reference: dossier.reference,
         statut: dossier.statut,
+        crm: dossier.crm_dossier_id ?? null,
+        conseiller: { id: conseiller.id, nom: `${conseiller.prenom} ${conseiller.nom}`.trim() },
         client: { nom: nomClient(s.client), societe: s.client.societe, type: s.client.type, email: s.client.email, masquage: s.client.masquer_devis || s.client.masquer_factures, demo: s.client.demo },
         depart: dossier.ville_depart,
         arrivee: dossier.ville_arrivee,
@@ -62,6 +66,7 @@ export function vueApercu(d: Donnees) {
   const prochainSamedi = avenir.map((l) => l.date_samedi).sort()[0] ?? null;
   return {
     mode: mode(),
+    conseillers: d.conseillers.filter((c) => d.clients.some((x) => x.conseiller_id === c.id)).map((c) => ({ id: c.id, nom: `${c.prenom} ${c.nom}`.trim() })),
     kpis: {
       actifs: lignes.filter((l) => l.statut !== "termine").length,
       alertes: lignes.filter((l) => l.alerte).length,
@@ -82,6 +87,9 @@ export function vueDossier(d: Donnees, id: string, porte: string) {
     mode: mode(),
     client: s.client,
     dossier: s.dossier,
+    /** Le dossier du CRM dont l'espace est la face client : il tient le client, le trajet, les dates, les devis et les factures. */
+    crm: s.dossier.crm_dossier_id ?? null,
+    segment: segmentDe(s.client.type),
     conseiller: conseillerDe(d, s.client.conseiller_id),
     conseillers: d.conseillers,
     frise,
@@ -164,7 +172,12 @@ export function vueSav(d: Donnees, porte: string) {
 }
 
 export function vueDestinations(d: Donnees) {
-  return { mode: mode(), pieces: [...d.document_requirements].sort((a, b) => (a.pays ?? "").localeCompare(b.pays ?? "") || a.ordre - b.ordre), pays: PAYS };
+  return {
+    mode: mode(),
+    pieces: [...d.document_requirements].sort((a, b) => (a.segment ?? "").localeCompare(b.segment ?? "") || (a.pays ?? "").localeCompare(b.pays ?? "") || a.ordre - b.ordre),
+    pays: PAYS,
+    segments: LISTE_SEGMENTS.map((s) => ({ cle: s.cle, libelle: s.libelle })),
+  };
 }
 
 export function vueJournal(d: Donnees) {

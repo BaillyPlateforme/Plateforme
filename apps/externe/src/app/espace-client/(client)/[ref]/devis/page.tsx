@@ -7,6 +7,7 @@ import { aujourdhui, dateCourte, euros, eurosAffiches, jourMois } from "@/lib/es
 import { STATUT_DEVIS, STATUT_FACTURE, TYPE_FACTURE } from "@/lib/espace-client/libelles";
 import { arrhesPayees, devisRetenu, factureArrhes, montantArrhes } from "@/lib/espace-client/progression";
 import { accepterDevis, payerArrhes, payerFacture } from "@/lib/actions/espace-client";
+import { segmentDe } from "@/lib/espace-client/segments";
 import { PageHero } from "../../../_ui/PageHero";
 import { TitreChapitre } from "../../../_ui/Cadre";
 import { Icone } from "../../../_ui/Icone";
@@ -21,7 +22,8 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
   const { ref } = await params;
   const e = await chargerEspace(ref);
   const { client, dossier, vis } = e;
-  const particulier = client.type === "particulier";
+  // Qui règle lui-même ses arrhes en ligne : le particulier et le logement social (cahier des charges, §3.3).
+  const particulier = segmentDe(client.type).paieEnLigne;
 
   if (!vis.devis && !vis.factures) {
     return (
@@ -32,7 +34,9 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
             <div className="empty-slot apparait">
               <Icone nom="eye" />
               <strong>Rubrique non activée pour votre compte</strong>
-              Les devis et factures de {client.societe ?? "votre entreprise"} sont gérés directement avec votre service achats.
+              {client.type === "militaire"
+                ? "Votre déménagement est pris en charge par bordereau de l'administration : il n'y a pas d'arrhes à régler en ligne. Votre conseiller reste votre interlocuteur pour toute question."
+                : `Les devis et factures de ${client.societe ?? "votre entreprise"} sont gérés directement avec votre service achats.`}
               <div className="mt-m">
                 <Link className="btn btn-dark" href={`/espace-client/${ref}`}>
                   Retour à mon espace

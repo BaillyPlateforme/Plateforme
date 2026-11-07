@@ -9,6 +9,8 @@ const d = (n: number) => ({ "--d": n }) as CSSProperties;
 
 const ICONE_ETAPE: Record<Etape["cle"], string> = {
   devis: "devis",
+  prise_en_charge: "shield",
+  segment: "documents",
   conditions: "home",
   valeurs: "shield",
   cgv: "documents",

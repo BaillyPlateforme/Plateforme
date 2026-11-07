@@ -7,9 +7,10 @@
 
 import type {
   Acceptation, Client, ConditionsLivraison, DeclarationValeurs, Devis, DocumentFichier,
-  DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration,
+  DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration, TypeClient,
 } from "./types";
 import { euros, jourMois, nomPays, parseDate, pluriel } from "./format";
+import { segmentDe } from "./segments";
 
 export interface DossierSnapshot {
   client: Client;
@@ -28,7 +29,7 @@ export interface DossierSnapshot {
 export type StatutEtape = "fait" | "a_faire" | "en_attente";
 
 export interface Etape {
-  cle: "devis" | "conditions" | "valeurs" | "cgv" | "pays" | "cartons" | "solde" | "realise";
+  cle: "devis" | "prise_en_charge" | "conditions" | "valeurs" | "cgv" | "segment" | "pays" | "cartons" | "solde" | "realise";
   titre: string;
   statut: StatutEtape;
   /** La ligne sous le titre : « Fait le 2 septembre », « Questionnaire à compléter »… */
@@ -46,9 +47,16 @@ export interface Etape {
 export const estInternationalSuivi = (d: Pick<Dossier, "portee" | "mode_transport">) =>
   d.portee === "international" && (d.mode_transport === "maritime" || d.mode_transport === "aerien");
 
-export function requirementsApplicables(dossier: Dossier, tous: DocumentRequirement[]) {
+/**
+ * Les pièces qu'un dossier doit fournir : celles de toutes les destinations
+ * et de celle du dossier (à l'international), pour tous les segments et pour
+ * celui du client — l'ordre de mutation d'un militaire, les pièces du
+ * bailleur d'un logement social.
+ */
+export function requirementsApplicables(dossier: Dossier, segment: TypeClient, tous: DocumentRequirement[]) {
   return tous
     .filter((r) => r.pays === null || (dossier.portee === "international" && r.pays === dossier.pays_destination))
+    .filter((r) => !r.segment || r.segment === segment)
     .sort((a, b) => a.ordre - b.ordre);
 }
 
@@ -93,17 +101,24 @@ const fait = (iso: string | null | undefined) => (iso ? `Fait le ${jourMois(iso)
 
 export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
   const { client, dossier } = s;
+  const segment = segmentDe(client.type);
   const termine = dossier.statut === "termine";
   const etapes: Etape[] = [];
 
-  // 1 · Devis accepté, et arrhes réglées pour un particulier.
+  // 1 · Devis accepté, et arrhes réglées pour qui paie en ligne. Un militaire
+  //     n'a ni devis ni arrhes : sa prise en charge vient de l'administration.
   const retenu = devisRetenu(s.devis);
-  if (client.masquer_devis) {
+  if (client.type === "militaire") {
+    etapes.push({
+      cle: "prise_en_charge", titre: "Prise en charge", statut: dossier.commande_le ? "fait" : "en_attente",
+      detail: dossier.commande_le ? `Confirmée le ${jourMois(dossier.commande_le)}` : "Par bordereau de l'administration", cible: null,
+    });
+  } else if (client.masquer_devis) {
     etapes.push({ cle: "devis", titre: "Devis accepté", statut: "fait", detail: "Validé avec votre entreprise", cible: null });
   } else if (!retenu) {
     const enAttente = s.devis.some((d) => d.statut === "envoye");
     etapes.push({ cle: "devis", titre: "Devis accepté", statut: enAttente ? "a_faire" : "en_attente", detail: enAttente ? "Devis à accepter" : "Devis en préparation", cible: enAttente ? "devis" : null });
-  } else if (client.type === "particulier" && !arrhesPayees(retenu, s.factures)) {
+  } else if (segment.paieEnLigne && !arrhesPayees(retenu, s.factures)) {
     etapes.push({ cle: "devis", titre: "Devis accepté", statut: "a_faire", detail: "Arrhes à régler", cible: "devis" });
   } else {
     const date = factureArrhes(retenu, s.factures)?.payee_le ?? retenu.accepte_le;
@@ -127,7 +142,18 @@ export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
   const rgpd = aAccepte(s.acceptations, "rgpd");
   etapes.push({ cle: "cgv", titre: "CGV et RGPD", statut: cgv && rgpd ? "fait" : "a_faire", detail: cgv && rgpd ? fait(cgv.accepted_at) : "À accepter en ligne", cible: "documents#cgv" });
 
-  // 5 · Documents du pays — international seulement.
+  // 5 · Les pièces propres au segment : documents militaires, documents du bailleur.
+  const propres = s.requirements.filter((r) => r.segment === client.type);
+  if (segment.etapePieces && propres.length) {
+    const manquantes = piecesManquantes(s, (r) => r.segment === client.type);
+    etapes.push({
+      cle: "segment", titre: segment.etapePieces, statut: manquantes.length === 0 ? "fait" : "a_faire",
+      detail: manquantes.length === 0 ? "Pièces reçues" : `${pluriel(manquantes.length, "pièce")} à déposer`,
+      cible: "documents#pieces",
+    });
+  }
+
+  // 6 · Documents du pays — international seulement.
   if (dossier.portee === "international") {
     const manquantes = piecesManquantes(s, (r) => r.pays !== null);
     etapes.push({
@@ -137,7 +163,7 @@ export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
     });
   }
 
-  // 6 · Cartons, facultatif.
+  // 7 · Cartons, facultatif.
   const livraison = livraisonCourante(s.livraisons);
   const cartonsOk = !!livraison || dossier.cartons_non_necessaires || termine;
   const detailCartons = livraison
@@ -151,7 +177,7 @@ export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
         : "Choisir un samedi";
   etapes.push({ cle: "cartons", titre: "Cartons", optionnelle: true, statut: cartonsOk ? "fait" : "a_faire", detail: detailCartons, cible: "cartons" });
 
-  // 7 · Solde réglé — sauf factures masquées.
+  // 8 · Solde réglé — sauf factures masquées.
   if (!client.masquer_factures) {
     const solde = s.factures.find((f) => f.type === "solde");
     const paye = solde?.statut === "payee";
@@ -162,7 +188,7 @@ export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
     });
   }
 
-  // 8 · Déménagement réalisé. Une étape bloquante non faite le retient.
+  // 9 · Déménagement réalisé. Une étape bloquante non faite le retient.
   const bloque = etapes.find((e) => e.bloquante && e.statut !== "fait");
   etapes.push({
     cle: "realise", titre: "Déménagement réalisé", statut: termine ? "fait" : "en_attente",
@@ -195,6 +221,10 @@ export function texteProchaineEtape(e: Etape, s: DossierSnapshot): [string, stri
       return ["Remplissez votre déclaration de valeurs", "Elle détermine la couverture de votre assurance. Le total se calcule tout seul."];
     case "cgv":
       return ["Acceptez les CGV et la politique RGPD", "Une case à cocher, horodatée : pas besoin d'imprimer ni de signer."];
+    case "segment": {
+      const reste = piecesManquantes(s, (r) => r.segment === s.client.type).map((r) => r.libelle);
+      return [`Déposez vos ${e.titre.toLowerCase()}`, reste.length ? `Il reste : ${reste.join(", ")}. En PDF ou en photo, depuis « Mes documents ».` : e.detail];
+    }
     case "pays":
       return [`Déposez vos documents pour : ${nomPays(s.dossier.pays_destination)}`, "La douane exige ces pièces avant le départ de vos biens."];
     case "cartons":

@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Espace } from "@/lib/espace-client/espace";
 import { estRecent, eurosAffiches, heure, jourMois, pluriel } from "@/lib/espace-client/format";
 import { arrhesPayees, devisRetenu, livraisonCourante } from "@/lib/espace-client/progression";
+import { segmentDe } from "@/lib/espace-client/segments";
 import { Icone } from "./Icone";
 
 type Tuile = { cle: string; span: number; html: ReactNode; href: string; classe?: string; style?: CSSProperties };
@@ -42,7 +43,7 @@ export function Tuiles({ e, services, tutos }: { e: Espace; services: number; tu
     const enAttente = e.devis.find((x) => x.statut === "envoye");
     const retenu = devisRetenu(e.devis);
     const montre = enAttente ?? retenu;
-    const arrhesDues = !!retenu && e.client.type === "particulier" && !arrhesPayees(retenu, e.factures);
+    const arrhesDues = !!retenu && segmentDe(e.client.type).paieEnLigne && !arrhesPayees(retenu, e.factures);
     tuiles.push({
       cle: "devis", span: 4, href: `${base}/devis`,
       html: (
