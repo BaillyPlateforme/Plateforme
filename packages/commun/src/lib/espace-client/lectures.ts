@@ -7,7 +7,8 @@ import type { Conseiller, Donnees } from "./types";
  * Les lectures du document de données. Celles qui servent au client ne
  * rendent QUE ce qui est rattaché à son dossier, et appliquent les masquages
  * des grands comptes avant de rendre la main : une page ne peut pas afficher
- * un devis qu'elle n'a jamais reçu.
+ * un devis qu'elle n'a jamais reçu. (En base, la RLS a déjà retenu ces
+ * lignes-là ; ces filtres en sont la seconde vérification.)
  */
 
 export function snapshotDe(d: Donnees, dossierId: string): DossierSnapshot | null {
@@ -57,6 +58,7 @@ export function conseillerDe(d: Donnees, conseillerId: string): Conseiller {
       nom: "clients",
       email: "",
       telephone: TEL_AGENCE,
+      demo: false,
     }
   );
 }

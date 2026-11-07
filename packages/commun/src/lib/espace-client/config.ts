@@ -1,33 +1,47 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { headers } from "next/headers";
+import { URL_EXTERNE } from "@/lib/adresses";
 
 /*
  * Les réglages de l'espace client, tous lus dans l'environnement.
  *
- *   ESPACE_CLIENT_DONNEES=stockage   les données vivent dans Supabase Storage.
- *                                    Sans cette variable : la démonstration,
- *                                    en mémoire, amorcée par les profils A à D.
- *   ESPACE_CLIENT_SECRET             la clé des cookies et des liens signés ;
- *                                    à défaut, la clé service_role.
+ *   ESPACE_CLIENT_DONNEES=demo       la démonstration : tout en mémoire, amorcé
+ *                                    par les profils A à D, sans base ni compte
+ *                                    Supabase. Pour développer sans base, et
+ *                                    seulement si on le demande. Sans cette
+ *                                    variable : le mode « base » — les tables
+ *                                    ec_* et Supabase Auth (migration 0011).
+ *   ESPACE_CLIENT_SECRET             la clé des liens de fichiers signés et du
+ *                                    paiement simulé ; à défaut, la clé
+ *                                    service_role.
  *   ESPACE_CLIENT_ENVOI=1            les e-mails et SMS partent vraiment, par
  *                                    Brevo. Sans elle : journalisés seulement.
  *   ESPACE_CLIENT_URL                l'adresse publique, pour les liens des
  *                                    e-mails ; à défaut, celle de la requête.
  *   ESPACE_CLIENT_EMAIL_EQUIPE       où partent les avis à l'équipe (cartons,
  *                                    avaries) ; à défaut, au conseiller.
+ *   ESPACE_CLIENT_PROFILS_DEMO=1     ouvre, hors développement, les raccourcis
+ *                                    des profils fictifs (A à D) sur la page de
+ *                                    connexion. En base, ils ne valent que pour
+ *                                    les clients marqués « demo ».
  *   ESPACE_CLIENT_DEMO_EQUIPE=1      ouvre le back-office de démonstration
- *                                    hors développement (jamais en stockage).
+ *                                    hors développement (jamais en base).
  *   ESPACE_CLIENT_CRON_SECRET        protège l'envoi automatique de la veille.
  */
 
-export type ModeDonnees = "demo" | "stockage";
+export type ModeDonnees = "demo" | "base";
 
 export function modeDonnees(): ModeDonnees {
-  return process.env.ESPACE_CLIENT_DONNEES === "stockage" ? "stockage" : "demo";
+  return process.env.ESPACE_CLIENT_DONNEES === "demo" ? "demo" : "base";
 }
 
 export const estDemo = () => modeDonnees() === "demo";
+
+/** La base est-elle réglée ? Sans elle, le mode « base » ne peut rien servir. */
+export function baseConfiguree() {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
 
 /** L'envoi réel par Brevo : désactivé tant qu'on ne l'a pas demandé explicitement. */
 export const envoiReel = () => process.env.ESPACE_CLIENT_ENVOI === "1";
@@ -35,35 +49,56 @@ export const envoiReel = () => process.env.ESPACE_CLIENT_ENVOI === "1";
 /** Durée de validité d'un lien d'accès. */
 export const DUREE_LIEN_MIN = 15;
 
+/** Durée d'une session ouverte par un lien : au-delà, le client redemande un lien. */
+export const DUREE_SESSION_H = 12;
+
+const enDeveloppement = () => process.env.NODE_ENV !== "production";
+
 /**
- * Le back-office de démonstration se passe de session Supabase : il ne
- * s'ouvre que sur des données fictives, et seulement en développement ou sur
- * demande explicite. En mode stockage, jamais.
+ * Les raccourcis des profils fictifs : « Entrer comme le profil A », la boîte
+ * de réception de démonstration, le bouton « Démo ». En développement ou sur
+ * demande ; en base, ils ne s'appliquent qu'aux clients marqués « demo », dont
+ * l'adresse est en @example.com (voir estClientDemo).
  */
-export function demoEquipeActive() {
-  if (!estDemo()) return false;
-  return process.env.NODE_ENV !== "production" || process.env.ESPACE_CLIENT_DEMO_EQUIPE === "1";
+export function profilsDemoOuverts() {
+  return estDemo() || enDeveloppement() || process.env.ESPACE_CLIENT_PROFILS_DEMO === "1";
 }
 
 /**
- * Une clé par usage, dérivée de la clé du serveur : un cookie de session ne
- * peut pas servir de signature de fichier, ni l'inverse.
+ * Le back-office de démonstration se passe de session Supabase : il ne
+ * s'ouvre que sur des données fictives, en mémoire, et seulement en
+ * développement ou sur demande explicite. En mode « base », jamais : les
+ * tables contiennent de vrais clients.
+ */
+export function demoEquipeActive() {
+  if (!estDemo()) return false;
+  return enDeveloppement() || process.env.ESPACE_CLIENT_DEMO_EQUIPE === "1";
+}
+
+/**
+ * Une clé par usage, dérivée de la clé du serveur : une signature de fichier
+ * ne peut pas servir de signature de paiement, ni l'inverse.
  */
 export function cle(usage: string): Buffer {
   const racine = process.env.ESPACE_CLIENT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!racine) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Aucune clé serveur : l'espace client ne peut pas signer ses sessions (ESPACE_CLIENT_SECRET).");
+    if (!estDemo() || process.env.NODE_ENV === "production") {
+      throw new Error("Aucune clé serveur : l'espace client ne peut rien signer (ESPACE_CLIENT_SECRET).");
     }
-    // En développement seulement, et sur des données fictives : une clé de travail.
+    // En démonstration et en développement seulement : une clé de travail.
     return createHmac("sha256", "espace-client-developpement").update(usage).digest();
   }
   return createHmac("sha256", racine).update(`espace-client:${usage}`).digest();
 }
 
-/** L'adresse publique du site, pour les liens et les images des e-mails. */
+/**
+ * L'adresse publique de l'espace client, pour les liens et les images des
+ * e-mails. C'est celle de l'app externe, même quand l'action part de l'app
+ * interne (un lien envoyé par l'équipe) : d'abord ESPACE_CLIENT_URL, puis
+ * NEXT_PUBLIC_URL_EXTERNE, enfin l'hôte de la requête.
+ */
 export async function adressePublique(): Promise<string> {
-  const env = process.env.ESPACE_CLIENT_URL;
+  const env = process.env.ESPACE_CLIENT_URL || URL_EXTERNE;
   if (env) return env.replace(/\/$/, "");
   try {
     const h = await headers();
@@ -75,10 +110,13 @@ export async function adressePublique(): Promise<string> {
   } catch {
     // Hors requête (tâche planifiée) : pas d'en-têtes.
   }
-  return "http://localhost:3000";
+  return "http://localhost:3939";
 }
 
 /** L'adresse des avis à l'équipe ; le conseiller du dossier à défaut. */
 export function emailEquipe(conseillerEmail: string) {
   return process.env.ESPACE_CLIENT_EMAIL_EQUIPE || conseillerEmail;
 }
+
+/** Une adresse fictive (jeu de démonstration) : rien ne lui est jamais envoyé pour de vrai. */
+export const adresseFictive = (adresse: string) => /@(example\.(com|org|net)|[\w.-]+\.exemple|exemple\.fr)$/i.test(adresse.trim());

@@ -3,8 +3,9 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { cle } from "./config";
 
 /*
- * Signatures HMAC-SHA256 : cookie de session, liens de fichiers à durée
- * courte, événements du paiement simulé. Chaque usage a sa propre clé
+ * Signatures HMAC-SHA256 : liens de fichiers à durée courte, événements du
+ * paiement simulé, cookie de la démonstration (en base, la session est celle
+ * de Supabase Auth). Chaque usage a sa propre clé
  * (config.ts) : une signature valable pour l'un ne vaut rien pour l'autre.
  */
 

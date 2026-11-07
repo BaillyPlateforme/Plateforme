@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { chargerEspace } from "@/lib/espace-client/espace";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { aVille } from "@/lib/espace-client/format";
 import { Hero } from "../../_ui/Hero";
 import { Frise } from "../../_ui/Frise";
@@ -19,7 +18,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PageDeGarde({ params }: Props) {
   const { ref } = await params;
   const e = await chargerEspace(ref);
-  const d = await lireDonnees();
   const rubriques = [e.vis.devis && "Devis", "documents", e.vis.factures && "factures", "cartons"].filter(Boolean).join(", ");
 
   return (
@@ -42,7 +40,7 @@ export default async function PageDeGarde({ params }: Props) {
                 {rubriques.charAt(0).toUpperCase() + rubriques.slice(1)}&nbsp;: chaque rubrique vous indique ce qui est fait et ce qu&apos;il reste à faire.
               </p>
             </div>
-            <Tuiles e={e} services={d.services.filter((s) => s.actif).length} tutos={d.tutos.filter((t) => t.actif).length} />
+            <Tuiles e={e} services={e.services.length} tutos={e.tutos.length} />
             <CarteConseiller e={e} />
           </div>
         </section>

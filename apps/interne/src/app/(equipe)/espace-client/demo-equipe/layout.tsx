@@ -8,8 +8,10 @@ export const metadata = { title: "Back-office de démonstration — Espace clien
 /**
  * Le back-office de démonstration : les écrans de /dashboard/espace-client,
  * sans la session Supabase, sur les données fictives seulement. Il n'existe
- * qu'en développement, ou quand ESPACE_CLIENT_DEMO_EQUIPE=1 — jamais en mode
- * stockage. Le bandeau le dit en toutes lettres.
+ * qu'en démonstration (ESPACE_CLIENT_DONNEES=demo, données en mémoire), en
+ * développement ou quand ESPACE_CLIENT_DEMO_EQUIPE=1 — jamais en mode « base »,
+ * où les tables contiennent de vrais clients. Le bandeau le dit en toutes
+ * lettres.
  */
 export default function DemoEquipeLayout({ children }: { children: React.ReactNode }) {
   if (!demoEquipeActive()) notFound();

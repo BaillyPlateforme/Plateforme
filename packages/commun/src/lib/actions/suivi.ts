@@ -1,6 +1,7 @@
 "use server";
 
 import { createAuthClient } from "@/lib/supabase/auth";
+import { roleDuCompte } from "@/lib/supabase/roles";
 import { enregistrerSuivi } from "@/lib/suivi";
 import type { Suivi } from "@/lib/suivi-commun";
 
@@ -19,8 +20,8 @@ export async function modifierSuivi(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const role = (user?.app_metadata as { role?: string } | undefined)?.role;
-  if (!user || role === "rh") return { erreur: "Session expirée : reconnectez-vous." };
+  // Ni un compte RH, ni un client de l'espace client : l'équipe seulement.
+  if (!user || roleDuCompte(user.app_metadata) !== "equipe") return { erreur: "Session expirée : reconnectez-vous." };
   if (!/^[0-9a-f-]{36}$/i.test(requestId)) return { erreur: "Demande inconnue" };
 
   try {

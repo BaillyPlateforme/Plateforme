@@ -16,9 +16,12 @@ type Tab = (typeof TABS)[number];
 export default function RequestDetail({
   detail,
   photoUrls,
+  espaceClient,
 }: {
   detail: Detail;
   photoUrls: Record<string, string>;
+  /** Le dossier de l'espace client déjà ouvert pour cette demande, s'il y en a un. */
+  espaceClient: { id: string; reference: string } | null;
 }) {
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
@@ -58,11 +61,29 @@ export default function RequestDetail({
             )}
           </div>
         </div>
-        <StatusPicker
-          value={r.status}
-          onChange={(s) => start(() => updateStatus(r.id, s))}
-          disabled={pending}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Le dossier s'ouvre depuis la demande : client, adresses et volume repris ; date, conseiller et devis signé à compléter. */}
+          {espaceClient ? (
+            <Link
+              href={`/dashboard/espace-client/dossiers/${espaceClient.id}`}
+              className="rounded-xl border border-line px-3.5 py-2 text-sm font-medium transition hover:border-accent hover:text-accent"
+            >
+              Espace client · {espaceClient.reference}
+            </Link>
+          ) : (
+            <Link
+              href={`/dashboard/espace-client/nouveau?demande=${r.id}`}
+              className="rounded-xl bg-ink px-3.5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            >
+              Ouvrir l&apos;espace client
+            </Link>
+          )}
+          <StatusPicker
+            value={r.status}
+            onChange={(s) => start(() => updateStatus(r.id, s))}
+            disabled={pending}
+          />
+        </div>
       </div>
 
       {/* Avancée */}

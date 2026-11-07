@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { adressePublique, estDemo } from "@/lib/espace-client/config";
-import { lireDonnees } from "@/lib/espace-client/depot";
+import { clientParEmail, estClientDemo } from "@/lib/espace-client/acces";
+import { adressePublique, profilsDemoOuverts } from "@/lib/espace-client/config";
+import { depot } from "@/lib/espace-client/depot";
 import { rendreEmail } from "@/lib/espace-client/emails";
 import { dateHeure } from "@/lib/espace-client/format";
 import { estProfilDemo } from "@/lib/espace-client/seed";
@@ -12,16 +13,21 @@ export const metadata: Metadata = { title: "E-mail reçu (démonstration)", refe
 
 /**
  * La boîte de réception de la démonstration : l'e-mail tel que le client le
- * reçoit, dans le décor de la micro démo (index.html). Hors démonstration,
- * cette page n'existe pas : un vrai e-mail ne se consulte que dans la boîte
- * de son destinataire.
+ * reçoit, dans le décor de la micro démo (index.html). Elle n'existe qu'avec
+ * les raccourcis des profils fictifs (développement, ou sur demande), et ne
+ * montre que l'e-mail d'un client fictif : marqué « demo », à une adresse en
+ * @example.com. Un vrai e-mail ne se consulte que dans la boîte de son
+ * destinataire — d'autant que celui-ci contient un lien d'accès.
  */
 export default async function ApercuEmail({ params }: { params: Promise<{ id: string }> }) {
-  if (!estDemo()) notFound();
+  if (!profilsDemoOuverts()) notFound();
   const { id } = await params;
+  if (!/^[\w-]{8,64}$/.test(id)) notFound();
   // Seuls les e-mails des profils fictifs se lisent ici : pas ceux d'un client créé par l'équipe.
-  const n = (await lireDonnees()).notifications.find((x) => x.id === id && x.canal === "email" && estProfilDemo(x.destinataire));
-  if (!n) notFound();
+  const n = await depot().trouver("notifications", id).catch(() => null);
+  if (!n || n.canal !== "email" || !estProfilDemo(n.destinataire)) notFound();
+  const destinataire = await clientParEmail(n.destinataire);
+  if (!destinataire || !estClientDemo(destinataire)) notFound();
   const { sujet, html } = rendreEmail(n.modele, n.payload, await adressePublique());
   // Les liens de l'e-mail s'ouvrent dans la fenêtre principale, comme depuis une messagerie.
   const document = html.replace("<head>", '<head><base target="_top">');

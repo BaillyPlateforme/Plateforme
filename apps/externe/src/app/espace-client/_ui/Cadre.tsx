@@ -43,7 +43,7 @@ export function PiedDePage({ e }: { e: Espace }) {
           <span>
             Dossier : {e.dossier.reference} · {e.dossier.ville_depart} → {e.dossier.ville_arrivee}
           </span>
-          {estDemo() ? <span className="demo-ribbon">Démonstration · données fictives</span> : <span>Bailly Déménagement</span>}
+          {estDemo() || e.client.demo ? <span className="demo-ribbon">Démonstration · données fictives</span> : <span>Bailly Déménagement</span>}
         </div>
       </div>
     </footer>

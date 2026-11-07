@@ -4,7 +4,7 @@ import Link from "next/link";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 
 /**
- * Quand l'espace ne peut pas répondre — le stockage injoignable, surtout —
+ * Quand l'espace ne peut pas répondre — la base injoignable, surtout —
  * le client voit un message clair et le numéro de l'agence, jamais une page
  * technique.
  */

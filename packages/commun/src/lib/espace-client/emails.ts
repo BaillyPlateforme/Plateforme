@@ -15,6 +15,7 @@
  * sert à l'envoi comme à l'aperçu du back-office.
  */
 
+import { URL_INTERNE } from "@/lib/adresses";
 import { TEL_AGENCE } from "@/lib/messaging";
 
 export type ModeleEmail =
@@ -117,7 +118,11 @@ const SIGNATURE_DEFAUT: Signature = { nom: "L'équipe Bailly", role: "Service cl
 export function rendreEmail(modele: string, payload: Donnees, base: string): Rendu {
   const s = (k: string) => esc(payload[k]);
   const signature = (payload.signature as Signature | undefined) ?? SIGNATURE_DEFAUT;
-  const lien = (chemin: unknown) => `${base}${String(chemin ?? "/espace-client")}`;
+  // Les avis à l'équipe pointent vers le back-office, qui vit dans l'app interne.
+  const lien = (chemin: unknown) => {
+    const c = String(chemin ?? "/espace-client");
+    return c.startsWith("/dashboard") && URL_INTERNE ? `${URL_INTERNE}${c}` : `${base}${c}`;
+  };
   const bonjour = p(`Bonjour ${s("salutation")},`);
 
   switch (modele as ModeleEmail) {

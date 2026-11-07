@@ -1,12 +1,11 @@
 /*
  * Le modèle de données de l'espace client.
  *
- * Il ne vit dans aucune table : le client n'applique pas de migration, et la
- * base Supabase ne doit pas bouger. Tout tient dans un seul document JSON —
- * en mémoire pour la démonstration, dans le stockage de fichiers de Supabase
- * en production (voir depot.ts). Les noms de champs reprennent ceux de la v0,
- * qui les avait calqués sur des tables : le jour où une migration passera, le
- * passage en tables se fera sans rien renommer.
+ * Chaque liste du document `Donnees` est une table Postgres du même nom,
+ * préfixée `ec_` (supabase/migrations/0011_espace_client.sql) : `dossiers`
+ * vit dans `ec_dossiers`, et ses colonnes portent exactement les noms des
+ * champs ci-dessous. En démonstration (ESPACE_CLIENT_DONNEES=demo), le même
+ * document vit en mémoire. Voir depot.ts.
  *
  * Règle structurante, héritée de la v0 : devis, documents, factures, cartons
  * et SAV se rattachent au DOSSIER, jamais au client. Un client qui déménage
@@ -22,6 +21,8 @@ export interface Conseiller {
   nom: string;
   email: string;
   telephone: string;
+  /** Un conseiller fictif du jeu de démonstration. */
+  demo: boolean;
 }
 
 export interface Client {
@@ -39,10 +40,18 @@ export interface Client {
   masquer_factures: boolean;
   conseiller_id: string;
   /**
-   * Inscrite dans le cookie de session. L'augmenter coupe d'un coup toutes
-   * les sessions ouvertes du client — après un lien transféré par erreur.
+   * Le compte Supabase Auth du client : sans mot de passe, marqué
+   * app_metadata.role = "client". Créé par le serveur au premier lien
+   * d'accès ; null en démonstration et tant qu'aucun lien n'est parti.
    */
-  version_acces: number;
+  auth_user_id: string | null;
+  /**
+   * « Couper les sessions » : toute session ouverte avant cet instant ne vaut
+   * plus rien — après un lien transféré par erreur, un téléphone perdu.
+   */
+  sessions_revoquees_le: string | null;
+  /** Un client fictif du jeu de démonstration (adresse @example.com). */
+  demo: boolean;
   created_at: string;
 }
 
@@ -158,7 +167,7 @@ export interface DocumentFichier {
   categorie: string;
   libelle: string;
   source: SourceDocument;
-  /** Où sont les octets (fichiers.ts). Absent du stockage : un PDF témoin est servi. */
+  /** Où sont les octets, dans le seau privé (fichiers.ts). Absent du seau : un PDF témoin est servi. */
   chemin: string;
   nom_fichier: string;
   taille_octets: number;
@@ -326,13 +335,16 @@ export interface Notification {
 }
 
 /**
- * Un lien d'accès. Le jeton lui-même n'est jamais conservé : seule son
- * empreinte l'est, de sorte qu'une copie du fichier de données ne donne
- * accès à aucun espace.
+ * Un lien d'accès (table ec_liens_acces). Il porte le `hashed_token` émis par
+ * Supabase Auth ; on n'en garde que l'empreinte, de sorte qu'une copie de la
+ * table ne donne accès à aucun espace. Hors du document `Donnees` : seul le
+ * serveur le lit (acces.ts).
  */
-export interface JetonAcces {
+export interface LienAcces {
   empreinte: string;
   client_id: string;
+  /** Le compte Auth que le lien doit ouvrir — null en démonstration. */
+  auth_user_id: string | null;
   /** Le dossier à ouvrir en arrivant, quand le lien vise un dossier précis. */
   reference: string | null;
   expire_at: string;
@@ -370,6 +382,5 @@ export interface Donnees {
   tutos: Tuto[];
   services: Service[];
   notifications: Notification[];
-  jetons_acces: JetonAcces[];
   sessions_paiement: SessionPaiement[];
 }

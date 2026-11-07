@@ -1,14 +1,16 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
+import { estDemo } from "./config";
 import { avecDelai } from "./depot";
 
 /*
  * Les demandes des questionnaires, pour préremplir un nouveau dossier.
  *
  * Lecture seule de la table `requests` (et `devis`, pour reprendre
- * l'estimation), avec la clé service : rien n'y est écrit. Si Supabase ne
- * répond pas, l'erreur remonte à l'écran et le formulaire reste utilisable,
- * à remplir à la main.
+ * l'estimation), avec la clé service : rien n'y est écrit. Le dossier garde
+ * l'identifiant de la demande (ec_dossiers.request_id), sans clé étrangère :
+ * la table des demandes ne bouge pas. Si Supabase ne répond pas, l'erreur
+ * remonte à l'écran et le formulaire reste utilisable, à remplir à la main.
  */
 
 export interface DemandeResume {
@@ -55,6 +57,21 @@ export async function listerDemandes(): Promise<DemandeResume[]> {
   );
   if (error) throw new Error(error.message);
   return (data ?? []) as unknown as DemandeResume[];
+}
+
+/** Une demande, par son identifiant : celle d'où l'équipe ouvre un espace client. */
+export async function lireDemande(id: string): Promise<DemandeResume | null> {
+  const { data, error } = await avecDelai(createServiceClient().from("requests").select(COLONNES).eq("id", id).maybeSingle(), 6000, "La base des demandes ne répond pas.");
+  if (error) throw new Error(error.message);
+  return (data as unknown as DemandeResume | null) ?? null;
+}
+
+/** Le dossier de l'espace client déjà ouvert pour cette demande, s'il y en a un. */
+export async function dossierDeLaDemande(requestId: string): Promise<{ id: string; reference: string } | null> {
+  if (estDemo()) return null;
+  const { data, error } = await avecDelai(createServiceClient().from("ec_dossiers").select("id, reference").eq("request_id", requestId).limit(1), 6000);
+  if (error) return null;
+  return (data?.[0] as { id: string; reference: string } | undefined) ?? null;
 }
 
 export async function devisDeLaDemande(requestId: string): Promise<DevisDemande[]> {

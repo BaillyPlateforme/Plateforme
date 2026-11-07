@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { chargerEspace } from "@/lib/espace-client/espace";
 import { PageHero } from "../../../_ui/PageHero";
 import { Icone } from "../../../_ui/Icone";
@@ -11,7 +10,7 @@ export const metadata: Metadata = { title: "Mes tutos" };
 export default async function Tutos({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
   const e = await chargerEspace(ref);
-  const tutos = (await lireDonnees()).tutos.filter((t) => t.actif).sort((a, b) => a.ordre - b.ordre);
+  const tutos = e.tutos;
 
   return (
     <>

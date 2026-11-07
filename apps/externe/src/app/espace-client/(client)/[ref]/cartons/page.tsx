@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { bornesCartons, estimationCartons, PLAGE_SAMEDI } from "@/lib/espace-client/cartons";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { chargerEspace } from "@/lib/espace-client/espace";
 import { dateCourte, dateLongue, heure, joursRestants, jourMois } from "@/lib/espace-client/format";
 import { livraisonCourante } from "@/lib/espace-client/progression";
+import { occupationSamedis } from "@/lib/espace-client/samedi";
 import { texteSms } from "@/lib/espace-client/emails";
 import { TEL_AGENCE } from "@/lib/messaging";
 import { PageHero } from "../../../_ui/PageHero";
@@ -23,11 +23,7 @@ export default async function Cartons({ params }: { params: Promise<{ ref: strin
   const bornes = bornesCartons(dossier.periode_debut);
 
   // L'occupation des samedis : des nombres par date, jamais les autres clients.
-  const occupation: Record<string, number> = {};
-  for (const l of (await lireDonnees()).livraisons_cartons) {
-    if (l.id === livraison?.id) continue;
-    occupation[l.date_samedi] = (occupation[l.date_samedi] ?? 0) + 1;
-  }
+  const occupation = await occupationSamedis(bornes.min, bornes.max, livraison?.id);
 
   const creneau = livraison?.creneau_debut ? `${heure(livraison.creneau_debut)} – ${heure(livraison.creneau_fin!)}` : null;
   const planifiee = livraison ? (

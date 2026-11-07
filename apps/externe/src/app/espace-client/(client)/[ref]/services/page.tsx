@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { chargerEspace } from "@/lib/espace-client/espace";
 import { demanderService } from "@/lib/actions/espace-client";
 import { PageHero } from "../../../_ui/PageHero";
@@ -11,7 +10,7 @@ export const metadata: Metadata = { title: "Mes services complémentaires" };
 export default async function Services({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
   const e = await chargerEspace(ref);
-  const services = (await lireDonnees()).services.filter((s) => s.actif).sort((a, b) => a.ordre - b.ordre);
+  const services = e.services;
 
   return (
     <>
