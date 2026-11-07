@@ -4,29 +4,42 @@ import { depot, maintenant, nouvelId } from "./depot";
 import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 import { signer, verifier } from "./signature";
+import { stripeConfigure } from "./stripe-config";
 import { aujourdhui, euros, salutation } from "./format";
 import type { Dossier, Facture, SessionPaiement } from "./types";
 
 /*
  * Le paiement en ligne, derrière une interface : la page est hébergée par le
  * prestataire, aucune donnée bancaire ne passe par Bailly. Le parcours est
- * celui de tous les prestataires (Stripe, PayPlug, Lyra…) :
+ * celui de tous les prestataires :
  *
  *   creerPaiement() → page du prestataire → événement signé → « payée ».
  *
- * La réalisation simulée le reproduit à l'identique : une page
- * /espace-client/paiement/[id] tient le rôle du prestataire, et l'événement
- * est signé comme le ferait un webhook. Pour brancher un vrai prestataire,
- * on remplace `PaiementSimule` ; ni les pages ni les actions ne changent.
+ * Deux réalisations, choisies par la configuration (prestataire(), stripe.ts) :
+ *   - Stripe (stripe.ts), dès que STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET
+ *     sont réglées : Checkout hébergé, webhook signé ;
+ *   - la simulation, sinon, à l'identique d'avant : une page
+ *     /espace-client/paiement/[id] tient le rôle du prestataire, et
+ *     l'événement est signé comme le ferait un webhook. Elle est fermée dès
+ *     que Stripe est réglé.
+ *
+ * Dans les deux cas, c'est `appliquerEvenement` — et lui seul — qui fait
+ * passer une facture à « payée » ou un devis à « accepté » par paiement, et
+ * qui reflète le paiement au CRM par la migration 0012 (une session, un
+ * paiement).
  */
 
 export interface DemandePaiement {
   cible: SessionPaiement["cible"];
   cible_id: string;
   dossier_id: string;
+  /** Le montant, lu dans la base par l'action — jamais reçu du navigateur. */
   montant: number;
   libelle: string;
   trace: SessionPaiement["trace"];
+  /** La référence du dossier (BD-2026-0164) et l'adresse du client : pour le prestataire. */
+  reference: string;
+  email: string;
 }
 
 export interface EvenementPaiement {
@@ -36,14 +49,18 @@ export interface EvenementPaiement {
 }
 
 export interface PaymentProvider {
+  readonly nom: "simule" | "stripe";
   creerPaiement(demande: DemandePaiement): Promise<{ sessionId: string; url: string }>;
-  /** Vérifie la signature du prestataire ; null si elle ne tient pas. */
-  verifierEvenement(corps: string, signature: string | null): EvenementPaiement | null;
 }
 
 export class PaiementSimule implements PaymentProvider {
+  readonly nom = "simule" as const;
+
   async creerPaiement(demande: DemandePaiement) {
-    const session: SessionPaiement = { id: nouvelId(), ...demande, statut: "ouverte", reference: null, created_at: maintenant() };
+    const { reference: _r, email: _e, ...ligne } = demande;
+    void _r;
+    void _e;
+    const session: SessionPaiement = { id: nouvelId(), ...ligne, statut: "ouverte", reference: null, created_at: maintenant() };
     await depot().inserer("sessions_paiement", session);
     return { sessionId: session.id, url: `/espace-client/paiement/${session.id}` };
   }
@@ -65,33 +82,44 @@ export class PaiementSimule implements PaymentProvider {
   }
 }
 
-export const paiements = new PaiementSimule();
+export const paiementSimule = new PaiementSimule();
 
 /** Le prochain numéro de facture de l'année : FA-2026-0469. */
 export const prochainNumeroFacture = (annee = aujourdhui().slice(0, 4)) => depot().prochainNumero("factures", `FA-${annee}-`, 4);
 
+export type IssueEvenement = { ok: boolean; message: string; /** Rien n'a changé : déjà traité, ou annulation d'une session close. */ deja?: boolean };
+
+/**
+ * L'événement du prestataire simulé : signature vérifiée (clé du serveur),
+ * puis le traitement commun. Fermé dès que Stripe est réglé : en production,
+ * seul le webhook signé par Stripe fait passer un paiement.
+ */
+export async function traiterEvenement(corps: string, signature: string | null): Promise<IssueEvenement> {
+  if (stripeConfigure()) return { ok: false, message: "Paiement simulé fermé : le prestataire est Stripe." };
+  const ev = paiementSimule.verifierEvenement(corps, signature);
+  if (!ev) return { ok: false, message: "Signature invalide." };
+  return appliquerEvenement(ev);
+}
+
 /**
  * Le traitement de l'événement du prestataire : SEULE voie qui fait passer
- * une facture à « payée » ou un devis à « accepté » par paiement. Signature
- * vérifiée, et sans effet s'il est rejoué : la session ne passe d'« ouverte »
- * à « payée » qu'une fois, en une seule requête.
+ * une facture à « payée » ou un devis à « accepté » par paiement. Sans effet
+ * s'il est rejoué : la session ne passe d'« ouverte » à « payée » qu'une
+ * fois, en une seule requête. L'appelant a vérifié la signature.
  */
-export async function traiterEvenement(corps: string, signature: string | null): Promise<{ ok: boolean; message: string }> {
-  const ev = paiements.verifierEvenement(corps, signature);
-  if (!ev) return { ok: false, message: "Signature invalide." };
-
+export async function appliquerEvenement(ev: EvenementPaiement): Promise<IssueEvenement> {
   const db = depot();
   const session = await db.trouver("sessions_paiement", ev.session_id).catch(() => null);
   if (!session) return { ok: false, message: "Session inconnue." };
-  if (session.statut !== "ouverte") return { ok: true, message: "Déjà traité." };
+  if (session.statut !== "ouverte") return { ok: true, message: "Déjà traité.", deja: true };
 
   if (ev.type === "paiement.annule") {
-    await db.modifier("sessions_paiement", session.id, { statut: "annulee" }, { statut: "ouverte" });
-    return { ok: true, message: "Paiement annulé." };
+    const annulee = await db.modifier("sessions_paiement", session.id, { statut: "annulee" }, { statut: "ouverte" });
+    return annulee ? { ok: true, message: "Paiement annulé." } : { ok: true, message: "Déjà traité.", deja: true };
   }
   // Le passage à « payée » : celui qui le gagne fait le reste, un rejeu simultané ne fait rien.
   if (!(await db.modifier("sessions_paiement", session.id, { statut: "payee", reference: ev.reference }, { statut: "ouverte" }))) {
-    return { ok: true, message: "Déjà traité." };
+    return { ok: true, message: "Déjà traité.", deja: true };
   }
 
   const dossier = await db.trouver("dossiers", session.dossier_id);
