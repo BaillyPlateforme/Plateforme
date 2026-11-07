@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Bandeau from "@/ui/Bandeau";
+import Bandeau, { Etapes } from "@/ui/Bandeau";
 import { notFound } from "next/navigation";
 import { getDossier } from "@/crm/lib/data";
 import { q, type Row } from "@/crm/lib/db";
@@ -56,6 +56,15 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
           TYPE_D[d.type_demenagement] ?? "National",
           d.vehicule && "Carte grise + assurance à fournir",
         ]}
+        bas={
+          <Etapes
+            label="Étapes du dossier"
+            items={STEPS.map((l, i) => ({
+              label: l,
+              etat: d.statut === "perdu" ? "avenir" : i < step || d.statut === "termine" ? "fait" : i === step ? "encours" : "avenir",
+            }))}
+          />
+        }
       >
         <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
         <form action={A.dupliquerDossier.bind(null, id)}><button data-ton="contour">Dupliquer</button></form>
@@ -66,12 +75,6 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
 
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
 
-      <ol className="stepper">
-        {STEPS.map((s, i) => {
-          const k = d.statut === "perdu" ? "" : i < step || d.statut === "termine" ? "done" : i === step ? "now" : "";
-          return <li key={s} className={k}><i>{k === "done" ? <Ic n="check" /> : i + 1}</i><span>{s}</span></li>;
-        })}
-      </ol>
 
       <div className="d-grid">
         <form action={A.majFiche.bind(null, id)} style={{ display: "contents" }}>

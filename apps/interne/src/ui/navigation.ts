@@ -28,8 +28,9 @@ export const GROUPES: Groupe[] = [
   {
     titre: "Accueil",
     entrees: [
-      { href: "/", label: "Tableau de bord", icone: "accueil", actif: (c) => c === "/" },
-      { href: "/tableau-de-bord", label: "Pilotage", icone: "bord" },
+      { href: "/", label: "Pilotage", icone: "bord", actif: (c) => c === "/" },
+      { href: "/tableau-de-bord", label: "Tableau de bord", icone: "accueil" },
+      { href: "/copilote", label: "Copilote", icone: "copilote" },
     ],
   },
   {
@@ -46,6 +47,7 @@ export const GROUPES: Groupe[] = [
       { href: "/visites", label: "Visites techniques", icone: "oeil" },
       { href: "/dossiers", label: "Clients et dossiers", icone: "clients" },
       { href: "/devis", label: "Devis", icone: "devis" },
+      { href: "/factures", label: "Factures", icone: "facture" },
     ],
   },
   {
@@ -62,13 +64,12 @@ export const GROUPES: Groupe[] = [
     ],
   },
   {
-    titre: "Gestion",
+    titre: "Réglages",
     entrees: [
-      { href: "/factures", label: "Factures", icone: "facture" },
       { href: "/modeles", label: "Courriers et SMS", icone: "courrier" },
       {
         href: "/dashboard/parametres",
-        label: "Réglages",
+        label: "Paramètres",
         icone: "reglages",
         actif: (c) => ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p)),
       },
@@ -76,7 +77,7 @@ export const GROUPES: Groupe[] = [
   },
 ];
 
-/** Les réglages : la dernière page de « Gestion ». */
+/** Les paramètres : la dernière page de « Réglages ». */
 export const REGLAGES: Entree = GROUPES[GROUPES.length - 1].entrees[GROUPES[GROUPES.length - 1].entrees.length - 1];
 
 /** La rubrique de la page courante (celle dont une page est active), « Accueil » à défaut. */

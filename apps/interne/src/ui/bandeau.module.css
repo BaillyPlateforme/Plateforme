@@ -6,11 +6,22 @@
  * Le contenu qui suit commence juste dessous ; une rangée marquée
  * `chevauche` (les tuiles d'un tableau de bord) vient se poser à cheval.
  */
+/*
+ * UNE SEULE HAUTEUR, sur toutes les pages (exigence de David) : 212 px, quel
+ * que soit le contenu. Le texte et ses pastilles tiennent sur une ligne, les
+ * boutons sur deux lignes au plus, et la rangée du bas (onglets, filtres) a
+ * sa place réservée, vide ou non ; une rangée `chevauche` mord sur les 34 px
+ * du bas.
+ */
 .bandeau {
   position: relative;
   isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 212px;
   margin: -28px -32px 22px;
-  padding: 26px 32px 24px;
+  padding: 24px 32px 0;
   color: #fff;
   background:
     radial-gradient(760px 340px at 88% -30%, rgba(196, 160, 255, 0.95), transparent 62%),
@@ -52,10 +63,10 @@
 }
 .tete {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 14px 28px;
+  gap: 28px;
+  height: 92px;
 }
 .gauche {
   min-width: 0;
@@ -80,33 +91,39 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.texte {
-  margin: 6px 0 0;
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.74);
+.ligne {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  min-width: 0;
+  overflow: hidden;
   white-space: nowrap;
+}
+.texte {
+  margin: 0 6px 0 0;
+  min-width: 0;
+  flex-shrink: 1;
+  font-size: 14.5px;
+  line-height: 24px;
+  color: rgba(255, 255, 255, 0.76);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .texte b {
   color: #fff;
 }
-.etiquettes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 12px 0 0;
-}
-.etiquettes span {
-  padding: 4px 11px;
+.etiquette {
+  flex-shrink: 0;
+  padding: 2px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 12px;
   font-weight: 600;
+  line-height: 18px;
   color: #fff;
-  white-space: nowrap;
 }
 
 /* Les boutons : le premier geste en blanc, les autres en verre. */
@@ -114,8 +131,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   justify-content: flex-end;
   gap: 8px;
+  max-width: 560px;
+  max-height: 88px;
+  overflow: hidden;
+  padding-top: 4px;
 }
 .bouton,
 .actions :global(button),
@@ -206,9 +228,10 @@
   opacity: 0.6;
 }
 
-/* Les onglets d'une section, sous le titre. */
+/* La rangée du bas : onglets d'une section ou filtres, place réservée. */
 .bas {
-  margin-top: 18px;
+  height: 44px;
+  margin-top: 14px;
 }
 
 /* Des pilules de verre (filtres, sous-vues), même dessin que les onglets des sections. */
@@ -245,6 +268,59 @@
   color: #2e1f9e;
   box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
 }
+/* Les étapes d'un dossier : une frise de verre. */
+.etapes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+}
+.etapes li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.etapes li i {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.etapes li[data-etat="fait"] {
+  color: #fff;
+}
+.etapes li[data-etat="fait"] i {
+  background: #14c27d;
+  color: #fff;
+}
+.etapes li[data-etat="encours"] {
+  background: #fff;
+  border-color: #fff;
+  color: #2e1f9e;
+  box-shadow: 0 8px 18px -10px rgba(14, 6, 70, 0.7);
+}
+.etapes li[data-etat="encours"] i {
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+}
+
 /* Une flèche (semaine précédente / suivante) : un rond de verre. */
 .actions :global(a[data-ton="fleche"]) {
   display: grid;
@@ -260,21 +336,25 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
-/* Les tuiles d'un tableau de bord, posées à cheval sur la bande. */
-.bandeau:has(+ :global(.chevauche)) {
-  padding-bottom: 78px;
-  margin-bottom: 0;
-}
+/* Les tuiles d'un tableau de bord, posées à cheval sur le bas de la bande. */
 .bandeau + :global(.chevauche) {
   position: relative;
   z-index: 1;
-  margin-top: -56px;
+  margin-top: -34px;
 }
 
 @media (max-width: 760px) {
   .bandeau {
+    height: auto;
     margin: -20px -16px 18px;
     padding: 22px 16px 20px;
+  }
+  .tete {
+    height: auto;
+    flex-wrap: wrap;
+  }
+  .bas:empty {
+    display: none;
   }
   .titre {
     font-size: 24px;

@@ -383,3 +383,9 @@ body.printpage{background:#eee;overflow:auto;height:auto}
 .accueil .fil em{font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
 .accueil .jour+.jour{margin-top:10px}
 .accueil .jour-titre{margin:0 0 2px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7a52ff}
+/* Une ligne de tableau entièrement cliquable : le lien « etendu » couvre la ligne, les liens « dessus » restent cliquables. */
+tr.lien-ligne{position:relative;cursor:pointer}
+tr.lien-ligne:hover td{background:#f7f5ff}
+tr.lien-ligne a.etendu{color:inherit;text-decoration:none}
+tr.lien-ligne a.etendu::after{content:"";position:absolute;inset:0}
+tr.lien-ligne a.dessus{position:relative;z-index:1;color:var(--accent);text-decoration:none;font-weight:600}

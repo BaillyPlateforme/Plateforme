@@ -58,18 +58,20 @@ export default function Bandeau({
         <div className={s.gauche}>
           <p className={s.surtitre}>{surtitre}</p>
           <h1 className={s.titre}>{titre}</h1>
-          {texte && <p className={s.texte}>{texte}</p>}
-          {etiquettes && etiquettes.some(Boolean) && (
-            <p className={s.etiquettes}>
-              {etiquettes.filter(Boolean).map((e) => (
-                <span key={e as string}>{e}</span>
+          {(texte || (etiquettes && etiquettes.some(Boolean))) && (
+            <div className={s.ligne}>
+              {texte && <p className={s.texte}>{texte}</p>}
+              {etiquettes?.filter(Boolean).map((e) => (
+                <span key={e as string} className={s.etiquette}>
+                  {e}
+                </span>
               ))}
-            </p>
+            </div>
           )}
         </div>
         {boutons}
       </div>
-      {bas && <div className={s.bas}>{bas}</div>}
+      <div className={s.bas}>{bas}</div>
     </section>
   );
 }
@@ -84,5 +86,19 @@ export function Pilules({ items, label }: { items: { href: string; label: string
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** Les étapes d'un dossier, dans la rangée du bas de la bande : faites, en cours, à venir. */
+export function Etapes({ items, label }: { items: { label: string; etat: "fait" | "encours" | "avenir" }[]; label: string }) {
+  return (
+    <ol className={s.etapes} aria-label={label}>
+      {items.map((e, i) => (
+        <li key={e.label} data-etat={e.etat} aria-current={e.etat === "encours" ? "step" : undefined}>
+          <i>{e.etat === "fait" ? <Icone nom="coche" taille={13} /> : i + 1}</i>
+          {e.label}
+        </li>
+      ))}
+    </ol>
   );
 }
