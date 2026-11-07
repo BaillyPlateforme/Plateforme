@@ -1,0 +1,50 @@
+/* Le panneau du menu « ⋯ » d'un bandeau. */
+.panneau {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(20, 18, 31, 0.08);
+  box-shadow: 0 30px 60px -26px rgba(46, 31, 158, 0.5);
+  animation: ouverture 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top right;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+@keyframes ouverture {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.panneau form {
+  display: contents;
+}
+.panneau button,
+.panneau a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #2a2740;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.panneau button:hover,
+.panneau a:hover {
+  background: #f4f2fb;
+}
+.panneau [data-danger] {
+  color: #be123c;
+}
