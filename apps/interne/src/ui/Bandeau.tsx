@@ -18,7 +18,7 @@ export default function Bandeau({
 }: {
   surtitre: string;
   titre: string;
-  texte?: string;
+  texte?: React.ReactNode;
   action?: { label: string; href: string; icone?: NomIcone };
   secondaire?: { label: string; href: string };
   reperes?: { label: string; valeur: string }[];

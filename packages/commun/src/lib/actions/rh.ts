@@ -53,6 +53,6 @@ export async function nouveauMotDePasseRh(id: string, motDePasse: string): Promi
 /** La déconnexion de l'espace RH ramène à sa propre page de connexion. */
 export async function quitterEspaceRh() {
   const supabase = await createAuthClient();
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/rh/connexion");
 }

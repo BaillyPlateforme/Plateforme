@@ -1,0 +1,235 @@
+/*
+ * La signature du devis par le client : une page Bailly (jaune et noir, le
+ * logo), pas un écran du CRM. À gauche le devis complet, tel qu'imprimé ; à
+ * droite, collée en haut, la carte d'accord.
+ */
+.page {
+  min-height: 100dvh;
+  background: #f6f5f2;
+  color: #1b1a18;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+}
+.bandeau {
+  background: #1b1a18;
+  color: #fff;
+}
+.bandeauInterieur {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 18px 24px;
+}
+.bandeauInterieur img {
+  height: 40px;
+  width: auto;
+}
+.securise {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(245, 208, 51, 0.14);
+  color: #f5d033;
+  font-size: 13px;
+  font-weight: 700;
+}
+.accueil {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 36px 24px 8px;
+}
+.accueil small {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #f5d033;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.accueil h1 {
+  margin: 14px 0 0;
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.accueil p {
+  margin: 10px 0 0;
+  max-width: 62ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #615f68;
+}
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  align-items: start;
+  gap: 28px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+}
+.document {
+  min-width: 0;
+  overflow-x: auto;
+}
+.document > article {
+  margin: 0;
+}
+.carte {
+  position: sticky;
+  top: 24px;
+  padding: 26px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid #e9e7e2;
+  box-shadow: 0 30px 60px -36px rgba(27, 26, 24, 0.4);
+}
+.carte h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.lignes {
+  display: grid;
+  gap: 0;
+  margin: 16px 0 0;
+}
+.ligne {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid #f0eee9;
+  font-size: 14.5px;
+}
+.ligne:first-child {
+  border-top: 0;
+}
+.ligne span {
+  color: #615f68;
+}
+.ligne b {
+  text-align: right;
+}
+.montant {
+  margin-top: 6px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #1b1a18;
+  color: #fff;
+}
+.montant small {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f5d033;
+}
+.montant b {
+  display: block;
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.montant span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.accord {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f6f5f2;
+  font-size: 14px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.accord input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: #1b1a18;
+}
+.signer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 54px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #f5d033;
+  color: #1b1a18;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 28px -14px rgba(169, 138, 0, 0.9);
+  transition: background-color 0.15s, transform 0.15s;
+}
+.signer:hover {
+  background: #e0b81a;
+}
+.signer:active {
+  transform: scale(0.99);
+}
+.signe {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 14px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #e7f3ec;
+  color: #1f6b43;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+.signe i {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #2e8b57;
+  color: #fff;
+  font-style: normal;
+}
+.contact {
+  margin-top: 18px;
+  font-size: 13.5px;
+  color: #615f68;
+  text-align: center;
+}
+.contact a {
+  color: #1b1a18;
+  font-weight: 700;
+}
+@media (max-width: 1080px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .carte {
+    position: static;
+    order: -1;
+  }
+}

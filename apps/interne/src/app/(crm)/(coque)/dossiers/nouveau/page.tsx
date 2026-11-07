@@ -2,6 +2,7 @@ import { commerciaux } from "@/crm/lib/data";
 import { q } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { creerDossier } from "@/crm/actions";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +10,7 @@ export default async function NouveauDossier() {
   const [coms, tous, u] = await Promise.all([commerciaux(), q("select id,nom from utilisateurs order by id"), currentUser()]);
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Nouveau dossier</h1><p>Le type de client détermine le parcours : particulier (devis, paiement en ligne), compte (pas de facture client), militaire (documents à déposer)…</p></div></div>
+      <Bandeau surtitre="Commercial" titre="Nouveau dossier" texte="Le type de client détermine le parcours : particulier (devis, paiement en ligne), compte (pas de facture client), militaire (documents à déposer)…" />
       <form action={creerDossier}>
         <div className="d-grid">
           <section className="card" style={{ gridColumn: "span 12" }}>

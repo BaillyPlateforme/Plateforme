@@ -6,6 +6,8 @@ import { PrintButton } from "@/crm/components/PrintButton";
 import { eur, m3, nomClient, dateFr, TYPES } from "@/crm/lib/format";
 import { emballages } from "@/crm/lib/tarif";
 import type { Row } from "@/crm/lib/db";
+import DevisBailly from "@/crm/documents/DevisBailly";
+import { versInterne } from "@/lib/adresses";
 
 export const dynamic = "force-dynamic";
 const GENRE: Record<string, string> = { depart: "Départ", garde_meuble: "Garde-meuble", arrivee: "Arrivée", autre: "Étape" };
@@ -20,6 +22,16 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
   const lv = d.lettres.find((l: Row) => String(l.id) === sp.lv);
   const emb = emballages(d.volume);
   const pieces = [...new Set(d.inv.map((i: Row) => i.piece))] as string[];
+  // Le devis est un document client : il a sa mise en page aux couleurs de Bailly.
+  if (doc === "devis") {
+    return (
+      <>
+        <style>{"body{background:#ececec}@media print{body{background:#fff}}"}</style>
+        <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
+        <DevisBailly d={d} lienSignature={(token) => versInterne(`/signature/${token}`)} />
+      </>
+    );
+  }
   if (doc === "lettre" && lv) {
     const demont = d.inv.filter((i: Row) => i.demontage);
     const feuilles: [string, string, string][] = [
@@ -63,7 +75,7 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
       <style>{"body{background:#ececec}"}</style>
       <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
       <div className="doc">
-        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : doc === "devis" ? "Proposition de déménagement" : doc === "facture" ? "Facture" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
+        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : doc === "facture" ? "Facture" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
         <h2>Client</h2>
         <table><tbody>
           <tr><th>Contact</th><td>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ")}</td><th>Téléphone</th><td>{d.telephone ?? "—"}</td></tr>
@@ -104,14 +116,7 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
           <h2>Emballages à prévoir</h2>
           <p>{emb.cartonsStandard} cartons standard · {emb.cartonsLivres} cartons livres · {emb.penderies} penderies · {emb.bulle} rouleaux de papier bulle</p>
         </>}
-        {doc === "devis" && (d.devis.length === 0 ? <p>Aucun devis généré.</p> : <>
-          <h2>Formules proposées</h2>
-          <table><thead><tr><th>Prestation</th>{d.devis.map((v: Row) => <th key={v.id} className="r" style={{ textTransform: "capitalize" }}>{v.formule}</th>)}</tr></thead><tbody>
-            {(d.devis[0].lignes as Row[]).map((_: Row, i: number) => <tr key={i}><td>{d.devis[0].lignes[i].libelle}</td>{d.devis.map((v: Row) => <td key={v.id} className="r">{v.lignes[i]?.charge === "client" ? "À votre charge" : "Inclus"}</td>)}</tr>)}
-            <tr><th>Total TTC</th>{d.devis.map((v: Row) => <th key={v.id} className="r" style={{ fontSize: 15, color: "#111" }}>{eur(v.montant)}</th>)}</tr>
-          </tbody></table>
-          <p style={{ marginTop: 16 }}>Arrhes à la réservation : 30 % du montant de la formule retenue.</p>
-        </>)}
+        
       </div>
     </>
   );

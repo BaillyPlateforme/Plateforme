@@ -14,6 +14,13 @@ import s from "./devis.module.css";
 
 const GENRE: Record<string, string> = { depart: "Départ", garde_meuble: "Garde-meuble", arrivee: "Arrivée", autre: "Étape" };
 const ORDRE: Record<string, number> = { economique: 0, standard: 1, premium: 2 };
+const NOM_FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
+const nomFormule = (f: string) => NOM_FORMULE[f?.toLowerCase?.()] ?? f;
+/** « 4 », « RDC », « 0 » : l'étage tel qu'on le lit. */
+const etage = (e: unknown) => {
+  const t = String(e ?? "").trim();
+  return !t || /^(rdc|0|rez)/i.test(t) ? "Rez-de-chaussée" : `Étage ${t}`;
+};
 
 function Coche() {
   return (
@@ -28,7 +35,8 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
   const vedette = formules.find((f) => f.formule === "standard")?.id;
   const contact = [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
   const aujourdhui = new Date();
-  const numero = formules.length === 1 ? formules[0].numero : formules.map((f) => f.numero).filter(Boolean)[0];
+  // Une seule formule : le numéro de son devis. Plusieurs : la proposition porte le dossier, et les numéros suivent.
+  const numeros = formules.map((f) => f.numero).filter(Boolean);
   const aSigner = formules.find((f) => f.token && !f.signe_le);
 
   return (
@@ -45,9 +53,10 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
         </div>
         <div className={s.reference}>
           <span className={s.etiquette}>Proposition de déménagement</span>
-          <h1>{numero ? `Devis ${numero}` : `Dossier ${d.ref}`}</h1>
+          <h1>{numeros.length === 1 ? `Devis ${numeros[0]}` : `Proposition ${d.ref}`}</h1>
           <p>
-            Dossier {d.ref} · établi le {dateFr(aujourdhui, { day: "numeric", month: "long", year: "numeric" })}
+            {numeros.length > 1 ? `Devis ${numeros.join(", ")}` : `Dossier ${d.ref}`} · établi le{" "}
+            {dateFr(aujourdhui, { day: "numeric", month: "long", year: "numeric" })}
           </p>
           {d.commercial && <p>Votre conseiller : {d.commercial}</p>}
         </div>
@@ -84,7 +93,7 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
             <span className={s.genre}>{GENRE[e.genre] ?? "Étape"}</span>
             <span className={s.adresse}>{e.adresse}</span>
             <span className={s.acces}>
-              {[e.etage ? `Étage ${e.etage}` : "Rez-de-chaussée", e.ascenseur ? "ascenseur" : "sans ascenseur", e.acces].filter(Boolean).join(" · ")}
+              {[etage(e.etage), e.ascenseur ? "ascenseur" : "sans ascenseur", e.acces].filter(Boolean).join(" · ")}
             </span>
           </li>
         ))}
@@ -100,7 +109,7 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
             return (
               <div key={f.id} className={`${s.formule} ${f.id === vedette && formules.length > 1 ? s.vedette : ""}`}>
                 {f.id === vedette && formules.length > 1 && <span className={s.badge}>Le plus choisi</span>}
-                <span className={s.nomFormule}>{f.formule}</span>
+                <span className={s.nomFormule}>{nomFormule(f.formule)}</span>
                 <span className={s.prix}>
                   {eur(f.montant)} <small>TTC</small>
                 </span>

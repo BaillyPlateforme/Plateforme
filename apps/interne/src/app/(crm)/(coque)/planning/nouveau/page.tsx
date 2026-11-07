@@ -3,6 +3,7 @@ import { q } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { creerRdv } from "@/crm/actions";
 import { nomClient } from "@/crm/lib/format";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function NouveauRdv({ searchParams }: { searchParams: Promi
   const demain = lendemain();
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Nouveau rendez-vous</h1><p>Visite physique, visio ou tâche : les couleurs du planning suivent le type.</p></div></div>
+      <Bandeau surtitre="Planning commercial" titre="Nouveau rendez-vous" texte="Visite physique, visio ou tâche : les couleurs du planning suivent le type." secondaire={{ label: "Retour au planning", href: "/planning" }} />
       <form action={creerRdv} className="card"><div className="form-grid">
         <div className="fld"><label>Type</label><select name="type" defaultValue="phys"><option value="phys">Visite physique</option><option value="visio">Visio</option><option value="tache">Tâche (livraison de cartons, RDV…)</option><option value="perso">Perso / règle (semaine des enfants…)</option></select></div>
         <div className="fld"><label>Commercial</label><select name="commercial_id" defaultValue={u.role === "commercial" ? u.id : coms[0]?.id}>{coms.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>

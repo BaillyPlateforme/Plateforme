@@ -1,6 +1,7 @@
 import { gardeMeuble } from "@/crm/lib/data2";
 import { facturerGardeMeuble } from "@/crm/actions2";
 import { dateFr, eur } from "@/crm/lib/format";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 export default async function GardeMeuble() {
@@ -8,7 +9,7 @@ export default async function GardeMeuble() {
   const aFact = rows.filter((r) => r.afacturer);
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Garde-meuble</h1><p>{rows.length} contrats · {rows.reduce((a, r) => a + r.nb_caisses, 0)} caisses · {aFact.length} à facturer, soit <b>{eur(aFact.reduce((a, r) => a + r.montant, 0))}</b></p></div></div>
+      <Bandeau surtitre={`Exploitation · ${rows.length} contrats`} titre="Garde-meuble" texte={<>{rows.reduce((a, r) => a + r.nb_caisses, 0)} caisses · {aFact.length} à facturer, soit <b>{eur(aFact.reduce((a, r) => a + r.montant, 0))}</b></>} />
       <div className="card tcard"><table className="tbl"><thead><tr><th>Client</th><th>Caisses</th><th>Numéros</th><th>Facturation</th><th>Dernière facture</th><th>Échéance</th><th>Montant</th><th /></tr></thead><tbody>
         {rows.map((r) => (
           <tr key={r.id}>

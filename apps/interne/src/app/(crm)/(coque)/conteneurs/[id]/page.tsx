@@ -4,6 +4,7 @@ import { conteneur } from "@/crm/lib/data2";
 import { ajouterAuConteneur, retirerDuConteneur, majConteneur } from "@/crm/actions2";
 import { m3, nomClient, dateFr } from "@/crm/lib/format";
 import type { Row } from "@/crm/lib/db";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 const STATUT_TC: Record<string, string> = { preparation: "En préparation", charge: "Chargé", en_mer: "En mer", arrive: "Arrivé", livre: "Livré" };
@@ -18,7 +19,7 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   const iso = (d: string | Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
   return (
     <div className="view">
-      <div className="page-h"><div><h1>{c.numero}</h1><p>{c.sens === "export" ? "Export" : "Import"} · {c.destination} · {c.taille} · plomb {c.plomb ?? "—"}</p></div><Link href="/conteneurs" className="btn ghost">← Tous les conteneurs</Link></div>
+      <Bandeau surtitre="Conteneur" titre={c.numero} texte={`${c.sens === "export" ? "Export" : "Import"} · ${c.destination} · ${c.taille} · plomb ${c.plomb ?? "—"}`} secondaire={{ label: "Tous les conteneurs", href: "/conteneurs" }} />
       <div className="d-grid">
         <section className="card" style={{ gridColumn: "span 8" }}>
           <div className="card-h"><h3>Clients du conteneur</h3><b>{m3(utilise)} / {m3(c.capacite)} · {m3(c.capacite - utilise)} libres</b></div>

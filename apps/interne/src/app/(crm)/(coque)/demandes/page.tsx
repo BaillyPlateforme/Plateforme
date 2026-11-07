@@ -2,6 +2,7 @@ import Link from "next/link";
 import { demandesWeb } from "@/crm/lib/data2";
 import { importerDemande, importerToutes } from "@/crm/actions2";
 import { dateFr, m3 } from "@/crm/lib/format";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 export default async function Demandes() {
@@ -9,8 +10,9 @@ export default async function Demandes() {
   const restantes = rows.filter((r) => !r.importee).length;
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Demandes reçues par Internet</h1><p>{restantes} demande{restantes > 1 ? "s" : ""} à importer. Une fiche client et un dossier se créent en un clic, sans ressaisie.</p></div>
-        <form action={importerToutes}><button className="btn primary" disabled={restantes === 0}>Importer les {restantes} demandes</button></form></div>
+      <Bandeau surtitre={`Site et leads · ${restantes} à importer`} titre="Demandes reçues par Internet" texte="Une fiche client et un dossier se créent en un clic, sans ressaisie.">
+        <form action={importerToutes}><button disabled={restantes === 0}>Importer les {restantes} demandes</button></form>
+      </Bandeau>
       <div className="card tcard"><table className="tbl"><thead><tr><th>Reçue le</th><th>Origine</th><th>Client</th><th>Chargement</th><th>Livraison</th><th>Période</th><th>Volume</th><th /></tr></thead><tbody>
         {rows.map((r) => (
           <tr key={r.id} style={r.importee ? { opacity: 0.55 } : undefined}>

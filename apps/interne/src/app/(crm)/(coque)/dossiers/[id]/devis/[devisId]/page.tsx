@@ -4,6 +4,7 @@ import { devisDetail } from "@/crm/lib/data2";
 import { majContrat, majChiffrage, majPrestations } from "@/crm/actions2";
 import { eur, m3, nomClient } from "@/crm/lib/format";
 import type { Row } from "@/crm/lib/db";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 const ONGLETS: [string, string][] = [["contrat", "Données contractuelles"], ["chiffrage", "Chiffrage"], ["prestations", "Prestations"], ["achats", "Achats et marge"]];
@@ -22,8 +23,7 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
   const iso = (d: string | Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Devis {v.numero}</h1><p>{nomClient(v)} · {v.depart} → {v.arrivee} · {m3(v.volume)} · <span style={{ textTransform: "capitalize" }}>{v.formule}</span> · {v.statut}</p></div>
-        <Link href={`/dossiers/${id}`} className="btn ghost">← Retour au dossier</Link></div>
+      <Bandeau surtitre={`Devis · formule ${v.formule}`} titre={`Devis ${v.numero}`} texte={`${nomClient(v)} · ${v.depart} → ${v.arrivee} · ${m3(v.volume)} · ${v.statut}`} secondaire={{ label: "Retour au dossier", href: `/dossiers/${id}` }} />
       <div className="filters">{ONGLETS.map(([k, l]) => <Link key={k} href={`/dossiers/${id}/devis/${devisId}?onglet=${k}`} className={onglet === k ? "on" : ""}>{l}</Link>)}</div>
       <section className="card">
         {onglet === "contrat" && (

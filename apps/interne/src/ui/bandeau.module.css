@@ -19,6 +19,7 @@
     radial-gradient(640px 320px at 88% 0%, rgba(196, 181, 253, 0.5), transparent 62%),
     radial-gradient(520px 340px at 0% 110%, rgba(59, 7, 100, 0.65), transparent 60%),
     linear-gradient(135deg, #4c1d95 0%, #6d28d9 48%, #8b5cf6 100%);
+  margin-bottom: 22px;
   box-shadow: 0 30px 60px -38px rgba(76, 29, 149, 0.85);
 }
 /* L'emblème de Bailly, en blanc, très estompé. */
@@ -108,6 +109,29 @@
   background: #17142b;
   color: #fff;
   font-style: normal;
+}
+.actions :global(button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #17142b;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 14px 30px -16px rgba(23, 20, 43, 0.6);
+}
+.actions :global(button:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.texte b {
+  color: #fff;
 }
 .secondaire {
   display: inline-flex;

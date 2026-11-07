@@ -1,5 +1,6 @@
 import { modeles } from "@/crm/lib/data2";
 import { majModele } from "@/crm/actions2";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 export default async function Modeles() {
@@ -17,7 +18,7 @@ export default async function Modeles() {
     </section>);
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Courriers & SMS</h1><p>Des modèles à volonté, utilisables depuis chaque dossier. Le SMS de confirmation de rendez-vous demande de répondre 1 ou 2. L&apos;envoi réel est simulé dans cette version.</p></div></div>
+      <Bandeau surtitre="Gestion" titre="Courriers & SMS" texte="Des modèles à volonté, utilisables depuis chaque dossier. Le SMS de confirmation de rendez-vous demande de répondre 1 ou 2. L’envoi réel est simulé dans cette version." />
       {bloc("sms", "Modèles de SMS")}
       {bloc("email", "Modèles d'e-mails")}
     </div>

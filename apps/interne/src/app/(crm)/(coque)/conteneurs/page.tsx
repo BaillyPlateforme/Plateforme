@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { conteneurs } from "@/crm/lib/data2";
 import { dateFr, m3 } from "@/crm/lib/format";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 const STATUT_TC: Record<string, string> = { preparation: "En préparation", charge: "Chargé", en_mer: "En mer", arrive: "Arrivé", livre: "Livré" };
@@ -8,7 +9,7 @@ export default async function Conteneurs() {
   const rows = await conteneurs();
   return (
     <div className="view">
-      <div className="page-h"><div><h1>Conteneurs</h1><p>Groupage par destination : chaque conteneur regroupe plusieurs clients, avec la place restante.</p></div></div>
+      <Bandeau surtitre="Exploitation" titre="Conteneurs" texte="Groupage par destination : chaque conteneur regroupe plusieurs clients, avec la place restante." />
       <div className="tcgrid">
         {rows.map((c) => {
           const pct = Math.min(100, Math.round((c.utilise / c.capacite) * 100));

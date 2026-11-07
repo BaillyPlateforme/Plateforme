@@ -3,6 +3,7 @@ import { stats } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { Line, Gauge } from "@/crm/components/charts";
 import { eur, m3, nomClient, STATUTS, TYPES, photoPour } from "@/crm/lib/format";
+import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 const MOIS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
@@ -23,7 +24,7 @@ export default async function Tableau() {
   const cls = ["s1", "s2", "s3", "s4"];
   return (
     <div className="view dash">
-      <div className="page-h"><div><h1>Tableau de bord</h1><p>Chiffres calculés en direct sur les dossiers et devis.</p></div></div>
+      <Bandeau surtitre="Pilotage" titre="Tableau de bord" texte="Chiffres calculés en direct sur les dossiers et devis." />
       <div className="kpis five">
         <div className="kpi"><span className="ki"><Ic n="receipt" /></span><small>CA signé · mois en cours</small><b>{eur(s.ca.cur)}</b>{delta != null && <em className={delta >= 0 ? "up" : "dn"}>{delta >= 0 ? "+" : ""}{delta} %</em>}</div>
         <div className="kpi"><span className="ki"><Ic n="doc" /></span><small>Devis envoyés (60 j)</small><b>{s.t30.envoyes}</b></div>

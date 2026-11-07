@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { jakarta } from "@/polices";
 import "./crm.css";
 
 /*
@@ -11,13 +11,6 @@ import "./crm.css";
  * de l'un à l'autre recharge la page entière, ce que Next fait de lui-même
  * entre deux mises en page racines.
  */
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
-
 export const metadata: Metadata = {
   title: { default: "BaillyCRM", template: "%s — BaillyCRM" },
   description: "Le CRM métier de Bailly Déménagement",
