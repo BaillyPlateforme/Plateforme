@@ -1,0 +1,354 @@
+/*
+ * Le devis Bailly : un document client, donc aux couleurs de la maison — le
+ * jaune et le noir du logo —, dans une mise en page moderne. Format A4,
+ * couleurs gardées à l'impression.
+ */
+.feuille {
+  --jaune: #f5d033;
+  --jaune-doux: #fdf6d6;
+  --noir: #1b1a18;
+  --gris: #615f68;
+  --filet: #e9e7e2;
+  --fond: #f6f5f2;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto 40px;
+  padding: 16mm 15mm 14mm;
+  background: #fff;
+  color: var(--noir);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  box-shadow: 0 30px 70px -40px rgba(27, 26, 24, 0.45);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── En-tête ── */
+.entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 9mm;
+  border-bottom: 1px solid var(--filet);
+}
+.logo {
+  display: block;
+  width: 52mm;
+  height: auto;
+}
+.agence {
+  margin-top: 4mm;
+  font-size: 8.5pt;
+  line-height: 1.55;
+  color: var(--gris);
+}
+.agence b {
+  color: var(--noir);
+}
+.reference {
+  text-align: right;
+}
+.etiquette {
+  display: inline-block;
+  padding: 1.2mm 3mm;
+  border-radius: 999px;
+  background: var(--jaune);
+  color: var(--noir);
+  font-size: 7.5pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.reference h1 {
+  margin: 3mm 0 1mm;
+  font-size: 21pt;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+.reference p {
+  margin: 0;
+  font-size: 9pt;
+  color: var(--gris);
+}
+
+/* ── Résumé ── */
+.resume {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 3mm;
+  margin-top: 8mm;
+}
+.case {
+  padding: 3.5mm 4mm;
+  border-radius: 3.5mm;
+  background: var(--fond);
+}
+.case.client {
+  background: var(--noir);
+  color: #fff;
+}
+.case small {
+  display: block;
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+.case.client small {
+  color: var(--jaune);
+}
+.case b {
+  display: block;
+  margin-top: 1mm;
+  font-size: 11pt;
+  font-weight: 750;
+}
+.case span {
+  display: block;
+  font-size: 8.5pt;
+  color: var(--gris);
+}
+.case.client span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ── Itinéraire ── */
+.titre {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  margin: 9mm 0 4mm;
+  font-size: 12pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.titre::before {
+  content: "";
+  width: 2.2mm;
+  height: 5mm;
+  border-radius: 1mm;
+  background: var(--jaune);
+}
+.trajet {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.etape {
+  position: relative;
+  display: grid;
+  grid-template-columns: 9mm 26mm 1fr auto;
+  align-items: start;
+  gap: 3mm;
+  padding: 2.4mm 0;
+}
+.etape + .etape {
+  border-top: 1px dashed var(--filet);
+}
+.point {
+  display: grid;
+  place-items: center;
+  width: 7mm;
+  height: 7mm;
+  border-radius: 50%;
+  background: var(--noir);
+  color: var(--jaune);
+  font-size: 8pt;
+  font-weight: 800;
+}
+.genre {
+  font-size: 8pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gris);
+  padding-top: 1.2mm;
+}
+.adresse {
+  font-weight: 650;
+  padding-top: 0.8mm;
+}
+.acces {
+  font-size: 8.5pt;
+  color: var(--gris);
+  text-align: right;
+  padding-top: 1.2mm;
+}
+
+/* ── Formules ── */
+.formules {
+  display: grid;
+  gap: 3.5mm;
+}
+.formule {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 5mm 4.5mm 4.5mm;
+  border-radius: 4mm;
+  border: 1px solid var(--filet);
+  background: #fff;
+}
+.formule.vedette {
+  border: 1.6px solid var(--noir);
+  background: linear-gradient(180deg, var(--jaune-doux), #fff 42%);
+}
+.badge {
+  position: absolute;
+  top: -2.6mm;
+  left: 4.5mm;
+  padding: 0.8mm 2.6mm;
+  border-radius: 999px;
+  background: var(--noir);
+  color: var(--jaune);
+  font-size: 7pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.nomFormule {
+  font-size: 13pt;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+.prix {
+  margin-top: 2mm;
+  font-size: 20pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.prix small {
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--gris);
+}
+.ht {
+  margin-top: 1.4mm;
+  font-size: 8pt;
+  color: var(--gris);
+}
+.lignes {
+  display: grid;
+  gap: 1.6mm;
+  margin: 4mm 0 0;
+  padding: 3.5mm 0 0;
+  border-top: 1px solid var(--filet);
+  list-style: none;
+  font-size: 8.8pt;
+}
+.lignes li {
+  display: grid;
+  grid-template-columns: 4.2mm 1fr;
+  gap: 2mm;
+  align-items: start;
+}
+.coche {
+  display: grid;
+  place-items: center;
+  width: 4.2mm;
+  height: 4.2mm;
+  margin-top: 0.5mm;
+  border-radius: 50%;
+  background: var(--noir);
+  color: var(--jaune);
+}
+.coche svg {
+  width: 2.6mm;
+  height: 2.6mm;
+}
+.charge {
+  color: var(--gris);
+}
+.charge .coche {
+  background: var(--fond);
+  color: var(--gris);
+}
+
+/* ── Conditions et accord ── */
+.bas {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 5mm;
+  margin-top: 8mm;
+}
+.conditions {
+  padding: 4.5mm 5mm;
+  border-radius: 4mm;
+  background: var(--fond);
+  font-size: 8.8pt;
+}
+.conditions b {
+  display: block;
+  margin-bottom: 1.5mm;
+  font-size: 9.5pt;
+}
+.conditions ul {
+  margin: 0;
+  padding-left: 4mm;
+}
+.conditions li + li {
+  margin-top: 1mm;
+}
+.accord {
+  display: flex;
+  flex-direction: column;
+  padding: 4.5mm 5mm;
+  border-radius: 4mm;
+  border: 1.4px solid var(--noir);
+}
+.accord b {
+  font-size: 9.5pt;
+}
+.accord p {
+  margin: 1mm 0 0;
+  font-size: 8.5pt;
+  color: var(--gris);
+}
+.signature {
+  flex: 1;
+  min-height: 22mm;
+  margin-top: 3mm;
+  border-radius: 2.5mm;
+  border: 1px dashed #c9c6bd;
+}
+.enLigne {
+  margin-top: 3mm;
+  padding: 2.4mm 3mm;
+  border-radius: 2.5mm;
+  background: var(--jaune);
+  font-size: 8.3pt;
+  font-weight: 650;
+  word-break: break-all;
+}
+
+/* ── Pied ── */
+.pied {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-top: auto;
+  padding-top: 6mm;
+  border-top: 1px solid var(--filet);
+  font-size: 7.5pt;
+  color: var(--gris);
+}
+.pied b {
+  color: var(--noir);
+}
+
+@media print {
+  .feuille {
+    margin: 0;
+    box-shadow: none;
+    min-height: auto;
+  }
+}
