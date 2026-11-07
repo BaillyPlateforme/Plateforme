@@ -68,6 +68,7 @@ export const GROUPES: Groupe[] = [
     entrees: [
       { href: "/factures", label: "Factures", icone: "facture" },
       { href: "/modeles", label: "Courriers et SMS", icone: "courrier" },
+      { href: "/relances", label: "Relances", icone: "horloge" },
     ],
   },
 ];
