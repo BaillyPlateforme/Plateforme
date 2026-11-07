@@ -32,6 +32,7 @@ const P: Record<string, string> = {
   horloge: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   tendance: '<path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
   etoile: '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z"/>',
+  badge: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16a3.4 3.4 0 0 1 6.4 0M14.5 10h4M14.5 13.5h3"/>',
 };
 
 export type NomIcone = keyof typeof P;

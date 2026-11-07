@@ -1,0 +1,201 @@
+/*
+ * L'agrandissement d'une photo : plein écran, fond sombre, la photo au
+ * centre et ses faits dessous. Autonome (il s'ouvre dans l'outil terrain
+ * comme dans la galerie du CRM, qui n'ont pas la même feuille racine).
+ */
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: rgba(12, 9, 24, 0.96);
+  color: #fff;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.haut {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px 18px;
+}
+.compteur {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+}
+.rond {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+.rond:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+/* La scène a la hauteur que lui laisse la grille (ligne minmax(0, 1fr)) : la photo s'y loge, jamais au-delà. */
+.scene {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+}
+.image,
+.flou {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: calc(100% - 16px);
+  max-height: 100%;
+  border-radius: 10px;
+}
+.flou {
+  width: calc(100% - 16px);
+  height: 100%;
+  object-fit: contain;
+  filter: blur(6px);
+  opacity: 0.6;
+}
+.image {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.visible {
+  opacity: 1;
+}
+.precedente,
+.suivante {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.precedente {
+  left: 10px;
+}
+.suivante {
+  right: 10px;
+}
+.panneau {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 18px calc(16px + env(safe-area-inset-bottom));
+  border-radius: 22px 22px 0 0;
+  background: #1c1730;
+}
+.ligneHaut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.categorie {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #ede9fe;
+  color: #3b0764;
+}
+.apres {
+  background: #dcfce7;
+  color: #14532d;
+}
+.detail {
+  background: #fef3c7;
+  color: #713f12;
+}
+.demo {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fcd34d;
+}
+.auteur {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+.auteur span {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+.fait {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.fait svg {
+  flex: none;
+  margin-top: 2px;
+}
+.fait em {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.6);
+}
+.fait a {
+  color: #c4b5fd;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.attention {
+  color: #fcd34d;
+}
+.note {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 15px;
+  font-style: italic;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bouton:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
+.danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}

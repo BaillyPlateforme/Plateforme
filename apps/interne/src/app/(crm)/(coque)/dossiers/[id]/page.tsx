@@ -8,6 +8,7 @@ import { eur, m3, nomClient, initiales, dateFr, ilYa, STATUTS, TYPES } from "@/c
 import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
 import { litiges as getLitiges } from "@/crm/lib/data2";
+import GalerieChantier from "@/terrain/composants/GalerieChantier";
 
 export const dynamic = "force-dynamic";
 
@@ -266,6 +267,9 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
             {d.activite.map((a: Row, i: number) => <li key={i} className={i === 0 ? "now" : "done"}><i />{a.libelle}<small>{a.initiales} · {ilYa(a.cree_le)}</small></li>)}
           </ul>
         </section>
+
+        {/* Outil terrain : les photos envoyées par les déménageurs (src/terrain). */}
+        <GalerieChantier dossierId={id} />
       </div>
     </div>
   );

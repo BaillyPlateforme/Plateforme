@@ -156,4 +156,28 @@ alter table crm.conteneurs enable row level security;
 alter table crm.conteneur_dossiers enable row level security;
 alter table crm.modeles_messages enable row level security;
 alter table crm.operations enable row level security;
+-- L'outil terrain des déménageurs (cahier des charges, §4) : un compte par
+-- déménageur (compte Supabase Auth, app_metadata.role = 'terrain'), et les
+-- photos de chantier, rangées dans le seau privé « photos-chantier ».
+-- Voir src/terrain/lib/agents.ts et photos.ts.
+create table if not exists crm.agents_terrain (
+  id serial primary key, auth_id uuid unique not null, identifiant text unique not null, email text unique not null,
+  prenom text not null, nom text, equipe text, interimaire boolean not null default false,
+  actif boolean not null default true, mdp_provisoire boolean not null default true, demo boolean not null default false,
+  cree_par text, cree_le timestamptz not null default now(), desactive_le timestamptz
+);
+create table if not exists crm.photos_chantier (
+  id serial primary key, cle uuid unique not null,
+  dossier_id int not null references crm.dossiers(id) on delete cascade,
+  agent_id int references crm.agents_terrain(id) on delete set null, utilisateur_id int references crm.utilisateurs(id) on delete set null,
+  auteur text not null, equipe text, categorie text not null check (categorie in ('avant','apres','detail')), note text,
+  prise_le timestamptz not null default now(), prise_appareil timestamptz,
+  latitude double precision, longitude double precision, precision_m real,
+  chemin text not null, chemin_vignette text, type text not null, taille int not null, largeur int, hauteur int,
+  demo boolean not null default false
+);
+create index if not exists idx_photos_chantier_dossier on crm.photos_chantier(dossier_id, prise_le desc);
+create index if not exists idx_photos_chantier_agent on crm.photos_chantier(agent_id, prise_le desc);
+alter table crm.agents_terrain enable row level security;
+alter table crm.photos_chantier enable row level security;
 `;
