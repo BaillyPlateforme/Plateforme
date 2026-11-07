@@ -1,10 +1,15 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { AiConfig } from "@/lib/ai-config";
 
 export async function saveAiConfig(input: AiConfig) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("ai_config").upsert(
     {

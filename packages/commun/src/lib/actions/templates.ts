@@ -1,5 +1,9 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { Channel, TemplateOptions } from "@/lib/messaging";
@@ -15,6 +19,7 @@ export interface TemplateInput {
 }
 
 export async function saveTemplate(id: string | null, input: TemplateInput) {
+  await exigerEquipe();
   const supabase = createServiceClient();
 
   const ecrire = async (valeurs: Record<string, unknown>) =>
@@ -36,6 +41,7 @@ export async function saveTemplate(id: string | null, input: TemplateInput) {
 }
 
 export async function deleteTemplate(id: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("message_templates").delete().eq("id", id);
   revalidatePath("/dashboard/messagerie");

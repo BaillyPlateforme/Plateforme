@@ -1,5 +1,9 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
@@ -36,6 +40,7 @@ async function nextReference(): Promise<string> {
 
 // Génère (et enregistre) un devis à partir d'une demande.
 export async function createDevisFromRequest(requestId: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", requestId).maybeSingle();
   if (!data) return;
@@ -76,6 +81,7 @@ export async function createDevisFromRequest(requestId: string) {
 }
 
 export async function updateDevisStatus(id: string, status: DevisStatus) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("devis").update({ status }).eq("id", id);
 
@@ -96,6 +102,7 @@ export async function updateDevisStatus(id: string, status: DevisStatus) {
 }
 
 export async function deleteDevis(id: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("devis").delete().eq("id", id);
   revalidatePath("/dashboard/devis");

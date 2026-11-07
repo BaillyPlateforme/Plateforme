@@ -1,11 +1,16 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 
 export async function uploadLibraryPhotos(formData: FormData) {
+  await exigerEquipe();
   const files = formData.getAll("files").filter((f): f is File => f instanceof File);
   if (files.length === 0) return;
   const supabase = createServiceClient();
@@ -26,6 +31,7 @@ export async function uploadLibraryPhotos(formData: FormData) {
 }
 
 export async function deleteLibraryPhoto(path: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.storage.from(env.libraryBucket()).remove([path]);
   revalidatePath("/dashboard/configuration");

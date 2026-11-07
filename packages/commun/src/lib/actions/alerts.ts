@@ -1,5 +1,9 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { checkBrevo, sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
@@ -22,6 +26,7 @@ export interface AlertInput {
 }
 
 export async function saveAlert(id: string | null, input: AlertInput) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   if (id) await supabase.from("alerts").update(input).eq("id", id);
   else await supabase.from("alerts").insert(input);
@@ -29,6 +34,7 @@ export async function saveAlert(id: string | null, input: AlertInput) {
 }
 
 export async function deleteAlert(id: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("alerts").delete().eq("id", id);
   revalidatePath("/dashboard/parametres");
@@ -36,11 +42,13 @@ export async function deleteAlert(id: string) {
 
 // Vérifie l'état de la connexion Brevo (bouton de test dans Paramètres).
 export async function testBrevo() {
+  await exigerEquipe();
   return checkBrevo();
 }
 
 // Envoi de test manuel (email ou SMS) vers une adresse/numéro.
 export async function sendTest(channel: Channel, to: string, message: string, subject?: string) {
+  await exigerEquipe();
   const settings = await getSettings();
   try {
     if (channel === "sms") {

@@ -1,5 +1,9 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
@@ -16,6 +20,7 @@ export interface EmailInput {
 
 // Envoie un email via Brevo et le journalise.
 export async function sendEmail(input: EmailInput) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   const settings = await getSettings();
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { createAuthClient } from "@/lib/supabase/auth";
+import { estMembreEquipe } from "@/lib/supabase/equipe";
 import { roleDuCompte } from "@/lib/supabase/roles";
 import { enregistrerSuivi } from "@/lib/suivi";
 import type { Suivi } from "@/lib/suivi-commun";
@@ -22,6 +23,8 @@ export async function modifierSuivi(
   } = await supabase.auth.getUser();
   // Ni un compte RH, ni un client de l'espace client : l'équipe seulement.
   if (!user || roleDuCompte(user.app_metadata) !== "equipe") return { erreur: "Session expirée : reconnectez-vous." };
+  // Sans rôle ne suffit pas (inscriptions ouvertes) : un membre actif de l'équipe.
+  if (!(await estMembreEquipe(user.email))) return { erreur: "Réservé à l'équipe Bailly." };
   if (!/^[0-9a-f-]{36}$/i.test(requestId)) return { erreur: "Demande inconnue" };
 
   try {

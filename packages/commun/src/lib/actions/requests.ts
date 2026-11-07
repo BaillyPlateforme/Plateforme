@@ -1,11 +1,16 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { estimerDemande } from "@/lib/pricing/engine";
 import type { RequestRow, RequestStatus } from "@/lib/types";
 
 export async function updateStatus(id: string, status: RequestStatus) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("requests").update({ status }).eq("id", id);
   await supabase.from("request_events").insert({
@@ -23,6 +28,7 @@ export async function updateScores(
   difficulte: number | null,
   notes: string | null,
 ) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase
     .from("requests")
@@ -39,6 +45,7 @@ export async function updateScores(
 
 // Rejoue le moteur sur la demande et enregistre l'estimation.
 export async function applyEstimation(id: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", id).maybeSingle();
   if (!data) return;
@@ -56,6 +63,7 @@ export async function applyEstimation(id: string) {
 
 // Déplacement dans le Kanban (change le statut selon la colonne cible).
 export async function moveRequestStage(id: string, stage: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   const map: Record<string, RequestRow["status"]> = {
     qualifier: "qualified",
@@ -74,6 +82,7 @@ export async function updateRequestFields(
   id: string,
   fields: Partial<Pick<RequestRow, "distance_km" | "formule">>,
 ) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("requests").update(fields).eq("id", id);
   revalidatePath(`/dashboard/${id}`);

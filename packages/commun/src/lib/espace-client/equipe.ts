@@ -1,14 +1,15 @@
 import "server-only";
 import { createAuthClient } from "@/lib/supabase/auth";
 import { roleDuCompte } from "@/lib/supabase/roles";
+import { estMembreEquipe } from "@/lib/supabase/equipe";
 import { demoEquipeActive } from "./config";
 import { avecDelai } from "./depot";
 
 /*
  * Qui est l'équipe, pour l'espace client.
  *
- * D'abord la session Supabase de la plateforme : un compte connecté qui n'est
- * ni un compte RH ni un compte de client. À défaut — et seulement quand le
+ * D'abord la session Supabase de la plateforme : un compte connecté sans rôle
+ * (ni RH, ni client, ni déménageur) ET membre actif de l'équipe (team_members). À défaut — et seulement quand le
  * back-office de démonstration est ouvert (données fictives en mémoire, en
  * développement ou sur demande) — l'équipe de démonstration. Un compte RH ou
  * un client n'y a jamais accès, démonstration ou pas.
@@ -23,6 +24,8 @@ export async function equipeConnectee(): Promise<Equipe | null> {
     const u = data.user;
     if (u) {
       if (roleDuCompte(u.app_metadata) !== "equipe") return null;
+      // Sans rôle ne suffit pas (inscriptions ouvertes) : un membre actif de team_members.
+      if (!(await estMembreEquipe(u.email))) return null;
       return { nom: u.email ?? "Équipe Bailly", demo: false };
     }
   } catch {

@@ -1,5 +1,9 @@
 "use server";
 
+import { exigerEquipe } from "@/lib/supabase/auth";
+// Chaque action revérifie la session et l'appartenance à l'équipe : une
+// action serveur peut être appelée depuis n'importe quelle adresse de l'app.
+
 import { env } from "@/lib/env";
 
 export interface LabEmail {
@@ -30,6 +34,7 @@ function applyForce(email: LabEmail, force?: ForceContact | null): LabEmail {
 
 // Envoie un email de test au webhook n8n (Lab bout-en-bout).
 export async function sendLabEmail(email: LabEmail, mode: LabMode = "prod", force?: ForceContact | null) {
+  await exigerEquipe();
   const payload = applyForce(email, force);
   try {
     const res = await fetch(webhookUrl(mode), {
@@ -62,6 +67,7 @@ export async function sendLabEmail(email: LabEmail, mode: LabMode = "prod", forc
 }
 
 export async function sendLabBatch(emails: LabEmail[], mode: LabMode = "prod", force?: ForceContact | null) {
+  await exigerEquipe();
   const results = await Promise.all(emails.map((e) => sendLabEmail(e, mode, force)));
   const ok = results.filter((r) => r.ok).length;
   return { ok, total: emails.length };

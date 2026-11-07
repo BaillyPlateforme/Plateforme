@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { roleDuCompte } from "./roles";
+import { estMembreEquipe } from "./equipe";
 
 // Client serveur lié à la session (cookies) — pour lire l'utilisateur connecté.
 export async function createAuthClient() {
@@ -79,6 +80,10 @@ export async function getAcces(): Promise<Acces | null> {
       espaceId: m.espace_id ?? "",
       nom: String((user.user_metadata as { nom?: string } | null)?.nom ?? ""),
     };
+  // Sans rôle ne suffit pas : les inscriptions Supabase sont ouvertes, et une
+  // action serveur peut être appelée depuis une adresse que le proxy laisse
+  // passer (la connexion). L'équipe, ce sont les membres actifs de team_members.
+  if (!(await estMembreEquipe(user.email))) return null;
   return { id: user.id, email: user.email ?? "", role: "equipe" };
 }
 
