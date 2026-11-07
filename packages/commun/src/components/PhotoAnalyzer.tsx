@@ -186,7 +186,7 @@ export default function PhotoAnalyzer({
                   <img src={p.url} alt="" className="h-full w-full object-cover" />
                   <span
                     className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs transition ${
-                      on ? "bg-brand text-sur-brand" : "bg-white/70 text-transparent group-hover:text-[#615f68]"
+                      on ? "bg-brand text-sur-brand" : "bg-white/70 text-transparent group-hover:text-ink-soft"
                     }`}
                   >
                     ✓

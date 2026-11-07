@@ -26,7 +26,7 @@ export default function AgendaPage() {
   );
 
   return (
-    <div className="px-5 py-5 md:px-7 md:py-6">
+    <div>
       {erreur ? (
         <Echec message={erreur} onRetry={recharger} />
       ) : !donnees ? (

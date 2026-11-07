@@ -202,7 +202,7 @@ export function Heatmap({ cells }: { cells: { date: string; value: number }[] })
   const max = Math.max(1, ...cells.map((c) => c.value));
   const weeks: { date: string; value: number }[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  const ramp = ["var(--color-subtle)", "#fff3bd", "#9d9aa3", "#45434a", "#1b1a18"];
+  const ramp = ["var(--color-subtle)", "var(--color-brand-soft)", "var(--chart-5)", "var(--color-ink-mid)", "var(--color-nuit)"];
   const level = (v: number) => (v === 0 ? 0 : Math.min(4, Math.ceil((v / max) * 4)));
   const jours = ["L", "M", "M", "J", "V", "S", "D"];
   return (

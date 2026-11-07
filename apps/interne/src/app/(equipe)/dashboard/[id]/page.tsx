@@ -43,7 +43,7 @@ export default async function RequestPage({
   const espaceClient = await dossierDeLaDemande(id);
 
   return (
-    <div className="px-5 py-5 md:px-7 md:py-6">
+    <div>
       <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
         ← Toutes les demandes
       </Link>

@@ -46,7 +46,7 @@ const ONGLETS = [
 type Onglet = (typeof ONGLETS)[number]["cle"];
 
 /** Quelques teintes de départ ; le champ accepte n'importe quel code. */
-const TEINTES = [COULEUR_BAILLY, "#0055a4", "#0b2a4a", "#00864a", "#d1232a", "#e2001a", "#f28c00", "#6b2d8b", "#1b1a18"];
+const TEINTES = [COULEUR_BAILLY, "#0055a4", "#0b2a4a", "#00864a", "#d1232a", "#e2001a", "#f28c00", "#6b2d8b", "var(--color-nuit)"];
 
 /** Le message type dont l'aperçu se sert pour montrer l'habillage du mail. */
 const MODELE_APERCU = `Bonjour {{client_nom}},
@@ -463,7 +463,7 @@ export default function EspacesBoard({
                         // eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API
                         <img src={urlLogo(brouillon) ?? ""} alt={brouillon.nom} className="max-h-full max-w-full object-contain" />
                       ) : (
-                        <span className="text-xs text-[#615f68]">Aucun logo</span>
+                        <span className="text-xs text-ink-soft">Aucun logo</span>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -1214,11 +1214,11 @@ function ApercuAccueil({ espace }: { espace: EspacePro }) {
   // hériter du thème sombre de l'espace équipe.
   const clair = (themeEspace(espace.couleur) ?? {
     "--color-brand": COULEUR_BAILLY,
-    "--color-sur-brand": "#1b1a18",
+    "--color-sur-brand": "var(--color-nuit)",
     "--color-brand-ink": "#8a6f00",
   }) as CSSProperties;
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-[#f6f5f2] p-5 text-[#1b1a18]" style={clair}>
+    <div className="overflow-hidden rounded-2xl border border-line bg-shell p-5 text-nuit" style={clair}>
       <div className="flex items-center gap-2.5">
         {espace.logo ? (
           // eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API
@@ -1226,14 +1226,14 @@ function ApercuAccueil({ espace }: { espace: EspacePro }) {
         ) : (
           <span className="max-w-[130px] truncate rounded-lg bg-brand px-2 py-1 text-[11.5px] font-bold text-sur-brand">{nomEnseigne(espace)}</span>
         )}
-        <span className="h-5 w-px bg-[#dad8d1]" />
+        <span className="h-5 w-px bg-line-strong" />
         <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[78px]" />
       </div>
       <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-ink">
         {espace.slug === "standard" ? "Espace pro" : `Espace ${espace.nom.replace(/^espace\s+/i, "")}`}
       </p>
       <p className="mt-2 text-[20px] font-bold leading-[1.12] tracking-[-0.02em]">{titreDe(espace)}</p>
-      <p className="mt-2.5 line-clamp-4 text-[12.5px] leading-relaxed text-[#615f68]">{messageDe(espace)}</p>
+      <p className="mt-2.5 line-clamp-4 text-[12.5px] leading-relaxed text-ink-soft">{messageDe(espace)}</p>
       <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-brand px-4 text-[12.5px] font-semibold text-sur-brand">
         Commencer ma demande →
       </span>

@@ -53,13 +53,19 @@ export function BackOffice({ porte, vue, id }: { porte: Porte; vue: Vue; id?: st
   const [apercu, setApercu] = useState<string | null>(null);
   return (
     <PorteProvider value={porte}>
-      <div className="px-5 py-5 md:px-7 md:py-6">
-        <div className="mb-4">
-          <p className="eyebrow text-ink-soft">Module 2</p>
-          <h1 className="mt-1 text-[26px] font-bold tracking-tight">Espace client</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">Les espaces des clients : accès, documents, devis, cartons, SAV — et ce qu&apos;il reste à faire, dossier par dossier.</p>
-        </div>
-        <Onglets vue={vue} />
+      {/* Dans le CRM, l'en-tête et les onglets sont ceux de la section (EnTeteSection) ;
+          la démo sans connexion garde les siens. */}
+      <div className={porte.demo ? "px-5 py-5 md:px-7 md:py-6" : undefined}>
+        {porte.demo && (
+          <>
+            <div className="mb-4">
+              <p className="eyebrow text-ink-soft">Module 2</p>
+              <h1 className="mt-1 text-[26px] font-bold tracking-tight">Espace client</h1>
+              <p className="mt-1 text-[13.5px] text-ink-soft">Les espaces des clients : accès, documents, devis, cartons, SAV — et ce qu&apos;il reste à faire, dossier par dossier.</p>
+            </div>
+            <Onglets vue={vue} />
+          </>
+        )}
         <Suspense>
           {vue === "dossiers" && <Apercu />}
           {vue === "nouveau" && <Nouveau ouvrirApercu={setApercu} />}

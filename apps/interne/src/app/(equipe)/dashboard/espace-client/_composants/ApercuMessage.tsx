@@ -31,7 +31,7 @@ export function ApercuMessage({ id, fermer }: { id: string; fermer: () => void }
         </div>
         {erreur && <p className="p-5 text-[13px] text-danger">Aperçu impossible : {erreur}</p>}
         {donnees?.canal === "sms" && <p className="m-5 max-w-[85%] rounded-2xl rounded-bl-md bg-subtle p-4 text-[14px] leading-relaxed">{donnees.texte}</p>}
-        {donnees?.html && <iframe title="Aperçu de l'e-mail" srcDoc={donnees.html} sandbox="allow-popups" className="h-[75vh] w-full border-0 bg-[#efece6]" />}
+        {donnees?.html && <iframe title="Aperçu de l'e-mail" srcDoc={donnees.html} sandbox="allow-popups" className="h-[75vh] w-full border-0 bg-subtle" />}
       </div>
     </div>
   );

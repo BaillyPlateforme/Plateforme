@@ -158,7 +158,7 @@ function TemplateEditor({
                   >
                     <span
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                        dedans ? "border-brand bg-brand text-[#1b1a18]" : "border-line-strong text-transparent"
+                        dedans ? "border-brand bg-brand text-nuit" : "border-line-strong text-transparent"
                       }`}
                     >
                       ✓
@@ -314,7 +314,7 @@ function Apercu({
           title="Aperçu du message"
           srcDoc={html}
           sandbox=""
-          className="h-[520px] w-full border-t border-line bg-[#f6f5f2]"
+          className="h-[520px] w-full border-t border-line bg-shell"
         />
       )}
     </div>

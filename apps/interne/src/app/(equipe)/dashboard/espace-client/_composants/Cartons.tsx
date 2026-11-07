@@ -79,7 +79,7 @@ export function Cartons() {
               <div className="grid gap-4 sm:grid-cols-4">
                 <div className="rounded-[18px] bg-ink p-5 text-white">
                   <p className="text-[12px] text-white/60">Cartons à préparer</p>
-                  <p className="mt-2 text-[38px] font-bold leading-none tabular-nums text-brand">{donnees.total}</p>
+                  <p className="mt-2 text-[38px] font-bold leading-none tabular-nums text-brand-clair">{donnees.total}</p>
                 </div>
                 <div className="rounded-[18px] bg-card p-5">
                   <p className="text-[12px] text-ink-soft">Clients à livrer</p>
@@ -127,7 +127,7 @@ export function Cartons() {
                         {donnees.livraisons.map((l) => (
                           <tr key={l.id}>
                             <td className="px-5 py-2.5">
-                              <span className={`grid size-7 place-items-center rounded-full text-[12px] font-bold ${l.ordre_passage ? "bg-brand text-[#1b1a18]" : "bg-subtle text-ink-soft"}`}>{l.ordre_passage ?? "–"}</span>
+                              <span className={`grid size-7 place-items-center rounded-full text-[12px] font-bold ${l.ordre_passage ? "bg-brand text-nuit" : "bg-subtle text-ink-soft"}`}>{l.ordre_passage ?? "–"}</span>
                             </td>
                             <td className="px-5 py-2.5">
                               <span className="font-medium">{l.contact_nom}</span>

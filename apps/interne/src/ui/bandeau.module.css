@@ -1,0 +1,161 @@
+/*
+ * Le bandeau d'une page : un aplat violet, l'emblème de Bailly en filigrane,
+ * un surtitre chiffré, un titre, une phrase et l'action principale — puis, à
+ * droite, quelques repères en verre. Le soin d'Athena, la palette « Fusion ».
+ */
+.bandeau {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 28px;
+  min-height: 176px;
+  padding: 30px 34px 32px;
+  border-radius: 26px;
+  color: #fff;
+  background:
+    radial-gradient(640px 320px at 88% 0%, rgba(196, 181, 253, 0.5), transparent 62%),
+    radial-gradient(520px 340px at 0% 110%, rgba(59, 7, 100, 0.65), transparent 60%),
+    linear-gradient(135deg, #4c1d95 0%, #6d28d9 48%, #8b5cf6 100%);
+  box-shadow: 0 30px 60px -38px rgba(76, 29, 149, 0.85);
+}
+/* L'emblème de Bailly, en blanc, très estompé. */
+.bandeau::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 4%;
+  top: 50%;
+  width: 300px;
+  height: 300px;
+  transform: translateY(-50%) rotate(-8deg);
+  background: #fff;
+  opacity: 0.13;
+  -webkit-mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
+  mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
+}
+/* Une trame fine, pour que l'aplat ne soit pas plat. */
+.bandeau::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  -webkit-mask-image: radial-gradient(ellipse at 20% 30%, #000 10%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 20% 30%, #000 10%, transparent 70%);
+}
+.surtitre {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+}
+.titre {
+  margin: 12px 0 0;
+  max-width: 24ch;
+  font-size: clamp(26px, 2.5vw, 36px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.texte {
+  margin: 12px 0 0;
+  max-width: 62ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+.bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 6px 0 20px;
+  border-radius: 999px;
+  background: #fff;
+  color: #17142b;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 14px 30px -16px rgba(23, 20, 43, 0.6);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.bouton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px -16px rgba(23, 20, 43, 0.7);
+}
+.bouton i {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #17142b;
+  color: #fff;
+  font-style: normal;
+}
+.secondaire {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  font-size: 14.5px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.secondaire:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.reperes {
+  display: grid;
+  gap: 10px;
+  min-width: 220px;
+}
+.repere {
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.repere small {
+  display: block;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.repere b {
+  display: block;
+  margin-top: 2px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 980px) {
+  .bandeau {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 26px 24px;
+  }
+  .reperes {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    min-width: 0;
+  }
+}

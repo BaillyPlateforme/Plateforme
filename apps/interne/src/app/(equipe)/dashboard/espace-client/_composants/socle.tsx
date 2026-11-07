@@ -69,7 +69,7 @@ export function Pastille({ ton = "neutre", children }: { ton?: Ton; children: Re
 
 const BOUTONS = {
   noir: "bg-accent text-white hover:bg-accent-dark",
-  jaune: "bg-brand text-[#1b1a18] hover:bg-brand-mid",
+  jaune: "bg-brand text-nuit hover:bg-brand-mid",
   contour: "border border-line-strong bg-card text-ink hover:border-ink",
   discret: "text-ink-soft hover:text-ink",
   danger: "border border-danger/30 bg-card text-danger hover:bg-danger-soft",

@@ -228,7 +228,7 @@ export function PhotoDropzone({
   return (
     <label className="group block cursor-pointer rounded-[22px] border-2 border-dashed border-line-strong bg-subtle/60 px-6 py-8 text-center transition-colors duration-200 hover:border-ink hover:bg-brand-soft">
       <input type="file" accept="image/*" multiple className="hidden" onChange={onPick} />
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] border border-line bg-card text-ink-mid transition-colors duration-200 group-hover:border-[#1b1a18] group-hover:bg-[#1b1a18] group-hover:text-brand-clair">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-[14px] border border-line bg-card text-ink-mid transition-colors duration-200 group-hover:border-nuit group-hover:bg-nuit group-hover:text-brand-clair">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <path d="m17 8-5-5-5 5" />

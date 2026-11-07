@@ -11,7 +11,7 @@ export default async function ClientPage({ params }: { params: Promise<{ email: 
   const [detail, devis] = await Promise.all([getClientDetail(email), listDevisForClient(email)]);
 
   return (
-    <div className="px-5 py-5 md:px-7 md:py-6">
+    <div>
       <Link href="/dashboard/clients" className="text-sm text-ink-soft transition hover:text-accent">
         ← Tous les clients
       </Link>

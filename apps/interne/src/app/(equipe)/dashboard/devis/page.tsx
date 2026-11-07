@@ -9,7 +9,7 @@ export default function DevisPage() {
   const { donnees, erreur, recharger } = useRessource<{ devis: DevisRow[] }>("/api/data/devis");
 
   return (
-    <div className="px-5 py-5 md:px-7 md:py-6">
+    <div>
       {erreur ? (
         <Echec message={erreur} onRetry={recharger} />
       ) : !donnees ? (

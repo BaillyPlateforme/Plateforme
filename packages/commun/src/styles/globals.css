@@ -18,6 +18,8 @@
   --color-card: #ffffff;
   --color-subtle: #f2f1ed;       /* bandeaux d'en-tête, champs, pistes */
   --color-ink: #1b1a18;
+  /* Les aplats sombres (cartes de nuit, pastilles) : le noir de la marque. */
+  --color-nuit: #1b1a18;
   --color-ink-soft: #615f68;     /* le gris de la marque — 6,2:1 sur blanc */
   --color-ink-mid: #45434a;
   --color-line: #e9e7e2;

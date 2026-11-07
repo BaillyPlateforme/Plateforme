@@ -4,11 +4,14 @@
    valeur mais une référence — les couleurs arrivaient à `undefined`, et les
    barres se dessinaient en noir. */
 export const TONS = {
-  foret: "#615f68",   /* le gris de la marque — lisible de jour comme de nuit */
-  abricot: "#f5d033", /* le jaune de la marque */
-  sauge: "#9d9aa3",
-  ardoise: "#45434a",
-  or: "#e0b81a",
-  mousse: "#a98a00",
-  brique: "#615f68",
+  /* Des variables plutôt que des couleurs : la palette suit le thème — noir
+     et jaune de la marque dans la feuille commune, violet « Fusion » dans
+     les sections de l'app interne. */
+  foret: "var(--color-ink-soft)",
+  abricot: "var(--color-brand)",
+  sauge: "var(--chart-5)",
+  ardoise: "var(--color-ink-mid)",
+  or: "var(--color-brand-mid)",
+  mousse: "var(--color-brand-dark)",
+  brique: "var(--color-ink-soft)",
 };

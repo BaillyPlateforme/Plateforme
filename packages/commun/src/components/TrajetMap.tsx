@@ -68,8 +68,8 @@ export default function TrajetMap({
       map = L.map(ref.current, { scrollWheelZoom: false, attributionControl: true });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, attribution: "© OpenStreetMap" }).addTo(map);
 
-      const or = "#a98a00";
-      const noir = "#1b1a18";
+      const or = "var(--color-brand-dark)";
+      const noir = "var(--color-nuit)";
 
       // Déménagement dans la même commune : sans adresse précise, les deux
       // points tombent au même endroit — le centre de la commune. Tracer une

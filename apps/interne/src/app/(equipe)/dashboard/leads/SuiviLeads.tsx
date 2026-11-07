@@ -53,9 +53,9 @@ function bornes(p: Periode, maintenant: Date): [Date, Date] | null {
 }
 
 const COULEUR: Record<Parcours, string> = {
-  particulier: "#f5d033",
-  mutation: "#615f68",
-  entreprise: "#1b1a18",
+  particulier: "var(--color-brand)",
+  mutation: "var(--color-ink-soft)",
+  entreprise: "var(--color-nuit)",
 };
 
 export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
@@ -120,7 +120,7 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
               type="button"
               onClick={() => setPeriode(p.key)}
               className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition ${
-                periode === p.key ? "bg-[#1b1a18] text-white" : "text-ink-mid hover:text-ink"
+                periode === p.key ? "bg-nuit text-white" : "text-ink-mid hover:text-ink"
               }`}
             >
               {p.label}
@@ -156,7 +156,7 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
         <button
           type="button"
           onClick={exporter}
-          className="inline-flex h-10 items-center gap-2 rounded-full bg-[#1b1a18] px-4 text-[13px] font-semibold text-white transition active:scale-[0.98]"
+          className="inline-flex h-10 items-center gap-2 rounded-full bg-nuit px-4 text-[13px] font-semibold text-white transition active:scale-[0.98]"
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
           Exporter
@@ -165,17 +165,17 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
 
       {/* ── Les indicateurs du tableau de Margaux ── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard label="Leads" value={k.leads} sub={`${k.entreprises} entreprise${k.entreprises > 1 ? "s" : ""}`} color="#f5d033" />
+        <KpiCard label="Leads" value={k.leads} sub={`${k.entreprises} entreprise${k.entreprises > 1 ? "s" : ""}`} color="var(--color-brand)" />
         <KpiCard
           label="Mutations"
           value={k.mutations}
           sub={k.leads ? `${Math.round((k.mutations / k.leads) * 100)} % des leads` : "—"}
-          color="#615f68"
+          color="var(--color-ink-soft)"
         />
-        <KpiCard label="Demandes Paris" value={k.paris} sub={`${eur(k.caParis)} réalisés`} color="#1b1a18" />
-        <KpiCard label="Devis en attente" value={k.devisAttente} sub={`${eur(k.caAttente)} en attente`} color="#e0b81a" />
+        <KpiCard label="Demandes Paris" value={k.paris} sub={`${eur(k.caParis)} réalisés`} color="var(--color-nuit)" />
+        <KpiCard label="Devis en attente" value={k.devisAttente} sub={`${eur(k.caAttente)} en attente`} color="var(--color-brand-mid)" />
         <KpiCard label="CA réalisé" value={k.caRealise} suffix=" €" sub={`${k.commandes} commande${k.commandes > 1 ? "s" : ""}`} color="#2e8b57" />
-        <KpiCard label="CA hors mutation" value={k.caHorsMutation} suffix=" €" sub="particuliers et entreprises" color="#a98a00" />
+        <KpiCard label="CA hors mutation" value={k.caHorsMutation} suffix=" €" sub="particuliers et entreprises" color="var(--color-brand-dark)" />
       </div>
 
       {/* ── Le flux, semaine par semaine ── */}
@@ -322,7 +322,7 @@ function LigneLead({
 
 function Pastille({ oui = false, children }: { oui?: boolean; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${oui ? "bg-[#1b1a18] text-brand" : "bg-subtle text-ink-soft"}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${oui ? "bg-nuit text-brand-clair" : "bg-subtle text-ink-soft"}`}>
       {children}
     </span>
   );

@@ -1,0 +1,73 @@
+/* Les onglets d'une section, sous son bandeau : des pilules, et « Plus » pour le reste. */
+.onglets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 18px 0 22px;
+  padding: 5px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #ece9f6;
+}
+.onglet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #5d5977;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.onglet:hover {
+  background: #f6f3fd;
+  color: #17142b;
+}
+.onglet[aria-current="page"],
+.onglet.actif {
+  background: #17142b;
+  color: #fff;
+}
+.plus {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  min-width: 230px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(23, 20, 43, 0.08);
+  box-shadow: 0 28px 60px -28px rgba(23, 20, 43, 0.5);
+}
+.menu a {
+  display: block;
+  padding: 9px 12px;
+  border-radius: 10px;
+  color: #3a3650;
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+}
+.menu a:hover {
+  background: #f8f6fd;
+}
+.menu a[aria-current="page"] {
+  background: #f3effd;
+  color: #5b21b6;
+  font-weight: 700;
+}

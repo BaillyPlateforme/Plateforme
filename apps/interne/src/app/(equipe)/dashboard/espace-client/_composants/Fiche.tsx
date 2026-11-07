@@ -45,9 +45,9 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
       </Link>
       <BandeauMode mode={donnees.mode} />
 
-      <header className="relative isolate overflow-hidden rounded-[18px] bg-[#1b1a18] p-6 text-white">
+      <header className="relative isolate overflow-hidden rounded-[18px] bg-nuit p-6 text-white">
         <div className="absolute inset-0 -z-20 bg-cover bg-center opacity-45" style={{ backgroundImage: `url('${dossier.photo}')` }} />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#1b1a18] via-[#1b1a18]/85 to-[#1b1a18]/30" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-nuit via-nuit/85 to-nuit/30" />
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="flex flex-wrap gap-1.5">
@@ -127,7 +127,7 @@ function Frise({ d }: { d: Donnees }) {
       <ol className="grid gap-2 sm:grid-cols-2">
         {d.frise.map((e, i) => (
           <li key={e.cle} className={`flex items-start gap-3 rounded-xl p-3 ${e.statut === "a_faire" ? (e.bloquante ? "bg-danger-soft/60" : "bg-brand-soft/60") : "bg-subtle/60"}`}>
-            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${e.statut === "fait" ? "bg-ink text-white" : e.statut === "a_faire" ? "bg-brand text-[#1b1a18]" : "bg-line text-ink-soft"}`}>{e.statut === "fait" ? "✓" : i + 1}</span>
+            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${e.statut === "fait" ? "bg-ink text-white" : e.statut === "a_faire" ? "bg-brand text-nuit" : "bg-line text-ink-soft"}`}>{e.statut === "fait" ? "✓" : i + 1}</span>
             <span className="min-w-0">
               <span className="block text-[13px] font-semibold leading-tight">
                 {e.titre} {e.bloquante && e.statut !== "fait" && <span className="text-[10.5px] font-bold uppercase tracking-wider text-danger">· bloquant</span>}

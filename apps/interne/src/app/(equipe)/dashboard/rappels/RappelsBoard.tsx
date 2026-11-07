@@ -17,7 +17,7 @@ const eur = (n: number) => `${Math.round(n).toLocaleString("fr-FR")} €`;
 
 /** Le ton de la pastille de priorité : chaud quand le dossier pèse. */
 function tonPriorite(p: number) {
-  if (p >= 70) return "bg-brand text-[#1b1a18]";
+  if (p >= 70) return "bg-brand text-nuit";
   if (p >= 40) return "bg-brand-soft text-brand-ink";
   return "bg-subtle text-ink-soft";
 }

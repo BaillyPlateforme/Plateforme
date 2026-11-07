@@ -9,7 +9,7 @@ const TABS = ["Vue d'ensemble", "Mails", "Formulaire", "Heatmap", "Analyse", "Fo
 type Tab = (typeof TABS)[number];
 
 const CATC: Record<string, string> = {
-  new: "#9d9aa3", analyzing: "#e0b81a", qualified: "#1b1a18", quoted: "#f5d033", won: "#f5d033", lost: "#c6362c", archived: "#dad8d1",
+  new: "var(--chart-5)", analyzing: "var(--color-brand-mid)", qualified: "var(--color-nuit)", quoted: "var(--color-brand)", won: "var(--color-brand)", lost: "#c6362c", archived: "#dad8d1",
 };
 
 const isComplete = (r: RequestRow) => r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville && !r.completion_token;
@@ -114,16 +114,16 @@ function Overview({ requests }: { requests: RequestRow[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-        <KpiCard label="Demandes" value={total} sub="Total reçues" color="#f5d033" />
-        <KpiCard label="Complètes" value={completes} sub={`${total - completes} incomplètes`} color="#1b1a18" />
-        <KpiCard label="Taux complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complètes ÷ reçues" color="#e0b81a" />
-        <KpiCard label="Score moyen" value={scoreMoyen} suffix=" /100" decimals={1} sub="Qualité" color="#f5d033" />
-        <KpiCard label="CA potentiel" value={caPot} suffix=" €" sub="Estimations cumulées" color="#45434a" />
-        <KpiCard label="Gagnés" value={gagnes} sub={`sur ${devis} devis`} color="#f5d033" />
+        <KpiCard label="Demandes" value={total} sub="Total reçues" color="var(--color-brand)" />
+        <KpiCard label="Complètes" value={completes} sub={`${total - completes} incomplètes`} color="var(--color-nuit)" />
+        <KpiCard label="Taux complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complètes ÷ reçues" color="var(--color-brand-mid)" />
+        <KpiCard label="Score moyen" value={scoreMoyen} suffix=" /100" decimals={1} sub="Qualité" color="var(--color-brand)" />
+        <KpiCard label="CA potentiel" value={caPot} suffix=" €" sub="Estimations cumulées" color="var(--color-ink-mid)" />
+        <KpiCard label="Gagnés" value={gagnes} sub={`sur ${devis} devis`} color="var(--color-brand)" />
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel title="Demandes & qualification" hint="Reçues vs qualifiées · 30 j" wide>
-          <MultiAreaTrend labels={labels} series={[{ name: "Reçues", color: "#f5d033", data: recues }, { name: "Qualifiées", color: "#1b1a18", data: qualifiees }]} />
+          <MultiAreaTrend labels={labels} series={[{ name: "Reçues", color: "var(--color-brand)", data: recues }, { name: "Qualifiées", color: "var(--color-nuit)", data: qualifiees }]} />
         </Panel>
         <Panel title="Répartition par statut" hint="Part de chaque étape">
           <Donut data={statutSlices} centerLabel="demandes" size={190} />
@@ -154,14 +154,14 @@ function SourceTab({ requests, source }: { requests: RequestRow[]; source: "emai
   // Champs manquants (parmi incomplètes)
   const inc = rs.filter((r) => !isComplete(r));
   const manque = [
-    { label: "Volume", value: inc.filter((r) => r.volume_m3 == null).length, color: "#e0b81a" },
-    { label: "Adresse départ", value: inc.filter((r) => !r.depart_ville).length, color: "#f5d033" },
-    { label: "Adresse arrivée", value: inc.filter((r) => !r.arrivee_ville).length, color: "#45434a" },
+    { label: "Volume", value: inc.filter((r) => r.volume_m3 == null).length, color: "var(--color-brand-mid)" },
+    { label: "Adresse départ", value: inc.filter((r) => !r.depart_ville).length, color: "var(--color-brand)" },
+    { label: "Adresse arrivée", value: inc.filter((r) => !r.arrivee_ville).length, color: "var(--color-ink-mid)" },
   ].filter((m) => m.value > 0);
 
   const complSlices: Slice[] = [
-    { label: "Complètes", value: completes, color: "#f5d033" },
-    { label: "Incomplètes", value: incompletes, color: "#e0b81a" },
+    { label: "Complètes", value: completes, color: "var(--color-brand)" },
+    { label: "Incomplètes", value: incompletes, color: "var(--color-brand-mid)" },
   ].filter((s) => s.value > 0);
 
   if (source === "email") {
@@ -169,15 +169,15 @@ function SourceTab({ requests, source }: { requests: RequestRow[]; source: "emai
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <KpiCard label="Mails reçus" value={total} sub="Source e-mail" color="#f5d033" />
-          <KpiCard label="Complets" value={completes} sub="Prêts à qualifier" color="#f5d033" />
-          <KpiCard label="Incomplets" value={incompletes} sub="Relance envoyée" color="#e0b81a" />
-          <KpiCard label="Taux complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complets ÷ reçus" color="#1b1a18" />
-          <KpiCard label="Score moyen" value={scoreMoyen} suffix=" /100" decimals={1} sub="Qualité" color="#45434a" />
+          <KpiCard label="Mails reçus" value={total} sub="Source e-mail" color="var(--color-brand)" />
+          <KpiCard label="Complets" value={completes} sub="Prêts à qualifier" color="var(--color-brand)" />
+          <KpiCard label="Incomplets" value={incompletes} sub="Relance envoyée" color="var(--color-brand-mid)" />
+          <KpiCard label="Taux complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complets ÷ reçus" color="var(--color-nuit)" />
+          <KpiCard label="Score moyen" value={scoreMoyen} suffix=" /100" decimals={1} sub="Qualité" color="var(--color-ink-mid)" />
         </div>
         <div className="grid gap-6 lg:grid-cols-3">
           <Panel title="Mails reçus vs complets" hint="30 derniers jours" wide>
-            <MultiAreaTrend labels={labels} series={[{ name: "Reçus", color: "#f5d033", data: recues }, { name: "Complets", color: "#f5d033", data: complets30 }]} />
+            <MultiAreaTrend labels={labels} series={[{ name: "Reçus", color: "var(--color-brand)", data: recues }, { name: "Complets", color: "var(--color-brand)", data: complets30 }]} />
           </Panel>
           <Panel title="Complétude" hint="Complets vs incomplets"><Donut data={complSlices} centerLabel="mails" size={180} /></Panel>
         </div>
@@ -194,25 +194,25 @@ function SourceTab({ requests, source }: { requests: RequestRow[]; source: "emai
   const complet = total - express;
   const volMoyen = round1(avg(rs.filter((r) => r.volume_m3 != null).map((r) => r.volume_m3!)));
   const typeSlices: Slice[] = [
-    { label: "Express", value: express, color: "#1b1a18" },
-    { label: "Complet", value: complet, color: "#f5d033" },
+    { label: "Express", value: express, color: "var(--color-nuit)" },
+    { label: "Complet", value: complet, color: "var(--color-brand)" },
   ].filter((s) => s.value > 0);
   const formuleBars = [
-    { key: "eco", label: "Éco", color: "#9d9aa3" }, { key: "standard", label: "Standard", color: "#1b1a18" }, { key: "luxe", label: "Confort", color: "#f5d033" },
+    { key: "eco", label: "Éco", color: "var(--chart-5)" }, { key: "standard", label: "Standard", color: "var(--color-nuit)" }, { key: "luxe", label: "Confort", color: "var(--color-brand)" },
   ].map((f) => ({ label: f.label, value: rs.filter((r) => r.formule === f.key).length, color: f.color })).filter((b) => b.value > 0);
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <KpiCard label="Formulaires" value={total} sub="Source formulaire" color="#1b1a18" />
-        <KpiCard label="Express" value={express} sub="Devis rapide" color="#f5d033" />
-        <KpiCard label="Complet" value={complet} sub="Dossier détaillé" color="#45434a" />
-        <KpiCard label="Volume moyen" value={volMoyen} suffix=" m³" decimals={1} sub="Par demande" color="#f5d033" />
-        <KpiCard label="CA potentiel" value={caPot} suffix=" €" sub="Estimations" color="#e0b81a" />
+        <KpiCard label="Formulaires" value={total} sub="Source formulaire" color="var(--color-nuit)" />
+        <KpiCard label="Express" value={express} sub="Devis rapide" color="var(--color-brand)" />
+        <KpiCard label="Complet" value={complet} sub="Dossier détaillé" color="var(--color-ink-mid)" />
+        <KpiCard label="Volume moyen" value={volMoyen} suffix=" m³" decimals={1} sub="Par demande" color="var(--color-brand)" />
+        <KpiCard label="CA potentiel" value={caPot} suffix=" €" sub="Estimations" color="var(--color-brand-mid)" />
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
         <Panel title="Formulaires reçus" hint="30 derniers jours" wide>
-          <MultiAreaTrend labels={labels} series={[{ name: "Reçus", color: "#1b1a18", data: recues }, { name: "Complets", color: "#f5d033", data: complets30 }]} />
+          <MultiAreaTrend labels={labels} series={[{ name: "Reçus", color: "var(--color-nuit)", data: recues }, { name: "Complets", color: "var(--color-brand)", data: complets30 }]} />
         </Panel>
         <Panel title="Type de devis" hint="Express vs Complet"><Donut data={typeSlices} centerLabel="formulaires" size={180} /></Panel>
       </div>
@@ -278,10 +278,10 @@ function AnalyseTab({ requests }: { requests: RequestRow[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Score potentiel moyen" value={round1(avg(pot))} suffix=" /100" decimals={1} sub={`${pot.length} évaluées`} color="#1b1a18" />
-        <KpiCard label="Difficulté moyenne" value={round1(avg(dif))} suffix=" /100" decimals={1} sub="Complexité chantier" color="#e0b81a" />
-        <KpiCard label="Volume moyen" value={round1(avg(vol))} suffix=" m³" decimals={1} sub={`${vol.length} demandes`} color="#f5d033" />
-        <KpiCard label="Estimation moyenne" value={Math.round(avg(est))} suffix=" €" sub="Devis générés" color="#f5d033" />
+        <KpiCard label="Score potentiel moyen" value={round1(avg(pot))} suffix=" /100" decimals={1} sub={`${pot.length} évaluées`} color="var(--color-nuit)" />
+        <KpiCard label="Difficulté moyenne" value={round1(avg(dif))} suffix=" /100" decimals={1} sub="Complexité chantier" color="var(--color-brand-mid)" />
+        <KpiCard label="Volume moyen" value={round1(avg(vol))} suffix=" m³" decimals={1} sub={`${vol.length} demandes`} color="var(--color-brand)" />
+        <KpiCard label="Estimation moyenne" value={Math.round(avg(est))} suffix=" €" sub="Devis générés" color="var(--color-brand)" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Distribution du potentiel" hint="Répartition des scores /100"><BarList data={histogram(pot, [0, 20, 40, 60, 80, 100])} /></Panel>
@@ -296,9 +296,9 @@ function AnalyseTab({ requests }: { requests: RequestRow[] }) {
 /* ================= Formules ================= */
 function FormulesTab({ requests }: { requests: RequestRow[] }) {
   const defs = [
-    { key: "eco", label: "Éco", color: "#9d9aa3" },
-    { key: "standard", label: "Standard", color: "#1b1a18" },
-    { key: "luxe", label: "Confort", color: "#f5d033" },
+    { key: "eco", label: "Éco", color: "var(--chart-5)" },
+    { key: "standard", label: "Standard", color: "var(--color-nuit)" },
+    { key: "luxe", label: "Confort", color: "var(--color-brand)" },
   ];
   const rows = defs.map((f) => {
     const rs = requests.filter((r) => r.formule === f.key);
@@ -334,9 +334,9 @@ function GeoTab({ requests }: { requests: RequestRow[] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <KpiCard label="Distance moyenne" value={Math.round(avg(dist))} suffix=" km" sub={`${dist.length} trajets`} color="#f5d033" />
-        <KpiCard label="Villes de départ" value={new Set(requests.map((r) => r.depart_ville).filter(Boolean)).size} sub="distinctes" color="#1b1a18" />
-        <KpiCard label="Villes d'arrivée" value={new Set(requests.map((r) => r.arrivee_ville).filter(Boolean)).size} sub="distinctes" color="#f5d033" />
+        <KpiCard label="Distance moyenne" value={Math.round(avg(dist))} suffix=" km" sub={`${dist.length} trajets`} color="var(--color-brand)" />
+        <KpiCard label="Villes de départ" value={new Set(requests.map((r) => r.depart_ville).filter(Boolean)).size} sub="distinctes" color="var(--color-nuit)" />
+        <KpiCard label="Villes d'arrivée" value={new Set(requests.map((r) => r.arrivee_ville).filter(Boolean)).size} sub="distinctes" color="var(--color-brand)" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Top villes de départ"><BarList data={topMap(requests, (r) => r.depart_ville, 8)} /></Panel>
@@ -358,20 +358,20 @@ function ConversionTab({ requests }: { requests: RequestRow[] }) {
   const devis = requests.filter((r) => ["quoted", "won"].includes(r.status)).length;
   const gagnes = requests.filter((r) => r.status === "won").length;
   const steps = [
-    { label: "Reçues", value: total, color: "#9d9aa3" },
-    { label: "Complètes", value: completes, color: "#1b1a18" },
-    { label: "Qualifiées", value: qualifiees, color: "#f5d033" },
-    { label: "Devis envoyés", value: devis, color: "#e0b81a" },
-    { label: "Gagnées", value: gagnes, color: "#f5d033" },
+    { label: "Reçues", value: total, color: "var(--chart-5)" },
+    { label: "Complètes", value: completes, color: "var(--color-nuit)" },
+    { label: "Qualifiées", value: qualifiees, color: "var(--color-brand)" },
+    { label: "Devis envoyés", value: devis, color: "var(--color-brand-mid)" },
+    { label: "Gagnées", value: gagnes, color: "var(--color-brand)" },
   ];
   const decided = requests.filter((r) => ["won", "lost"].includes(r.status)).length;
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Taux de complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complètes ÷ reçues" color="#1b1a18" />
-        <KpiCard label="Taux de qualification" value={completes ? round1((qualifiees / completes) * 100) : 0} suffix=" %" decimals={1} sub="Qualifiées ÷ complètes" color="#f5d033" />
-        <KpiCard label="Taux de conversion" value={decided ? round1((gagnes / decided) * 100) : 0} suffix=" %" decimals={1} sub="Gagnées ÷ décidées" color="#f5d033" />
-        <KpiCard label="Affaires gagnées" value={gagnes} sub={`sur ${total} demandes`} color="#e0b81a" />
+        <KpiCard label="Taux de complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complètes ÷ reçues" color="var(--color-nuit)" />
+        <KpiCard label="Taux de qualification" value={completes ? round1((qualifiees / completes) * 100) : 0} suffix=" %" decimals={1} sub="Qualifiées ÷ complètes" color="var(--color-brand)" />
+        <KpiCard label="Taux de conversion" value={decided ? round1((gagnes / decided) * 100) : 0} suffix=" %" decimals={1} sub="Gagnées ÷ décidées" color="var(--color-brand)" />
+        <KpiCard label="Affaires gagnées" value={gagnes} sub={`sur ${total} demandes`} color="var(--color-brand-mid)" />
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Entonnoir de conversion" hint="De la réception à la signature"><Funnel steps={steps} /></Panel>
