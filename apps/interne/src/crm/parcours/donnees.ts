@@ -256,6 +256,11 @@ export async function parcoursDossier(id: number) {
     q("select id,objet,statut,ouvert_le,montant::float8 as montant from litiges where dossier_id=$1 order by ouvert_le,id", [id]),
     q1<{ photos: number; objets: number }>("select (select count(*) from photos_chantier where dossier_id=$1)::int as photos, (select count(*) from inventaire where dossier_id=$1)::int as objets", [id]),
   ]);
+  // Les visites techniques saisies sur la tablette (module des visites) : leur compte-rendu signé.
+  const visitesSignees = await q(
+    "select v.id, v.signe_le, v.signataire, u.nom as commercial from visites v left join utilisateurs u on u.id=v.commercial_id where v.dossier_id=$1 and v.statut='signee' order by v.signe_le",
+    [id],
+  ).catch(() => [] as Row[]);
   if (!d) return null;
 
   // La demande du site, par la clé de service. Jamais bloquante : sans elle, le parcours reste lisible.
@@ -363,6 +368,22 @@ export async function parcoursDossier(id: number) {
       icone: visite ? "oeil" : "calendrier",
       href: `/planning?semaine=${lundi(new Date(r.debut))}`,
       lien: "Planning commercial",
+    });
+  }
+
+  // Le compte-rendu de visite, signé par le client sur la tablette.
+  for (const v of visitesSignees) {
+    pousser({
+      id: `visite-${v.id}`,
+      quand: ISO(v.signe_le)!,
+      jour: false,
+      titre: "Compte-rendu de visite signé",
+      detail: v.signataire ? `Signé par ${v.signataire}` : "",
+      auteur: v.commercial,
+      famille: "rdv",
+      icone: "oeil",
+      href: `/api/visites/${v.id}/compte-rendu`,
+      lien: "Compte-rendu (PDF)",
     });
   }
 
@@ -489,7 +510,11 @@ export async function parcoursDossier(id: number) {
 
   /* ── Les étapes ── */
   const rv = rdvs.filter((r) => r.type === "phys" || r.type === "visio");
-  const faite = [...rv].reverse().find((r) => +new Date(r.debut) <= maintenant);
+  // Une visite dont le compte-rendu est signé est faite, même si son rendez-vous est encore à venir au planning.
+  const derniereSignee = visitesSignees[visitesSignees.length - 1];
+  const faite = derniereSignee
+    ? { debut: derniereSignee.signe_le, type: "phys", commercial: derniereSignee.commercial }
+    : [...rv].reverse().find((r) => +new Date(r.debut) <= maintenant);
   const prevue = rv.find((r) => +new Date(r.debut) > maintenant);
   const qualif = demande?.events.filter((e) => e.type === "status_changed" && ["qualified", "quoted", "won"].includes(String((e.payload as Row)?.status))).map((e) => e.created_at).sort()[0] ?? null;
   const faits = faitsDe(
