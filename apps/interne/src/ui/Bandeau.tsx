@@ -77,12 +77,13 @@ export default function Bandeau({
 }
 
 /** Des pilules de verre, dans la bande (le bas du bandeau) : filtres et sous-vues d'une page. */
-export function Pilules({ items, label }: { items: { href: string; label: string; actif?: boolean }[]; label: string }) {
+export function Pilules({ items, label }: { items: { href: string; label: string; actif?: boolean; nombre?: number }[]; label: string }) {
   return (
     <nav className={s.pilules} aria-label={label}>
       {items.map((i) => (
         <Link key={i.href} href={i.href} className={s.pilule} aria-current={i.actif ? "page" : undefined}>
           {i.label}
+          {i.nombre !== undefined && <i className={s.nombre}>{i.nombre}</i>}
         </Link>
       ))}
     </nav>

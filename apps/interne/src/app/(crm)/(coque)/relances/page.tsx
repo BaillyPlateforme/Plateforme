@@ -1,10 +1,9 @@
 import Link from "next/link";
-import Bandeau from "@/ui/Bandeau";
+import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { currentUser } from "@/crm/lib/auth";
 import { CATALOGUE, lignesCatalogue, raisonDeNePasEnvoyer } from "@/crm/messages/catalogue";
 import { listerRelances, reglesRelances, RELANCES } from "@/crm/relances/moteur";
 import Kanban, { type RegleVue } from "@/crm/relances/Kanban";
-import s from "@/crm/messages/messages.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -34,23 +33,21 @@ export default async function Relances({ searchParams }: { searchParams: Promise
   return (
     <div className="view">
       <Bandeau
-        surtitre="Gestion"
+        surtitre="Commercial · Relances"
         titre="Relances"
-        texte={dues ? `${dues} relance${dues > 1 ? "s" : ""} à faire aujourd'hui ou en retard. La tâche de la veille les envoie ; vous pouvez aussi les repousser, les annuler ou les envoyer tout de suite.` : "Aucune relance à faire aujourd'hui. La tâche de la veille envoie chaque relance à sa date."}
-        secondaire={{ label: "Courriers et SMS", href: "/modeles" }}
-      />
-      <nav className={s.filtres} aria-label="Type de relance">
-        <div className={s.groupe}>
-          <Link className={s.pilule} href="/relances" aria-current={!type ? "page" : undefined}>
-            Toutes <i>{toutes.length}</i>
-          </Link>
-          {RELANCES.map((d) => (
-            <Link key={d.type} className={s.pilule} href={`/relances?type=${d.type}`} aria-current={type === d.type ? "page" : undefined}>
-              {d.libelle} <i>{toutes.filter((r) => r.type === d.type).length}</i>
-            </Link>
-          ))}
-        </div>
-      </nav>
+        texte={dues ? `${dues} relance${dues > 1 ? "s" : ""} à faire aujourd’hui ou en retard` : "Aucune relance à faire aujourd’hui"}
+        bas={
+          <Pilules
+            label="Type de relance"
+            items={[
+              { href: "/relances", label: "Toutes", actif: !type, nombre: toutes.length },
+              ...RELANCES.map((d) => ({ href: `/relances?type=${d.type}`, label: d.libelle, actif: type === d.type, nombre: toutes.filter((r) => r.type === d.type).length })),
+            ]}
+          />
+        }
+      >
+        <Link href="/modeles" data-ton="contour">Courriers et SMS</Link>
+      </Bandeau>
       <Kanban relances={relances} regles={vues} />
     </div>
   );

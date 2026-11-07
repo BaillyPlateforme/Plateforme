@@ -321,6 +321,22 @@
   color: #fff;
 }
 
+.pilule .nombre {
+  margin-left: 7px;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+}
+.pilule[aria-current="page"] .nombre {
+  background: #ece8ff;
+  color: #4b2fe0;
+}
+
 /* Une flèche (semaine précédente / suivante) : un rond de verre. */
 .actions :global(a[data-ton="fleche"]) {
   display: grid;

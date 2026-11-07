@@ -1,9 +1,8 @@
 import Link from "next/link";
-import Bandeau from "@/ui/Bandeau";
+import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { etatEnvois } from "@/lib/envois";
 import { cartesMessages } from "@/crm/messages/donnees";
 import Marketplace from "@/crm/messages/Marketplace";
-import s from "@/crm/messages/messages.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -36,33 +35,27 @@ export default async function Modeles({ searchParams }: { searchParams: Promise<
   return (
     <div className="view">
       <Bandeau
-        surtitre="Gestion"
+        surtitre="Réglages · Courriers et SMS"
         titre="Courriers et SMS"
-        texte={`Chaque message de la plateforme, du questionnaire au SAV : ${actifs} actifs sur ${cartes.length}${aValider ? `, ${aValider} textes à valider` : ""}. Envois : ${envois.libelle.toLowerCase()}.`}
-        secondaire={{ label: "Relances", href: "/relances" }}
-      />
-      <nav className={s.filtres} aria-label="Filtres">
-        <div className={s.groupe}>
-          <small>Étape</small>
-          <Link className={s.pilule} href={lien({ etape: null })} aria-current={!etape ? "page" : undefined}>
-            Toutes <i>{cartes.filter((c) => !canal || c.canal === canal).length}</i>
-          </Link>
-          {etapes.map((e) => {
-            const n = cartes.filter((c) => c.etape === e.cle && (!canal || c.canal === canal)).length;
-            return n ? (
-              <Link key={e.cle} className={s.pilule} href={lien({ etape: e.cle })} aria-current={etape === e.cle ? "page" : undefined}>
-                {e.libelle} <i>{n}</i>
-              </Link>
-            ) : null;
-          })}
-        </div>
-        <div className={s.groupe}>
-          <small>Canal</small>
-          <Link className={s.pilule} href={lien({ canal: null })} aria-current={!canal ? "page" : undefined}>Tous</Link>
-          <Link className={s.pilule} href={lien({ canal: "email" })} aria-current={canal === "email" ? "page" : undefined}>E-mail</Link>
-          <Link className={s.pilule} href={lien({ canal: "sms" })} aria-current={canal === "sms" ? "page" : undefined}>SMS</Link>
-        </div>
-      </nav>
+        texte={`${actifs} messages actifs sur ${cartes.length}${aValider ? ` · ${aValider} textes à valider` : ""} · envois : ${envois.libelle.toLowerCase()}`}
+        bas={
+          <Pilules
+            label="Étape"
+            items={[
+              { href: lien({ etape: null }), label: "Toutes", actif: !etape, nombre: cartes.filter((c) => !canal || c.canal === canal).length },
+              ...etapes
+                .map((e) => ({ e, n: cartes.filter((c) => c.etape === e.cle && (!canal || c.canal === canal)).length }))
+                .filter((x) => x.n > 0)
+                .map(({ e, n }) => ({ href: lien({ etape: e.cle }), label: e.libelle, actif: etape === e.cle, nombre: n })),
+            ]}
+          />
+        }
+      >
+        <Link href={lien({ canal: null })} data-ton={!canal ? "plein" : "contour"}>Tous</Link>
+        <Link href={lien({ canal: "email" })} data-ton={canal === "email" ? "plein" : "contour"}>E-mail</Link>
+        <Link href={lien({ canal: "sms" })} data-ton={canal === "sms" ? "plein" : "contour"}>SMS</Link>
+        <Link href="/relances" data-ton="contour">Relances</Link>
+      </Bandeau>
       <Marketplace cartes={visibles} etapes={etapes} />
     </div>
   );

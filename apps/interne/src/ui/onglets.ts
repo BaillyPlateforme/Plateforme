@@ -42,7 +42,7 @@ export function cleDe(chemin: string): string | null {
   if ((m = chemin.match(/^\/conteneurs\/(\d+)/))) return `conteneur:${m[1]}`;
   if (chemin === "/") return "page:/";
   if (chemin.startsWith("/dashboard/espace-client")) return "section:espace-client";
-  if (["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => chemin.startsWith(p))) return "section:reglages";
+  if (["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe", "/dashboard/envois"].some((p) => chemin.startsWith(p))) return "section:reglages";
   if (chemin.startsWith("/dashboard")) return "section:questionnaires";
   const premier = chemin.split("/")[1];
   return premier ? `page:/${premier}` : null;
