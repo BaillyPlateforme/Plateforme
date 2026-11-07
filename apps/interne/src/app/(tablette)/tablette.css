@@ -1,0 +1,87 @@
+/*
+ * La feuille racine de la tablette de visite : les couleurs et la remise à
+ * zéro, rien d'autre (le dessin vit dans src/crm/visites/tablette). Elle
+ * n'est chargée que par (tablette)/layout.tsx.
+ *
+ * Palette de l'app interne : indigo, violet, vert pour ce qui est fait,
+ * fond gris très clair. Les cibles font 48 px au moins : on tape au doigt,
+ * la tablette tenue à deux mains.
+ */
+:root {
+  --indigo: #4b2fe0;
+  --indigo-fonce: #2e1f9e;
+  --indigo-nuit: #1c1366;
+  --violet: #7a52ff;
+  --indigo-doux: #ece8ff;
+  --indigo-trait: #d5cdff;
+  --vert: #14c27d;
+  --vert-fonce: #0b7f50;
+  --vert-doux: #dcf7ea;
+  --ambre: #9a5b00;
+  --ambre-doux: #fff3d6;
+  --rouge: #c2352b;
+  --rouge-doux: #fde8e6;
+  --encre: #17152b;
+  --gris: #54516b;
+  --gris-clair: #8a879f;
+  --filet: #e4e2ee;
+  --fond: #f4f4f7;
+  --blanc: #fff;
+  --rayon: 18px;
+  --ombre: 0 1px 2px rgba(23, 21, 43, 0.05), 0 12px 32px -22px rgba(29, 22, 80, 0.45);
+  --police: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body.tablette {
+  min-height: 100dvh;
+  background: var(--fond);
+  color: var(--encre);
+  font: 500 16px/1.45 var(--police);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+  touch-action: manipulation;
+}
+
+img,
+svg {
+  display: block;
+}
+
+:focus-visible {
+  outline: 3px solid var(--indigo);
+  outline-offset: 2px;
+}

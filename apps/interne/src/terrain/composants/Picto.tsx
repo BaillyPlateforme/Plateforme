@@ -26,6 +26,18 @@ const P = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   calendrier: '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/>',
   bureau: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  // La tablette de visite technique (src/crm/visites/tablette).
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  moins: '<path d="M5 12h14"/>',
+  cube: '<path d="m21 7.5-9-5-9 5v9l9 5 9-5z"/><path d="m3.3 7.3 8.7 5 8.7-5M12 22V12.3"/>',
+  maison: '<path d="m3.5 11 8.5-7 8.5 7"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  nuage: '<path d="M7 18a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.5A3.8 3.8 0 0 1 17.5 18z"/><path d="m9.5 13.5 2 2 3.5-3.5"/>',
+  horsLigne: '<path d="M7 18a4.5 4.5 0 0 1-.6-9M10 6.3A6 6 0 0 1 17.8 10.5 3.8 3.8 0 0 1 19.6 17M3 3l18 18"/>',
+  plume: '<path d="M20 4c-6 0-11 4-12.5 10L6 20l6-1.5C18 17 20 10 20 4z"/><path d="M6 20 14 12"/>',
+  options: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  escalier: '<path d="M3 20h5v-4h4v-4h4V8h5"/>',
+  fragile: '<path d="M8 3h8l-.6 6a3.4 3.4 0 0 1-6.8 0z"/><path d="M12 12.5V21M8.5 21h7"/>',
+  outil: '<path d="M14.5 6.5a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3z"/><path d="m14.5 6.5 3-3 3 3-3 3"/>',
 } as const;
 
 export type NomPicto = keyof typeof P;
