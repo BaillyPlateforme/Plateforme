@@ -16,10 +16,14 @@ export type Item = { href: string; label: string; icon: React.ReactNode };
  *   les leads, les rappels, les statistiques, les espaces pro, les messages
  *   automatiques —, plus les outils qui règlent le chiffrage.
  * - Espace client : les dossiers des clients, de la visite au SAV.
- * - BaillyCRM : l'outil métier qui remplacera Créagidem ; il regroupe pour
- *   l'instant les devis, les clients et l'agenda.
+ * - BaillyCRM : l'outil métier qui remplacera Créagidem. Il occupe la racine
+ *   de l'app (/, /planning, /dossiers…) avec sa propre mise en page : ses
+ *   rubriques ouvrent le CRM, et la page se recharge en passant de l'un à
+ *   l'autre. Les devis, clients et agenda de l'espace équipe restent rangés à
+ *   part sous son menu.
  *
- * Les adresses ne changent pas : un lien déjà envoyé à l'équipe reste bon.
+ * Les adresses ne changent pas : un lien déjà envoyé à l'équipe reste bon
+ * (/dashboard/crm mène désormais au CRM).
  */
 export type Module = {
   cle: "questionnaires" | "espace-client" | "crm";
@@ -30,6 +34,8 @@ export type Module = {
   items: Item[];
   /** Les outils, rangés à part sous le menu. */
   outils?: Item[];
+  /** Le titre de ce second groupe, « Outils » par défaut. */
+  titreOutils?: string;
 };
 
 export const MODULES: Module[] = [
@@ -68,11 +74,23 @@ export const MODULES: Module[] = [
     cle: "crm",
     label: "BaillyCRM",
     sous: "L'outil métier",
-    accueil: "/dashboard/crm",
+    accueil: "/",
+    // Les rubriques du CRM, dans l'ordre de son propre menu.
     items: [
-      { href: "/dashboard/crm", label: "Vue d'ensemble", icon: <IconGrid /> },
-      { href: "/dashboard/devis", label: "Devis", icon: <IconDoc /> },
-      { href: "/dashboard/clients", label: "Clients", icon: <IconCard /> },
+      { href: "/tableau-de-bord", label: "Tableau de bord", icon: <IconGrid /> },
+      { href: "/planning", label: "Planning commercial", icon: <IconCalendar /> },
+      { href: "/dossiers", label: "Clients & dossiers", icon: <IconCard /> },
+      { href: "/visites", label: "Visites techniques", icon: <IconOeil /> },
+      { href: "/devis", label: "Devis", icon: <IconDoc /> },
+      { href: "/commandes", label: "Commandes", icon: <IconCoche /> },
+      { href: "/lettres-de-voiture", label: "Lettres de voiture", icon: <IconCamion /> },
+      { href: "/factures", label: "Factures", icon: <IconRecu /> },
+    ],
+    // Ce que le module rassemblait avant le CRM : des pages de l'espace équipe, qui restent où elles sont.
+    titreOutils: "Dans l'espace équipe",
+    outils: [
+      { href: "/dashboard/devis", label: "Devis du site", icon: <IconDoc /> },
+      { href: "/dashboard/clients", label: "Clients du site", icon: <IconCard /> },
       { href: "/dashboard/agenda", label: "Agenda", icon: <IconCalendar /> },
     ],
   },
@@ -172,7 +190,7 @@ export default function Nav({
         ))}
         {courant.outils && (
           <>
-            <p className="eyebrow px-3.5 pb-1.5 pt-4 text-ink-soft">Outils</p>
+            <p className="eyebrow px-3.5 pb-1.5 pt-4 text-ink-soft">{courant.titreOutils ?? "Outils"}</p>
             {courant.outils.map((l) => (
               <LienMenu key={l.href} item={l} actif={isActive(l.href)} onNaviguer={onNaviguer} petit />
             ))}
@@ -306,6 +324,10 @@ function IconBadge() { return <svg {...S}><circle cx="12" cy="9" r="6" /><path d
 function IconTeam() { return <svg {...S} width={17} height={17}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>; }
 function IconGear() { return <svg {...S} width={17} height={17}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>; }
 function IconSortie() { return <svg {...S}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></svg>; }
+function IconOeil() { return <svg {...S}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>; }
+function IconCoche() { return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="m8 12.5 2.8 2.8L16.5 9.5" /></svg>; }
+function IconCamion() { return <svg {...S}><path d="M2 5.5h12.5v10H2zM14.5 9h4l3 3v3.5h-7" /><circle cx="6" cy="17.5" r="2" /><circle cx="17.5" cy="17.5" r="2" /></svg>; }
+function IconRecu() { return <svg {...S}><path d="M5 2.5v19l2.5-1.5 2.5 1.5 2-1.5 2 1.5 2.5-1.5 2.5 1.5v-19z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>; }
 function IconBoite() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">

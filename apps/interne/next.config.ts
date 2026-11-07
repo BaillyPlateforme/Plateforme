@@ -11,8 +11,13 @@ const racine = path.resolve(process.cwd(), "..", "..");
 const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
+  /**
+   * La bulle de Next, en développement seulement : à gauche, elle couvrait le
+   * bouton « Équipe » en bas du rail du CRM.
+   */
+  devIndicators: { position: "bottom-right" },
   experimental: {
-    /** Deux mises en page racines (l'équipe, le CRM) : la 404 des adresses inconnues est autonome. */
+    /** Deux mises en page racines (le CRM à la racine, l'équipe sous /dashboard) : la 404 des adresses inconnues est autonome. */
     globalNotFound: true,
     /**
      * Cache de routeur côté client.

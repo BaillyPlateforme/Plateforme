@@ -18,7 +18,8 @@ export default async function LoginPage({
 }) {
   const { redirect } = await searchParams;
   // On n'accepte qu'une redirection interne, pour éviter les renvois vers un autre domaine.
-  const target = redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard";
+  // Sans redirection demandée, on entre par le CRM, qui occupe la racine de l'app.
+  const target = redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
 
   return (
     <div className="relative z-10 flex min-h-screen flex-col lg:flex-row">
