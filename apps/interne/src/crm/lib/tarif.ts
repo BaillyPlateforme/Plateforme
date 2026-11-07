@@ -30,7 +30,8 @@ export function emballages(volume: number) {
 }
 
 export interface Prestation { libelle: string; charge: "bailly" | "client" }
-const PRESTATIONS = [
+/** Les prestations du devis détaillé : la tablette de visite les reprend comme options à proposer. */
+export const PRESTATIONS = [
   "Fournitures nécessaires : cartons et adhésifs", "Emballage des objets fragiles (bacs plastiques, cartons à verres)", "Mise en penderies des vêtements sur cintres",
   "Démontage des meubles et remontage", "Protection du mobilier (housses, couvertures)", "Chargement et arrimage dans le camion", "Transport",
   "Déchargement et mise en place selon vos instructions", "Déballage des objets fragiles et de la vaisselle", "Déballage des livres, du linge et des objets non fragiles",

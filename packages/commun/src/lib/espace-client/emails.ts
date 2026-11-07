@@ -29,7 +29,8 @@ export type ModeleEmail =
   | "avarie_bailleur"
   | "message_conseiller"
   | "service_demande"
-  | "demande_avis";
+  | "demande_avis"
+  | "creneaux_visite";
 
 export interface Rendu {
   sujet: string;
@@ -256,6 +257,19 @@ ${encadre(url, "Accéder à mon espace client", [
           corps: `${bonjour}${p(`Votre déménagement <b>${s("trajet")}</b> est terminé. Merci de votre confiance !`)}${p("Votre avis nous aide à progresser et guide les prochains clients. Il ne vous prendra qu'une minute.")}${payload.lien_avis ? encadre(String(payload.lien_avis), "Donner mon avis") : p("<i>Le lien de dépôt d'avis sera fourni par l'outil métier de Bailly.</i>")}`,
         }),
       };
+
+    // La visite technique (§3.2) : les créneaux que le commercial propose, à choisir dans l'espace.
+    case "creneaux_visite": {
+      const creneaux = (Array.isArray(payload.creneaux) ? payload.creneaux : []).map(String);
+      return {
+        sujet: `Votre visite technique : ${creneaux.length} créneaux à choisir`,
+        texte: `Bonjour ${payload.salutation},\n\n${payload.conseiller} vous propose ${creneaux.length} créneaux pour la visite technique de votre déménagement :\n${creneaux.map((c) => `- ${c}`).join("\n")}\n\nChoisissez celui qui vous convient dans votre espace client : ${lien(payload.chemin)}\n\n${signature.nom}`,
+        html: cadre({
+          base, preheader: `${creneaux.length} créneaux proposés pour votre visite technique.`, signature,
+          corps: `${bonjour}${p(`${s("conseiller")} vous propose <b>${creneaux.length} créneaux</b> pour la visite technique de votre déménagement :`)}<ul style="margin:0 0 16px;padding-left:20px;">${creneaux.map((c) => `<li style="margin:0 0 6px;">${esc(c)}</li>`).join("")}</ul>${p("Choisissez celui qui vous convient depuis votre espace client. Aucun ne vous convient ? Vous pouvez y demander d'autres créneaux.")}${encadre(lien(payload.chemin), "Choisir mon créneau")}`,
+        }),
+      };
+    }
 
     default:
       return { sujet: String(payload.sujet ?? modele), texte: "", html: cadre({ base, preheader: "", signature, corps: p(esc(modele)) }) };

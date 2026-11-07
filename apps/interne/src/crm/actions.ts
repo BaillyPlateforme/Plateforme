@@ -212,5 +212,6 @@ export async function creerRdv(f: FormData) {
   refresh();
   redirect(`/planning?semaine=${debut.toISOString().slice(0, 10)}`);
 }
-export async function terminerRdv(rdv: number, devisEtabli: boolean) { await exiger(); await q("update rendez_vous set termine=true, devis_etabli=$2 where id=$1", [rdv, devisEtabli]); refresh(); }
-export async function supprimerRdv(rdv: number) { await exiger(); await q("delete from rendez_vous where id=$1", [rdv]); refresh(); }
+// Un rendez-vous de visite terminé ou supprimé : l'espace client du dossier suit (visite technique, migration 0013).
+export async function terminerRdv(rdv: number, devisEtabli: boolean) { await exiger(); const r = await q1<{ dossier_id: number | null }>("update rendez_vous set termine=true, devis_etabli=$2 where id=$1 returning dossier_id", [rdv, devisEtabli]); await projeterEspace(r?.dossier_id); refresh(); }
+export async function supprimerRdv(rdv: number) { await exiger(); const r = await q1<{ dossier_id: number | null }>("delete from rendez_vous where id=$1 returning dossier_id", [rdv]); await projeterEspace(r?.dossier_id); refresh(); }
