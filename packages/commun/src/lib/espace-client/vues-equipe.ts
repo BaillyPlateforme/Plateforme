@@ -3,6 +3,7 @@ import { CAPACITE_SAMEDI } from "./cartons";
 import { etatEnvois } from "@/lib/envois";
 import { envoisDesNotifications } from "@/lib/envois/journal";
 import { demoEquipeActive, estDemo, modeDonnees } from "./config";
+import { cleCatalogue, textesEspace } from "./catalogue-textes";
 import { lireDonnees } from "./depot";
 import { devisDeLaDemande, lireDemande, listerDemandes } from "./demandes";
 import { rendreEmail, texteSms } from "./emails";
@@ -248,11 +249,13 @@ export async function vueDemande(d: Donnees, id: string) {
   }
 }
 
-export function apercuNotification(d: Donnees, id: string, base: string) {
+export async function apercuNotification(d: Donnees, id: string, base: string) {
   const n = d.notifications.find((x) => x.id === id);
   if (!n) return null;
   if (n.canal === "sms") return { canal: "sms" as const, destinataire: n.destinataire, sujet: "SMS", texte: String(n.payload.texte ?? ""), html: null };
-  const r = rendreEmail(n.modele, n.payload, base);
+  // Le texte réglé aujourd'hui dans « Courriers et SMS » (celui d'hier n'est pas gardé : le journal garde les données, pas le rendu).
+  const t = (await textesEspace()).get(cleCatalogue(n.modele, "email"));
+  const r = rendreEmail(n.modele, n.payload, base, t?.corps?.trim() ? { objet: t.objet, corps: t.corps } : null);
   return { canal: "email" as const, destinataire: n.destinataire, sujet: r.sujet, texte: r.texte, html: r.html.replace("<head>", '<head><base target="_blank">') };
 }
 
@@ -280,7 +283,7 @@ export async function lireVue(chemin: string[], params: URLSearchParams, base: s
     case "nouveau":
       return vueNouveau(d);
     case "apercu-message":
-      return id ? apercuNotification(d, id, base) : null;
+      return id ? await apercuNotification(d, id, base) : null;
     default:
       return null;
   }

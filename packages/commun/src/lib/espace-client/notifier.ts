@@ -2,7 +2,9 @@ import "server-only";
 import { envoyerEmail, envoyerSms, type ResultatEnvoi } from "@/lib/envois";
 import { adressePublique, estDemo } from "./config";
 import { depot, maintenant, nouvelId } from "./depot";
-import { rendreEmail } from "./emails";
+import { cleCatalogue, textesEspace } from "./catalogue-textes";
+import { rendreEmail, texteSms } from "./emails";
+import { texteEspace } from "./textes-messages";
 import type { CanalNotification, Notification } from "./types";
 
 /*
@@ -72,10 +74,17 @@ function statutDe(r: ResultatEnvoi): Notification["statut"] {
 }
 
 class NotifierJournal implements Notifier {
-  async envoyer(m: MessageSortant, options: OptionsEnvoi = {}): Promise<NotificationEnvoyee> {
+  async envoyer(m0: MessageSortant, options: OptionsEnvoi = {}): Promise<NotificationEnvoyee> {
     const base = await adressePublique();
     const id = nouvelId();
-    const rendu = m.canal === "email" ? rendreEmail(m.modele, m.payload, base) : null;
+    // Le texte réglé dans « Courriers et SMS », s'il y en a un, et l'état de sa carte.
+    const carte = (await textesEspace()).get(cleCatalogue(m0.modele, m0.canal)) ?? null;
+    const m: MessageSortant =
+      m0.canal === "sms" && carte?.corps?.trim() && texteEspace(m0.modele, "sms")
+        ? { ...m0, payload: { ...m0.payload, texte: texteSms(m0.modele as "creneau_cartons", m0.payload, carte.corps) } }
+        : m0;
+    const desactive = carte && !carte.actif && m.modele !== "acces" ? "Message désactivé dans « Courriers et SMS » : journalisé, rien n'est parti." : null;
+    const rendu = m.canal === "email" ? rendreEmail(m.modele, m.payload, base, carte?.corps?.trim() ? { objet: carte.objet, corps: carte.corps } : null) : null;
     const sujet = rendu?.sujet ?? "SMS";
     let statut: Notification["statut"] = "journalisee";
     let erreur: string | null = null;
@@ -92,7 +101,8 @@ class NotifierJournal implements Notifier {
         reference: dossier.reference,
         fictif: dossier.demo,
         notificationId: id,
-        retenu: options.retenu ?? null,
+        // Le lien d'accès ne se désactive jamais : sans lui, le client ne peut pas entrer.
+        retenu: options.retenu ?? desactive,
       };
       const r =
         rendu

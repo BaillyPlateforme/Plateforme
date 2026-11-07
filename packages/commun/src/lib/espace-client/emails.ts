@@ -17,6 +17,7 @@
 
 import { URL_INTERNE } from "@/lib/adresses";
 import { TEL_AGENCE } from "@/lib/messaging";
+import { paragraphesHtml, remplirTexte, texteEspace } from "./textes-messages";
 
 export type ModeleEmail =
   | "acces"
@@ -121,7 +122,27 @@ type Donnees = Record<string, unknown>;
 
 const SIGNATURE_DEFAUT: Signature = { nom: "L'équipe Bailly", role: "Service clients", telephone: TEL_AGENCE };
 
-export function rendreEmail(modele: string, payload: Donnees, base: string): Rendu {
+/** Le bouton des messages au client dont le texte se modifie : il reste dans le code. */
+const BOUTONS: Record<string, (d: Donnees, lien: (chemin: unknown) => string) => { url: string; label: string } | null> = {
+  document_depose: (d, lien) => ({ url: lien(d.chemin), label: "Consulter mes documents" }),
+  paiement_confirme: (d, lien) => ({ url: lien(d.chemin), label: "Voir mes factures" }),
+  avarie_recue: (d, lien) => ({ url: lien(d.chemin), label: "Suivre ma déclaration" }),
+  demande_avis: (d) => (d.lien_avis ? { url: String(d.lien_avis), label: "Donner mon avis" } : null),
+};
+
+/** La ligne grise que les boîtes affichent à côté de l'objet. */
+const PREHEADERS: Record<string, (d: Donnees) => string> = {
+  document_depose: (d) => `${d.document} est disponible dans votre espace.`,
+  creneau_cartons: (d) => `Créneau de livraison : ${d.debut} – ${d.fin}.`,
+  paiement_confirme: (d) => `Paiement de ${d.montant} bien reçu.`,
+  avarie_recue: (d) => `Déclaration ${d.numero} enregistrée.`,
+  demande_avis: () => "Merci de votre confiance.",
+};
+
+/** Un texte venu de « Courriers et SMS » (crm.modeles_messages), à la place du texte de départ. */
+export type TexteModifie = { objet: string | null; corps: string } | null;
+
+export function rendreEmail(modele: string, payload: Donnees, base: string, texte?: TexteModifie): Rendu {
   const s = (k: string) => esc(payload[k]);
   const signature = (payload.signature as Signature | undefined) ?? SIGNATURE_DEFAUT;
   // Les avis à l'équipe pointent vers le back-office, qui vit dans l'app interne.
@@ -130,6 +151,27 @@ export function rendreEmail(modele: string, payload: Donnees, base: string): Ren
     return c.startsWith("/dashboard") && URL_INTERNE ? `${URL_INTERNE}${c}` : `${base}${c}`;
   };
   const bonjour = p(`Bonjour ${s("salutation")},`);
+
+  // Les messages au client dont le texte se modifie depuis « Courriers et SMS » :
+  // le texte vient de crm.modeles_messages (passé par l'appelant), sinon de
+  // textes-messages.ts ; la mise en page et le bouton restent ceux du code.
+  const modifiable = texteEspace(modele, "email");
+  if (modifiable) {
+    const tx = texte?.corps?.trim() ? texte : modifiable;
+    const bouton = BOUTONS[modele]?.(payload, lien) ?? null;
+    const sujet = remplirTexte(tx.objet?.trim() || modifiable.objet || modele, payload);
+    const fin =
+      modele === "demande_avis" && !payload.lien_avis
+        ? p("<i>Le lien de dépôt d'avis sera fourni par l'outil métier de Bailly.</i>")
+        : bouton
+          ? encadre(bouton.url, bouton.label)
+          : "";
+    return {
+      sujet,
+      texte: `${remplirTexte(tx.corps, payload)}${bouton ? `\n${bouton.url}` : ""}\n\n${signature.nom}`,
+      html: cadre({ base, preheader: PREHEADERS[modele]?.(payload) ?? "", signature, corps: `${paragraphesHtml(tx.corps, payload, p)}${fin}` }),
+    };
+  }
 
   switch (modele as ModeleEmail) {
     case "acces": {
@@ -155,26 +197,6 @@ ${encadre(url, "Accéder à mon espace client", [
       };
     }
 
-    case "document_depose":
-      return {
-        sujet: "Un nouveau document a été déposé dans votre espace client",
-        texte: `Bonjour ${payload.salutation},\n\nUn nouveau document a été déposé dans votre espace client : ${payload.document}.\n${lien(payload.chemin)}\n\n${signature.nom}`,
-        html: cadre({
-          base, preheader: `${payload.document} est disponible dans votre espace.`, signature,
-          corps: `${bonjour}${p(`Un nouveau document a été déposé dans votre espace client : <b>${s("document")}</b>.`)}${encadre(lien(payload.chemin), "Consulter mes documents")}`,
-        }),
-      };
-
-    case "creneau_cartons":
-      return {
-        sujet: `Livraison de vos cartons demain entre ${payload.debut} et ${payload.fin}`,
-        texte: texteSms("creneau_cartons", payload),
-        html: cadre({
-          base, preheader: `Créneau de livraison : ${payload.debut} – ${payload.fin}.`, signature,
-          corps: `${bonjour}${p(`Vos <b>${s("nb")} cartons</b> seront livrés demain, <b>${s("jour")}</b>, entre <b>${s("debut")} et ${s("fin")}</b>.`)}${p(`Adresse : ${s("adresse")}<br>Personne présente : ${s("contact")}`)}${p(`Un empêchement ? Appelez-nous au ${s("telephone")}.`)}`,
-        }),
-      };
-
     case "cartons_demandes_equipe":
       return {
         sujet: `Cartons demandés — ${payload.reference} — ${payload.jour}`,
@@ -182,26 +204,6 @@ ${encadre(url, "Accéder à mon espace client", [
         html: cadre({
           base, preheader: `${payload.client} · ${payload.jour}`, signature,
           corps: `${p(payload.modification ? "Une livraison de cartons vient d'être modifiée par le client." : "Nouvelle demande de livraison de cartons.")}${p(`<b>${s("client")}</b> · dossier ${s("reference")}<br>${s("jour")}<br>${s("adresse")}<br>Personne présente : ${s("contact")} · ${s("telephone_contact")}`)}${encadre(lien(payload.chemin), "Saisir le nombre de cartons")}`,
-        }),
-      };
-
-    case "paiement_confirme":
-      return {
-        sujet: `Paiement reçu — ${payload.libelle}`,
-        texte: `Bonjour ${payload.salutation}, nous avons bien reçu votre paiement de ${payload.montant} (${payload.libelle}). Référence : ${payload.reference}.`,
-        html: cadre({
-          base, preheader: `Paiement de ${payload.montant} bien reçu.`, signature,
-          corps: `${bonjour}${p(`Nous avons bien reçu votre paiement de <b>${s("montant")}</b> pour : ${s("libelle")}.`)}${p(`Référence de la transaction : ${s("reference")}.`)}${encadre(lien(payload.chemin), "Voir mes factures")}`,
-        }),
-      };
-
-    case "avarie_recue":
-      return {
-        sujet: "Votre déclaration d'avarie a bien été reçue",
-        texte: `Bonjour ${payload.salutation}, votre déclaration ${payload.numero} concernant « ${payload.objets} » est enregistrée. Votre conseiller revient vers vous.`,
-        html: cadre({
-          base, preheader: `Déclaration ${payload.numero} enregistrée.`, signature,
-          corps: `${bonjour}${p(`Votre déclaration <b>${s("numero")}</b> concernant <b>${s("objets")}</b> est bien enregistrée. Votre conseiller revient vers vous pour la suite.`)}${encadre(lien(payload.chemin), "Suivre ma déclaration")}`,
         }),
       };
 
@@ -248,16 +250,6 @@ ${encadre(url, "Accéder à mon espace client", [
         }),
       };
 
-    case "demande_avis":
-      return {
-        sujet: `Votre déménagement ${payload.trajet} : votre avis compte`,
-        texte: `Bonjour ${payload.salutation}, votre déménagement ${payload.trajet} est terminé. Merci de votre confiance ! Votre avis nous aide à progresser.`,
-        html: cadre({
-          base, preheader: "Merci de votre confiance.", signature,
-          corps: `${bonjour}${p(`Votre déménagement <b>${s("trajet")}</b> est terminé. Merci de votre confiance !`)}${p("Votre avis nous aide à progresser et guide les prochains clients. Il ne vous prendra qu'une minute.")}${payload.lien_avis ? encadre(String(payload.lien_avis), "Donner mon avis") : p("<i>Le lien de dépôt d'avis sera fourni par l'outil métier de Bailly.</i>")}`,
-        }),
-      };
-
     // La veille d'un samedi de cartons, pour l'équipe : la tournée et les bons en pièce jointe.
     // Texte nouveau (novembre 2026), à faire valider par Bailly.
     case "recap_cartons_equipe": {
@@ -283,10 +275,9 @@ ${lignes.map((l) => `<tr><td style="${td}font-weight:700;">${l.ordre ?? "–"}</
   }
 }
 
-/** Le SMS de la veille, et le texte brut des autres messages quand il en faut un. */
-export function texteSms(modele: "creneau_cartons", payload: Donnees) {
-  if (modele === "creneau_cartons") {
-    return `Bailly Déménagement : bonjour ${payload.prenom ?? ""}, vos ${payload.nb} cartons seront livrés demain entre ${payload.debut} et ${payload.fin} au ${payload.adresse}. Présence requise : ${payload.contact}. Un empêchement ? ${payload.telephone}`.replace(/\s+/g, " ");
-  }
-  return "";
+/** Le SMS de la veille : le texte de « Courriers et SMS » s'il est donné, sinon celui de départ. */
+export function texteSms(modele: "creneau_cartons", payload: Donnees, texte?: string | null) {
+  const depart = texteEspace(modele, "sms");
+  if (!depart) return "";
+  return remplirTexte(texte?.trim() || depart.corps, { ...payload, prenom: payload.prenom ?? "" }).replace(/\s+/g, " ").trim();
 }

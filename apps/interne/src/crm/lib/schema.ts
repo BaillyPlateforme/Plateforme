@@ -246,4 +246,41 @@ alter table crm.dispatch_imports enable row level security;
 alter table crm.dispatch_lignes enable row level security;
 alter table crm.dispatch_propositions enable row level security;
 alter table crm.dispatch_historique enable row level security;
+-- Courriers et SMS (src/crm/messages) : crm.modeles_messages devient le
+-- catalogue unique des messages du CRM et de l'espace client — une ligne par
+-- type d'action (cle), activable, avec son étape et son délai. Les lignes et
+-- leurs clés sont rapprochées par le code (catalogue.ts), jamais semées ici.
+alter table crm.modeles_messages add column if not exists cle text;
+alter table crm.modeles_messages add column if not exists etape text;
+alter table crm.modeles_messages add column if not exists actif boolean not null default true;
+alter table crm.modeles_messages add column if not exists delai_jours integer;
+alter table crm.modeles_messages add column if not exists a_valider boolean not null default false;
+alter table crm.modeles_messages add column if not exists maj_le timestamptz;
+create unique index if not exists idx_modeles_messages_cle on crm.modeles_messages(cle) where cle is not null;
+-- Les SMS des rendez-vous (src/crm/rdv) : confirmation, rappel de la veille,
+-- réponse du client (1 confirme, 2 annule). Sans clé étrangère vers
+-- crm.rendez_vous, que le module des visites techniques tient.
+create table if not exists crm.rdv_sms (
+  rendez_vous_id int primary key, numero text,
+  confirmation_le timestamptz, confirmation_statut text, rappel_le timestamptz, rappel_statut text,
+  reponse text check (reponse in ('confirme','annule')), reponse_le timestamptz, reponse_source text check (reponse_source in ('sms','manuel')),
+  reponse_texte text, reponse_par text, vue_le timestamptz, maj_le timestamptz not null default now()
+);
+create index if not exists idx_rdv_sms_numero on crm.rdv_sms(numero);
+-- Les relances (src/crm/relances) : leurs règles, et l'état de celles que
+-- l'équipe a repoussées, annulées ou que la veille a envoyées. Les relances
+-- prévues se calculent : seules ces décisions sont gardées.
+create table if not exists crm.relances_regles (
+  type text primary key, actif boolean not null default true, premier_delai_jours int not null,
+  intervalle_jours int not null default 7, nombre_max int not null default 1, maj_le timestamptz not null default now(), maj_par text
+);
+create table if not exists crm.relances (
+  cle text primary key, type text not null, dossier_id int not null, rang int not null default 1,
+  statut text not null check (statut in ('reportee','annulee','envoyee')), report_au date,
+  envoyee_le timestamptz, envoi_statut text, envoi_motif text, par text, maj_le timestamptz not null default now()
+);
+create index if not exists idx_relances_dossier on crm.relances(dossier_id);
+alter table crm.rdv_sms enable row level security;
+alter table crm.relances_regles enable row level security;
+alter table crm.relances enable row level security;
 `;
