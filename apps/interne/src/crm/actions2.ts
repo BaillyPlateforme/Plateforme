@@ -1,5 +1,4 @@
 "use server";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { q, q1, type Row } from "@/crm/lib/db";
@@ -32,23 +31,6 @@ async function numero(prefixe: string, table: string) {
   const r = await q1<{ n: number }>(`select coalesce(max(substring(${col} from '[0-9]+$')::int),0) + 1 as n from ${table} where ${col} like $1`, [`${prefixe}-${an}-%`]);
   return `${prefixe}-${an}-${String(r!.n).padStart(4, "0")}`;
 }
-
-/* ---------- import des fiches reçues par Internet ---------- */
-async function importer(id: number) {
-  const w = await q1<Row>("select * from demandes_web where id=$1 and not importee", [id]);
-  if (!w) return null;
-  const [prenom, ...rest] = String(w.client).split(" ");
-  const c = await q1<{ id: number }>("insert into clients(type,prenom,nom,email,telephone) values('particulier',$1,$2,$3,$4) returning id", [prenom, rest.join(" ") || prenom, w.email, w.telephone]);
-  const user = await currentUser();
-  const d = await q1<{ id: number }>("insert into dossiers(ref,client_id,commercial_id,statut,periode,volume,observations) values($1,$2,$3,'prospect',$4,$5,$6) returning id",
-    [await numero("BD", "dossiers"), c!.id, user.role === "commercial" ? user.id : null, w.date_souhaitee, w.volume ?? 0, `Demande reçue par ${w.origine} le ${new Date(w.recue_le).toLocaleDateString("fr-FR")}.`]);
-  await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse) values($1,0,'depart',$2),($1,1,'arrivee',$3)", [d!.id, w.ville_chargement, w.ville_livraison]);
-  await q("update demandes_web set importee=true, dossier_id=$2 where id=$1", [id, d!.id]);
-  await log(d!.id, `Fiche importée depuis ${w.origine}`);
-  return d!.id;
-}
-export async function importerDemande(id: number) { await exiger(); const d = await importer(id); refresh(); if (d) redirect(`/dossiers/${d}`); }
-export async function importerToutes() { await exiger(); for (const r of await q<{ id: number }>("select id from demandes_web where not importee order by id")) await importer(r.id); refresh(); }
 
 /* ---------- garde-meuble ---------- */
 export async function facturerGardeMeuble(id: number, montant: number) {

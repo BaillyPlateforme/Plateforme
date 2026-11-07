@@ -29,20 +29,6 @@ export async function seedExtra(d: Db, lun: Date, now: Date, uid: (rang: number)
   }
   await d.query("update dossiers set type_demenagement='international' where id in (select d.id from dossiers d join clients c on c.id=d.client_id where c.type='militaire')");
 
-  // demandes reçues par Internet (écran « Import des fiches »)
-  const W: [string, string, string, string, string, string, string, number][] = [
-    ["Devis en ligne", "Pauline Delorme", "p.delorme@example.com", "06 11 00 11 01", "Paris 10e", "Düsseldorf", "Décembre 2026", 24],
-    ["Devis en ligne", "Yann Guerre", "y.guerre@example.com", "06 11 00 11 02", "Montpellier", "Antibes", "Janvier 2027", 18],
-    ["Comparateur", "Ruoxi Zhang", "r.zhang@example.com", "06 11 00 11 03", "Paris 13e", "Shanghai", "Mars 2027", 30],
-    ["Site Bailly", "David Havard", "d.havard@example.com", "06 11 00 11 04", "Lyon 3e", "Paris 11e", "Novembre 2026", 22],
-    ["Devis en ligne", "Hervé Girard", "h.girard@example.com", "06 11 00 11 05", "Rennes", "Toulouse", "Février 2027", 35],
-    ["Comparateur", "Sabrina Chouaieb", "s.chouaieb@example.com", "06 11 00 11 06", "Nanterre", "Montréal", "Avril 2027", 26],
-    ["Site Bailly", "Maxime Soulimans", "m.soulimans@example.com", "06 11 00 11 07", "Paris 20e", "Fontenay-le-Fleury", "Janvier 2027", 15],
-    ["Devis en ligne", "Gaëlle Mansour", "g.mansour@example.com", "06 11 00 11 08", "Strasbourg", "Nice", "Mai 2027", 40],
-  ];
-  let k = 0;
-  for (const w of W) await d.query("insert into demandes_web(recue_le,origine,client,email,telephone,ville_chargement,ville_livraison,date_souhaitee,volume) values($1,$2,$3,$4,$5,$6,$7,$8,$9)", [jour(-(k++ % 5) - 1), ...w]);
-
   // modèles de courriers et de SMS
   const M: [string, string, string | null, string][] = [
     ["sms", "Confirmation de rendez-vous", null, "Bailly Déménagement : votre rendez-vous avec {commercial} est confirmé le {date} à {heure}. Répondez 1 pour confirmer ou 2 pour annuler."],

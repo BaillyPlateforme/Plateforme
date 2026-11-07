@@ -103,11 +103,9 @@ alter table crm.devis add column if not exists validite date;
 alter table crm.devis add column if not exists conditions text;
 alter table crm.devis add column if not exists token text;
 alter table crm.devis add column if not exists prestations jsonb not null default '[]';
-create table if not exists crm.demandes_web (
-  id serial primary key, recue_le date not null default current_date, origine text, client text not null, email text, telephone text,
-  ville_chargement text, ville_livraison text, date_souhaitee text, volume numeric(6,2),
-  importee boolean not null default false, dossier_id int references crm.dossiers(id) on delete set null
-);
+-- « Demandes Internet » retiré le 07/11/2026 : les demandes du site arrivent par
+-- les Questionnaires (public.requests). La table ne contenait que des données fictives.
+drop table if exists crm.demandes_web;
 create table if not exists crm.litiges (
   id serial primary key, dossier_id int not null references crm.dossiers(id) on delete cascade, ouvert_le date not null default current_date,
   objet text not null, statut text not null default 'ouvert' check (statut in ('ouvert','en_cours','clos')), montant numeric(10,2)
@@ -149,7 +147,6 @@ alter table crm.lettres_voiture enable row level security;
 alter table crm.factures enable row level security;
 alter table crm.paiements enable row level security;
 alter table crm.activite enable row level security;
-alter table crm.demandes_web enable row level security;
 alter table crm.litiges enable row level security;
 alter table crm.garde_meuble enable row level security;
 alter table crm.conteneurs enable row level security;

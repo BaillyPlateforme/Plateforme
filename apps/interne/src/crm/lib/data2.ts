@@ -3,12 +3,10 @@ import { q, q1, type Row } from "./db";
 
 /*
  * Les lectures des modules ajoutés après le face-à-face avec Créagidem :
- * demandes Internet, planning d'exploitation, garde-meuble, conteneurs,
+ * planning d'exploitation, garde-meuble, conteneurs,
  * modèles de messages, litiges, devis détaillé et signature par lien.
  * Comme data.ts, elles ne voient que le schéma `crm` (voir db.ts).
  */
-
-export const demandesWeb = () => q("select id,recue_le,origine,client,email,telephone,ville_chargement,ville_livraison,date_souhaitee,volume::float8 as volume,importee,dossier_id from demandes_web order by importee, recue_le desc, id");
 
 export async function exploitation(lundi: Date) {
   const fin = new Date(lundi); fin.setDate(fin.getDate() + 7);

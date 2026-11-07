@@ -36,7 +36,6 @@ export const GROUPES: Groupe[] = [
     titre: "Site et leads",
     entrees: [
       { href: "/dashboard/tableau-de-bord", label: "Questionnaires", icone: "questionnaires", actif: questionnaires, compteur: "nouvelles" },
-      { href: "/demandes", label: "Demandes Internet", icone: "boite" },
       { href: "/dashboard/espace-client", label: "Espace client", icone: "dossierClient", actif: sous("/dashboard/espace-client") },
     ],
   },
