@@ -9,7 +9,7 @@ import { instantParis, jourParis, jourSemaine, lendemain } from "@/lib/visite/re
  * (visites, visios, tâches, règles perso comme « semaine des enfants »), et
  * les créneaux qu'il propose encore à d'autres clients : tant que la
  * proposition est ouverte, ils lui sont réservés. La même règle est tenue
- * par la base au moment de réserver (ec_poser_visite_crm, migration 0013).
+ * par la base au moment de réserver (ec_poser_visite_crm, migration 0015).
  *
  * Les heures proposées d'office sont des points de départ : du lundi au
  * vendredi, 9 h, 10 h 30, 14 h et 16 h, à partir du lendemain et sur trois
@@ -27,18 +27,20 @@ export type Suggestion = { debut: string; jour: string; heure: string };
 
 /**
  * Ce qui occupe le commercial entre deux instants. `sauf` : le dossier dont
- * on refait la proposition — ses anciens créneaux vont se libérer.
+ * on refait la proposition — ses anciens créneaux vont se libérer ;
+ * `saufRdv` : le rendez-vous que l'on déplace. Une journée entière (durée
+ * nulle, posée à midi) n'occupe rien : elle informe.
  */
-export async function occupation(commercialId: number, de: Date, a: Date, sauf?: number | null, db?: Db): Promise<Plage[]> {
+export async function occupation(commercialId: number, de: Date, a: Date, sauf?: number | null, db?: Db, saufRdv?: number | null): Promise<Plage[]> {
   const lire = <T,>(sql: string, p: unknown[]) => (db ? db.query<T>(sql, p) : q<T>(sql, p));
   const lignes = await lire<{ debut: Date; duree_min: number; libelle: string }>(
     `select r.debut, r.duree_min, r.titre as libelle from rendez_vous r
-      where r.commercial_id = $1 and r.debut < $3 and r.debut + make_interval(mins => r.duree_min) > $2
+      where r.commercial_id = $1 and r.debut < $3 and r.debut + make_interval(mins => r.duree_min) > $2 and r.id <> coalesce($5::int, -1)
      union all
      select c.debut, p.duree_min, 'Créneau proposé à un autre client' from creneaux_visite c join propositions_visite p on p.id = c.proposition_id
       where p.commercial_id = $1 and p.statut = 'ouverte' and c.statut = 'propose' and p.dossier_id <> coalesce($4::int, -1)
         and c.debut < $3 and c.debut + make_interval(mins => p.duree_min) > $2`,
-    [commercialId, de.toISOString(), a.toISOString(), sauf ?? null],
+    [commercialId, de.toISOString(), a.toISOString(), sauf ?? null, saufRdv ?? null],
   );
   return lignes.map((l) => ({ debut: new Date(l.debut).getTime(), fin: new Date(l.debut).getTime() + l.duree_min * 60_000, libelle: l.libelle }));
 }

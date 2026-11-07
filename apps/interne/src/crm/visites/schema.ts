@@ -115,6 +115,23 @@ do $$ begin
   end if;
 end $$;
 
+-- Le planning commercial (audit Créagidem) : la journée entière (« journée
+-- visio »), posée à midi et sans durée — elle ne chevauche aucun créneau, elle
+-- informe — et la visite classée sans suite.
+alter table crm.rendez_vous add column if not exists journee boolean not null default false;
+alter table crm.rendez_vous add column if not exists sans_suite boolean not null default false;
+
+-- La fenêtre de visite (audit Créagidem) : pour chaque adresse, le code
+-- postal, la ville, le pays, un téléphone sur place, le monte-charge et le
+-- transbordement. Le portage, le monte-meuble et la demande de stationnement
+-- (stationnement = 'autorisation') existent déjà ci-dessus.
+alter table crm.etapes_trajet add column if not exists code_postal text;
+alter table crm.etapes_trajet add column if not exists ville text;
+alter table crm.etapes_trajet add column if not exists pays text;
+alter table crm.etapes_trajet add column if not exists telephone text;
+alter table crm.etapes_trajet add column if not exists monte_charge boolean not null default false;
+alter table crm.etapes_trajet add column if not exists transbordement boolean not null default false;
+
 -- Un compte-rendu signé ne se modifie plus. Seuls changent encore les liens
 -- qui ne touchent pas au contenu (le rendez-vous supprimé, le commercial
 -- parti) et le chemin du PDF, posé une seule fois après la signature.

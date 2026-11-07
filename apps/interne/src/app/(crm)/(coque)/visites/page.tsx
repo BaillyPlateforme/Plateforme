@@ -4,6 +4,8 @@ import { nomClient } from "@/crm/lib/format";
 import { DossierTable } from "@/crm/components/DossierTable";
 import { tableauVisites } from "@/crm/visites/donnees";
 import { rappelPrevu } from "@/crm/visites/rappels";
+import { etatVisite, ETATS_VISITE } from "@/crm/visites/cycle";
+import { changerEtatVisite } from "@/crm/planning/actions";
 import { duree, empreinteLisible, heureParis, jourParis, jourVisite, m3, momentVisite } from "@/lib/visite/regles";
 import Bandeau from "@/ui/Bandeau";
 import s from "@/crm/visites/composants/visites.module.css";
@@ -13,11 +15,20 @@ export const dynamic = "force-dynamic";
 /*
  * Les visites techniques (cahier des charges, §3.2) : celles des quinze
  * prochains jours, les créneaux qui attendent la réponse du client, les
- * saisies en cours sur la tablette, les derniers comptes-rendus signés, puis
- * les dossiers qui restent à visiter.
+ * visites des trente derniers jours, les saisies en cours sur la tablette,
+ * les derniers comptes-rendus signés, puis les dossiers à planifier.
+ *
+ * Chaque visite montre où elle en est de son cycle (audit Créagidem) : à
+ * planifier, planifiée, effectuée, devis établi, sans suite.
  */
 export default async function Visites() {
-  const [t, rows] = await Promise.all([tableauVisites(), listDossiers({ statuts: ["prospect", "visite"] })]);
+  const [t, tous] = await Promise.all([tableauVisites(), listDossiers({ statuts: ["prospect", "visite"] })]);
+  // « À planifier » : un dossier à visiter qui n'a ni visite à venir ni créneaux proposés.
+  const rows = tous.filter((d) => !t.dejaPrevus.has(d.id));
+  const pastille = (r: Parameters<typeof etatVisite>[0]) => {
+    const e = ETATS_VISITE[etatVisite(r)];
+    return <i className={`st ${e.ton}`}>{e.libelle}</i>;
+  };
   const maintenant = new Date();
 
   return (
@@ -57,9 +68,7 @@ export default async function Visites() {
                           <span className={s.rappel}>Rappel la veille : {rappel.canaux.map((c) => (c === "sms" ? "SMS" : "e-mail")).join(" + ")}</span>
                         )}
                       </div>
-                      <i className={`st ${r.visite_statut === "signee" ? "g" : r.visite_statut === "en_cours" ? "w" : "i"}`}>
-                        {r.visite_statut === "signee" ? "Signée" : r.visite_statut === "en_cours" ? "En cours" : r.termine ? "Terminée" : "À faire"}
-                      </i>
+                      {r.visite_statut === "en_cours" ? <i className="st w">Saisie en cours</i> : pastille(r as Parameters<typeof etatVisite>[0])}
                     </Link>
                   );
                 })}
@@ -114,6 +123,50 @@ export default async function Visites() {
         <div className={s.rangee}>
           <section className="card">
             <div className={s.titreBloc}>
+              <h3>Visites passées</h3>
+              <span>30 derniers jours</span>
+            </div>
+            {t.passees.length === 0 ? (
+              <p className={s.vide}>Aucune visite ces trente derniers jours.</p>
+            ) : (
+              <div className={s.liste}>
+                {t.passees.map((r) => {
+                  const etat = etatVisite(r as Parameters<typeof etatVisite>[0]);
+                  return (
+                    <div key={r.id} className={s.ligne}>
+                      <span className={s.heure}>{new Date(r.debut).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "numeric" })}</span>
+                      <div>
+                        <b>
+                          <Link href={`/planning/${r.id}`}>
+                            {nomClient(r)} · {r.ref}
+                          </Link>
+                        </b>
+                        <small>
+                          {jourVisite(r.debut)} à {heureParis(r.debut)} · {r.type === "visio" ? "visio" : "sur place"} · {r.commercial}
+                        </small>
+                      </div>
+                      <div className={s.actions}>
+                        {pastille(r as Parameters<typeof etatVisite>[0])}
+                        {etat === "planifiee" && (
+                          <form action={changerEtatVisite.bind(null, r.id, "effectuee")}>
+                            <button className="btn ghost sm">Effectuée</button>
+                          </form>
+                        )}
+                        {(etat === "planifiee" || etat === "effectuee") && (
+                          <form action={changerEtatVisite.bind(null, r.id, "sans_suite")}>
+                            <button className="btn ghost sm">Sans suite</button>
+                          </form>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="card">
+            <div className={s.titreBloc}>
               <h3>Comptes-rendus signés</h3>
               <span>Les plus récents</span>
             </div>
@@ -147,6 +200,9 @@ export default async function Visites() {
             )}
           </section>
 
+        </div>
+
+        <div className={s.rangee}>
           <section className="card">
             <div className={s.titreBloc}>
               <h3>Saisies en cours</h3>
@@ -178,8 +234,10 @@ export default async function Visites() {
 
         <section className={s.tableau}>
           <div className={s.titreBloc} style={{ margin: "4px 4px 10px" }}>
-            <h3>Dossiers à visiter</h3>
-            <span>Nouveaux et visites à faire · ouvrez-en un pour proposer des créneaux</span>
+            <h3>
+              À planifier <i className={`st ${ETATS_VISITE.a_planifier.ton}`}>{rows.length}</i>
+            </h3>
+            <span>Dossiers à visiter sans visite prévue ni créneaux proposés · ouvrez-en un pour proposer des créneaux</span>
           </div>
           <DossierTable rows={rows} />
         </section>

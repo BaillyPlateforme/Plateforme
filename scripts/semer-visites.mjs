@@ -14,7 +14,7 @@
  *   node scripts/semer-visites.mjs --retirer   retire tout ce que la démonstration a posé
  *
  * Préalables : le jeu de l'espace client (npm run semer:espace-client), la
- * migration 0013 (npm run migrations) et le schéma du CRM à jour (un
+ * migration 0015 (npm run migrations) et le schéma du CRM à jour (un
  * démarrage de l'app interne le pose).
  *
  * Garde-fous : le script ne touche qu'à ces trois dossiers, et seulement si

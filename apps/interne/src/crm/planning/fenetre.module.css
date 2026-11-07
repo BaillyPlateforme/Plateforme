@@ -1,0 +1,231 @@
+/*
+ * La page d'un rendez-vous et la fenêtre de visite. Couleurs du CRM
+ * (variables de crm.css), palette de l'app interne en repli.
+ */
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+@media (max-width: 1100px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.colonne {
+  display: grid;
+  gap: 16px;
+}
+.carte {
+  display: grid;
+  gap: 12px;
+}
+.titre {
+  font-size: 16px;
+}
+.aide {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted, #6b6785);
+}
+.case {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--ink, #17152b) !important;
+  letter-spacing: 0 !important;
+}
+.case input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent, #4b2fe0);
+}
+.flash {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.ok {
+  background: #dcf7ea;
+  color: #0b7f50;
+}
+.ko {
+  background: #fde8e6;
+  color: #a02a21;
+}
+.danger {
+  border-color: #f6c5c0;
+}
+
+/* Le cycle */
+.cycle {
+  list-style: none;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  counter-reset: etape;
+}
+.cycle li {
+  counter-increment: etape;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 99px;
+  background: #f4f4f7;
+  color: var(--muted, #6b6785);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.cycle li::before {
+  content: counter(etape);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  font-size: 11px;
+}
+.cycle .passe {
+  background: #dcf7ea;
+  color: #0b7f50;
+}
+.cycle .actuel {
+  background: var(--accent, #4b2fe0);
+  color: #fff;
+}
+.cycle .actuel::before {
+  color: var(--accent, #4b2fe0);
+}
+.cycle .sansSuite {
+  background: #c2352b;
+}
+.cycle .sansSuite::before {
+  content: "×";
+  color: #c2352b;
+}
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* La fenêtre de visite */
+.fenetre {
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: 96px;
+}
+.fenetreTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.etape {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line, #e4e2ee);
+  border-radius: 14px;
+  background: #fafafc;
+}
+.etape legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.etape legend i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent, #4b2fe0);
+  color: #fff;
+  font-style: normal;
+  font-size: 11.5px;
+}
+.retirer {
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  border: 1px solid #f6c5c0;
+  color: #a02a21;
+  font-size: 11.5px;
+  font-weight: 650;
+  background: #fff;
+}
+.ligneAdresse,
+.ligneAcces {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+}
+.ligneAdresse {
+  grid-template-columns: minmax(220px, 2.4fr) 0.8fr 1.2fr 1fr 1.2fr;
+}
+.ligneAcces {
+  grid-template-columns: 0.7fr 0.7fr 1fr 1.6fr minmax(260px, 2fr);
+}
+@media (max-width: 1200px) {
+  .ligneAdresse,
+  .ligneAcces {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .large {
+    grid-column: 1 / -1;
+  }
+}
+.ligneAdresse label,
+.ligneAcces label,
+.precisions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ligneAdresse span,
+.ligneAcces label > span,
+.precisions span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted, #6b6785);
+}
+.etape input:not([type="checkbox"]),
+.etape select {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line, #e4e2ee);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  min-width: 0;
+}
+.cases {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 36px;
+}
+.fenetreBas {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}

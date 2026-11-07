@@ -66,6 +66,12 @@ export const jourSemaine = (jour: string) => new Date(`${jour}T12:00:00Z`).getUT
 export const hhmmParis = (iso: string | Date) =>
   new Intl.DateTimeFormat("fr-FR", { timeZone: PARIS, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 
+/** Les minutes écoulées depuis minuit, à Paris : 10 h 30 → 630. */
+export const minutesParis = (iso: string | Date) => {
+  const [h, m] = hhmmParis(iso).split(":").map(Number);
+  return h * 60 + m;
+};
+
 /** « jeudi 12 novembre » */
 export function jourVisite(iso: string | Date, annee = false) {
   return new Intl.DateTimeFormat("fr-FR", { timeZone: PARIS, weekday: "long", day: "numeric", month: "long", ...(annee ? { year: "numeric" } : {}) }).format(new Date(iso));
@@ -118,7 +124,7 @@ export type MonteMeuble = keyof typeof MONTE_MEUBLE;
 export const ACCES_ESCALIER = ESCALIER;
 export const ACCES_STATIONNEMENT: Record<Stationnement, string> = {
   facile: "Place facile devant l'immeuble",
-  autorisation: "Autorisation de voirie nécessaire",
+  autorisation: "Demande de stationnement (autorisation de voirie)",
   reserve_client: "Réservé par le client",
 };
 export const ACCES_POIDS_LOURD: Record<PoidsLourd, string> = { oui: "Oui", non: "Non", ne_sait_pas: "À vérifier" };
@@ -144,6 +150,9 @@ export interface EtapeAcces {
   stationnement: Stationnement | null;
   poids_lourd: PoidsLourd | null;
   monte_meuble: MonteMeuble | null;
+  /** Monte-charge et transbordement : la fenêtre de visite de Créagidem. */
+  monte_charge?: boolean;
+  transbordement?: boolean;
   acces: string | null;
 }
 
@@ -152,6 +161,8 @@ export function resumeAcces(e: Omit<EtapeAcces, "id" | "genre" | "adresse">) {
   return [
     libelleEtageTexte(e.etage),
     e.ascenseur ? "ascenseur" : e.etage && !/^(rdc|0|rez)/i.test(e.etage.trim()) ? "sans ascenseur" : null,
+    e.monte_charge ? "monte-charge" : null,
+    e.transbordement ? "transbordement" : null,
     e.escalier && e.escalier !== "aucun" ? `escalier ${ACCES_ESCALIER[e.escalier].toLowerCase()}` : null,
     e.portage_m != null ? `portage ${e.portage_m} m` : null,
     e.stationnement ? ACCES_STATIONNEMENT[e.stationnement].toLowerCase() : null,

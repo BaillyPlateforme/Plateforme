@@ -58,6 +58,8 @@ const schema = z.discriminatedUnion("t", [
     stationnement: z.enum(["facile", "autorisation", "reserve_client"]).nullable(),
     poids_lourd: z.enum(["oui", "non", "ne_sait_pas"]).nullable(),
     monte_meuble: z.enum(["oui", "non", "a_evaluer"]).nullable(),
+    monte_charge: z.boolean().optional(),
+    transbordement: z.boolean().optional(),
     acces: facultatif(PLAFONDS.acces),
   }),
 ]);
@@ -132,9 +134,10 @@ async function appliquer(db: Db, dossierId: number, visiteId: number, op: Operat
     }
     case "etape":
       await db.query(
-        `update etapes_trajet set etage = $3, ascenseur = $4, escalier = $5, portage_m = $6, stationnement = $7, poids_lourd = $8, monte_meuble = $9, acces = $10
+        `update etapes_trajet set etage = $3, ascenseur = $4, escalier = $5, portage_m = $6, stationnement = $7, poids_lourd = $8, monte_meuble = $9, acces = $10,
+                monte_charge = coalesce($11, monte_charge), transbordement = coalesce($12, transbordement)
           where id = $1 and dossier_id = $2`,
-        [op.id, dossierId, op.etage, op.ascenseur, op.escalier, op.portage_m, op.stationnement, op.poids_lourd, op.monte_meuble, op.acces],
+        [op.id, dossierId, op.etage, op.ascenseur, op.escalier, op.portage_m, op.stationnement, op.poids_lourd, op.monte_meuble, op.acces, op.monte_charge ?? null, op.transbordement ?? null],
       );
       return;
   }

@@ -1,0 +1,445 @@
+/*
+ * Le planning commercial : la barre d'outils, la grille de sept jours (7 h –
+ * 20 h) et sa rangée « Journée », le petit calendrier. Les blocs gardent
+ * l'habit des rendez-vous du CRM (classes .ev de crm.css) ; ce module
+ * ajoute la mise en page, les couloirs étroits et le glisser-déposer. Les
+ * couleurs suivent les variables du CRM, la palette de l'app interne en repli.
+ */
+
+/* La barre d'outils, sous le bandeau */
+.outils {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+.outilsDroite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.semaine {
+  font-weight: 700;
+  font-size: 15px;
+}
+.semaine small {
+  display: block;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted, #6b6785);
+}
+.fleche {
+  width: 38px;
+  padding: 0 !important;
+  justify-content: center;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.message span {
+  flex: 1;
+}
+.message button {
+  padding: 6px 12px;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.messageOk {
+  background: #dcf7ea;
+  color: #0b7f50;
+}
+.messageKo {
+  background: #fde8e6;
+  color: #a02a21;
+}
+
+/* La grille */
+.cal {
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e4e2ee);
+  border-radius: var(--r, 14px);
+  overflow: auto;
+}
+.tete,
+.journee,
+.corps {
+  display: grid;
+  min-width: 980px;
+}
+.tete {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--surface, #fff);
+  border-bottom: 1px solid var(--line, #e4e2ee);
+}
+.jour {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 10px 10px 8px 12px;
+  border-left: 1px solid var(--line, #e4e2ee);
+}
+.jour small {
+  color: var(--muted, #6b6785);
+  font-size: 12px;
+}
+.jour b {
+  font-size: 19px;
+  font-weight: 650;
+}
+.jour.aujourdhui b {
+  color: var(--accent, #4b2fe0);
+}
+.imprimer {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  color: var(--accent, #4b2fe0);
+  background: var(--soft, #ece8ff);
+  font-size: 11px;
+  font-weight: 700;
+}
+.imprimer :global(.ic) {
+  width: 13px;
+  height: 13px;
+}
+.journee {
+  border-bottom: 1px solid var(--line, #e4e2ee);
+  background: #fafafc;
+}
+.journee > span {
+  align-self: center;
+  padding-right: 8px;
+  text-align: right;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted, #6b6785);
+}
+.celluleJournee {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 34px;
+  padding: 4px;
+  border-left: 1px solid var(--line, #e4e2ee);
+}
+.celluleJournee.aujourdhui,
+.col.aujourdhui {
+  background-color: var(--soft, #ece8ff);
+}
+.puceJournee {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border-left: 3px solid var(--c);
+  background: color-mix(in srgb, var(--c) 16%, #fff);
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+.puceJournee b {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.puceJournee small {
+  color: var(--muted, #6b6785);
+}
+.heures {
+  display: flex;
+  flex-direction: column;
+}
+.heures span {
+  padding-right: 8px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--muted, #6b6785);
+  transform: translateY(-7px);
+}
+.heures span:first-child {
+  transform: none;
+}
+.col {
+  position: relative;
+  border-left: 1px solid var(--line, #e4e2ee);
+  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--line, #e4e2ee) calc(100% - 1px));
+  background-repeat: repeat-y;
+}
+
+/* Un bloc */
+.bloc {
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  min-width: 0;
+}
+.bloc:focus-visible {
+  outline: 2px solid var(--accent, #4b2fe0);
+  outline-offset: 1px;
+}
+.bloc .ev-n,
+.bloc :global(.ev-n) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glisse {
+  z-index: 8 !important;
+  cursor: grabbing;
+  box-shadow: 0 14px 34px -10px rgba(23, 21, 43, 0.45);
+  opacity: 0.92;
+}
+.etat {
+  font-size: 10px !important;
+  padding: 1px 7px !important;
+}
+.rappel {
+  background: #dcf7ea;
+  color: #0b7f50;
+}
+.terminer {
+  margin-top: auto;
+}
+.terminer button {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #fff;
+  color: #555;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.enregistrement {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--accent, #4b2fe0);
+}
+
+/*
+ * Un couloir étroit : au repos, le nom d'abord (deux lignes), puis l'heure
+ * et un point de couleur pour l'état. Au survol ou au focus, le bloc passe
+ * devant, s'élargit et montre tout — vers la gauche quand il est à droite de
+ * la journée, pour rester dans la grille.
+ */
+.complet {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-height: 0;
+}
+.resume {
+  display: none;
+}
+.compact {
+  padding: 4px 6px !important;
+}
+.compact .resume {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.compact .resume b {
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.compact .resume small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted, #6b6785);
+  white-space: nowrap;
+}
+.point {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #8a879f;
+}
+.point[data-ton="i"] {
+  background: #4b2fe0;
+}
+.point[data-ton="p"] {
+  background: #7a52ff;
+}
+.point[data-ton="g"] {
+  background: #14c27d;
+}
+.point[data-ton="w"] {
+  background: #e0a100;
+}
+.point[data-ton="r"] {
+  background: #c2352b;
+}
+.compact .complet {
+  display: none;
+}
+.compact:hover,
+.compact:focus-visible,
+.compact:focus-within {
+  z-index: 7;
+  width: max(100%, 220px) !important;
+  min-height: 104px;
+  height: auto !important;
+  padding: 6px 9px !important;
+  box-shadow: 0 14px 34px -12px rgba(23, 21, 43, 0.45);
+}
+.compact[data-cote="droite"]:hover,
+.compact[data-cote="droite"]:focus-visible,
+.compact[data-cote="droite"]:focus-within {
+  left: auto !important;
+  right: 3px !important;
+}
+.compact:hover .resume,
+.compact:focus-visible .resume,
+.compact:focus-within .resume {
+  display: none;
+}
+.compact:hover .complet,
+.compact:focus-visible .complet,
+.compact:focus-within .complet {
+  display: flex;
+}
+
+/* Un créneau proposé au client : il tient la place, en pointillé */
+.propose {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 7px;
+  border-radius: 9px;
+  border: 1.5px dashed var(--accent, #4b2fe0);
+  background: repeating-linear-gradient(135deg, rgba(75, 47, 224, 0.05) 0 6px, rgba(75, 47, 224, 0.11) 6px 12px);
+  color: var(--accent, #4b2fe0);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+}
+.propose b {
+  font-size: 11px;
+}
+.propose span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* La légende */
+.legende {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 12px;
+  color: var(--muted, #6b6785);
+  font-size: 12.5px;
+}
+.legende span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legende .sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line, #e4e2ee);
+}
+
+/* Le petit calendrier */
+.miniCal {
+  position: relative;
+}
+.miniCalBoite {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: 268px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--line, #e4e2ee);
+  box-shadow: 0 20px 44px -18px rgba(23, 21, 43, 0.4);
+}
+.miniCalTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.miniCalTete b {
+  font-size: 14px;
+  text-transform: capitalize;
+}
+.miniCalTete button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.miniCalTete button:hover {
+  background: var(--soft, #ece8ff);
+}
+.miniCalJours,
+.miniCalSemaine {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+}
+.miniCalJours span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted, #6b6785);
+  padding: 2px 0 4px;
+}
+.miniCalSemaine {
+  border-radius: 9px;
+}
+.miniCalSemaine:hover {
+  background: #f4f4f7;
+}
+.miniCalSemaine button {
+  height: 30px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.miniCalActive {
+  background: var(--soft, #ece8ff) !important;
+  color: var(--accent, #4b2fe0);
+}
+.miniCalHors {
+  color: #b5b2c6;
+}
+.miniCalAuj {
+  box-shadow: inset 0 0 0 1.5px var(--accent, #4b2fe0);
+}

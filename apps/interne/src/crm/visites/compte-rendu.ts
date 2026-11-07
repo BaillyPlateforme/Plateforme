@@ -51,7 +51,8 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
       .filter((e) => e.adresse?.trim())
       .map((e) => ({
         genre: e.genre, libelle: GENRE_ETAPE[e.genre] ?? "Étape", adresse: e.adresse!.trim(), etage: e.etage, ascenseur: e.ascenseur, escalier: e.escalier,
-        portage_m: e.portage_m, stationnement: e.stationnement, poids_lourd: e.poids_lourd, monte_meuble: e.monte_meuble, acces: e.acces?.trim() || null,
+        portage_m: e.portage_m, stationnement: e.stationnement, poids_lourd: e.poids_lourd, monte_meuble: e.monte_meuble,
+        monte_charge: !!e.monte_charge, transbordement: !!e.transbordement, acces: e.acces?.trim() || null,
       })),
     pieces,
     volume: volumeObjets(s.objets),

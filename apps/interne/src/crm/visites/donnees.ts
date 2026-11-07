@@ -116,7 +116,7 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
   if (!v) return null;
   const [etapes, pieces, objets, photos] = await Promise.all([
     q<EtapeAcces>(
-      "select id, genre, adresse, etage, ascenseur, escalier, portage_m, stationnement, poids_lourd, monte_meuble, acces from etapes_trajet where dossier_id = $1 order by ordre, id",
+      "select id, genre, adresse, etage, ascenseur, escalier, portage_m, stationnement, poids_lourd, monte_meuble, monte_charge, transbordement, acces from etapes_trajet where dossier_id = $1 order by ordre, id",
       [v.dossier_id],
     ),
     q<PieceSaisie>("select cle::text as cle, nom, ordre, remarque from pieces where dossier_id = $1 order by ordre, id", [v.dossier_id]),
@@ -283,7 +283,7 @@ export async function etatVisites(dossierId: number): Promise<EtatVisites> {
 export async function tableauVisites(maintenant = new Date()) {
   const auj = jourParis(maintenant);
   const debutJour = instantParis(auj, "00:00").toISOString();
-  const [propositions, aVenir, comptesRendus, enCours] = await Promise.all([
+  const [propositions, aVenir, comptesRendus, enCours, passees, prevus] = await Promise.all([
     q(
       `select p.id, p.dossier_id, d.ref, c.nom, c.prenom, c.societe, u.nom as commercial, p.type, p.duree_min, p.propose_le, p.autres_demandes_le, p.message_client,
               (select json_agg(json_build_object('debut', x.debut, 'statut', x.statut) order by x.debut) from creneaux_visite x where x.proposition_id = p.id) as creneaux
@@ -292,11 +292,13 @@ export async function tableauVisites(maintenant = new Date()) {
     ),
     q(
       `select r.id, r.dossier_id, d.ref, c.nom, c.prenom, c.societe, c.email, c.telephone, c.notes, u.nom as commercial, r.debut, r.duree_min, r.type, r.termine,
+              r.devis_etabli, r.sans_suite, d.statut as dossier_statut,
+              exists (select 1 from visites x where x.rendez_vous_id = r.id and x.statut = 'signee') as compte_rendu_signe,
               (select e.adresse from etapes_trajet e where e.dossier_id = d.id and e.genre = 'depart' order by e.ordre, e.id limit 1) as adresse,
               (select x.id from visites x where x.rendez_vous_id = r.id order by (x.statut = 'signee') desc, x.commencee_le desc limit 1) as visite_id,
               (select x.statut from visites x where x.rendez_vous_id = r.id order by (x.statut = 'signee') desc, x.commencee_le desc limit 1) as visite_statut
          from rendez_vous r join dossiers d on d.id = r.dossier_id join clients c on c.id = d.client_id join utilisateurs u on u.id = r.commercial_id
-        where r.type in ('phys', 'visio') and r.debut >= $1 and r.debut < $1::timestamptz + interval '15 days'
+        where r.type in ('phys', 'visio') and not r.journee and r.debut >= $1 and r.debut < $1::timestamptz + interval '15 days'
         order by r.debut`,
       [debutJour],
     ),
@@ -312,8 +314,23 @@ export async function tableauVisites(maintenant = new Date()) {
          from visites v join dossiers d on d.id = v.dossier_id join clients c on c.id = d.client_id left join utilisateurs u on u.id = v.commercial_id
         where v.statut = 'en_cours' order by v.maj_le desc`,
     ),
+    // Les visites des trente derniers jours, pour suivre leur cycle (effectuée, devis établi, sans suite).
+    q(
+      `select r.id, r.dossier_id, d.ref, c.nom, c.prenom, c.societe, u.nom as commercial, r.debut, r.duree_min, r.type, r.termine,
+              r.devis_etabli, r.sans_suite, d.statut as dossier_statut,
+              exists (select 1 from visites x where x.rendez_vous_id = r.id and x.statut = 'signee') as compte_rendu_signe
+         from rendez_vous r join dossiers d on d.id = r.dossier_id join clients c on c.id = d.client_id join utilisateurs u on u.id = r.commercial_id
+        where r.type in ('phys', 'visio') and not r.journee and r.debut < $1 and r.debut >= $1::timestamptz - interval '30 days'
+        order by r.debut desc limit 40`,
+      [debutJour],
+    ),
+    // Les dossiers qui ont déjà une visite à venir : ils ne sont plus « à planifier ».
+    q<{ id: number }>(
+      `select distinct dossier_id as id from rendez_vous where type in ('phys', 'visio') and not journee and dossier_id is not null and debut >= now()
+       union select dossier_id from propositions_visite where statut = 'ouverte'`,
+    ),
   ]);
-  return { propositions, aVenir, comptesRendus, enCours, jour: auj };
+  return { propositions, aVenir, comptesRendus, enCours, passees, dejaPrevus: new Set(prevus.map((x) => x.id)), jour: auj };
 }
 
 // --- Le planning commercial -----------------------------------------------------------------------------

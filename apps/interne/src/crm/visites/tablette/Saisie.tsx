@@ -567,7 +567,8 @@ function PanneauAcces({ etapes, agir }: { etapes: EtapeAcces[]; agir: ReturnType
     const x = { ...e, ...patch };
     agir({
       t: "etape", id: x.id, etage: x.etage, ascenseur: x.ascenseur, escalier: x.escalier, portage_m: x.portage_m,
-      stationnement: x.stationnement, poids_lourd: x.poids_lourd, monte_meuble: x.monte_meuble, acces: x.acces,
+      stationnement: x.stationnement, poids_lourd: x.poids_lourd, monte_meuble: x.monte_meuble,
+      monte_charge: !!x.monte_charge, transbordement: !!x.transbordement, acces: x.acces,
     });
   };
   return (
@@ -619,6 +620,17 @@ function PanneauAcces({ etapes, agir }: { etapes: EtapeAcces[]; agir: ReturnType
           <Choix libelle="Stationnement" valeurs={ACCES_STATIONNEMENT} valeur={e.stationnement} choisir={(v) => maj(e, { stationnement: v })} />
           <Choix libelle="Accès poids lourd" valeurs={ACCES_POIDS_LOURD} valeur={e.poids_lourd} choisir={(v) => maj(e, { poids_lourd: v })} />
           <Choix libelle="Monte-meuble" valeurs={ACCES_MONTE_MEUBLE} valeur={e.monte_meuble} choisir={(v) => maj(e, { monte_meuble: v })} />
+          <div className={s.choix}>
+            <span>Monte-charge et transbordement</span>
+            <div>
+              <button type="button" aria-pressed={!!e.monte_charge} className={e.monte_charge ? s.choixOn : ""} onClick={() => maj(e, { monte_charge: !e.monte_charge })}>
+                Monte-charge
+              </button>
+              <button type="button" aria-pressed={!!e.transbordement} className={e.transbordement ? s.choixOn : ""} onClick={() => maj(e, { transbordement: !e.transbordement })}>
+                Transbordement
+              </button>
+            </div>
+          </div>
           <label className={s.champ} style={{ marginTop: 14 }}>
             <span>Précisions d&apos;accès</span>
             <input value={e.acces ?? ""} maxLength={PLAFONDS.acces} placeholder="Code portail, cour intérieure, horaires de la rue…" onChange={(x) => maj(e, { acces: x.target.value || null })} />
