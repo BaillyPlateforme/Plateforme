@@ -80,6 +80,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
         }
       >
         <Link href="#facturation" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">Solde · {eur(solde)}</Link>
+        <Link href={`/parcours/${id}`} data-ton="contour">Parcours</Link>
         <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
         <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
         {/* Les gestes secondaires, rangés dans « ⋯ » pour que les boutons tiennent sur deux lignes. */}
