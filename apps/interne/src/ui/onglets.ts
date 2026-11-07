@@ -2,10 +2,11 @@ import { GROUPES, estActif } from "./navigation";
 import type { NomIcone } from "./icones";
 
 /*
- * Les onglets de travail : chaque page ou dossier ouvert garde son onglet,
- * comme dans Créagidem — plusieurs dossiers ouverts en même temps, rangés en
- * groupes, réordonnés, fermés. Ce fichier tient la logique pure (clés,
- * libellés, rangement) ; OngletsTravail.tsx l'affiche.
+ * Les onglets de travail : chaque DOSSIER ouvert garde son onglet, comme dans
+ * Créagidem — plusieurs dossiers ouverts en même temps, rangés en groupes,
+ * réordonnés, fermés. Les pages (Pilotage, listes, réglages) n'en ouvrent pas
+ * (précision de David). Ce fichier tient la logique pure (clés, libellés,
+ * rangement) ; OngletsTravail.tsx l'affiche.
  */
 
 export type Onglet = {
@@ -31,6 +32,12 @@ export const TEINTES: Record<Couleur, string> = {
   ciel: "#0ea5e9",
   gris: "#6f6c80",
 };
+
+/**
+ * Ce qui ouvre un onglet : un dossier du CRM (sa fiche, ses devis, son
+ * parcours), un dossier de l'espace client, la fiche d'une demande du site.
+ */
+export const estDossier = (cle: string | null): cle is string => !!cle && /^(dossier|espace|demande):/.test(cle);
 
 /** La clé d'onglet d'une adresse, ou rien pour une adresse qui n'en a pas. */
 export function cleDe(chemin: string): string | null {

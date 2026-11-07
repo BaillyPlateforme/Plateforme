@@ -3,12 +3,13 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icone } from "./icones";
-import { COULEURS, TEINTES, cleDe, departDe, ranger, type Couleur, type GroupeOnglets, type Onglet } from "./onglets";
+import { COULEURS, TEINTES, cleDe, departDe, estDossier, ranger, type Couleur, type GroupeOnglets, type Onglet } from "./onglets";
 import s from "./onglets.module.css";
 
 /*
- * La barre des onglets de travail, sous la navigation : chaque page ou
- * dossier visité ouvre (ou réactive) son onglet. On peut :
+ * La barre des dossiers ouverts, sous la navigation : chaque dossier visité
+ * (fiche du CRM, dossier de l'espace client, demande du site) ouvre ou
+ * réactive son onglet ; les pages n'en ouvrent pas. On peut :
  *   - fermer un onglet (croix, clic molette), « fermer les autres », « à droite » ;
  *   - le déplacer au glisser-déposer ;
  *   - l'épingler (il passe en tête, réduit à son icône) ;
@@ -27,7 +28,10 @@ type Menu = { x: number; y: number } & ({ genre: "onglet"; cle: string } | { gen
 function lire(): Etat {
   try {
     const brut = JSON.parse(localStorage.getItem(STOCKAGE) ?? "null") as Etat | null;
-    if (brut && Array.isArray(brut.onglets) && Array.isArray(brut.groupes)) return brut;
+    if (brut && Array.isArray(brut.onglets) && Array.isArray(brut.groupes)) {
+      const onglets = brut.onglets.filter((o) => estDossier(o.cle));
+      return { onglets, groupes: brut.groupes.filter((g) => onglets.some((o) => o.groupe === g.id)) };
+    }
   } catch {
     // stockage indisponible ou illisible : on repart de zéro
   }
@@ -70,7 +74,7 @@ export default function OngletsTravail() {
   // Chaque page visitée ouvre (ou réactive) son onglet, juste après l'onglet actif.
   const derniere = useRef<string | null>(null);
   useEffect(() => {
-    if (!pret || !cleActive) return;
+    if (!pret || !estDossier(cleActive)) return;
     const href = chemin + window.location.search;
     setEtat((e) => {
       const existe = e.onglets.find((o) => o.cle === cleActive);
@@ -93,7 +97,7 @@ export default function OngletsTravail() {
   // Le titre d'un dossier, d'une demande ou d'un conteneur vient de sa page (le
   // bandeau : référence et nom) ; une page du menu garde le nom du menu.
   useEffect(() => {
-    if (!pret || !cleActive || cleActive.startsWith("page:") || cleActive.startsWith("section:")) return;
+    if (!pret || !estDossier(cleActive)) return;
     let essais = 0;
     const id = setInterval(() => {
       essais++;
@@ -208,7 +212,15 @@ export default function OngletsTravail() {
     };
   }, [menu]);
 
-  if (!pret || etat.onglets.length === 0) return <div className={s.barre} aria-hidden />;
+  if (!pret) return <div className={s.barre} aria-hidden />;
+  if (etat.onglets.length === 0)
+    return (
+      <div className={s.barre}>
+        <span className={s.vide}>
+          <Icone nom="dossierClient" taille={15} /> Les dossiers que vous ouvrez restent ici, en onglets : passez de l’un à l’autre, rangez-les en groupes.
+        </span>
+      </div>
+    );
 
   const groupeDe = (id: string | null) => etat.groupes.find((g) => g.id === id);
 
@@ -276,7 +288,7 @@ export default function OngletsTravail() {
                   }}
                 >
                   <Icone nom={o.icone} taille={15} />
-                  {!o.epingle && <span className={s.titre}>{o.titre}</span>}
+                  {!o.epingle && <TitreOnglet titre={o.titre} />}
                 </a>
                 {!o.epingle && (
                   <button
@@ -427,5 +439,16 @@ function MenuGroupe({
         Fermer le groupe
       </button>
     </>
+  );
+}
+
+/** « BD-2026-0418 · Quentin Dupuis » s'affiche nom d'abord, référence ensuite, plus discrète. */
+function TitreOnglet({ titre }: { titre: string }) {
+  const m = titre.match(/^(BD-\d{4}-\d+) · (.+)$/);
+  if (!m) return <span className={s.titre}>{titre}</span>;
+  return (
+    <span className={s.titre}>
+      {m[2]} <small className={s.ref}>{m[1].replace(/^BD-\d{4}-/, "")}</small>
+    </span>
   );
 }
