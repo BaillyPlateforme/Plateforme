@@ -33,7 +33,7 @@ export async function getDossier(id: number) {
   const [stops, inv, devis, lettres, factures, paiements, activite, rdvs] = await Promise.all([
     q("select * from etapes_trajet where dossier_id=$1 order by ordre,id", [id]),
     q("select id,piece,libelle,quantite,volume::float8 as volume,destination,demontage from inventaire where dossier_id=$1 order by piece,id", [id]),
-    q("select id,numero,formule,lignes,montant::float8 as montant,statut,envoye_le,signe_le from devis where dossier_id=$1 order by montant desc", [id]),
+    q("select id,numero,formule,lignes,token,prestations,montant::float8 as montant,statut,envoye_le,signe_le from devis where dossier_id=$1 order by montant desc", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,immatriculation,instructions,prix_sous_traitance::float8 as prix_sous_traitance,montant::float8 as montant,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
     q("select id,numero,objet,montant::float8 as montant,statut,emise_le,payee_le from factures where dossier_id=$1 order by id", [id]),
     q("select id,libelle,montant::float8 as montant,recu_le from paiements where dossier_id=$1 order by id", [id]),
@@ -96,7 +96,8 @@ export async function stats() {
 
 export const tousDevis = () => q(`select v.id,v.numero,v.formule,v.montant::float8 as montant,v.statut,v.envoye_le,d.id as did,d.ref,c.nom,c.prenom,c.societe from devis v join dossiers d on d.id=v.dossier_id join clients c on c.id=d.client_id order by v.cree_le desc limit 100`);
 export const toutesLettres = () => q(`select l.id,l.numero,l.trajet,l.date_chargement,l.prestataire,l.montant::float8 as montant,l.statut,d.id as did,d.ref,c.nom,c.prenom,c.societe from lettres_voiture l join dossiers d on d.id=l.dossier_id join clients c on c.id=d.client_id order by l.id desc limit 100`);
-export const toutesFactures = () => q(`select f.id,f.numero,f.objet,f.montant::float8 as montant,f.statut,f.emise_le,d.id as did,d.ref,c.nom,c.prenom,c.societe from factures f join dossiers d on d.id=f.dossier_id join clients c on c.id=d.client_id order by f.id desc limit 100`);
+/** Les factures des dossiers, et celles du garde-meuble, qui n'ont pas de dossier : `affiche` est le nom à montrer. */
+export const toutesFactures = () => q(`select f.id,f.numero,f.objet,f.montant::float8 as montant,f.statut,f.emise_le,d.id as did,d.ref,c.nom,c.prenom,c.societe,coalesce(c.societe, c.prenom || ' ' || c.nom, gm.client) as affiche from factures f left join dossiers d on d.id=f.dossier_id left join clients c on c.id=d.client_id left join garde_meuble gm on gm.id=f.garde_meuble_id order by f.id desc limit 100`);
 export { lundiDe, semaineCourante };
 
 export const relancesDevis = () => q(`select * from (select distinct on (d.id) d.id, c.nom, c.prenom, c.societe, (current_date - v.envoye_le::date)::int as jours from devis v join dossiers d on d.id=v.dossier_id join clients c on c.id=d.client_id

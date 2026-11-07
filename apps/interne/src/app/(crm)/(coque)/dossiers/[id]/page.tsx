@@ -6,10 +6,13 @@ import { Ic } from "@/crm/lib/icons";
 import { emballages } from "@/crm/lib/tarif";
 import { eur, m3, nomClient, initiales, dateFr, ilYa, STATUTS, TYPES } from "@/crm/lib/format";
 import * as A from "@/crm/actions";
+import * as B from "@/crm/actions2";
+import { litiges as getLitiges } from "@/crm/lib/data2";
 
 export const dynamic = "force-dynamic";
 
 const GENRE: Record<string, string> = { depart: "Départ", garde_meuble: "Garde-meuble", arrivee: "Arrivée", autre: "Étape" };
+const TYPE_D: Record<string, string> = { national: "National", international: "International", maritime: "Maritime", aerien: "Aérien", gm: "Garde-meuble", bureau: "Bureau" };
 const STEPS = ["Fiche client", "Visite technique", "Devis", "Commande", "Lettres de voiture", "Facture"];
 const STEP_OF: Record<string, number> = { prospect: 0, visite: 1, devis: 2, commande: 3, planifie: 4, termine: 5, perdu: 2 };
 const DEVIS_ST: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", signe: "Signé", refuse: "Non retenu" };
@@ -20,6 +23,7 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
   const id = Number((await params).id);
   const d = await getDossier(id);
   if (!d) notFound();
+  const lit = await getLitiges(id);
   const users = await q("select id,nom,role from utilisateurs order by id");
   const step = STEP_OF[d.statut];
   const emb = emballages(d.volume);
@@ -46,6 +50,7 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
           <span className="chip t"><Ic n="users" />{TYPES[d.type]}</span>
           <span className="chip">Commercial · {d.commercial ?? "—"}</span>
           <span className="chip">Traité par · {d.traite_par ?? "—"}</span>
+          <span className="chip">{TYPE_D[d.type_demenagement] ?? "National"}</span>
           {d.vehicule && <span className="chip">🚗 Carte grise + assurance à fournir</span>}
           <span className={`st ${STATUTS[d.statut].cls}`} style={{ alignSelf: "center" }}>{STATUTS[d.statut].label}</span>
         </div>
@@ -153,6 +158,9 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
                     <b className="px">{eur(v.montant)}</b>
                     <ul>{(v.lignes as Row[]).map((l, i) => <li key={i} className={l.charge === "client" ? "n" : ""}><span>{l.libelle}</span><span>{l.charge === "client" ? "client" : eur(l.prix)}</span></li>)}</ul>
                     <span className={`dev-st ${v.statut}`}>{DEVIS_ST[v.statut]}{v.signe_le ? ` · ${dateFr(v.signe_le)}` : ""}</span>
+                    <Link className="btn ghost sm" href={`/dossiers/${id}/devis/${v.id}`} style={{ width: "100%", justifyContent: "center" }}>Détail du devis</Link>
+                    {v.token && v.statut === "envoye" && <Link className="sub" href={`/signature/${v.token}`}>Lien de signature client</Link>}
+                    {["brouillon", "envoye"].includes(v.statut) && !signe && <form action={B.envoyerPourSignature.bind(null, id, v.id)}><button className="btn ghost sm" style={{ width: "100%", justifyContent: "center" }}>Envoyer pour signature</button></form>}
                     {v.statut === "brouillon" && <form action={A.envoyerDevis.bind(null, id, v.id)}><button className="btn ghost sm" style={{ width: "100%", justifyContent: "center" }}>Envoyer</button></form>}
                     {["brouillon", "envoye"].includes(v.statut) && !signe && <form action={A.signerDevis.bind(null, id, v.id)}><button className="btn primary sm" style={{ width: "100%", justifyContent: "center" }}>Signé par le client</button></form>}
                   </div>
@@ -169,6 +177,22 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
             </>
           )}
         </section>
+
+        {apresCommande && (() => {
+          const items: [string, boolean][] = [
+            ["Devis signé par le client", !!signe], ["Arrhes versées", arrhes > 0],
+            ["Chargement : date posée au planning", !!d.date_chargement], ["Livraison : date posée au planning", !!d.date_livraison],
+            ["Demande de stationnement renseignée", d.stops.some((x: Row) => x.acces)], ["Proposition de sous-traitance éditée", d.lettres.some((l: Row) => l.prix_sous_traitance != null)],
+            ["Personnel affecté", d.lettres.some((l: Row) => l.equipe)], ["Véhicule affecté", d.lettres.some((l: Row) => l.immatriculation)],
+            ["Instructions rédigées", d.lettres.some((l: Row) => l.instructions)], ["Matériel (emballages) prévu", d.volume > 0],
+            ["SMS de confirmation envoyé", d.activite.some((a: Row) => String(a.libelle).startsWith("SMS"))], ["Lettres de voiture créées", d.lettres.length > 0],
+          ];
+          return (
+            <section className="card docs" style={{ gridColumn: "span 12" }}>
+              <div className="card-h"><h3>Suivi de la commande</h3><b>{items.filter((i) => i[1]).length} / {items.length} actions faites</b></div>
+              <div className="suivi">{items.map(([l, ok]) => <div key={l} className={ok ? "ok" : "ko"}><i>{ok ? "✓" : "✗"}</i>{l}</div>)}</div>
+            </section>);
+        })()}
 
         {apresCommande && (
           <section className="card docs" style={{ gridColumn: "span 12" }}>
@@ -211,7 +235,7 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
             <h3>Facturation</h3>
             <table className="tbl mini"><tbody>
               {d.paiements.map((p: Row) => <tr key={`p${p.id}`}><td>{p.libelle}</td><td>{dateFr(p.recu_le)}</td><td className="num"><b>{eur(p.montant)}</b></td><td><i className="st g">Reçu</i></td></tr>)}
-              {d.factures.map((f: Row) => <tr key={f.id}><td>{f.numero} · {f.objet}</td><td>{dateFr(f.emise_le)}</td><td className="num"><b>{eur(f.montant)}</b></td>
+              {d.factures.map((f: Row) => <tr key={f.id}><td>{f.numero} · {f.objet} <Link className="sub" href={`/imprimer/${id}?doc=facture&f=${f.id}`}>PDF</Link></td><td>{dateFr(f.emise_le)}</td><td className="num"><b>{eur(f.montant)}</b></td>
                 <td>{f.statut === "payee" ? <i className="st g">Payée</i> : <form action={A.facturePayee.bind(null, id, f.id)}><button className="btn ghost sm">Marquer payée</button></form>}</td></tr>)}
               {d.paiements.length + d.factures.length === 0 && <tr><td className="empty" colSpan={4}>Rien d’encaissé ni de facturé.</td></tr>}
             </tbody></table>
@@ -225,9 +249,18 @@ export default async function Fiche({ params }: { params: Promise<{ id: string }
           </section>
         )}
 
+        <section className="card route" style={{ gridColumn: apresCommande ? "span 7" : "span 12" }}>
+          <div className="card-h"><h3><Ic n="alert" />Litiges</h3></div>
+          {lit.length === 0 && <p className="sub">Aucun litige sur ce dossier.</p>}
+          {lit.map((l: Row) => <div key={l.id} className="rowform" style={{ padding: "8px 0", borderBottom: "1px dashed var(--line)" }}><span style={{ flex: 3 }}><b>{l.objet}</b><small style={{ display: "block" }}>Ouvert le {dateFr(l.ouvert_le)}{l.montant ? ` · ${eur(l.montant)}` : ""}</small></span>
+            <i className={`st ${l.statut === "clos" ? "g" : l.statut === "en_cours" ? "w" : "r"}`}>{l.statut === "clos" ? "Clos" : l.statut === "en_cours" ? "En cours" : "Ouvert"}</i>
+            {l.statut !== "clos" && <form action={B.changerLitige.bind(null, id, l.id, l.statut === "ouvert" ? "en_cours" : "clos")}><button className="btn ghost sm">{l.statut === "ouvert" ? "Prendre en charge" : "Clore"}</button></form>}</div>)}
+          <form action={B.ouvrirLitige.bind(null, id)} className="rowform" style={{ marginTop: 12 }}><div className="fld" style={{ flex: 3 }}><input type="text" name="objet" placeholder="Objet du litige (meuble rayé, carton manquant…)" required /></div><div className="fld" style={{ maxWidth: 110 }}><input type="number" name="montant" placeholder="€" /></div><button className="btn ghost sm">Ouvrir un litige</button></form>
+        </section>
+
         <section className="card note" style={{ gridColumn: apresCommande ? "span 5" : "span 12", background: "var(--surface)" }}>
           <div className="card-h"><h3>Rendez-vous & activité</h3><Link className="btn ghost sm" href={`/planning/nouveau?dossier=${id}`}><Ic n="cal" />Planifier une visite</Link></div>
-          {d.rdvs.map((r: Row) => <p key={r.id} className="sub">📅 {dateFr(r.debut, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {r.titre} · {r.commercial}</p>)}
+          {d.rdvs.map((r: Row) => <div key={r.id} className="sub" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "4px 0" }}>📅 {dateFr(r.debut, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {r.titre} · {r.commercial}<form action={B.envoyerSms.bind(null, id, r.id)}><button className="btn ghost sm">SMS de confirmation</button></form></div>)}
           <ul className="tl-list" style={{ gridTemplateColumns: apresCommande ? "1fr" : "repeat(3,1fr)" }}>
             {d.activite.length === 0 && <li>Aucune activité.</li>}
             {d.activite.map((a: Row, i: number) => <li key={i} className={i === 0 ? "now" : "done"}><i />{a.libelle}<small>{a.initiales} · {ilYa(a.cree_le)}</small></li>)}

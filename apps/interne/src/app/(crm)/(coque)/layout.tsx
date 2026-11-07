@@ -2,6 +2,7 @@ import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
 import { currentUser } from "@/crm/lib/auth";
 import { activiteRecente, relancesDevis, aPlanifier } from "@/crm/lib/data";
+import { gmEnRetard } from "@/crm/lib/data2";
 import { Ic } from "@/crm/lib/icons";
 import { NavLinks, Tabs } from "@/crm/components/Nav";
 import { NotifBell, type Notif } from "@/crm/components/NotifBell";
@@ -19,8 +20,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function CoqueCrm({ children }: { children: React.ReactNode }) {
   const user = await currentUser();
-  const [act, rel, plan] = await Promise.all([activiteRecente(8), relancesDevis(), aPlanifier()]);
+  const [act, rel, plan, gm] = await Promise.all([activiteRecente(8), relancesDevis(), aPlanifier(), gmEnRetard()]);
   const items: Notif[] = [
+    ...gm.map((g): Notif => ({ id: `g${g.id}`, kind: "todo", titre: `Garde-meuble non facturé : ${g.client}`, sous: `Échéance dépassée de ${g.retard} jours`, href: "/garde-meuble" })),
     ...plan.map((r): Notif => ({ id: `p${r.id}`, kind: "todo", titre: `Planifier ${nomClient(r)}`, sous: "Devis signé : confirmer la date au planning", href: `/dossiers/${r.id}` })),
     ...rel.map((r): Notif => ({ id: `r${r.id}`, kind: "todo", titre: `Relancer ${nomClient(r)}`, sous: `Devis envoyé il y a ${r.jours} jours, sans réponse`, href: `/dossiers/${r.id}` })),
     ...act.map((a, i): Notif => ({ id: `a${i}`, kind: "activite", titre: a.nom ? nomClient(a) : "Agence", sous: a.libelle, quand: ilYa(a.cree_le), href: a.dossier_id ? `/dossiers/${a.dossier_id}` : "/" })),

@@ -90,6 +90,49 @@ alter table crm.dossiers add column if not exists vehicule boolean not null defa
 alter table crm.lettres_voiture add column if not exists equipe text;
 alter table crm.lettres_voiture add column if not exists immatriculation text;
 alter table crm.lettres_voiture add column if not exists instructions text;
+-- Modules ajoutés après le face-à-face avec Créagidem : type de déménagement,
+-- devis détaillé (données contractuelles, prestations), signature par lien,
+-- factures de garde-meuble (sans dossier, d'où dossier_id facultatif).
+alter table crm.dossiers add column if not exists type_demenagement text not null default 'national';
+alter table crm.factures alter column dossier_id drop not null;
+alter table crm.factures add column if not exists garde_meuble_id int;
+alter table crm.devis add column if not exists distance_km int;
+alter table crm.devis add column if not exists deplacement text not null default 'route';
+alter table crm.devis add column if not exists groupage boolean not null default false;
+alter table crm.devis add column if not exists validite date;
+alter table crm.devis add column if not exists conditions text;
+alter table crm.devis add column if not exists token text;
+alter table crm.devis add column if not exists prestations jsonb not null default '[]';
+create table if not exists crm.demandes_web (
+  id serial primary key, recue_le date not null default current_date, origine text, client text not null, email text, telephone text,
+  ville_chargement text, ville_livraison text, date_souhaitee text, volume numeric(6,2),
+  importee boolean not null default false, dossier_id int references crm.dossiers(id) on delete set null
+);
+create table if not exists crm.litiges (
+  id serial primary key, dossier_id int not null references crm.dossiers(id) on delete cascade, ouvert_le date not null default current_date,
+  objet text not null, statut text not null default 'ouvert' check (statut in ('ouvert','en_cours','clos')), montant numeric(10,2)
+);
+create table if not exists crm.garde_meuble (
+  id serial primary key, dossier_id int references crm.dossiers(id) on delete set null, client text not null, nb_caisses int not null default 1, numeros text,
+  loyer_mensuel numeric(8,2) not null, periodicite text not null default 'mensuelle' check (periodicite in ('mensuelle','trimestrielle')),
+  debut date not null, derniere_facture date, assurance boolean not null default true, actif boolean not null default true
+);
+create table if not exists crm.conteneurs (
+  id serial primary key, numero text unique not null, sens text not null check (sens in ('export','import')), taille text not null default '40 pieds',
+  capacite numeric(6,2) not null default 67, destination text not null, plomb text,
+  statut text not null default 'preparation' check (statut in ('preparation','charge','en_mer','arrive','livre')), depart_prevu date, arrivee_prevue date, groupeur text
+);
+create table if not exists crm.conteneur_dossiers (
+  id serial primary key, conteneur_id int not null references crm.conteneurs(id) on delete cascade, dossier_id int not null references crm.dossiers(id) on delete cascade,
+  volume numeric(6,2) not null, ville_livraison text, unique (conteneur_id, dossier_id)
+);
+create table if not exists crm.modeles_messages (
+  id serial primary key, canal text not null check (canal in ('sms','email')), nom text not null, objet text, corps text not null
+);
+create table if not exists crm.operations (
+  id serial primary key, equipe text not null, jour date not null, genre text not null check (genre in ('chargement','livraison','groupage','manuelle')),
+  titre text not null, detail text, dossier_id int references crm.dossiers(id) on delete set null
+);
 create index if not exists idx_dossiers_client on crm.dossiers(client_id);
 create index if not exists idx_dossiers_statut on crm.dossiers(statut);
 create index if not exists idx_rdv_debut on crm.rendez_vous(debut);
@@ -106,4 +149,11 @@ alter table crm.lettres_voiture enable row level security;
 alter table crm.factures enable row level security;
 alter table crm.paiements enable row level security;
 alter table crm.activite enable row level security;
+alter table crm.demandes_web enable row level security;
+alter table crm.litiges enable row level security;
+alter table crm.garde_meuble enable row level security;
+alter table crm.conteneurs enable row level security;
+alter table crm.conteneur_dossiers enable row level security;
+alter table crm.modeles_messages enable row level security;
+alter table crm.operations enable row level security;
 `;

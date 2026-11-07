@@ -1,4 +1,5 @@
 import type { Db } from "./db";
+import { seedExtra } from "./seed2";
 
 /**
  * Données de démonstration, insérées une seule fois sur une base vide — dans
@@ -204,4 +205,5 @@ export async function seed(d: Db) {
   ];
   for (const [nom, u, lib, h] of act)
     await d.query("insert into activite(dossier_id,utilisateur_id,libelle,cree_le) values($1,$2,$3,$4)", [await did(nom), uid(u), lib, new Date(now.getTime() - h * 36e5).toISOString()]);
+  await seedExtra(d, lun, now, uid);
 }

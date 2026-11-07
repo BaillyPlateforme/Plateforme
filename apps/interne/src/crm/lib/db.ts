@@ -1,5 +1,5 @@
 import "server-only";
-import { Pool, type PoolClient } from "pg";
+import { Pool, types, type CustomTypesConfig, type PoolClient } from "pg";
 import { SCHEMA } from "./schema";
 import { seed } from "./seed";
 
@@ -27,6 +27,21 @@ export interface Db {
   query<T = Row>(sql: string, params?: unknown[]): Promise<T[]>;
 }
 
+/*
+ * Les dates sans heure (type `date` : chargement, livraison, échéances…) sont
+ * lues à minuit UTC, comme le faisait la base embarquée de la V1, pour
+ * laquelle le CRM a été écrit. Par défaut, pg les lit à minuit heure locale :
+ * sur un serveur à l'heure de Paris, chaque `toISOString().slice(0, 10)` du CRM
+ * reculait alors d'un jour (champs de date, planning d'exploitation). Sur un
+ * serveur en UTC, les deux lectures sont identiques. Ce réglage ne vaut que
+ * pour le pool du CRM.
+ */
+const DATE = types.builtins.DATE;
+const TYPES: CustomTypesConfig = {
+  getTypeParser: ((oid: number, format?: "text" | "binary") =>
+    oid === DATE && format !== "binary" ? (v: string) => new Date(v) : types.getTypeParser(oid, format)) as typeof types.getTypeParser,
+};
+
 /** Le pool, réglé pour ne voir que le schéma `crm`. */
 function creerPool(): Pool {
   const url = process.env.DATABASE_URL;
@@ -49,6 +64,7 @@ function creerPool(): Pool {
     connectionString: url,
     ssl: { rejectUnauthorized: false },
     max: 5,
+    types: TYPES,
     // Attendu avant la première requête de chaque connexion : si le réglage
     // échoue, la connexion est fermée et la requête échoue avec elle.
     onConnect: async (client) => {
