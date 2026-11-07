@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import type { Choix } from "./Vitrine";
 
 /**
  * En-tête de la page d'accueil. Transparent tout en haut, il se pose sur un
@@ -14,7 +15,7 @@ import { useEffect, useRef } from "react";
 export default function SiteHeader({
   onChoisir,
 }: {
-  onChoisir: (p: "express" | "complet") => void;
+  onChoisir: (c: Choix) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
 
@@ -52,21 +53,21 @@ export default function SiteHeader({
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={() => onChoisir("express")}
+            onClick={() => onChoisir({ parcours: "particulier", mode: "express" })}
             className="site-ghost hidden rounded-full border px-4 py-2 text-[13px] font-medium transition sm:inline-flex"
           >
             Devis express
           </button>
-          <button
-            type="button"
-            onClick={() => onChoisir("complet")}
+          {/* Trois publics : « Mon devis » descend aux portes plutôt que d'en choisir une. */}
+          <a
+            href="#portes"
             className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-shell transition active:scale-[0.98]"
           >
             Mon devis
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M5 12h13M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </button>
+          </a>
 
           {/* L'accès de l'équipe : une clé sans libellé, à peine visible, qui
               ne s'adresse qu'à ceux qui savent déjà qu'elle est là. Elle mène

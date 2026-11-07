@@ -50,7 +50,7 @@ import { SUPPLEMENTS, type NiveauGarantie } from "@/lib/pricing/grille";
 
 type YN = "oui" | "non" | "";
 type Demontage = "possible" | "imperatif" | "";
-type PeriodeMode = "date" | "suggestion" | "libre";
+export type PeriodeMode = "date" | "suggestion" | "libre";
 
 type Address = {
   adresse: string;
@@ -172,14 +172,14 @@ function etapesDe(espace: EspacePublic | undefined) {
   );
 }
 
-const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
+export const VALEURS = ["< 10 000 €", "10 000 – 30 000 €", "30 000 – 60 000 €", "> 60 000 €"];
 // Les mots sont ceux du client : on écrit « garantie », jamais « assurance »,
 // et le Luxe rembourse à l'identique — pas à neuf.
 // Le taux est affiché, et lu dans la grille : le client voit ce que son choix
 // change à son prix.
 const tauxGarantie = (n: NiveauGarantie) =>
   `Son coût : ${(SUPPLEMENTS.garantie.niveaux[n].taux * 100).toFixed(1).replace(".", ",")} % de la valeur déclarée.`;
-const GARANTIES: { key: NiveauGarantie; titre: string; texte: string; badge: string }[] = [
+export const GARANTIES: { key: NiveauGarantie; titre: string; texte: string; badge: string }[] = [
   {
     key: "standard",
     titre: "Garantie dommages standard",
@@ -193,7 +193,7 @@ const GARANTIES: { key: NiveauGarantie; titre: string; texte: string; badge: str
     badge: "Sans franchise",
   },
 ];
-const PAYS = [
+export const PAYS = [
   "France", "Belgique", "Suisse", "Luxembourg", "Allemagne", "Espagne", "Italie", "Portugal",
   "Royaume-Uni", "Pays-Bas", "Irlande", "Autriche", "Danemark", "Suède", "Norvège", "Pologne",
   "Maroc", "Tunisie", "Algérie", "États-Unis", "Canada", "Australie", "Autre",
@@ -312,7 +312,7 @@ export default function DemandeForm({
 /* ============================ La coque ============================ */
 
 /** Les étapes du parcours, sur un rail qui se remplit à mesure qu'on avance. */
-function Frise({
+export function Frise({
   etapes,
   step,
   onAller,
@@ -1566,7 +1566,7 @@ const PERIODES = [
  * date : certains en ont une, d'autres une fourchette, d'autres une condition
  * (« après la vente »). Forcer le calendrier faisait saisir n'importe quoi.
  */
-function ChampPeriode({
+export function ChampPeriode({
   label,
   mode,
   valeur,
@@ -1688,7 +1688,7 @@ function periodeLisible(form: FormState) {
   return form.periode_mode === "date" ? dateLisible(form.periode) : form.periode;
 }
 
-function trajetLisible(depart: string, arrivee: string) {
+export function trajetLisible(depart: string, arrivee: string) {
   const d = depart.trim(), a = arrivee.trim();
   if (d && a) return `${d} → ${a}`;
   return d || a || null;
@@ -1804,7 +1804,7 @@ function RecapCard({
   );
 }
 
-function SuccessScreen({
+export function SuccessScreen({
   id,
   volume,
   count = 1,
@@ -1896,7 +1896,7 @@ function surfaceManquante(a: Address): string | null {
 }
 
 /** La période retenue quand le client n'en donne pas. */
-const PERIODE_PAR_DEFAUT = "Je ne sais pas encore";
+export const PERIODE_PAR_DEFAUT = "Je ne sais pas encore";
 
 /**
  * Les réponses retenues pour le client quand il passe une question.

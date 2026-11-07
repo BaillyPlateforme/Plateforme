@@ -60,6 +60,11 @@ export interface RequestRow {
   express?: string | null;
   /** Projeté de même : le nom de l'espace pro d'où vient la demande. */
   espace_nom?: string | null;
+  /** Projetés de même : la porte d'entrée des questionnaires (voir lib/parcours). */
+  parcours?: string | null;
+  transfert?: string | null;
+  mutation?: string | null;
+  societe?: string | null;
 
   created_at: string;
   updated_at: string;

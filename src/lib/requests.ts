@@ -7,6 +7,8 @@ import { contexteDemande } from "@/lib/messaging";
 import { getEspaceParCodeOuJeton } from "@/lib/espaces-pro";
 import { instantane } from "@/lib/espaces";
 import { qualifyRequest } from "@/lib/qualification";
+import { creerRappel } from "@/lib/rappels";
+import { SANS_PRIX, parcoursDeLaDemande } from "@/lib/parcours";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource } from "@/lib/types";
 
@@ -146,8 +148,14 @@ export async function createRequest(
   if (meubles?.error) throw new Error(`Insertion des items échouée : ${meubles.error.message}`);
   if (cliches?.error) throw new Error(`Insertion des photos échouée : ${cliches.error.message}`);
 
+  // Les parcours sans prix — la mutation, l'entreprise — ne demandent pas de
+  // volume : une visite ou une visio suit toujours. Leur en réclamer un par
+  // mail (« complétez votre demande ») n'aurait aucun sens.
+  const details = (input.details ?? {}) as { parcours?: string; creneau?: string };
+  const sansPrix = SANS_PRIX.has(parcoursDeLaDemande({ parcours: details.parcours }));
+
   // Complétude : mêmes règles que pour les mails entrants.
-  const manque_volume = created.volume_m3 == null;
+  const manque_volume = !sansPrix && created.volume_m3 == null;
   const manque_depart = !created.depart_ville;
   const manque_arrivee = !created.arrivee_ville;
   const incomplet = manque_volume || manque_depart || manque_arrivee;
@@ -191,7 +199,17 @@ export async function createRequest(
       manque_arrivee,
     };
 
-    if (incomplet) {
+    if (sansPrix) {
+      // Ni estimation ni devis automatique : l'équipe chiffre après sa visite.
+      // La demande va droit au tableau des rappels, où l'équipe la reprend —
+      // le client a été prévenu qu'un conseiller le recontacte.
+      try {
+        await creerRappel(created.id, details.creneau);
+      } catch (e) {
+        console.error(`[demande ${created.id}] rappel non créé :`, e instanceof Error ? e.message : e);
+      }
+      await fireEvent("demande_recue", ctx);
+    } else if (incomplet) {
       await fireEvent("demande_recue", ctx);
       await fireEvent("demande_incomplete", ctx);
     } else {
@@ -270,6 +288,10 @@ const COLONNES_LISTE = [
   "completion_token", "created_at", "updated_at",
   "express:raw_payload->details->>express",
   "espace_nom:raw_payload->espace->>nom",
+  "parcours:raw_payload->details->>parcours",
+  "transfert:raw_payload->details->>transfert",
+  "mutation:raw_payload->>mutation_pro",
+  "societe:raw_payload->>societe",
 ].join(",");
 
 // Liste pour le dashboard.
