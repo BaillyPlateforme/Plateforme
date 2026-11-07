@@ -5,6 +5,9 @@ import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
+import { envoyerDevisParEmail } from "@/crm/envois";
+import { envoyerConfirmationRdv } from "@/crm/rdv/sms";
+import { randomBytes } from "node:crypto";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -135,12 +138,24 @@ export async function genererDevis(id: number) {
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
   await log(id, "Devis générés (3 formules)"); refresh(id);
 }
+/**
+ * « Envoyer » : le devis part au client par e-mail, avec son lien de
+ * signature (le jeton est créé s'il n'existe pas, gardé sinon — un lien déjà
+ * envoyé reste valable). L'envoi suit les garde-fous de la plateforme
+ * (envoi désactivé, recette, dossier fictif) ; le fil d'activité dit ce qui
+ * s'est vraiment passé.
+ */
 export async function envoyerDevis(id: number, devisId: number) {
   await exiger();
-  await q("update devis set statut='envoye', envoye_le=now() where id=$1 and statut in ('brouillon','envoye')", [devisId]);
+  const v = await q1<{ id: number; numero: string; formule: string; montant: number; token: string }>(
+    "update devis set statut='envoye', envoye_le=now(), token=coalesce(token, $3) where id=$1 and dossier_id=$2 and statut in ('brouillon','envoye') returning id, numero, formule, montant::float8 as montant, token",
+    [devisId, id, randomBytes(12).toString("hex")],
+  );
+  if (!v) return;
   await q("update dossiers set statut='devis' where id=$1 and statut in ('prospect','visite')", [id]);
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
-  await log(id, "Devis envoyé au client"); refresh(id);
+  const e = await envoyerDevisParEmail(id, v);
+  await log(id, `Devis ${v.numero} envoyé au client · e-mail ${e.libelle}`); refresh(id);
 }
 /**
  * « Signé par le client » : la règle de signature est celle de la page
@@ -215,11 +230,16 @@ export async function creerRdv(f: FormData) {
   const u = await currentUser();
   const debut = new Date(`${s(f, "date")}T${s(f, "heure") ?? "09:00"}`);
   const dossierId = n(f, "dossier_id");
-  await q("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes) values($1,$2,$3,$4,$5,$6,$7,$8)",
+  const rdv = await q1<{ id: number }>("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes) values($1,$2,$3,$4,$5,$6,$7,$8) returning id",
     [n(f, "commercial_id") ?? u.id, dossierId, s(f, "type") ?? "phys", s(f, "titre") ?? "Rendez-vous", s(f, "lieu"), debut.toISOString(), n(f, "duree_min") ?? 60, s(f, "notes")]);
   if (dossierId) {
     await q("update dossiers set statut='visite' where id=$1 and statut='prospect'", [dossierId]);
     await log(dossierId, `${s(f, "type") === "visio" ? "Visio" : "Visite"} planifiée`);
+    // Le SMS de confirmation part à la prise du rendez-vous (carte « Visite confirmée »), s'il s'agit d'une visite.
+    if (rdv && ["phys", "visio"].includes(s(f, "type") ?? "phys")) {
+      const sms = await envoyerConfirmationRdv(dossierId, rdv.id);
+      if (sms) await log(dossierId, `SMS de confirmation ${sms.libelle} : « ${sms.texte} »`);
+    }
   }
   refresh();
   redirect(`/planning?semaine=${debut.toISOString().slice(0, 10)}`);

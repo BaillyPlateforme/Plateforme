@@ -4,6 +4,8 @@ import { semaine, commerciaux, lundiDe, semaineCourante } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { heure, RDV_TYPES, dateFr } from "@/crm/lib/format";
 import { terminerRdv } from "@/crm/actions";
+import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
+import { etatsRdv } from "@/crm/rdv/sms";
 
 export const dynamic = "force-dynamic";
 const H0 = 8, H1 = 19;
@@ -14,6 +16,8 @@ export default async function Planning({ searchParams }: { searchParams: Promise
   const lun = sp.semaine ? lundiDe(new Date(sp.semaine)) : semaineCourante();
   const com = sp.com ? Number(sp.com) : null;
   const [rdvs, coms] = await Promise.all([semaine(lun, com), commerciaux()]);
+  // L'état des SMS de rendez-vous (src/crm/rdv) : une pastille par rendez-vous, rien d'autre ne change ici.
+  const etatsSms = await etatsRdv(rdvs.map((r) => r.id));
   const jour = (i: number) => { const d = new Date(lun); d.setDate(d.getDate() + i); return d; };
   const nav = (delta: number) => { const d = new Date(lun); d.setDate(d.getDate() + delta); return `/planning?semaine=${d.toISOString().slice(0, 10)}${com ? `&com=${com}` : ""}`; };
   const today = new Date().toDateString();
@@ -63,7 +67,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
                 const d = new Date(r.debut), s = d.getHours() + d.getMinutes() / 60, l = r.duree_min / 60, [lane, nl] = lanes.get(r.id) ?? [0, 1];
                 return (
                   <article key={r.id} className={`ev t-${r.type} ${r.termine ? "done" : ""} ${nl > 1 ? "compact" : ""}`} title={`${r.titre} · ${r.lieu ?? ""} · ${r.commercial}`} style={{ top: `${((s - H0) / (H1 - H0)) * 100}%`, height: `${(l / (H1 - H0)) * 100}%`, left: `calc(${(lane / nl) * 100}% + 3px)`, right: "auto", width: `calc(${100 / nl}% - 6px)` }}>
-                    <div className="ev-top"><span className="ev-time">{heure(s)}–{heure(s + l)}</span><span className="ev-ty">{RDV_TYPES[r.type]}</span></div>
+                    <div className="ev-top"><span className="ev-time">{heure(s)}–{heure(s + l)}<EtatSmsRdv etat={etatsSms.get(r.id)} compact /></span><span className="ev-ty">{RDV_TYPES[r.type]}</span></div>
                     {r.dossier_id ? <Link href={`/dossiers/${r.dossier_id}`} className="ev-n">{r.titre}</Link> : <strong className="ev-n">{r.titre}</strong>}
                     <span className="ev-a">{r.lieu}{!com && ` · ${r.initiales}`}</span>
                     <span className="ev-tags">{r.devis_etabli && <i className="tag tk">Devis établi</i>}{r.dernier && <i className="tag fl">Passer en dernier</i>}</span>

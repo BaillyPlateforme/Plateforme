@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { euros } from "@/lib/espace-client/format";
+import { stripeConfigure } from "@/lib/espace-client/stripe-config";
 import { exigerClient, lireDonneesClient } from "@/lib/espace-client/session";
 import { issuePaiementSimule } from "@/lib/actions/espace-client";
 import { Icone } from "../../../_ui/Icone";
@@ -20,6 +21,8 @@ export default async function PaiementSimule({ params }: { params: Promise<{ id:
   const session = d.sessions_paiement.find((s) => s.id === id);
   const dossier = session && d.dossiers.find((x) => x.id === session.dossier_id && x.client_id === client.id);
   if (!session || !dossier) notFound();
+  // Stripe réglé : la simulation est fermée, le paiement se suit dans l'espace du client.
+  if (stripeConfigure()) redirect(`/espace-client/${encodeURIComponent(dossier.reference)}/paiement/${session.id}`);
   const retour = `/espace-client/${dossier.reference}/devis?ok=paiement${session.cible === "facture" ? "#factures" : ""}`;
 
   return (

@@ -1,5 +1,8 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { TEL_AGENCE } from "@/lib/messaging";
 import { createServiceClient } from "@/lib/supabase/server";
+import { pdfBons } from "./pdf";
 import { estDemo } from "./config";
 import { avecDelai, depot, lireDonnees, maintenant } from "./depot";
 import { texteSms } from "./emails";
@@ -71,11 +74,20 @@ export async function calculerTourneeDuSamedi(samedi: string) {
 /**
  * Le message de la veille : un SMS et un e-mail par client dont le nombre de
  * cartons et le créneau sont connus. Un message déjà parti ne repart pas.
+ *
+ * `prevenus` : les clients traités (leur message est passé par le module
+ * d'envoi) ; `partis` : les messages vraiment remis à Brevo — en recette ou
+ * envoi désactivé, ils restent au journal. `incomplets` : les livraisons sans
+ * nombre de cartons ou sans créneau, qui ne reçoivent rien.
  */
-export async function envoyerCreneauxDuSamedi(samedi: string) {
+export async function envoyerCreneauxDuSamedi(samedi: string, options: { origine?: "espace_client" | "veille" } = {}) {
   const d = await lireDonnees();
-  const prets = d.livraisons_cartons.filter((l) => l.date_samedi === samedi && l.statut !== "livree" && l.creneau_debut && l.nb_cartons && !l.creneau_envoye_le);
-  let envoyes = 0;
+  const duJour = d.livraisons_cartons.filter((l) => l.date_samedi === samedi && l.statut !== "livree");
+  const prets = duJour.filter((l) => l.creneau_debut && l.nb_cartons && !l.creneau_envoye_le);
+  const incomplets = duJour.filter((l) => !l.creneau_envoye_le && (!l.creneau_debut || !l.nb_cartons)).length;
+  let prevenus = 0;
+  let partis = 0;
+  let echecs = 0;
   for (const l of prets) {
     const dossier = d.dossiers.find((x) => x.id === l.dossier_id);
     const client = dossier && d.clients.find((c) => c.id === dossier.client_id);
@@ -89,9 +101,67 @@ export async function envoyerCreneauxDuSamedi(samedi: string) {
       debut: heure(l.creneau_debut!), fin: heure(l.creneau_fin!), adresse: l.adresse, contact: l.contact_nom,
       telephone: conseiller.telephone, signature: signatureDe(conseiller),
     };
-    await notifier.envoyer({ dossier_id: dossier.id, canal: "sms", modele: "creneau_cartons", destinataire: l.contact_tel, payload: { ...p, texte: texteSms("creneau_cartons", p) } });
-    await notifier.envoyer({ dossier_id: dossier.id, canal: "email", modele: "creneau_cartons", destinataire: client.email, payload: p });
-    envoyes += 1;
+    // Et une clé par message : même si le marquage était un jour défait, un client ne reçoit pas deux fois le même créneau.
+    const cle = `cartons:creneau:${l.id}:${samedi}:${l.creneau_debut}`;
+    const origine = options.origine ?? "espace_client";
+    const sms = await notifier.envoyer({ dossier_id: dossier.id, canal: "sms", modele: "creneau_cartons", destinataire: l.contact_tel, payload: { ...p, texte: texteSms("creneau_cartons", p) } }, { cle: `${cle}:sms`, origine });
+    const email = await notifier.envoyer({ dossier_id: dossier.id, canal: "email", modele: "creneau_cartons", destinataire: client.email, payload: p }, { cle: `${cle}:email`, origine });
+    prevenus += 1;
+    partis += [sms, email].filter((n) => n.statut === "envoyee").length;
+    echecs += [sms, email].filter((n) => n.statut === "echec").length;
   }
-  return { envoyes };
+  return { envoyes: prevenus, prevenus, partis, echecs, incomplets };
+}
+
+/**
+ * Le récapitulatif de la veille, pour l'équipe : l'ordre de passage, les
+ * créneaux et les cartons à préparer, avec les bons de livraison en PDF (la
+ * page récapitulative, puis un bon par client). Il part à l'adresse de
+ * l'équipe (ESPACE_CLIENT_EMAIL_EQUIPE), à défaut aux conseillers des
+ * dossiers du jour. Sa clé tient compte de son contenu : relancé à
+ * l'identique, il ne repart pas ; si la tournée a changé, il repart.
+ */
+export async function envoyerRecapitulatifEquipe(samedi: string) {
+  const d = await lireDonnees();
+  const bons = d.livraisons_cartons
+    .filter((l) => l.date_samedi === samedi && l.statut !== "livree")
+    .sort((a, b) => (a.ordre_passage ?? 99) - (b.ordre_passage ?? 99) || a.contact_nom.localeCompare(b.contact_nom))
+    .flatMap((l) => {
+      const dossier = d.dossiers.find((x) => x.id === l.dossier_id);
+      const client = dossier && d.clients.find((c) => c.id === dossier.client_id);
+      return dossier && client ? [{ l, dossier, client }] : [];
+    });
+  if (!bons.length) return { destinataires: 0, partis: 0, journalises: 0, deja: 0 };
+
+  const total = bons.reduce((n, b) => n + (b.l.nb_cartons ?? 0), 0);
+  const lignes = bons.map(({ l, dossier }) => ({
+    ordre: l.ordre_passage, creneau: l.creneau_debut ? `${heure(l.creneau_debut)} – ${heure(l.creneau_fin!)}` : null,
+    client: l.contact_nom, reference: dossier.reference, adresse: l.adresse, nb: l.nb_cartons,
+  }));
+  const empreinte = createHash("sha256").update(JSON.stringify(lignes)).digest("hex").slice(0, 16);
+  const equipe = process.env.ESPACE_CLIENT_EMAIL_EQUIPE?.trim();
+  const destinataires = equipe
+    ? [equipe]
+    : [...new Set(bons.map((b) => conseillerDe(d, b.client.conseiller_id).email).filter(Boolean))];
+  const pdf = (await pdfBons(samedi, bons)).toString("base64");
+
+  let partis = 0;
+  let journalises = 0;
+  let deja = 0;
+  for (const a of destinataires) {
+    const n = await notifier.envoyer(
+      {
+        dossier_id: null, canal: "email", modele: "recap_cartons_equipe", destinataire: a,
+        payload: {
+          jour: jourLong(samedi), total, lignes, incomplets: lignes.filter((x) => !x.nb || !x.creneau).length,
+          chemin: `/dashboard/espace-client/cartons?samedi=${samedi}`, signature: { nom: "Espace client", role: "Message automatique", telephone: TEL_AGENCE },
+        },
+      },
+      { cle: `veille:cartons:recap:${samedi}:${a.toLowerCase()}:${empreinte}`, origine: "veille", piecesJointes: [{ nom: `bons-cartons-${samedi}.pdf`, base64: pdf }] },
+    );
+    if (n.doublon) deja += 1;
+    else if (n.statut === "envoyee") partis += 1;
+    else journalises += 1;
+  }
+  return { destinataires: destinataires.length, partis, journalises, deja };
 }

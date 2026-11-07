@@ -63,9 +63,13 @@ export const SECTIONS: Section[] = [
       { href: "/dashboard/parametres", label: "Paramètres" },
       { href: "/dashboard/configuration", label: "Configuration" },
       { href: "/dashboard/equipe", label: "Équipe" },
+      { href: "/dashboard/envois", label: "Envois et veille" },
     ],
   },
 ];
+
+/** Les adresses de la section Réglages. */
+export const ADRESSES_REGLAGES = ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe", "/dashboard/envois"];
 
 /**
  * Les pages qui posent elles-mêmes l'en-tête de la section (bandeau puis
@@ -85,7 +89,7 @@ export function aEnTetePropre(chemin: string): boolean {
 export function sectionDe(chemin: string): Section | null {
   if (!chemin.startsWith("/dashboard")) return null;
   if (chemin.startsWith("/dashboard/espace-client")) return SECTIONS[1];
-  if (["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => chemin.startsWith(p))) return SECTIONS[2];
+  if (ADRESSES_REGLAGES.some((p) => chemin.startsWith(p))) return SECTIONS[2];
   return SECTIONS[0];
 }
 

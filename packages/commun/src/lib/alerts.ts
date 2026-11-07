@@ -1,7 +1,7 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
-import { sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
+import { envoyerEmail, envoyerSms, type ResultatEnvoi } from "@/lib/envois";
 import {
   TEL_AGENCE,
   pieceJointeDuModele,
@@ -174,12 +174,22 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       }
 
       const contenu = renderTemplate(tpl.contenu, a.channel === "email" ? varsEmail : fullCtx);
-      let status: "envoye" | "echec" = "envoye";
-      let erreur: string | null = null;
+      // Tout part par le module d'envoi (lib/envois) : garde-fous, journal, Brevo.
+      // Un événement automatique ne se produit qu'une fois par demande : sa clé
+      // l'empêche de partir deux fois pour la même règle. Les gestes de
+      // l'équipe (devis envoyé, accepté…) peuvent se répéter : clé unique.
+      const commun = {
+        cle: ctx.request_id && AUTOMATIQUES.has(event) ? `questionnaires:${event}:${a.id}:${ctx.request_id}` : null,
+        origine: "questionnaires" as const,
+        modele: `Alerte : ${a.name}`,
+        reference: (ctx.reference as string | undefined) || (ctx.request_id as string | undefined) || null,
+      };
+      let r: ResultatEnvoi | null = null;
+      let erreurRendu: string | null = null;
 
       try {
         if (a.channel === "sms") {
-          await sendBrevoSms({ to, content: contenu, sender: settings.sms_sender });
+          r = await envoyerSms({ ...commun, a: to, texte: contenu, expediteur: settings.sms_sender });
         } else {
           // Le PDF n'est rendu que si le modèle le joint — par choix de
           // l'équipe, ou par défaut dès que le message montre l'estimation.
@@ -207,29 +217,28 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
               : null,
           });
 
-          await sendBrevoEmail({
-            to,
-            subject: sujet,
+          r = await envoyerEmail({
+            ...commun,
+            a: to,
+            sujet,
             html,
-            senderName: settings.entreprise_nom,
-            senderEmail: settings.entreprise_email,
-            attachments:
-              pdf && est ? [{ name: `estimation-${est.reference}.pdf`, contentBase64: pdf }] : undefined,
+            expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
+            piecesJointes: pdf && est ? [{ nom: `estimation-${est.reference}.pdf`, base64: pdf }] : undefined,
           });
         }
       } catch (e) {
-        status = "echec";
-        erreur = e instanceof Error ? e.message : "Erreur d'envoi";
+        erreurRendu = e instanceof Error ? e.message : "Erreur de préparation du message";
       }
 
+      const statut = statutQuestionnaires(r, erreurRendu);
       await supabase.from("emails").insert({
         destinataire: to,
         client_email: (ctx.client_email as string | undefined) ?? null,
         sujet: sujetPrevu,
         corps: contenu,
         template: `Alerte : ${a.name}`,
-        status,
-        erreur,
+        status: statut.emails,
+        erreur: statut.erreur,
       });
 
       // Trace l'élément déclenché sur la fiche de la demande (onglet Historique).
@@ -237,11 +246,25 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
         await supabase.from("request_events").insert({
           request_id: ctx.request_id,
           type: "message",
-          payload: { channel: a.channel, rule: a.name, template: tpl.name, to, event, status, erreur },
+          payload: { channel: a.channel, rule: a.name, template: tpl.name, to, event, status: statut.historique, erreur: statut.erreur },
         });
       }
     }
   } catch (e) {
     console.error("fireEvent", event, e);
   }
+}
+
+/**
+ * Le statut d'un message dans les deux journaux des questionnaires : la table
+ * `emails` (envoye, echec, brouillon) et l'historique de la demande (envoye,
+ * echec, ignore). Un message qui n'est pas parti — envoi désactivé, recette,
+ * bac à sable — y figure en brouillon (« ignoré » dans l'historique), avec sa
+ * raison. Le statut détaillé est au journal des envois.
+ */
+function statutQuestionnaires(r: ResultatEnvoi | null, erreurRendu: string | null) {
+  if (!r) return { emails: "echec" as const, historique: "echec" as const, erreur: erreurRendu };
+  if (r.statut === "envoye") return { emails: "envoye" as const, historique: "envoye" as const, erreur: r.doublon ? "déjà envoyé (même clé)" : null };
+  if (r.statut === "echec" || r.statut === "incertain") return { emails: "echec" as const, historique: "echec" as const, erreur: r.motif };
+  return { emails: "brouillon" as const, historique: "ignore" as const, erreur: r.doublon ? `déjà traité : ${r.motif ?? r.statut}` : r.motif };
 }

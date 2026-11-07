@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac } from "node:crypto";
 import { headers } from "next/headers";
 import { URL_EXTERNE } from "@/lib/adresses";
+import { estAdresseFictive } from "@/lib/envois/garde-fous";
 
 /*
  * Les réglages de l'espace client, tous lus dans l'environnement.
@@ -15,8 +16,13 @@ import { URL_EXTERNE } from "@/lib/adresses";
  *   ESPACE_CLIENT_SECRET             la clé des liens de fichiers signés et du
  *                                    paiement simulé ; à défaut, la clé
  *                                    service_role.
- *   ESPACE_CLIENT_ENVOI=1            les e-mails et SMS partent vraiment, par
- *                                    Brevo. Sans elle : journalisés seulement.
+ *   ENVOI_MODE, ENVOI_…              les envois réels (e-mails et SMS par
+ *                                    Brevo) se règlent pour toute la
+ *                                    plateforme : voir lib/envois. L'ancienne
+ *                                    ESPACE_CLIENT_ENVOI n'est plus lue.
+ *   STRIPE_SECRET_KEY,               le paiement en ligne par Stripe (voir
+ *   STRIPE_WEBHOOK_SECRET            stripe.ts) ; sans les deux, le paiement
+ *                                    simulé reste en place.
  *   ESPACE_CLIENT_URL                l'adresse publique, pour les liens des
  *                                    e-mails ; à défaut, celle de la requête.
  *   ESPACE_CLIENT_EMAIL_EQUIPE       où partent les avis à l'équipe (cartons,
@@ -27,7 +33,9 @@ import { URL_EXTERNE } from "@/lib/adresses";
  *                                    les clients marqués « demo ».
  *   ESPACE_CLIENT_DEMO_EQUIPE=1      ouvre le back-office de démonstration
  *                                    hors développement (jamais en base).
- *   ESPACE_CLIENT_CRON_SECRET        protège l'envoi automatique de la veille.
+ *
+ * La tâche de la veille (cartons du samedi, rappels de visite) vit dans
+ * l'app interne : POST /api/taches/veille, protégée par TACHES_SECRET.
  */
 
 export type ModeDonnees = "demo" | "base";
@@ -42,9 +50,6 @@ export const estDemo = () => modeDonnees() === "demo";
 export function baseConfiguree() {
   return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
-
-/** L'envoi réel par Brevo : désactivé tant qu'on ne l'a pas demandé explicitement. */
-export const envoiReel = () => process.env.ESPACE_CLIENT_ENVOI === "1";
 
 /** Durée de validité d'un lien d'accès. */
 export const DUREE_LIEN_MIN = 15;
@@ -118,5 +123,9 @@ export function emailEquipe(conseillerEmail: string) {
   return process.env.ESPACE_CLIENT_EMAIL_EQUIPE || conseillerEmail;
 }
 
-/** Une adresse fictive (jeu de démonstration) : rien ne lui est jamais envoyé pour de vrai. */
-export const adresseFictive = (adresse: string) => /@(example\.(com|org|net)|[\w.-]+\.exemple|exemple\.fr)$/i.test(adresse.trim());
+/**
+ * Une adresse fictive (jeu de démonstration, domaines réservés aux exemples) :
+ * rien ne lui est jamais envoyé pour de vrai. La règle est celle du module
+ * d'envoi (lib/envois/garde-fous.ts), qui l'applique à tout message.
+ */
+export const adresseFictive = (adresse: string) => estAdresseFictive(adresse);

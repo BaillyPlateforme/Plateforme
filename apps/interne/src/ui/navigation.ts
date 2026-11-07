@@ -19,10 +19,12 @@ export type Entree = {
 export type Groupe = { titre: string; entrees: Entree[] };
 
 const sous = (href: string) => (c: string) => c === href || c.startsWith(`${href}/`);
+/** Les adresses de la section Réglages (crm/sections.ts, ADRESSES_REGLAGES). */
+const REGLAGES_ADRESSES = ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe", "/dashboard/envois"];
 const questionnaires = (c: string) =>
   c.startsWith("/dashboard") &&
   !c.startsWith("/dashboard/espace-client") &&
-  !["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p));
+  !REGLAGES_ADRESSES.some((p) => c.startsWith(p));
 
 export const GROUPES: Groupe[] = [
   {
@@ -48,6 +50,7 @@ export const GROUPES: Groupe[] = [
       { href: "/dossiers", label: "Clients et dossiers", icone: "clients" },
       { href: "/devis", label: "Devis", icone: "devis" },
       { href: "/factures", label: "Factures", icone: "facture" },
+      { href: "/relances", label: "Relances", icone: "horloge" },
     ],
   },
   {
@@ -71,7 +74,7 @@ export const GROUPES: Groupe[] = [
         href: "/dashboard/parametres",
         label: "Paramètres",
         icone: "reglages",
-        actif: (c) => ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p)),
+        actif: (c) => REGLAGES_ADRESSES.some((p) => c.startsWith(p)),
       },
     ],
   },

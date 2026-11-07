@@ -7,7 +7,7 @@ import { exigerEquipe } from "@/lib/supabase/auth";
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
-import { sendBrevoEmail } from "@/lib/brevo";
+import { envoyerEmail } from "@/lib/envois";
 import { habillerTexte } from "@/lib/email-render";
 import { TEL_AGENCE } from "@/lib/messaging";
 
@@ -24,28 +24,25 @@ export async function sendEmail(input: EmailInput) {
   const supabase = createServiceClient();
   const settings = await getSettings();
 
-  let status: "envoye" | "echec" = "envoye";
-  let erreur: string | null = null;
-
-  try {
-    await sendBrevoEmail({
-      to: input.destinataire,
-      subject: input.sujet,
-      html: habillerTexte(input.sujet, input.corps, {
-        base: (settings.base_url || "").replace(/\/$/, ""),
-        entreprise: {
-          nom: settings.entreprise_nom ?? undefined,
-          email: settings.entreprise_email ?? undefined,
-          tel: settings.entreprise_tel || TEL_AGENCE,
-        },
-      }),
-      senderName: settings.entreprise_nom,
-      senderEmail: settings.entreprise_email,
-    });
-  } catch (e) {
-    status = "echec";
-    erreur = e instanceof Error ? e.message : "Échec d'envoi";
-  }
+  // Par le module d'envoi : garde-fous (envoi désactivé, recette…) et journal.
+  const r = await envoyerEmail({
+    origine: "questionnaires",
+    modele: input.template ?? "E-mail de l'équipe",
+    a: input.destinataire,
+    sujet: input.sujet,
+    html: habillerTexte(input.sujet, input.corps, {
+      base: (settings.base_url || "").replace(/\/$/, ""),
+      entreprise: {
+        nom: settings.entreprise_nom ?? undefined,
+        email: settings.entreprise_email ?? undefined,
+        tel: settings.entreprise_tel || TEL_AGENCE,
+      },
+    }),
+    expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
+  });
+  // Le journal des questionnaires ne connaît que envoye, echec et brouillon : ce qui n'est pas parti y est en brouillon.
+  const status: "envoye" | "echec" | "brouillon" = r.statut === "envoye" ? "envoye" : r.statut === "echec" || r.statut === "incertain" ? "echec" : "brouillon";
+  const erreur = r.statut === "envoye" ? null : r.motif;
 
   await supabase.from("emails").insert({
     destinataire: input.destinataire,

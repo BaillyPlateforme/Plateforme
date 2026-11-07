@@ -1,26 +1,69 @@
-import { modeles } from "@/crm/lib/data2";
-import { majModele } from "@/crm/actions2";
+import Link from "next/link";
 import Bandeau from "@/ui/Bandeau";
+import { etatEnvois } from "@/lib/envois";
+import { cartesMessages } from "@/crm/messages/donnees";
+import Marketplace from "@/crm/messages/Marketplace";
+import s from "@/crm/messages/messages.module.css";
 
 export const dynamic = "force-dynamic";
-export default async function Modeles() {
-  const rows = await modeles();
-  const bloc = (canal: string, titre: string) => (
-    <section className="card" style={{ marginBottom: 18 }}>
-      <h3>{titre}</h3>
-      {rows.filter((r) => r.canal === canal).map((r) => (
-        <form key={r.id} action={majModele.bind(null, r.id)} className="form-grid" style={{ padding: "14px 0", borderBottom: "1px dashed var(--line)" }}>
-          <div className="fld w4"><label>Nom du modèle</label><input type="text" name="nom" defaultValue={r.nom} /></div>
-          {canal === "email" && <div className="fld w8"><label>Objet</label><input type="text" name="objet" defaultValue={r.objet ?? ""} /></div>}
-          <div className="fld w12"><label>Texte (variables : {"{client} {commercial} {date} {heure} {ref}"})</label><textarea name="corps" defaultValue={r.corps} style={{ minHeight: canal === "sms" ? 60 : 110 }} /></div>
-          <div className="fld w12"><button className="btn ghost sm">Enregistrer le modèle</button></div>
-        </form>))}
-    </section>);
+
+/**
+ * Courriers et SMS : tous les messages de la plateforme, une carte par type
+ * d'action — activable, modifiable, avec son déclencheur, son délai et son
+ * nombre d'envois. Filtres par étape du parcours et par canal.
+ *
+ * Les filtres sont des liens (?etape=…&canal=…) : à la fusion avec le design
+ * « Quantum », ils passent dans la rangée du bas du Bandeau (Pilules).
+ */
+export default async function Modeles({ searchParams }: { searchParams: Promise<{ etape?: string; canal?: string }> }) {
+  const sp = await searchParams;
+  const { cartes, etapes } = await cartesMessages();
+  const canal = sp.canal === "sms" || sp.canal === "email" ? sp.canal : null;
+  const etape = etapes.some((e) => e.cle === sp.etape) ? sp.etape! : null;
+  const visibles = cartes.filter((c) => (!canal || c.canal === canal) && (!etape || c.etape === etape));
+  const envois = etatEnvois();
+  const lien = (p: { etape?: string | null; canal?: string | null }) => {
+    const u = new URLSearchParams();
+    const e = p.etape === undefined ? etape : p.etape;
+    const c = p.canal === undefined ? canal : p.canal;
+    if (e) u.set("etape", e);
+    if (c) u.set("canal", c);
+    const qs = u.toString();
+    return `/modeles${qs ? `?${qs}` : ""}`;
+  };
+  const actifs = cartes.filter((c) => c.actif).length;
+  const aValider = cartes.filter((c) => c.aValider).length;
   return (
     <div className="view">
-      <Bandeau surtitre="Gestion" titre="Courriers & SMS" texte="Des modèles à volonté, utilisables depuis chaque dossier. Le SMS de confirmation de rendez-vous demande de répondre 1 ou 2. L’envoi réel est simulé dans cette version." />
-      {bloc("sms", "Modèles de SMS")}
-      {bloc("email", "Modèles d'e-mails")}
+      <Bandeau
+        surtitre="Gestion"
+        titre="Courriers et SMS"
+        texte={`Chaque message de la plateforme, du questionnaire au SAV : ${actifs} actifs sur ${cartes.length}${aValider ? `, ${aValider} textes à valider` : ""}. Envois : ${envois.libelle.toLowerCase()}.`}
+        secondaire={{ label: "Relances", href: "/relances" }}
+      />
+      <nav className={s.filtres} aria-label="Filtres">
+        <div className={s.groupe}>
+          <small>Étape</small>
+          <Link className={s.pilule} href={lien({ etape: null })} aria-current={!etape ? "page" : undefined}>
+            Toutes <i>{cartes.filter((c) => !canal || c.canal === canal).length}</i>
+          </Link>
+          {etapes.map((e) => {
+            const n = cartes.filter((c) => c.etape === e.cle && (!canal || c.canal === canal)).length;
+            return n ? (
+              <Link key={e.cle} className={s.pilule} href={lien({ etape: e.cle })} aria-current={etape === e.cle ? "page" : undefined}>
+                {e.libelle} <i>{n}</i>
+              </Link>
+            ) : null;
+          })}
+        </div>
+        <div className={s.groupe}>
+          <small>Canal</small>
+          <Link className={s.pilule} href={lien({ canal: null })} aria-current={!canal ? "page" : undefined}>Tous</Link>
+          <Link className={s.pilule} href={lien({ canal: "email" })} aria-current={canal === "email" ? "page" : undefined}>E-mail</Link>
+          <Link className={s.pilule} href={lien({ canal: "sms" })} aria-current={canal === "sms" ? "page" : undefined}>SMS</Link>
+        </div>
+      </nav>
+      <Marketplace cartes={visibles} etapes={etapes} />
     </div>
   );
 }

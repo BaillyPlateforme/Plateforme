@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { envoiReel } from "@/lib/espace-client/config";
+import { etatEnvois } from "@/lib/envois";
 import { etatEspaceCrm, paysDeLAdresse, prealablesEspace, type DossierCrmPourEspace } from "@/lib/espace-client/crm";
 import { PAYS } from "@/lib/espace-client/format";
 import { SEGMENTS, segmentDuCrm } from "@/lib/espace-client/segments";
@@ -151,7 +151,11 @@ export async function EspaceClient({ d, commerciaux, espace, message }: { d: Row
           <div className="sec-actions">
             <button className="btn primary" disabled={bloque}><Ic n="globe" />Ouvrir l&apos;espace client</button>
             <span className="sub" style={{ alignSelf: "center" }}>
-              {envoiReel() ? "Le lien d'accès part aussitôt par e-mail, valable 15 minutes." : "Le lien d'accès est journalisé : aucun e-mail ne part tant que l'envoi réel n'est pas activé."}
+              {etatEnvois().mode === "actif"
+                ? "Le lien d'accès part aussitôt par e-mail, valable 15 minutes."
+                : etatEnvois().mode === "recette"
+                  ? "Recette : le lien d'accès ne part par e-mail que si l'adresse du client est sur la liste blanche ; sinon il est journalisé."
+                  : "Le lien d'accès est journalisé : aucun e-mail ne part tant que l'envoi réel n'est pas activé."}
             </span>
           </div>
         </form>

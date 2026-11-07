@@ -4,6 +4,7 @@ import { activiteRecente, aPlanifier, relancesDevis } from "@/crm/lib/data";
 import { gmEnRetard } from "@/crm/lib/data2";
 import { ilYa, nomClient } from "@/crm/lib/format";
 import { compterNouvelles } from "@/lib/requests";
+import { alertesRdv } from "@/crm/rdv/sms";
 import type { Alerte, Utilisateur } from "./Coque";
 
 /*
@@ -21,14 +22,17 @@ const ROLES: Record<string, string> = {
 
 export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alertes: Alerte[]; nouvelles: number }> {
   const user = await currentUser();
-  const [activite, relances, aPlanifierListe, gardeMeuble, nouvelles] = await Promise.all([
+  const [activite, relances, aPlanifierListe, gardeMeuble, nouvelles, rdvSms] = await Promise.all([
     activiteRecente(8),
     relancesDevis(),
     aPlanifier(),
     gmEnRetard(),
     compterNouvelles().catch(() => 0),
+    // Les réponses aux SMS de rendez-vous : annulé par le client, ou sans réponse la veille (src/crm/rdv).
+    alertesRdv(),
   ]);
   const alertes: Alerte[] = [
+    ...rdvSms.map((a) => ({ ...a, aFaire: true })),
     ...(nouvelles > 0
       ? [{ id: "site", aFaire: true, titre: `${nouvelles} demande${nouvelles > 1 ? "s" : ""} du site à ouvrir`, sous: "Venues des questionnaires", href: "/dashboard?statut=new" }]
       : []),

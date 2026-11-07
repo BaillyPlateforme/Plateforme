@@ -19,10 +19,11 @@ import { lireSession } from "@/lib/supabase/session-proxy";
  *   n'est qu'un premier filtre, rapide (le jeton se vérifie localement).
  *
  *   Restent ouvertes sans session : la connexion, la page d'arrivée du lien
- *   (/acces), la déconnexion, le webhook du prestataire de paiement (signé),
- *   la tâche de la veille (secret), la porte des fichiers (lien signé, et
- *   elle vérifie elle-même la session), et la boîte de réception de
- *   démonstration (profils fictifs seulement).
+ *   (/acces), la déconnexion, les webhooks de paiement (signés : simulé, et
+ *   Stripe sous /paiement/webhook/stripe), la porte des fichiers (lien signé,
+ *   et elle vérifie elle-même la session), et la boîte de réception de
+ *   démonstration (profils fictifs seulement). La tâche de la veille vit
+ *   désormais dans l'app interne (/api/taches/veille).
  */
 
 const PUBLIQUES_ESPACE_CLIENT = [
@@ -30,7 +31,6 @@ const PUBLIQUES_ESPACE_CLIENT = [
   "/espace-client/acces",
   "/espace-client/deconnexion",
   "/espace-client/paiement/webhook",
-  "/espace-client/taches/",
   "/espace-client/fichier/",
   "/espace-client/apercu-email/",
 ];
@@ -41,8 +41,8 @@ export async function proxy(request: NextRequest) {
   const chemin = request.nextUrl.pathname;
 
   if (chemin === "/espace-client" || chemin.startsWith("/espace-client/")) {
-    // Le webhook et la tâche planifiée n'ont ni cookie ni session : rien à lire.
-    if (chemin.startsWith("/espace-client/paiement/webhook") || chemin.startsWith("/espace-client/taches/")) return NextResponse.next();
+    // Les webhooks de paiement n'ont ni cookie ni session : rien à lire (leur signature fait foi).
+    if (chemin.startsWith("/espace-client/paiement/webhook")) return NextResponse.next();
     // En démonstration, sans base ni Supabase Auth, la session est un cookie que les pages lisent elles-mêmes.
     if (process.env.ESPACE_CLIENT_DONNEES === "demo") return NextResponse.next();
     const s = await lireSession(request);

@@ -160,3 +160,50 @@ export function BandeauMode({ mode }: { mode: { donnees: string; envoi: boolean;
     </div>
   );
 }
+
+/** L'état du module d'envoi, tel que le serveur le lit (lib/envois, etatEnvois). */
+export type EtatEnvoisVu = { mode: string; libelle: string; detail: string; bacASable: boolean; avertissements: string[] };
+
+const TON_MODE: Record<string, Ton> = { actif: "ok", recette: "attente", desactive: "neutre" };
+
+/**
+ * Ce que deviennent les messages, en une ligne : désactivé, recette avec
+ * liste blanche, ou actif — et le lien vers le journal complet des envois.
+ */
+export function EtatDesEnvois({ envois, lien = true }: { envois: EtatEnvoisVu; lien?: boolean }) {
+  const { demo } = usePorte();
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-card px-4 py-3 text-[12.5px]">
+      <span className="font-medium">Envois</span>
+      <Pastille ton={TON_MODE[envois.mode] ?? "neutre"}>{envois.libelle}</Pastille>
+      <span className="text-ink-soft">{envois.detail}</span>
+      {envois.avertissements.map((a) => (
+        <span key={a} className="basis-full text-[12px] font-medium text-danger">
+          {a}
+        </span>
+      ))}
+      {lien && !demo && (
+        <Link href="/dashboard/envois" className="ml-auto font-medium hover:text-brand-ink">
+          Journal des envois et tâche de la veille →
+        </Link>
+      )}
+    </div>
+  );
+}
+
+const STATUTS_ENVOI: Record<string, { ton: Ton; label: string }> = {
+  envoye: { ton: "ok", label: "Envoyé" },
+  echec: { ton: "alerte", label: "Échec" },
+  incertain: { ton: "alerte", label: "Incertain" },
+  journalise: { ton: "neutre", label: "Journalisé" },
+  bloque: { ton: "attente", label: "Bloqué (recette)" },
+  fictif: { ton: "neutre", label: "Fictif" },
+  bac_a_sable: { ton: "attente", label: "Bac à sable" },
+  en_cours: { ton: "neutre", label: "En cours" },
+};
+
+/** Le statut d'un message au journal des envois. */
+export function PastilleEnvoi({ statut }: { statut: string }) {
+  const s = STATUTS_ENVOI[statut] ?? { ton: "neutre" as Ton, label: statut };
+  return <Pastille ton={s.ton}>{s.label}</Pastille>;
+}

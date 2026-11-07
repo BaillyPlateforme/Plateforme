@@ -13,7 +13,9 @@ import { aujourdhui, dateLongue, jourLong, joursRestants, nomClient, salutation 
 import { conseillerDe, signatureDe } from "@/lib/espace-client/lectures";
 import { estProfilDemo } from "@/lib/espace-client/seed";
 import { notifier } from "@/lib/espace-client/notifier";
-import { paiements, traiterEvenement } from "@/lib/espace-client/paiement";
+import { paiementSimule, traiterEvenement } from "@/lib/espace-client/paiement";
+import { prestataire } from "@/lib/espace-client/stripe";
+import { stripeConfigure } from "@/lib/espace-client/stripe-config";
 import { arrhesPayees, livraisonEffectuee, montantArrhes, requirementsApplicables } from "@/lib/espace-client/progression";
 import { noterDansLeCrm, signerDevisCrm } from "@/lib/espace-client/crm";
 import { segmentDe } from "@/lib/espace-client/segments";
@@ -350,9 +352,11 @@ export async function payerArrhes(reference: string, devisId: string) {
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
   const payable = !!devis && devis.arrhes_pourcentage > 0 && (devis.statut === "envoye" || (devis.statut === "accepte" && !arrhesPayees(devis, d.factures)));
   if (!devis || !payable) redirect(`/espace-client/${reference}/devis`);
-  const { url } = await paiements.creerPaiement({
+  // Le montant vient de la base (le devis lu par la session du client), jamais du navigateur.
+  const { url } = await prestataire().creerPaiement({
     cible: "devis_arrhes", cible_id: devis.id, dossier_id: dossier.id, montant: montantArrhes(devis),
     libelle: `Arrhes ${devis.arrhes_pourcentage} % · devis ${devis.numero}`, trace: await traces(),
+    reference: dossier.reference, email: client.email,
   });
   redirect(url);
 }
@@ -388,8 +392,9 @@ export async function payerFacture(reference: string, factureId: string) {
   if (client.masquer_factures) throw new Error("Factures indisponibles pour ce compte.");
   const f = d.factures.find((x) => x.id === factureId && x.dossier_id === dossier.id);
   if (!f || f.statut === "payee") redirect(`/espace-client/${reference}/devis#factures`);
-  const { url } = await paiements.creerPaiement({
+  const { url } = await prestataire().creerPaiement({
     cible: "facture", cible_id: f.id, dossier_id: dossier.id, montant: f.montant_ttc, libelle: `${f.libelle} · ${f.numero}`, trace: await traces(),
+    reference: dossier.reference, email: client.email,
   });
   redirect(url);
 }
@@ -397,9 +402,11 @@ export async function payerFacture(reference: string, factureId: string) {
 /**
  * Le bouton de la page de paiement simulée. Il joue le prestataire : il
  * signe l'événement comme le ferait son webhook, et c'est le traitement du
- * webhook — le seul — qui fait passer la facture à « payée ».
+ * webhook — le seul — qui fait passer la facture à « payée ». Fermé dès que
+ * Stripe est réglé.
  */
 export async function issuePaiementSimule(sessionId: string, fd: FormData) {
+  if (stripeConfigure()) redirect("/espace-client");
   const client = await exigerClient();
   const d = await lireDonneesClient();
   const session = d.sessions_paiement.find((s) => s.id === sessionId);
@@ -407,7 +414,7 @@ export async function issuePaiementSimule(sessionId: string, fd: FormData) {
   if (!session || !dossier) redirect("/espace-client");
   const payer = fd.get("issue") === "payer";
   const reference = `PAY-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-  const { corps, signature } = paiements.signerEvenement({ type: payer ? "paiement.reussi" : "paiement.annule", session_id: session.id, reference });
+  const { corps, signature } = paiementSimule.signerEvenement({ type: payer ? "paiement.reussi" : "paiement.annule", session_id: session.id, reference });
   await traiterEvenement(corps, signature);
   rafraichir(dossier.reference);
   if (payer) redirect(`/espace-client/paiement/${session.id}`);
