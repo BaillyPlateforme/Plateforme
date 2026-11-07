@@ -21,8 +21,8 @@ type Contenu = {
 
 /**
  * L'en-tête des sections venues de l'espace équipe (questionnaires, espace
- * client, réglages) : TOUJOURS le bandeau du CRM, à hauteur fixe, puis les
- * onglets de la section en dessous — même taille, même place, sur chaque page.
+ * client, réglages) : TOUJOURS le bandeau du CRM (la bande indigo), avec les
+ * onglets de la section en verre sous le titre — même forme sur chaque page.
  *
  * Posé sans réglage par la mise en page des sections, il prend le nom de la
  * section et le titre de la page (nav-meta.ts). Les pages qui ont mieux à dire
@@ -38,19 +38,16 @@ export default function EnTeteSection({ propre = false, ...contenu }: Contenu & 
   const meta = metaDe(chemin);
 
   return (
-    <>
-      <Bandeau
-        surtitre={contenu.surtitre ?? section?.nom ?? ""}
-        titre={contenu.titre ?? meta.titre}
-        texte={propre ? contenu.texte : meta.sous}
-        action={contenu.action}
-        etiquettes={contenu.etiquettes}
-        fixe
-      >
-        {contenu.children}
-      </Bandeau>
-      {section && <Onglets chemin={chemin} section={section} />}
-    </>
+    <Bandeau
+      surtitre={contenu.surtitre ?? section?.nom ?? ""}
+      titre={contenu.titre ?? meta.titre}
+      texte={propre ? contenu.texte : meta.sous}
+      action={contenu.action}
+      etiquettes={contenu.etiquettes}
+      bas={section && <Onglets chemin={chemin} section={section} />}
+    >
+      {contenu.children}
+    </Bandeau>
   );
 }
 

@@ -3,9 +3,10 @@ import { Icone, type NomIcone } from "./icones";
 import s from "./bandeau.module.css";
 
 /**
- * Le bandeau en tête d'une page : surtitre chiffré, titre, phrase, action
- * principale, et à droite quelques repères. Sert aux pages du CRM comme aux
- * sections venues de l'espace équipe.
+ * L'en-tête d'une page, posé sur la bande indigo du design « Quantum » :
+ * surtitre, titre, phrase, pastilles, boutons à droite, et en bas les onglets
+ * d'une section. Sert aux pages du CRM comme aux sections venues de l'espace
+ * équipe — la même forme partout. Pas de chiffres ici : la place va aux données.
  */
 export default function Bandeau({
   surtitre,
@@ -13,9 +14,8 @@ export default function Bandeau({
   texte,
   action,
   secondaire,
-  reperes,
   etiquettes,
-  fixe = false,
+  bas,
   children,
 }: {
   surtitre: string;
@@ -23,15 +23,14 @@ export default function Bandeau({
   texte?: React.ReactNode;
   action?: { label: string; href: string; icone?: NomIcone };
   secondaire?: { label: string; href: string };
+  /** Sans effet depuis le 07/11/2026 : plus de chiffres dans l'en-tête. */
   reperes?: { label: string; valeur: string }[];
   /** Quelques pastilles sous la phrase : référence, statut, segment… */
   etiquettes?: (string | false | null | undefined)[];
-  /**
-   * Hauteur unique, quel que soit le contenu : le texte à gauche, les boutons
-   * à droite (deux lignes au plus), sans repères. Les sections de l'équipe
-   * l'emploient pour que l'en-tête ne change pas de taille d'une page à l'autre.
-   */
+  /** Sans effet : l'en-tête a désormais la même forme partout. */
   fixe?: boolean;
+  /** Sous le titre, dans la bande : les onglets d'une section. */
+  bas?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const boutons = (action || secondaire || children) && (
@@ -53,31 +52,37 @@ export default function Bandeau({
     </div>
   );
   return (
-    <section className={`${s.bandeau} ${fixe ? s.fixe : ""}`}>
-      <div className={s.gauche}>
-        <p className={s.surtitre}>{surtitre}</p>
-        <h1 className={s.titre}>{titre}</h1>
-        {texte && <p className={s.texte}>{texte}</p>}
-        {etiquettes && etiquettes.some(Boolean) && (
-          <p className={s.etiquettes}>
-            {etiquettes.filter(Boolean).map((e) => (
-              <span key={e as string}>{e}</span>
-            ))}
-          </p>
-        )}
-        {!fixe && boutons}
-      </div>
-      {fixe && boutons}
-      {!fixe && reperes && reperes.length > 0 && (
-        <div className={s.reperes}>
-          {reperes.map((r) => (
-            <div key={r.label} className={s.repere}>
-              <small>{r.label}</small>
-              <b>{r.valeur}</b>
-            </div>
-          ))}
+    <section className={s.bandeau}>
+      <div className={s.decor} aria-hidden />
+      <div className={s.tete}>
+        <div className={s.gauche}>
+          <p className={s.surtitre}>{surtitre}</p>
+          <h1 className={s.titre}>{titre}</h1>
+          {texte && <p className={s.texte}>{texte}</p>}
+          {etiquettes && etiquettes.some(Boolean) && (
+            <p className={s.etiquettes}>
+              {etiquettes.filter(Boolean).map((e) => (
+                <span key={e as string}>{e}</span>
+              ))}
+            </p>
+          )}
         </div>
-      )}
+        {boutons}
+      </div>
+      {bas && <div className={s.bas}>{bas}</div>}
     </section>
+  );
+}
+
+/** Des pilules de verre, dans la bande (le bas du bandeau) : filtres et sous-vues d'une page. */
+export function Pilules({ items, label }: { items: { href: string; label: string; actif?: boolean }[]; label: string }) {
+  return (
+    <nav className={s.pilules} aria-label={label}>
+      {items.map((i) => (
+        <Link key={i.href} href={i.href} className={s.pilule} aria-current={i.actif ? "page" : undefined}>
+          {i.label}
+        </Link>
+      ))}
+    </nav>
   );
 }

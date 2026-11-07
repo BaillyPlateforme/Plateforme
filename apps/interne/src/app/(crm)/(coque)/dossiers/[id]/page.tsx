@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Bandeau from "@/ui/Bandeau";
 import { notFound } from "next/navigation";
 import { getDossier } from "@/crm/lib/data";
 import { q, type Row } from "@/crm/lib/db";
@@ -43,28 +44,25 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
 
   return (
     <div className="view dossier">
-      <header className="d-head">
-        <i className="av xl">{initiales(nomClient(d))}</i>
-        <div className="d-id">
-          <h1>{nomClient(d)}</h1>
-          <p>{d.ref} · {d.stops[0]?.adresse ?? "—"} → {d.stops[d.stops.length - 1]?.adresse ?? "—"} · {m3(d.volume)}</p>
-        </div>
-        <div className="chips">
-          <span className="chip t"><Ic n="users" />{TYPES[d.type]}</span>
-          <span className="chip">Commercial · {d.commercial ?? "—"}</span>
-          <span className="chip">Traité par · {d.traite_par ?? "—"}</span>
-          <span className="chip">{TYPE_D[d.type_demenagement] ?? "National"}</span>
-          {d.vehicule && <span className="chip">🚗 Carte grise + assurance à fournir</span>}
-          <span className={`st ${STATUTS[d.statut].cls}`} style={{ alignSelf: "center" }}>{STATUTS[d.statut].label}</span>
-        </div>
-        <div className="d-act">
-          <Link className="btn ghost" href={`/imprimer/${id}?doc=fiche`}><Ic n="pdf" />Fiche PDF</Link>
-          <form action={A.dupliquerDossier.bind(null, id)}><button className="btn ghost">Dupliquer</button></form>
-          {d.statut === "perdu"
-            ? <form action={A.rouvrir.bind(null, id)}><button className="btn primary">Rouvrir</button></form>
-            : d.statut !== "termine" && <form action={A.marquerPerdu.bind(null, id)}><button className="btn danger">Marquer perdu</button></form>}
-        </div>
-      </header>
+      <Bandeau
+        surtitre={`Dossier ${d.ref}`}
+        titre={nomClient(d)}
+        texte={`${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"} · ${m3(d.volume)}`}
+        etiquettes={[
+          STATUTS[d.statut].label,
+          TYPES[d.type],
+          `Commercial · ${d.commercial ?? "—"}`,
+          `Traité par · ${d.traite_par ?? "—"}`,
+          TYPE_D[d.type_demenagement] ?? "National",
+          d.vehicule && "Carte grise + assurance à fournir",
+        ]}
+      >
+        <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
+        <form action={A.dupliquerDossier.bind(null, id)}><button data-ton="contour">Dupliquer</button></form>
+        {d.statut === "perdu"
+          ? <form action={A.rouvrir.bind(null, id)}><button>Rouvrir</button></form>
+          : d.statut !== "termine" && <form action={A.marquerPerdu.bind(null, id)}><button data-ton="contour">Marquer perdu</button></form>}
+      </Bandeau>
 
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
 

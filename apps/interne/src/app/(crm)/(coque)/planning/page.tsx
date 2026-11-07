@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { semaine, commerciaux, lundiDe, semaineCourante } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { heure, RDV_TYPES, dateFr } from "@/crm/lib/format";
@@ -16,8 +17,6 @@ export default async function Planning({ searchParams }: { searchParams: Promise
   const jour = (i: number) => { const d = new Date(lun); d.setDate(d.getDate() + i); return d; };
   const nav = (delta: number) => { const d = new Date(lun); d.setDate(d.getDate() + delta); return `/planning?semaine=${d.toISOString().slice(0, 10)}${com ? `&com=${com}` : ""}`; };
   const today = new Date().toDateString();
-  const nb = (t: string[]) => rdvs.filter((r) => t.includes(r.type)).length;
-  const sansDevis = rdvs.filter((r) => ["phys", "visio"].includes(r.type) && !r.devis_etabli).length;
   const num = (d: Date) => Math.ceil(((+d - +new Date(d.getFullYear(), 0, 1)) / 864e5 + 1) / 7);
   const lanes = new Map<number, [number, number]>();
   for (let i = 0; i < 7; i++) {
@@ -35,23 +34,24 @@ export default async function Planning({ searchParams }: { searchParams: Promise
   const hours = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
   return (
     <div className="view planning">
-      <div className="pl-bar">
-        <div className="pl-title"><h2>Semaine du {dateFr(lun, { day: "numeric", month: "long" })}</h2><p>Semaine {num(lun)} · {com ? coms.find((c) => c.id === com)?.nom : "toute l’équipe commerciale"}</p></div>
-        <div className="pl-tools">
-          <div className="seg">
-            <Link className={!com ? "on" : ""} href={`/planning?semaine=${lun.toISOString().slice(0, 10)}`}><button className={!com ? "on" : ""}>Tous</button></Link>
-            {coms.map((c) => <Link key={c.id} href={`/planning?semaine=${lun.toISOString().slice(0, 10)}&com=${c.id}`}><button className={com === c.id ? "on" : ""}>{c.nom.split(" ")[0]}</button></Link>)}
-          </div>
-          <div className="nav-arrows"><Link href={nav(-7)} className="btn ghost" style={{ padding: 0, width: 36, justifyContent: "center" }}><Ic n="left" /></Link><Link href={nav(7)} className="btn ghost" style={{ padding: 0, width: 36, justifyContent: "center" }}><Ic n="right" /></Link></div>
-          <Link href="/planning/nouveau" className="btn primary"><Ic n="plus" />Nouveau RDV</Link>
-        </div>
-      </div>
-      <div className="kpis">
-        <div className="kpi"><small>Visites physiques</small><b>{nb(["phys"])}</b></div>
-        <div className="kpi"><small>Visios</small><b>{nb(["visio"])}</b></div>
-        <div className="kpi"><small>Devis à établir</small><b>{sansDevis}</b></div>
-        <div className="kpi ok"><small>Devis établis</small><b>{rdvs.filter((r) => r.devis_etabli).length}</b></div>
-      </div>
+      <Bandeau
+        surtitre={`Commercial · Semaine ${num(lun)}`}
+        titre={`Semaine du ${dateFr(lun, { day: "numeric", month: "long" })}`}
+        texte={com ? coms.find((c) => c.id === com)?.nom : "Toute l’équipe commerciale"}
+        action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}
+        bas={
+          <Pilules
+            label="Commercial"
+            items={[
+              { href: `/planning?semaine=${lun.toISOString().slice(0, 10)}`, label: "Tous", actif: !com },
+              ...coms.map((c) => ({ href: `/planning?semaine=${lun.toISOString().slice(0, 10)}&com=${c.id}`, label: c.nom.split(" ")[0], actif: com === c.id })),
+            ]}
+          />
+        }
+      >
+        <Link href={nav(-7)} data-ton="fleche" aria-label="Semaine précédente"><Ic n="left" /></Link>
+        <Link href={nav(7)} data-ton="fleche" aria-label="Semaine suivante"><Ic n="right" /></Link>
+      </Bandeau>
       <div className="legend"><span><i className="dot t-phys" />Visite physique</span><span><i className="dot t-visio" />Visio</span><span><i className="dot t-tache" />Tâche</span><span><i className="dot t-perso" />Perso / règle</span><span><i className="tag tk">Devis établi</i></span></div>
       <div className="cal">
         <div className="cal-head" style={{ gridTemplateColumns: "52px repeat(6,1fr)" }}><span />{JOURS.map((j, i) => <div key={j} className={`dh ${jour(i).toDateString() === today ? "today" : ""}`}><small>{j}</small><b>{jour(i).getDate()}</b></div>)}</div>

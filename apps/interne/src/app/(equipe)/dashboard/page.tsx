@@ -26,12 +26,6 @@ export default function DemandesPage() {
   );
   const requests = donnees?.requests ?? [];
 
-  const nouvelles = requests.filter((r) => r.status === "new").length;
-  const volumeTotal = requests.reduce((s, r) => s + (r.volume_m3 ?? 0), 0);
-  const notees = requests.filter((r) => r.score_potentiel != null);
-  const potentielMoyen = notees.length
-    ? Math.round(notees.reduce((s, r) => s + (r.score_potentiel ?? 0), 0) / notees.length)
-    : null;
   const aFocus = requests.filter(
     (r) => (r.score_potentiel ?? 0) >= SEUIL && !["lost", "archived"].includes(r.status),
   ).length;
@@ -43,9 +37,9 @@ export default function DemandesPage() {
   };
 
   return (
-    <div className="px-6 py-7 md:px-10">
+    <div>
       {/* Les trois façons de regarder les mêmes demandes. */}
-      <div className="mb-6 flex w-fit gap-1 rounded-2xl bg-subtle p-1.5">
+      <div className="mb-4 flex w-fit gap-1 rounded-xl bg-subtle p-1">
         {VUES.map((v) => {
           const on = v.cle === vue;
           return (
@@ -53,7 +47,7 @@ export default function DemandesPage() {
               key={v.cle}
               href={v.cle === "liste" ? "/dashboard" : `/dashboard?vue=${v.cle}`}
               aria-current={on ? "page" : undefined}
-              className={`flex items-center gap-2.5 rounded-xl px-4 py-2 transition ${
+              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 transition ${
                 on ? "bg-card shadow-[0_2px_8px_-2px_rgba(28,28,34,0.10)]" : "hover:bg-card/60"
               }`}
             >
@@ -69,7 +63,6 @@ export default function DemandesPage() {
                   {compteur[v.cle]}
                 </span>
               )}
-              <span className="hidden text-[11.5px] text-ink-soft lg:block">{v.sous}</span>
             </Link>
           );
         })}
@@ -80,22 +73,11 @@ export default function DemandesPage() {
       ) : !donnees ? (
         <Squelette lignes={8} />
       ) : vue === "liste" ? (
-        <>
-          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Stat label="Total" value={requests.length} />
-            <Stat label="Nouvelles" value={nouvelles} accent />
-            <Stat label="Volume cumulé" value={`${Math.round(volumeTotal)} m³`} />
-            <Stat
-              label="Potentiel moyen"
-              value={potentielMoyen != null ? `${potentielMoyen}/100` : "—"}
-            />
-          </div>
-          <RequestsTable
+        <RequestsTable
             requests={requests}
             initialQ={params.get("q") ?? ""}
             initialStatut={(params.get("statut") as RequestStatus) ?? "all"}
           />
-        </>
       ) : vue === "focus" ? (
         <FocusVue requests={requests} />
       ) : (
@@ -105,15 +87,3 @@ export default function DemandesPage() {
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        accent ? "border-accent/30 bg-accent-soft/40" : "border-line bg-card"
-      }`}
-    >
-      <div className="text-xs uppercase tracking-wide text-ink-soft">{label}</div>
-      <div className="mt-1 font-serif text-2xl">{value}</div>
-    </div>
-  );
-}

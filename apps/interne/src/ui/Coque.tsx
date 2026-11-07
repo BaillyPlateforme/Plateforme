@@ -6,17 +6,26 @@ import { useEffect, useRef, useState } from "react";
 import Applications from "@/composants/Applications";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
-import { GROUPES, REGLAGES, estActif, type Entree } from "./navigation";
+import { GROUPES, REGLAGES, estActif, type Entree, type Groupe } from "./navigation";
 import s from "./coque.module.css";
 
 /*
- * La coque de l'app interne : un menu à gauche, une barre en haut, la page.
+ * La coque de l'app interne, dans le design « Quantum » modernisé : une barre
+ * blanche en haut — la marque, les rubriques (menus déroulants par groupe),
+ * la recherche, « Nouveau dossier », les applications, la cloche, le compte —
+ * puis la page, dont l'en-tête se pose sur une bande indigo (voir Bandeau).
+ * Sur un écran étroit, les rubriques passent dans un tiroir.
+ *
  * Le CRM et les sections venues de l'espace équipe la posent l'un et l'autre
  * (deux mises en page racines) : le même dessin partout, et un menu unique.
  */
 
 export type Utilisateur = { nom: string; initiales: string; role: string };
 export type Alerte = { id: string; aFaire: boolean; titre: string; sous: string; quand?: string; href: string };
+
+/** Le groupe « Démarrer » s'affiche en liens directs ; les autres en menus. */
+const DIRECTS = GROUPES[0].entrees;
+const MENUS = GROUPES.slice(1).map((g) => (g.titre === "Gestion" ? { ...g, entrees: [...g.entrees, REGLAGES] } : g));
 
 export default function Coque({
   utilisateur,
@@ -31,7 +40,7 @@ export default function Coque({
   children: React.ReactNode;
 }) {
   const chemin = usePathname();
-  const [menuOuvert, setMenuOuvert] = useState(false);
+  const [tiroir, setTiroir] = useState(false);
   const recherche = useRef<HTMLInputElement>(null);
 
   // « / » met le curseur dans la recherche, comme dans la plupart des outils.
@@ -46,91 +55,49 @@ export default function Coque({
     return () => document.removeEventListener("keydown", touche);
   }, []);
 
-  const lien = (e: Entree) => {
-    const actif = estActif(e, chemin);
-    return (
-      <Link
-        key={e.href}
-        href={e.href}
-        className={s.entree}
-        aria-current={actif ? "page" : undefined}
-        title={e.label}
-        onClick={() => setMenuOuvert(false)}
-      >
-        <span className={s.pictogramme}>
-          <Icone nom={e.icone} />
-        </span>
-        <span className={s.libelle}>{e.label}</span>
-        {e.compteur === "nouvelles" && nouvelles > 0 && <span className={s.compteur}>{nouvelles}</span>}
-      </Link>
-    );
-  };
+  const compteur = (e: Entree) => (e.compteur === "nouvelles" && nouvelles > 0 ? nouvelles : 0);
 
   return (
     <div className={s.coque}>
-      {menuOuvert && <button type="button" className={s.voile} aria-label="Fermer le menu" onClick={() => setMenuOuvert(false)} />}
-      <aside className={`${s.menu} ${menuOuvert ? s.menuOuvert : ""}`}>
-        <Link href="/" className={s.marque} onClick={() => setMenuOuvert(false)}>
+      <header className={s.barre}>
+        <button type="button" className={`${s.rond} ${s.burger}`} aria-label="Ouvrir le menu" onClick={() => setTiroir(true)}>
+          <Icone nom="menu" />
+        </button>
+        <Link href="/" className={s.marque} aria-label="Bailly CRM, accueil">
           <span className={s.monogramme}>B</span>
-          <span>
-            <b>Bailly CRM</b>
-            <small>Bailly Déménagement</small>
-          </span>
+          <b>Bailly</b>
         </Link>
 
-        <nav className={s.groupes} aria-label="Menu principal">
-          {GROUPES.map((g) => (
-            <div key={g.titre}>
-              <p className={s.titreGroupe}>{g.titre}</p>
-              {g.entrees.map(lien)}
-            </div>
+        <nav className={s.rubriques} aria-label="Menu principal">
+          {DIRECTS.map((e) => (
+            <Link key={e.href} href={e.href} className={s.rubrique} aria-current={estActif(e, chemin) ? "page" : undefined}>
+              <Icone nom={e.icone} taille={18} />
+              <span>{e.label}</span>
+            </Link>
+          ))}
+          {MENUS.map((g) => (
+            <MenuGroupe key={g.titre} groupe={g} chemin={chemin} compteur={compteur} />
           ))}
         </nav>
 
-        <div className={s.pied}>
-          {nouvelles > 0 && (
-            <Link href="/dashboard?statut=new" className={s.carte} onClick={() => setMenuOuvert(false)}>
-              <small>Venues du site</small>
-              <b>
-                {nouvelles} demande{nouvelles > 1 ? "s" : ""} à ouvrir
-              </b>
-              <span>
-                Les traiter <Icone nom="fleche" taille={13} />
-              </span>
-            </Link>
-          )}
-          {lien(REGLAGES)}
-          <form action={signOut}>
-            <button type="submit" className={s.sortie} title="Se déconnecter">
-              <Icone nom="sortie" />
-              <span>Déconnexion</span>
-            </button>
-          </form>
-        </div>
-      </aside>
+        <span className={s.espace} />
+        <form action="/dossiers" className={s.recherche} role="search">
+          <Icone nom="recherche" taille={17} />
+          <input ref={recherche} name="q" placeholder="Rechercher…" aria-label="Rechercher un client, un dossier, un devis" />
+          <kbd className={s.touche}>/</kbd>
+        </form>
+        <Link href="/dossiers/nouveau" className={s.action} title="Nouveau dossier">
+          <Icone nom="plus" taille={17} />
+          <span>Nouveau dossier</span>
+        </Link>
+        <Applications rond />
+        <Cloche alertes={alertes} />
+        <Compte utilisateur={utilisateur} />
+      </header>
 
-      <div className={s.colonne}>
-        <header className={s.barre}>
-          <button type="button" className={`${s.rond} ${s.burger}`} aria-label="Ouvrir le menu" onClick={() => setMenuOuvert(true)}>
-            <Icone nom="menu" />
-          </button>
-          <form action="/dossiers" className={s.recherche} role="search">
-            <Icone nom="recherche" />
-            <input ref={recherche} name="q" placeholder="Rechercher un client, un dossier, un devis…" aria-label="Rechercher" />
-            <kbd className={s.touche}>/</kbd>
-          </form>
-          <span className={s.espace} />
-          <Link href="/dossiers/nouveau" className={s.action}>
-            <Icone nom="plus" taille={17} />
-            <span>Nouveau dossier</span>
-          </Link>
-          <Applications rond />
-          <Cloche alertes={alertes} />
-          <span className={s.separateur} />
-          <Compte utilisateur={utilisateur} />
-        </header>
-        <main className={s.contenu}>{children}</main>
-      </div>
+      {tiroir && <Tiroir chemin={chemin} compteur={compteur} fermer={() => setTiroir(false)} />}
+
+      <main className={s.contenu}>{children}</main>
     </div>
   );
 }
@@ -150,6 +117,86 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
     };
   }, [ouvert, fermer]);
   return ref;
+}
+
+/** Une rubrique du haut qui ouvre la liste de ses pages. */
+function MenuGroupe({ groupe, chemin, compteur }: { groupe: Groupe; chemin: string; compteur: (e: Entree) => number }) {
+  const [ouvert, setOuvert] = useState(false);
+  const ref = useFermeture(ouvert, () => setOuvert(false));
+  const actif = groupe.entrees.some((e) => estActif(e, chemin));
+  const total = groupe.entrees.reduce((n, e) => n + compteur(e), 0);
+  // Changer de page referme le menu.
+  const [vu, setVu] = useState(chemin);
+  if (vu !== chemin) {
+    setVu(chemin);
+    setOuvert(false);
+  }
+  return (
+    <div className={s.groupe} ref={ref}>
+      <button
+        type="button"
+        className={`${s.rubrique} ${actif ? s.actif : ""}`}
+        aria-expanded={ouvert}
+        aria-haspopup="menu"
+        onClick={() => setOuvert((o) => !o)}
+      >
+        <span>{groupe.titre}</span>
+        {total > 0 && <span className={s.nombre}>{total}</span>}
+        <Icone nom="chevron" taille={14} />
+      </button>
+      {ouvert && (
+        <div className={s.deroulant} role="menu" aria-label={groupe.titre}>
+          {groupe.entrees.map((e) => (
+            <Link key={e.href} href={e.href} role="menuitem" className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
+              <span className={s.pictogramme}>
+                <Icone nom={e.icone} taille={18} />
+              </span>
+              <span className={s.libelle}>{e.label}</span>
+              {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Le menu complet, pour les écrans étroits. */
+function Tiroir({ chemin, compteur, fermer }: { chemin: string; compteur: (e: Entree) => number; fermer: () => void }) {
+  useEffect(() => {
+    const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
+    document.addEventListener("keydown", echap);
+    return () => document.removeEventListener("keydown", echap);
+  }, [fermer]);
+  const lien = (e: Entree) => (
+    <Link key={e.href} href={e.href} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined} onClick={fermer}>
+      <span className={s.pictogramme}>
+        <Icone nom={e.icone} taille={18} />
+      </span>
+      <span className={s.libelle}>{e.label}</span>
+      {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}
+    </Link>
+  );
+  return (
+    <>
+      <button type="button" className={s.voile} aria-label="Fermer le menu" onClick={fermer} />
+      <aside className={s.tiroir} aria-label="Menu">
+        <div className={s.tiroirTete}>
+          <span className={s.monogramme}>B</span>
+          <b>Bailly CRM</b>
+          <button type="button" className={s.rond} aria-label="Fermer" onClick={fermer}>
+            <Icone nom="plus" taille={18} />
+          </button>
+        </div>
+        {[...GROUPES.slice(0, 1), ...MENUS].map((g) => (
+          <div key={g.titre}>
+            <p className={s.titreGroupe}>{g.titre}</p>
+            {g.entrees.map(lien)}
+          </div>
+        ))}
+      </aside>
+    </>
+  );
 }
 
 function Cloche({ alertes }: { alertes: Alerte[] }) {
@@ -181,11 +228,11 @@ function Cloche({ alertes }: { alertes: Alerte[] }) {
           </div>
           {aFaire.length > 0 && (
             <>
-              <p className={s.rubrique}>À traiter</p>
+              <p className={s.rubriquePanneau}>À traiter</p>
               {aFaire.map(ligne)}
             </>
           )}
-          <p className={s.rubrique}>Activité récente</p>
+          <p className={s.rubriquePanneau}>Activité récente</p>
           {activite.length ? activite.map(ligne) : <p className={s.vide}>Rien pour le moment.</p>}
         </div>
       )}
@@ -198,16 +245,16 @@ function Compte({ utilisateur }: { utilisateur: Utilisateur }) {
   const ref = useFermeture(ouvert, () => setOuvert(false));
   return (
     <div className={s.compte} ref={ref}>
-      <button type="button" className={s.fiche} aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
+      <button type="button" className={s.fiche} aria-expanded={ouvert} aria-label={`Compte : ${utilisateur.nom}`} onClick={() => setOuvert((o) => !o)}>
         <span className={s.avatar}>{utilisateur.initiales}</span>
-        <span>
-          <b>{utilisateur.nom}</b>
-          <small>{utilisateur.role}</small>
-        </span>
-        <Icone nom="chevron" taille={15} />
       </button>
       {ouvert && (
         <div className={`${s.panneau} ${s.etroit}`} role="menu">
+          <div className={s.qui}>
+            <b>{utilisateur.nom}</b>
+            <small>{utilisateur.role}</small>
+          </div>
+          <div className={s.filetMenu} />
           <Link href="/dashboard/parametres" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>
             <Icone nom="reglages" taille={17} /> Réglages
           </Link>

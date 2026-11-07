@@ -25,7 +25,7 @@ export default async function Tableau() {
   return (
     <div className="view dash">
       <Bandeau surtitre="Pilotage" titre="Tableau de bord" texte="Chiffres calculés en direct sur les dossiers et devis." />
-      <div className="kpis five">
+      <div className="kpis five chevauche">
         <div className="kpi"><span className="ki"><Ic n="receipt" /></span><small>CA signé · mois en cours</small><b>{eur(s.ca.cur)}</b>{delta != null && <em className={delta >= 0 ? "up" : "dn"}>{delta >= 0 ? "+" : ""}{delta} %</em>}</div>
         <div className="kpi"><span className="ki"><Ic n="doc" /></span><small>Devis envoyés (60 j)</small><b>{s.t30.envoyes}</b></div>
         <div className="kpi"><span className="ki"><Ic n="check" /></span><small>Taux de signature</small><b>{taux} %</b></div>

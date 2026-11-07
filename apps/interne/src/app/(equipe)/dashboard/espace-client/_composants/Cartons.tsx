@@ -76,26 +76,12 @@ export function Cartons() {
 
           {samedi && (
             <>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div className="rounded-[18px] bg-ink p-5 text-white">
-                  <p className="text-[12px] text-white/60">Cartons à préparer</p>
-                  <p className="mt-2 text-[38px] font-bold leading-none tabular-nums text-brand-clair">{donnees.total}</p>
-                </div>
-                <div className="rounded-[18px] bg-card p-5">
-                  <p className="text-[12px] text-ink-soft">Clients à livrer</p>
-                  <p className="mt-2 text-[38px] font-bold leading-none tabular-nums">{donnees.livraisons.length}</p>
-                </div>
-                <div className="rounded-[18px] bg-card p-5">
-                  <p className="text-[12px] text-ink-soft">Nombres à saisir</p>
-                  <p className={`mt-2 text-[38px] font-bold leading-none tabular-nums ${donnees.aSaisir ? "text-danger" : "text-good"}`}>{donnees.aSaisir}</p>
-                </div>
-                <div className="rounded-[18px] bg-card p-5">
-                  <p className="text-[12px] text-ink-soft">Messages de la veille partis</p>
-                  <p className="mt-2 text-[38px] font-bold leading-none tabular-nums">
-                    {donnees.envoyes}/{donnees.livraisons.length}
-                  </p>
-                </div>
-              </div>
+              <p className="flex flex-wrap gap-x-6 gap-y-1 text-[13.5px] text-ink-soft">
+                <span><b className="font-semibold text-ink tabular-nums">{donnees.total}</b> cartons à préparer</span>
+                <span><b className="font-semibold text-ink tabular-nums">{donnees.livraisons.length}</b> clients à livrer</span>
+                <span><b className={`font-semibold tabular-nums ${donnees.aSaisir ? "text-danger" : "text-good"}`}>{donnees.aSaisir}</b> nombres à saisir</span>
+                <span><b className="font-semibold text-ink tabular-nums">{donnees.envoyes}/{donnees.livraisons.length}</b> messages de la veille partis</span>
+              </p>
               <Retour r={action.resultat} />
 
               <div className="grid gap-5 2xl:grid-cols-[1.25fr_1fr]">

@@ -7,7 +7,6 @@ import { plans } from "@/crm/dispatch/donnees";
 import { dateLongue, jauge, m3 } from "@/crm/dispatch/outils";
 import { ilYa } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
-import Indicateurs from "@/ui/Indicateurs";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dispatch international" };
@@ -19,9 +18,6 @@ export const metadata = { title: "Dispatch international" };
 export default async function Dispatchs() {
   await currentUser();
   const liste = await plans();
-  const aRepartir = liste.reduce((n, p) => n + p.aRepartir, 0);
-  const colonnes = liste.flatMap((p) => p.colonnes);
-  const conteneurs = colonnes.filter((c) => c.genre === "conteneur");
   return (
     <div className="view">
       <Bandeau
@@ -30,20 +26,6 @@ export default async function Dispatchs() {
         texte="Un conteneur, plusieurs clients, plusieurs destinations : importez la liste, laissez l'IA proposer qui va où, ajustez au glisser-déposer, puis imprimez les feuilles de tournée."
         action={{ label: "Nouveau plan", href: "#nouveau", icone: "plus" }}
         secondaire={{ label: "Les conteneurs", href: "/conteneurs" }}
-      />
-      <Indicateurs
-        items={[
-          { libelle: "Plans", precision: "groupages en cours", valeur: String(liste.length), icone: "grille", ton: "violet" },
-          { libelle: "Clients", precision: "à répartir", valeur: String(aRepartir), icone: "clients", ton: aRepartir ? "ambre" : "vert" },
-          { libelle: "Volume", precision: "tous plans", valeur: m3(liste.reduce((n, p) => n + p.volume, 0)), icone: "entrepot", ton: "ciel" },
-          {
-            libelle: "Conteneurs",
-            precision: `${conteneurs.filter((c) => c.verrouillee).length} validés`,
-            valeur: String(conteneurs.length),
-            icone: "bateau",
-            ton: "vert",
-          },
-        ]}
       />
 
       {liste.length > 0 && (

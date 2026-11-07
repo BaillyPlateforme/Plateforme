@@ -48,14 +48,13 @@ export default function TableauDeBordPage() {
  * onglets. Celui-ci porte les chiffres des 90 derniers jours et mène à la
  * file d'attente.
  */
-function EnTetePage({ demandes, devis }: { demandes?: number; devis?: number }) {
+function EnTetePage() {
   return (
     <EnTeteSection
       propre
       surtitre={`Questionnaires · ${FENETRE} derniers jours`}
       titre="Vue d'ensemble"
       texte="L'activité de l'agence, du formulaire client au camion chargé."
-      etiquettes={demandes === undefined ? undefined : [`${nf.format(demandes)} demandes`, `${nf.format(devis ?? 0)} devis`]}
       action={{ label: "Ouvrir la file d'attente", href: "/dashboard?statut=new" }}
     />
   );
@@ -146,8 +145,8 @@ function Contenu({ d }: { d: Donnees }) {
 
   return (
     <div>
-      <EnTetePage demandes={requests.length} devis={devis.length} />
-      <div className="space-y-5">
+      <EnTetePage />
+      <div className="chevauche space-y-5">
 
       {/* ── Les quatre tuiles ── */}
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

@@ -1,6 +1,7 @@
 /*
  * Les sections issues de l'espace équipe (questionnaires, espace client vu
- * de l'équipe, réglages) habillées du design « Fusion » du CRM : ses pages
+ * de l'équipe, réglages) habillées du design « Quantum » du CRM (indigo
+ * profond, accents verts ; repris le 07/11/2026 à la demande de David) : ses pages
  * sont écrites avec les jetons de la feuille commune (bg-card, text-ink,
  * bg-brand…) ; il suffit de redéfinir ces jetons pour qu'elles prennent la
  * palette violette et la police du CRM. Rien d'autre n'est touché.
@@ -9,7 +10,7 @@
   --font-rail: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
   /* Surfaces */
-  --color-canvas: #f3f1f9;
+  --color-canvas: #f4f4f7;
   --color-canvas-haut: #f7f5fc;
   --color-shell: #f6f4fb;
   --color-paper: #faf9fe;
@@ -18,45 +19,45 @@
   --color-ink: #17142b;
   --color-ink-soft: #77738f;
   --color-ink-mid: #48445f;
-  --color-line: #ece9f6;
-  --color-line-strong: #ddd7f0;
+  --color-line: #e8e6ef;
+  --color-line-strong: #dcd9ea;
 
   /* L'action et la mise en avant : le violet du CRM */
-  --color-accent: #6d28d9;
-  --color-accent-dark: #5b21b6;
-  --color-accent-soft: #f3effd;
-  --color-accent-vif: #7c3aed;
-  --color-brand: #7c3aed;
-  --color-brand-mid: #6d28d9;
-  --color-brand-dark: #5b21b6;
-  --color-brand-ink: #6d28d9;
-  --color-brand-soft: #f3effd;
+  --color-accent: #33277a;
+  --color-accent-dark: #3d2f8f;
+  --color-accent-soft: #ece9fb;
+  --color-accent-vif: #3d2f8f;
+  --color-brand: #3d2f8f;
+  --color-brand-mid: #33277a;
+  --color-brand-dark: #3d2f8f;
+  --color-brand-ink: #33277a;
+  --color-brand-soft: #ece9fb;
   --color-sur-brand: #ffffff;
-  --color-brand-clair: #c4b5fd;
-  --color-peach: #7c3aed;
-  --color-peach-soft: #f3effd;
-  --color-peach-ink: #6d28d9;
-  --color-olive: #6d28d9;
+  --color-brand-clair: #b9b0ec;
+  --color-peach: #3d2f8f;
+  --color-peach-soft: #ece9fb;
+  --color-peach-ink: #33277a;
+  --color-olive: #33277a;
   --color-nuit: #17142b;
 
   /* États */
-  --color-good: #16a34a;
-  --color-good-soft: #e9f8ef;
+  --color-good: #1a9a63;
+  --color-good-soft: #e6f6ee;
   --color-warn: #b45309;
   --color-warn-soft: #fff6e5;
   --color-danger: #be123c;
   --color-danger-soft: #fff1f3;
 
   /* Séries de graphiques : la gamme du CRM */
-  --chart-1: #7c3aed;
-  --chart-2: #f59e0b;
-  --chart-3: #0ea5e9;
-  --chart-4: #a78bfa;
-  --chart-5: #c4b5fd;
+  --chart-1: #3d2f8f;
+  --chart-2: #1faa6e;
+  --chart-3: #f5a524;
+  --chart-4: #0ea5e9;
+  --chart-5: #b9b0ec;
   --chart-6: #48445f;
   --chart-7: #f97316;
 
-  --shadow-md: 0 14px 34px -20px rgba(76, 29, 149, 0.35);
+  --shadow-md: 0 14px 34px -20px rgba(43, 33, 112, 0.35);
 }
 
 body {
@@ -64,6 +65,6 @@ body {
 }
 
 ::selection {
-  background: #7c3aed;
+  background: #3d2f8f;
   color: #fff;
 }

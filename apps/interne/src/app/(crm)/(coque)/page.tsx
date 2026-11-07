@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Bandeau from "@/ui/Bandeau";
 import { currentUser } from "@/crm/lib/auth";
 import { Ic } from "@/crm/lib/icons";
 
@@ -14,13 +15,15 @@ const TILES: [string, string, string, string, string, boolean][] = [
 export default async function Accueil() {
   const u = await currentUser();
   return (
-    <div className="view home">
-      <div className="orb"><Ic n="spark" /></div>
-      <h1>Bailly CRM : votre copilote déménagement</h1>
-      <p>Bonjour {u.nom.split(" ")[0]}. Créez un dossier, planifiez une visite ou générez un devis : tout est relié, sans ressaisie.</p>
-      <div className="tiles">
+    <div className="view accueil">
+      <Bandeau
+        surtitre={new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" })}
+        titre={`Bonjour ${u.nom.split(" ")[0]}`}
+        texte="Créez un dossier, planifiez une visite ou générez un devis : tout est relié, sans ressaisie."
+      />
+      <div className="tiles chevauche">
         {TILES.map(([i, t, s, h, c, on]) => (
-          <Link key={t} href={h} className="tile" style={on ? undefined : { opacity: 0.7 }}>
+          <Link key={t} href={h} className={on ? "tile" : "tile bientot"}>
             <i className={`ti ${c}`}><Ic n={i} /></i><b>{t}</b><small>{on ? s : `${s} · bientôt`}</small>
           </Link>
         ))}
