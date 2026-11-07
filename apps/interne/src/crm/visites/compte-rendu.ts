@@ -78,15 +78,24 @@ async function vignettes(visiteId: number): Promise<PhotosParPiece> {
   const stockage = createServiceClient().storage.from(SEAU_PHOTOS);
   const lues = await Promise.all(
     choisies.map(async (p) => {
-      const { data } = await stockage.download(p.chemin);
-      // Le PDF n'embarque que du JPEG : une vignette faite par le navigateur l'est toujours.
-      return data && data.type === "image/jpeg" ? { piece: p.piece, octets: Buffer.from(await data.arrayBuffer()) } : null;
+      const { data, error } = await stockage.download(p.chemin);
+      if (error || !data) throw new Error(`photo ${p.chemin} illisible : ${error?.message ?? "réponse vide"}`);
+      const octets = Buffer.from(await data.arrayBuffer());
+      // Le PDF n'embarque que du JPEG (reconnu à ses premiers octets) : une vignette faite par le navigateur l'est toujours.
+      return octets[0] === 0xff && octets[1] === 0xd8 ? { piece: p.piece, octets } : null;
     }),
   );
   const out: PhotosParPiece = new Map();
   for (const l of lues) if (l) out.set(l.piece, [...(out.get(l.piece) ?? []), l.octets]);
   return out;
 }
+
+/** Les vignettes, ou aucune : une photo illisible ne doit pas empêcher le compte-rendu. */
+const vignettesOuRien = (visiteId: number) =>
+  vignettes(visiteId).catch((e) => {
+    console.error(`BaillyCRM : photos du compte-rendu de la visite ${visiteId} non jointes`, e instanceof Error ? e.message : e);
+    return new Map() as PhotosParPiece;
+  });
 
 /**
  * Produit le PDF d'un compte-rendu signé et le range, une seule fois. Rend
@@ -102,7 +111,7 @@ export async function genererDocument(visiteId: number): Promise<string | null> 
   const pdf = await pdfCompteRendu(
     v.contenu,
     { signataire: v.signataire, signeLe: new Date(v.signe_le).toISOString(), empreinte: v.empreinte, image: Buffer.from(v.signature.replace(/^data:image\/png;base64,/, ""), "base64") },
-    await vignettes(visiteId).catch(() => new Map()),
+    await vignettesOuRien(visiteId),
   );
   const chemin = `crm/${v.dossier_id}/visites/${visiteId}-${v.empreinte.slice(0, 12)}.pdf`;
   const { error } = await createServiceClient().storage.from(SEAU_ESPACE).upload(chemin, pdf, { contentType: "application/pdf", upsert: true });
@@ -121,7 +130,7 @@ export async function pdfALaVolee(visiteId: number): Promise<Buffer | null> {
   return pdfCompteRendu(
     v.contenu,
     { signataire: v.signataire, signeLe: new Date(v.signe_le).toISOString(), empreinte: v.empreinte, image: Buffer.from(v.signature.replace(/^data:image\/png;base64,/, ""), "base64") },
-    await vignettes(visiteId).catch(() => new Map()),
+    await vignettesOuRien(visiteId),
   );
 }
 

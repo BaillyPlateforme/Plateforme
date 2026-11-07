@@ -37,7 +37,20 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <PageHero e={e} titre="Ma visite technique" sous="Votre conseiller vient relever le volume de votre déménagement : choisissez le moment qui vous convient." active="visite" />
+      <PageHero
+        e={e}
+        titre="Ma visite technique"
+        sous={
+          choix.length
+            ? "Votre conseiller vient relever le volume de votre déménagement : choisissez le moment qui vous convient."
+            : prevue
+              ? "Votre conseiller vient relever le volume de votre déménagement."
+              : cr
+                ? "Le compte-rendu de votre visite, signé, et son PDF."
+                : "Votre conseiller vient relever le volume de votre déménagement."
+        }
+        active="visite"
+      />
       <main className="section">
         <div className="wrap split">
           <div className="vt">
@@ -178,7 +191,7 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
                   )}
                   {cr.empreinte && (
                     <span className="vt-empreinte" title={cr.empreinte}>
-                      Empreinte du document signé : {empreinteLisible(cr.empreinte, 4)}
+                      Empreinte du contenu signé : {empreinteLisible(cr.empreinte, 4)}
                     </span>
                   )}
                 </div>
@@ -215,16 +228,24 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
               <p className="kicker">Comment se passe la visite</p>
               <ol>
                 <li>
-                  <b>Vous choisissez un créneau</b> parmi ceux que propose votre conseiller.
+                  <span>
+                    <b>Vous choisissez un créneau</b> parmi ceux que propose votre conseiller.
+                  </span>
                 </li>
                 <li>
-                  <b>La veille</b>, un rappel vous parvient par SMS et par e-mail.
+                  <span>
+                    <b>La veille</b>, un rappel vous parvient par SMS et par e-mail.
+                  </span>
                 </li>
                 <li>
-                  <b>Sur place</b>, votre conseiller relève le volume pièce par pièce, prend quelques photos et note les accès.
+                  <span>
+                    <b>Sur place</b>, votre conseiller relève le volume pièce par pièce, prend quelques photos et note les accès.
+                  </span>
                 </li>
                 <li>
-                  <b>En fin de visite</b>, vous signez le compte-rendu sur sa tablette : il est ensuite ici et dans vos documents.
+                  <span>
+                    <b>En fin de visite</b>, vous signez le compte-rendu sur sa tablette : il est ensuite ici et dans vos documents.
+                  </span>
                 </li>
               </ol>
             </div>

@@ -48,6 +48,8 @@ if (!process.env.DATABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_URL || !proce
 
 const MARQUE_CRM = "Client fictif du jeu de démonstration de l'espace client (scripts/semer-espace-client.mjs).";
 const REFS = { creneaux: "BD-2026-0160", demain: "BD-2026-0161", signe: "BD-2026-0163" };
+/** Le volume de chaque dossier dans le jeu de l'espace client : la saisie le recalcule, le retrait le rend. */
+const VOLUMES_JEU = { "BD-2026-0160": 36, "BD-2026-0161": 26, "BD-2026-0163": 30 };
 const SEAU_PHOTOS = "photos-chantier";
 const SEAU_ESPACE = "espace-client";
 
@@ -122,6 +124,7 @@ async function retirer(liste) {
     await db.query("delete from crm.rendez_vous where dossier_id = any($1::int[]) and type in ('phys', 'visio')", [ids]);
     await db.query("delete from crm.inventaire where dossier_id = any($1::int[])", [ids]);
     await db.query("delete from crm.pieces where dossier_id = any($1::int[])", [ids]);
+    for (const d of liste) await db.query("update crm.dossiers set volume = $2 where id = $1", [d.id, VOLUMES_JEU[d.ref]]);
     await db.query(
       `update crm.etapes_trajet set etage = null, ascenseur = false, escalier = null, portage_m = null, stationnement = null, poids_lourd = null, monte_meuble = null, acces = null
         where dossier_id = any($1::int[])`,
@@ -232,12 +235,13 @@ async function semerVisitePrete(d) {
   );
   const visiteId = v[0].id;
 
-  // Les pièces et le métré : environ trente mètres cubes, comme le dossier.
+  // Les pièces et le métré : une trentaine de mètres cubes, comme le dossier.
   const pieces = [
-    ["Salon", "Grandes fenêtres sur cour ; parquet ancien à protéger.", [["Canapé 3 places", 1, false, false], ["Fauteuil", 2, false, false], ["Table basse", 1, false, true], ["Bibliothèque", 2, true, false], ["Meuble TV", 1, false, false], ["Télévision", 1, false, true], ["Tapis", 2, false, false], ["Lampadaire", 1, false, true]]],
-    ["Cuisine", null, [["Réfrigérateur", 1, false, false], ["Lave-vaisselle", 1, false, false], ["Table à manger", 1, true, false], ["Chaise", 6, false, false], ["Micro-ondes", 1, false, false], ["Carton vaisselle", 10, false, true]]],
+    ["Salon", "Grandes fenêtres sur cour ; parquet ancien à protéger.", [["Canapé 3 places", 1, false, false], ["Fauteuil", 2, false, false], ["Table basse", 1, false, true], ["Bibliothèque", 2, true, false], ["Meuble TV", 1, false, false], ["Télévision", 1, false, true], ["Vaisselier", 1, false, false], ["Tapis", 2, false, false], ["Lampadaire", 1, false, true]]],
+    ["Cuisine", null, [["Réfrigérateur", 1, false, false], ["Congélateur", 1, false, false], ["Lave-vaisselle", 1, false, false], ["Table à manger", 1, true, false], ["Chaise", 6, false, false], ["Buffet", 1, false, false], ["Micro-ondes", 1, false, false], ["Carton vaisselle", 15, false, true]]],
     ["Chambre", "Armoire à démonter : porte de la chambre étroite.", [["Lit double (+ matelas)", 1, true, false], ["Armoire 3 portes", 1, true, false], ["Commode", 1, false, false], ["Table de chevet", 2, false, false], ["Miroir", 1, false, true]]],
-    ["Bureau", null, [["Bureau", 1, true, false], ["Chaise de bureau", 1, false, false], ["Carton livres", 25, false, false], ["Carton standard", 20, false, false]]],
+    ["Chambre 2", null, [["Lit simple", 1, true, false], ["Armoire 2 portes", 1, true, false], ["Bureau", 1, false, false], ["Chaise de bureau", 1, false, false], ["Carton standard", 15, false, false]]],
+    ["Bureau", null, [["Bureau", 1, true, false], ["Chaise de bureau", 1, false, false], ["Bibliothèque", 2, true, false], ["Carton livres", 25, false, false], ["Carton standard", 20, false, false]]],
     ["Cave", "Accès par un escalier étroit depuis la cour.", [["Vélo", 2, false, false], ["Cartons divers", 12, false, false], ["Établi", 1, true, false]]],
   ];
   const cles = {};

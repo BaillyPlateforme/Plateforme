@@ -203,6 +203,7 @@ export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; co
           duree={dureeMin}
           suggestions={libres}
           espace={espace}
+          replie={aVenir.length > 0 || !!enCours || signes.length > 0}
         />
       </div>
     </section>

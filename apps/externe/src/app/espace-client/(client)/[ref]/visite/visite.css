@@ -33,7 +33,8 @@
 .ec .vt-date b { font-family: var(--display); font-size: 40px; font-weight: 600; line-height: .9; color: var(--accent); }
 .ec .vt-date small { font-family: var(--display); font-size: 15px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.8); }
 .ec .vt-infos { display: grid; gap: 2px; min-width: 0; }
-.ec .vt-infos strong { font-family: var(--display); font-size: 28px; font-weight: 600; line-height: 1; text-transform: capitalize; }
+.ec .vt-infos strong { font-family: var(--display); font-size: 28px; font-weight: 600; line-height: 1; }
+.ec .vt-infos strong::first-letter { text-transform: uppercase; }
 .ec .vt-infos span { color: var(--muted); font-size: 16px; }
 .ec .vt-mode { display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px !important; }
 .ec .vt-mode svg { width: 16px; height: 16px; color: var(--accent-deep); }
@@ -54,7 +55,7 @@
 }
 .ec .vt-ico svg { width: 28px; height: 28px; }
 .ec .vt-ico.ok { background: var(--ok); color: #fff; margin: 0; flex: none; }
-.ec .vt-reservee h2 { text-transform: capitalize; }
+.ec .vt-reservee h2::first-letter { text-transform: uppercase; }
 
 .ec .vt-cr { display: grid; gap: 22px; margin-top: 14px; }
 .ec .vt-cr-tete { display: flex; gap: 18px; align-items: center; }

@@ -58,13 +58,17 @@ const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 /** Un numéro de téléphone qu'un SMS peut joindre : au moins neuf chiffres. */
 const telephoneValide = (t: string | null | undefined) => (t ?? "").replace(/\D/g, "").length >= 9;
 
+/** Les domaines réservés aux exemples et aux essais (RFC 2606) : « c.bernier@safran.example ». */
+const DOMAINE_RESERVE = /@([\w-]+\.)*(example|test|invalid|localhost)$/i;
+
 /**
- * Un client fictif : adresse du jeu de démonstration (@example.com…) ou
- * fiche marquée par le script de démonstration. Ses numéros ressemblent à de
- * vrais numéros : il ne doit jamais rien recevoir, même par erreur.
+ * Un client fictif : adresse du jeu de démonstration (@example.com, domaine
+ * réservé comme .example ou .test) ou fiche marquée par le script de
+ * démonstration. Ses numéros ressemblent à de vrais numéros : il ne doit
+ * jamais rien recevoir, même par erreur.
  */
 export const clientFictif = (c: { email: string | null; notes: string | null }) =>
-  (!!c.email && adresseFictive(c.email)) || /^client fictif/i.test(c.notes ?? "");
+  (!!c.email && (adresseFictive(c.email) || DOMAINE_RESERVE.test(c.email.trim()))) || /^client fictif/i.test(c.notes ?? "");
 
 /** Comment on s'adresse au client : « Madame Marchal », sinon « Inès Marchal », sinon la société. */
 function appellation(c: Pick<Ligne, "civilite" | "prenom" | "nom" | "societe">) {

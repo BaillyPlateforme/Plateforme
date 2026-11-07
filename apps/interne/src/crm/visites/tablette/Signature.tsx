@@ -89,6 +89,8 @@ export default function Signature({ visiteId, empreinte, nomPropose }: { visiteI
     try {
       const r = await signerCompteRendu(visiteId, { signataire: signataire.trim(), signature: c.toDataURL("image/png"), empreinte });
       if (r.ok) {
+        // La confirmation s'affiche en haut de la page : on y remonte.
+        window.scrollTo({ top: 0, behavior: "smooth" });
         router.refresh();
         return;
       }

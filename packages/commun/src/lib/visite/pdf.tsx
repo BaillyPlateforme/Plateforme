@@ -47,7 +47,7 @@ const s = StyleSheet.create({
   cU: { width: 60, textAlign: "right", color: C.gris },
   cVol: { width: 70, textAlign: "right", fontWeight: 700 },
   marque: { fontSize: 7, color: C.or, fontWeight: 700, letterSpacing: 0.5 },
-  remarque: { fontSize: 8.5, color: C.gris, paddingHorizontal: 10, paddingTop: 5, fontStyle: "italic" },
+  remarque: { fontSize: 8.5, color: C.gris, paddingHorizontal: 10, paddingTop: 5 },
   photos: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 10, paddingTop: 6 },
   photo: { width: 118, height: 88, borderRadius: 4, marginRight: 6, marginBottom: 6, objectFit: "cover" },
   option: { flexDirection: "row", paddingVertical: 3 },
@@ -219,7 +219,7 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
               <Text style={[s.fort, { marginTop: 4 }]}>{sig.signataire}</Text>
               <Text style={s.doux}>Le {momentVisite(sig.signeLe, true)} (heure du serveur)</Text>
               <Text style={s.empreinte}>Empreinte SHA-256 du contenu signé :</Text>
-              <Text style={[s.empreinte, { marginTop: 2, color: C.noir }]}>{sig.empreinte}</Text>
+              <Text style={[s.empreinte, { marginTop: 2, color: C.noir }]}>{(sig.empreinte.match(/.{1,8}/g) ?? []).join(" ")}</Text>
             </View>
             <View style={s.cadreImage}>
               {/* eslint-disable-next-line jsx-a11y/alt-text */}

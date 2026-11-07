@@ -26,6 +26,7 @@ export default function PanneauCreneaux({
   duree,
   suggestions,
   espace,
+  replie = false,
 }: {
   dossierId: number;
   commerciaux: { id: number; nom: string }[];
@@ -33,11 +34,14 @@ export default function PanneauCreneaux({
   duree: number;
   suggestions: Creneau[];
   espace: boolean;
+  /** Une visite est déjà réservée : le panneau se replie, rien n'est coché d'office (replanifier reste possible). */
+  replie?: boolean;
 }) {
   const router = useRouter();
   const chemin = usePathname();
   const params = useSearchParams();
-  const [coches, setCoches] = useState<Set<string>>(() => new Set(suggestions.slice(0, 3).map((c) => c.debut)));
+  const [coches, setCoches] = useState<Set<string>>(() => new Set(replie ? [] : suggestions.slice(0, 3).map((c) => c.debut)));
+  const [ouvert, setOuvert] = useState(!replie);
   const [autreJour, setAutreJour] = useState("");
   const [autreHeure, setAutreHeure] = useState("");
   const nb = coches.size + (autreJour && autreHeure ? 1 : 0);
@@ -62,10 +66,26 @@ export default function PanneauCreneaux({
       return n;
     });
 
+  if (!ouvert) {
+    return (
+      <div className={s.panneau}>
+        <div className={s.panneauTete}>
+          <b>Replanifier la visite</b>
+          <span>Proposer d&apos;autres créneaux au client, ou en réserver un autre pour lui.</span>
+        </div>
+        <div className={s.boutons}>
+          <button type="button" className="btn ghost" onClick={() => setOuvert(true)}>
+            Proposer d&apos;autres créneaux
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form action={proposerOuReserver.bind(null, dossierId)} className={s.panneau}>
       <div className={s.panneauTete}>
-        <b>Proposer des créneaux</b>
+        <b>{replie ? "Replanifier la visite" : "Proposer des créneaux"}</b>
         <span>Tirés du planning du commercial, sans chevauchement</span>
       </div>
       <div className={s.reglages}>
