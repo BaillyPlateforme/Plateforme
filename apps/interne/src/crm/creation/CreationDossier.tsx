@@ -415,7 +415,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                       {court(p.source.depart?.adresse)} → {court(p.source.arrivee?.adresse)}
                       {p.source.volume > 0 ? ` · ${m3(p.source.volume)}` : ""}
                     </span>
-                    <span className={s.raisons}>{p.raisons.slice(0, 3).join(" · ")}</span>
+                    <span className={s.raisons}>{p.raisons.slice(0, 3).join("\u00a0· ")}</span>
                   </span>
                   <kbd className={s.touche}>{alt}{7 + i}</kbd>
                 </button>

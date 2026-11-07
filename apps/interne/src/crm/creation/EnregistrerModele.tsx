@@ -7,7 +7,7 @@ import EditeurModele from "./EditeurModele";
 
 /*
  * « Enregistrer comme modèle », dans le bandeau de la fiche dossier : le
- * bouton et sa fenêtre. Le modèle reprend le segment, le type de
+ * bouton « Créer un modèle » et sa fenêtre. Le modèle reprend le segment, le type de
  * déménagement, le volume et les options du dossier ; ses observations sont
  * seulement proposées, car elles décrivent souvent le client.
  */

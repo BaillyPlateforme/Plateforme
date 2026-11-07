@@ -112,7 +112,7 @@ export default function GestionModeles({ modeles, maintenant, nouveau }: { model
             <button type="button" className={s.ajouter} onClick={() => setEdition(VIERGE)}>
               <span><Picto nom="plus" taille={22} /></span>
               Nouveau modèle
-              <small>{"Ou, depuis une fiche dossier\u00a0: «\u00a0Enregistrer comme modèle\u00a0»."}</small>
+              <small>{"Ou, depuis une fiche dossier\u00a0: «\u00a0Créer un modèle\u00a0»."}</small>
             </button>
           </li>
         </ul>

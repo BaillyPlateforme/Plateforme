@@ -233,7 +233,7 @@ export function scorer(saisie: Saisie, d: SourceDossier, lieux: { depart: Lieu |
       const ecart = Math.abs(vol - d.volume) / Math.max(vol, d.volume);
       const pts = Math.round(POIDS.volume * Math.max(0, 1 - ecart / 0.5));
       obtenu += pts;
-      if (ecart <= 0.25) { fort = true; raisons.push([pts, `volume proche (${String(Math.round(d.volume * 10) / 10).replace(".", ",")} m³)`]); }
+      if (ecart <= 0.25) { fort = true; raisons.push([pts, `volume proche (${String(Math.round(d.volume * 10) / 10).replace(".", ",")}\u00a0m³)`]); }
     }
   }
   if (qd) {
