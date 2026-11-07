@@ -1,0 +1,97 @@
+/*
+ * La feuille racine de l'outil terrain : les couleurs, la remise à zéro,
+ * rien d'autre (le dessin vit dans les modules CSS de chaque écran). Elle
+ * n'est chargée que par (terrain)/layout.tsx : elle ne touche ni le CRM ni
+ * les sections de l'équipe.
+ *
+ * Palette « Fusion » du CRM, poussée vers le contraste : un téléphone en
+ * plein soleil écrase les gris clairs. Le texte secondaire reste au-dessus
+ * de 7:1 sur blanc, les boutons au-dessus de 4,5:1.
+ */
+:root {
+  --violet: #6d28d9;
+  --violet-fonce: #4c1d95;
+  --violet-nuit: #2e1065;
+  --violet-doux: #f1ebfe;
+  --violet-trait: #d9cbfb;
+  --encre: #15122a;
+  --gris: #47435f;
+  --gris-clair: #6b6785;
+  --filet: #e3deef;
+  --fond: #f3f1f8;
+  --blanc: #fff;
+  --ok: #166534;
+  --ok-doux: #dcfce7;
+  --alerte: #b91c1c;
+  --alerte-doux: #fee2e2;
+  --ambre: #854d0e;
+  --ambre-doux: #fef3c7;
+  /* Les genres du planning d'exploitation, en teintes lisibles. */
+  --chargement: #d9483a;
+  --chargement-doux: #ffe7e3;
+  --chargement-texte: #8f2419;
+  --livraison: #c99a00;
+  --livraison-doux: #fff4cc;
+  --livraison-texte: #6b4f00;
+  --groupage: #1f8ac0;
+  --groupage-doux: #def1fb;
+  --groupage-texte: #0b4f74;
+  --manuelle: #e07a12;
+  --manuelle-doux: #ffecd6;
+  --manuelle-texte: #8a4200;
+  --rayon: 20px;
+  --ombre: 0 1px 2px rgba(21, 18, 42, 0.06), 0 10px 28px -18px rgba(46, 16, 101, 0.45);
+  --police: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body.terrain {
+  min-height: 100dvh;
+  background: var(--fond);
+  color: var(--encre);
+  font: 500 17px/1.45 var(--police);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+}
+
+img,
+svg {
+  display: block;
+}
+
+:focus-visible {
+  outline: 3px solid var(--violet);
+  outline-offset: 2px;
+}

@@ -53,10 +53,11 @@ export async function getUser() {
 }
 
 /**
- * Qui est connecté. Trois sortes de comptes partagent la même authentification :
+ * Qui est connecté. Quatre sortes de comptes partagent la même authentification :
  * l'équipe Bailly, les comptes RH — ceux des entreprises clientes, rattachés
- * chacun à un espace pro (`app_metadata`, que seul le serveur peut écrire) —, et
- * les clients de l'espace client, qui n'ont accès à rien ici (voir roles.ts).
+ * chacun à un espace pro (`app_metadata`, que seul le serveur peut écrire) —,
+ * les clients de l'espace client et les déménageurs, qui n'ont accès à rien
+ * ici (voir roles.ts).
  */
 export type Acces =
   | { id: string; email: string; role: "equipe" }
@@ -66,9 +67,11 @@ export async function getAcces(): Promise<Acces | null> {
   const user = await getUser();
   if (!user) return null;
   const m = (user.app_metadata ?? {}) as { role?: string; espace_id?: string };
-  // Un client de l'espace client n'est ni de l'équipe ni des RH : il n'a accès à rien d'ici.
-  if (roleDuCompte(m) === "client") return null;
-  if (m.role === "rh")
+  // Un client de l'espace client, un déménageur (outil terrain) ou un rôle
+  // inconnu n'est ni de l'équipe ni des RH : il n'a accès à rien d'ici.
+  const role = roleDuCompte(m);
+  if (role !== "equipe" && role !== "rh") return null;
+  if (role === "rh")
     return {
       id: user.id,
       email: user.email ?? "",

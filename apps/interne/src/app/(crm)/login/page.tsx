@@ -97,7 +97,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
             <span>
               Vous êtes client ou RH d&apos;une entreprise ? Votre espace est ailleurs :{" "}
               <a href={versExterne("/espace-client/connexion")}>espace client</a>,{" "}
-              <a href={versExterne("/rh")}>espace RH</a>.
+              <a href={versExterne("/rh")}>espace RH</a>. Déménageur ? <a href="/terrain/connexion">Connexion terrain</a>.
             </span>
             <a href={versExterne("/")}>
               <svg width="14" height="14" viewBox="0 0 24 24" {...trait} aria-hidden>

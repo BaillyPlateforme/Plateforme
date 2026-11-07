@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/auth";
+import { roleDuCompte } from "@/lib/supabase/roles";
 import { q, q1 } from "./db";
 import { initiales } from "./format";
 
@@ -67,7 +68,8 @@ const COLONNES = "id,nom,initiales,role,email";
 export const currentUser = cache(async (): Promise<User> => {
   const compte = await compteConnecte();
   if (!compte) redirect("/login");
-  if (compte.role === "rh") throw new Error("BaillyCRM est réservé à l'équipe Bailly.");
+  // Un compte RH, un client ou un déménageur (outil terrain) n'est pas de l'équipe : ni pages ni actions du CRM.
+  if (roleDuCompte({ role: compte.role }) !== "equipe") throw new Error("BaillyCRM est réservé à l'équipe Bailly.");
   if (!compte.email) throw new Error("Ce compte n'a pas d'adresse e-mail : il ne peut pas être relié au CRM.");
 
   const existant = await q1<User>(`select ${COLONNES} from utilisateurs where lower(email) = $1`, [compte.email]);

@@ -52,8 +52,8 @@ export async function proxy(request: NextRequest) {
   }
 
   const s = await lireSession(request);
-  // Pour l'espace RH, un client de l'espace client n'a pas de session.
-  const valide = s.valide && s.role !== "client";
+  // Pour l'espace RH, un client de l'espace client ou un déménageur (outil terrain) n'a pas de session.
+  const valide = s.valide && s.role !== "client" && s.role !== "terrain";
 
   // La connexion des RH est la seule page de l'espace RH qui s'ouvre sans session.
   if (chemin === "/rh/connexion") return valide ? s.vers("/rh") : s.reponse();

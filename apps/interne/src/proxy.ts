@@ -12,12 +12,30 @@ import { estMembreEquipe } from "@/lib/supabase/equipe";
  * ses actions serveur (qui passent par les mêmes adresses). Chacun est renvoyé
  * vers son espace, dans l'app externe. Tout autre compte est refusé.
  */
+/*
+ * L'outil terrain des déménageurs (/terrain, et ses routes /api/terrain) :
+ * un compte « terrain » n'ouvre que lui — toute autre adresse l'y ramène —,
+ * et sa connexion (/terrain/connexion) s'ouvre sans session. Les membres de
+ * l'équipe l'ouvrent aussi. Les pages, actions et routes de l'outil
+ * revérifient le compte et son état (src/terrain/lib/acces.ts).
+ */
+const CONNEXION_TERRAIN = "/terrain/connexion";
+const estTerrain = (c: string) => c === "/terrain" || c.startsWith("/terrain/") || c.startsWith("/api/terrain/");
+
 export async function proxy(request: NextRequest) {
   const s = await lireSession(request);
 
+  if (s.chemin === CONNEXION_TERRAIN) return s.valide && s.role === "terrain" ? s.vers("/terrain") : s.reponse();
+
   if (!s.valide) {
     if (s.api) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    return s.vers("/login", true);
+    return s.vers(estTerrain(s.chemin) ? CONNEXION_TERRAIN : "/login", true);
+  }
+
+  if (s.role === "terrain") {
+    if (estTerrain(s.chemin)) return s.reponse();
+    if (s.api) return NextResponse.json({ error: "Accès réservé à l'équipe" }, { status: 403 });
+    return s.vers("/terrain");
   }
 
   if (s.role === "rh" || s.role === "client") {

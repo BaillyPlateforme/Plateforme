@@ -56,6 +56,8 @@ export const GROUPES: Groupe[] = [
       { href: "/lettres-de-voiture", label: "Lettres de voiture", icone: "camion" },
       { href: "/garde-meuble", label: "Garde-meuble", icone: "entrepot" },
       { href: "/conteneurs", label: "Conteneurs", icone: "bateau" },
+      // Les comptes des déménageurs pour l'outil terrain (/terrain).
+      { href: "/demenageurs", label: "Déménageurs", icone: "badge" },
     ],
   },
   {
