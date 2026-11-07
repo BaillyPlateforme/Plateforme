@@ -3,10 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
+import { exigerEquipe } from "@/lib/supabase/auth";
+
+// Chaque action revérifie la session : une action serveur peut être appelée
+// depuis n'importe quelle adresse de l'app, y compris celles que le proxy
+// laisse ouvertes (la connexion) ou ouvre à d'autres comptes (l'outil terrain).
 
 // Ajoute un membre : crée un accès (compte auth) + la fiche équipe.
 // Retourne le mot de passe temporaire généré (à transmettre au membre).
 export async function addMember(input: { email: string; nom: string; role: string }) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   const tempPassword = `Bailly-${randomUUID().slice(0, 8)}`;
 
@@ -35,12 +41,14 @@ export async function addMember(input: { email: string; nom: string; role: strin
 }
 
 export async function updateMember(id: string, fields: { nom?: string; role?: string; actif?: boolean }) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("team_members").update(fields).eq("id", id);
   revalidatePath("/dashboard/equipe");
 }
 
 export async function removeMember(id: string, email: string) {
+  await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("team_members").delete().eq("id", id);
   // Suppression de l'accès auth (best effort)
