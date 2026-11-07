@@ -29,14 +29,14 @@ export function Toast() {
   const chemin = usePathname();
   const router = useRouter();
   const cle = params.get("ok");
-  const [affiche, setAffiche] = useState<string | null>(null);
+  const [affiche, setAffiche] = useState<{ cle: string; chemin: string } | null>(null);
   const [precedente, setPrecedente] = useState<string | null>(null);
 
   // Une nouvelle clé dans l'adresse : on la retient le temps de l'afficher,
-  // même après l'avoir retirée de l'adresse.
+  // même après l'avoir retirée de l'adresse — sur cette page seulement.
   if (cle !== precedente) {
     setPrecedente(cle);
-    if (cle && MESSAGES[cle]) setAffiche(cle);
+    if (cle && MESSAGES[cle]) setAffiche({ cle, chemin });
   }
 
   useEffect(() => {
@@ -53,11 +53,11 @@ export function Toast() {
     return () => clearTimeout(t);
   }, [affiche]);
 
-  if (!affiche) return null;
+  if (!affiche || affiche.chemin !== chemin) return null;
   return (
     <div className="toast" role="status">
       <Icone nom="check" />
-      <span>{MESSAGES[affiche]}</span>
+      <span>{MESSAGES[affiche.cle]}</span>
     </div>
   );
 }

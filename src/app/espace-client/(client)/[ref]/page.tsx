@@ -39,7 +39,7 @@ export default async function PageDeGarde({ params }: Props) {
                 </h2>
               </div>
               <p className="lede" style={{ maxWidth: "40ch", margin: 0 }}>
-                {rubriques.charAt(0).toUpperCase() + rubriques.slice(1)} : chaque rubrique vous indique ce qui est fait et ce qu&apos;il reste à faire.
+                {rubriques.charAt(0).toUpperCase() + rubriques.slice(1)}&nbsp;: chaque rubrique vous indique ce qui est fait et ce qu&apos;il reste à faire.
               </p>
             </div>
             <Tuiles e={e} services={d.services.filter((s) => s.actif).length} tutos={d.tutos.filter((t) => t.actif).length} />
