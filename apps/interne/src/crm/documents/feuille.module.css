@@ -1,0 +1,70 @@
+/* Les éléments communs des documents Bailly (fiche de visite, lettre de voiture, sous-traitance). */
+.section {
+  break-inside: avoid-page;
+}
+.cases {
+  display: grid;
+  gap: 3mm;
+  margin-top: 8mm;
+}
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+.tableau th {
+  padding: 2mm 2.5mm;
+  text-align: left;
+  font-size: 7.5pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #615f68;
+  border-bottom: 2px solid #1b1a18;
+}
+.tableau td {
+  padding: 2mm 2.5mm;
+  border-bottom: 1px solid #ececec;
+  vertical-align: top;
+}
+.tableau tr:nth-child(even) td {
+  background: #fbfaf7;
+}
+.droite {
+  text-align: right !important;
+  white-space: nowrap;
+}
+.encadre {
+  padding: 3.5mm 4mm;
+  border-radius: 2.5mm;
+  background: #fdf6d6;
+  border-left: 1.2mm solid #f5d033;
+  font-size: 9.5pt;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.signatures {
+  display: grid;
+  gap: 5mm;
+  margin-top: 6mm;
+}
+.signatures div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 30mm;
+  padding: 3mm 4mm;
+  border: 1.2px dashed #c9c5bb;
+  border-radius: 3mm;
+}
+.signatures b {
+  font-size: 9pt;
+}
+.signatures span {
+  font-size: 7.5pt;
+  color: #8b8893;
+}
+.saut {
+  break-after: page;
+  page-break-after: always;
+}
