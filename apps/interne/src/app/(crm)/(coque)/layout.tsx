@@ -5,14 +5,15 @@ import { activiteRecente, relancesDevis, aPlanifier } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { NavLinks, Tabs } from "@/crm/components/Nav";
 import { NotifBell, type Notif } from "@/crm/components/NotifBell";
-import { EspaceEquipe } from "@/crm/components/EspaceEquipe";
+import Applications from "@/composants/Applications";
 import { ilYa, nomClient } from "@/crm/lib/format";
 
 export const dynamic = "force-dynamic";
 
 /*
- * La coque du CRM : le rail de navigation à gauche (les rubriques du CRM, puis
- * à part l'accès à l'espace équipe), la barre du haut, et la page.
+ * La coque du CRM : le rail de navigation à gauche (les rubriques du CRM), la
+ * barre du haut — dont le menu des applications, qui mène à l'espace équipe et
+ * à ce que voient les clients — et la page.
  * L'impression (/imprimer) est rangée hors de ce groupe : elle s'affiche sans
  * coque.
  */
@@ -29,13 +30,13 @@ export default async function CoqueCrm({ children }: { children: React.ReactNode
       <aside className="nav">
         <Link href="/" className="brand" title="Accueil du CRM"><i className="logo">B</i></Link>
         <NavLinks />
-        <EspaceEquipe />
       </aside>
       <main className="main">
         <header className="top">
           <form action="/dossiers" className="search"><Ic n="search" /><input name="q" placeholder="Rechercher un client, un dossier, un devis…" /></form>
           <Tabs />
           <Link href="/dossiers/nouveau" className="btn primary"><Ic n="plus" />Nouveau dossier</Link>
+          <Applications />
           <NotifBell items={items} />
           <form action={signOut}><button className="user-btn" title={`${user.nom} — se déconnecter`}><i className="av">{user.initiales}</i></button></form>
         </header>

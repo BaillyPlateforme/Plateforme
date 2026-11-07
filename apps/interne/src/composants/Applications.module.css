@@ -1,0 +1,209 @@
+/*
+ * Le menu des applications Bailly : un bouton dans la barre du haut, et un
+ * panneau qui mène d'une app à l'autre. Il vit dans deux mises en page qui ne
+ * partagent ni feuille ni police (le CRM, l'espace équipe) : tout son style
+ * est ici, la police est héritée.
+ */
+
+.racine {
+  position: relative;
+  flex: none;
+}
+
+.bouton {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(23, 20, 43, 0.1);
+  background: #fff;
+  color: #17142b;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.25s, transform 0.2s;
+}
+.bouton:hover {
+  border-color: rgba(23, 20, 43, 0.22);
+  box-shadow: 0 10px 22px -16px rgba(23, 20, 43, 0.6);
+}
+.bouton:active {
+  transform: scale(0.96);
+}
+.bouton[aria-expanded="true"] {
+  background: #17142b;
+  border-color: #17142b;
+  color: #fff;
+}
+.bouton:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.35);
+  outline-offset: 2px;
+}
+/* Dans la barre de l'espace équipe, les boutons sont ronds. */
+.rond {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border-color: transparent;
+}
+
+.panneau {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 80;
+  width: min(392px, calc(100vw - 24px));
+  padding: 10px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(23, 20, 43, 0.08);
+  box-shadow:
+    0 1px 2px rgba(23, 20, 43, 0.06),
+    0 32px 70px -28px rgba(23, 20, 43, 0.5);
+  transform-origin: top right;
+  animation: ouverture 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes ouverture {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+.entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px 10px;
+}
+.entete b {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #17142b;
+}
+.entete small {
+  font-size: 12px;
+  color: #7b7893;
+}
+
+.section {
+  padding: 10px 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a97ad;
+}
+
+.liste {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  color: #17142b;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.app:hover,
+.app:focus-visible {
+  background: #f6f4fb;
+  outline: none;
+}
+.app[aria-current="page"] {
+  background: #f3effd;
+}
+
+.icone {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: #fff;
+}
+.icone svg {
+  width: 20px;
+  height: 20px;
+}
+.crm {
+  background: linear-gradient(140deg, #8b5cf6, #6d28d9);
+  box-shadow: 0 8px 18px -10px rgba(109, 40, 217, 0.9);
+}
+.questionnaires {
+  background: linear-gradient(140deg, #fbe27a, #f5d033);
+  color: #1b1a18;
+  box-shadow: 0 8px 18px -10px rgba(169, 138, 0, 0.9);
+}
+.dossiers {
+  background: linear-gradient(140deg, #3b3a36, #1b1a18);
+  color: #f5d033;
+  box-shadow: 0 8px 18px -10px rgba(27, 26, 24, 0.9);
+}
+.client {
+  background: #f3f1f7;
+  color: #3a3650;
+}
+
+.texte {
+  min-width: 0;
+}
+.texte b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: #17142b;
+}
+.texte small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: #7b7893;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ici {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #17142b;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.sortie {
+  width: 16px;
+  height: 16px;
+  color: #b3b0c4;
+  transition: color 0.15s, transform 0.2s;
+}
+.app:hover .sortie {
+  color: #17142b;
+  transform: translate(1px, -1px);
+}
+
+.separateur {
+  height: 1px;
+  margin: 8px 10px 2px;
+  background: rgba(23, 20, 43, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panneau {
+    animation: none;
+  }
+}

@@ -3,12 +3,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Ic } from "@/crm/lib/icons";
 
-/** Le rail du CRM. Le CRM occupe la racine de l'app interne ; l'espace équipe, sous /dashboard, a sa section à part (EspaceEquipe). */
+/** Le rail du CRM, qui occupe la racine de l'app interne. L'espace équipe (/dashboard) et ce que voient les clients s'ouvrent par le menu des applications, en haut. */
 const NAV: [string, [string, string, string][]][] = [
   ["Exploitation", [["dash", "Tableau de bord", "/tableau-de-bord"], ["cal", "Planning commercial", "/planning"], ["users", "Clients & dossiers", "/dossiers"]]],
   ["Cycle de vente", [["eye", "Visites techniques", "/visites"], ["doc", "Devis", "/devis"], ["check", "Commandes", "/commandes"], ["truck", "Lettres de voiture", "/lettres-de-voiture"], ["receipt", "Factures", "/factures"]]],
   ["Logistique", [["house", "Garde-meuble", "/bientot/garde-meuble"], ["ship", "Conteneurs", "/bientot/conteneurs"]]],
-  ["Espaces", [["globe", "Espaces client, RH, partenaires", "/bientot/espaces"]]],
 ];
 
 export function NavLinks() {

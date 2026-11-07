@@ -1,33 +1,113 @@
 import type { Metadata } from "next";
 import { versExterne } from "@/lib/adresses";
 import FormulaireConnexion from "./FormulaireConnexion";
+import s from "./connexion.module.css";
 
 export const metadata: Metadata = { title: "Connexion" };
 
 /*
- * La connexion à l'app interne, dans le design du CRM qui en occupe la racine.
- * Un seul compte pour tout : le CRM et l'espace équipe (/dashboard).
+ * La connexion à l'app interne : un seul compte ouvre le CRM, à la racine, et
+ * l'espace équipe sous /dashboard. La page est dans le langage du CRM, dont
+ * elle partage la mise en page racine.
  */
-export default async function Connexion({ searchParams }: { searchParams: Promise<{ redirect?: string }> }) {
-  const { redirect } = await searchParams;
+
+const trait = { fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+const OUTILS = [
+  {
+    nom: "BaillyCRM",
+    sous: "Dossiers, planning, devis et factures",
+    icone: (
+      <svg viewBox="0 0 24 24" {...trait}>
+        <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z" />
+        <path d="M4 7.5 12 12l8-4.5M12 12v9" />
+      </svg>
+    ),
+  },
+  {
+    nom: "Questionnaires",
+    sous: "Leads, demandes, rappels et statistiques",
+    icone: (
+      <svg viewBox="0 0 24 24" {...trait}>
+        <path d="M9 4h6v3H9z" />
+        <path d="M9 5.5H6.5A1.5 1.5 0 0 0 5 7v12.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V7a1.5 1.5 0 0 0-1.5-1.5H15" />
+        <path d="m9 13 2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    nom: "Espace client",
+    sous: "Documents, cartons et SAV de chaque dossier",
+    icone: (
+      <svg viewBox="0 0 24 24" {...trait}>
+        <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5z" />
+        <circle cx="12" cy="13" r="2" />
+        <path d="M8.5 18a3.5 3.5 0 0 1 7 0" />
+      </svg>
+    ),
+  },
+];
+
+export default async function Connexion({ searchParams }: { searchParams: Promise<{ redirect?: string; refus?: string }> }) {
+  const { redirect, refus } = await searchParams;
   // Une redirection interne seulement : jamais vers un autre domaine.
   const cible = redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
 
   return (
-    <div className="login">
-      <div className="login-card">
-        <i className="logo" style={{ width: 48, height: 48, fontSize: 24 }}>
-          B
-        </i>
-        <h1>Bailly CRM</h1>
-        <p>Connectez-vous avec votre compte Bailly : il ouvre le CRM et l&apos;espace équipe.</p>
-        <FormulaireConnexion cible={cible} />
-        <p style={{ marginTop: 22, marginBottom: 0, fontSize: 13 }}>
-          <a href={versExterne("/")} style={{ color: "var(--muted)" }}>
-            Retour au site public
-          </a>
-        </p>
-      </div>
+    <div className={s.page}>
+      <aside className={s.vitrine}>
+        <div className={s.marque}>
+          <span className={s.monogramme}>B</span>
+          <span>
+            <b>Bailly Déménagement</b>
+            <small>Plateforme de l&apos;équipe</small>
+          </span>
+        </div>
+
+        <div className={s.promesse}>
+          <span className={s.surtitre}>Un seul compte pour tout</span>
+          <h1>
+            Tout votre métier,
+            <br />
+            au même endroit.
+          </h1>
+          <p>Le CRM, les demandes venues du site et l&apos;espace de chaque client partagent une même connexion.</p>
+          <ul className={s.outils}>
+            {OUTILS.map((o) => (
+              <li key={o.nom} className={s.outil}>
+                <i>{o.icone}</i>
+                <span>
+                  <b>{o.nom}</b>
+                  <small>{o.sous}</small>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className={s.pied}>© {new Date().getFullYear()} Bailly Déménagement · BD Moving Group</p>
+      </aside>
+
+      <main className={s.colonne}>
+        <div className={s.zone}>
+          <h2>Connexion</h2>
+          <p className={s.chapo}>Avec votre adresse e-mail et votre mot de passe Bailly.</p>
+          <FormulaireConnexion cible={cible} refus={refus === "1"} />
+          <div className={s.renvois}>
+            <span>
+              Vous êtes client ou RH d&apos;une entreprise ? Votre espace est ailleurs :{" "}
+              <a href={versExterne("/espace-client/connexion")}>espace client</a>,{" "}
+              <a href={versExterne("/rh")}>espace RH</a>.
+            </span>
+            <a href={versExterne("/")}>
+              <svg width="14" height="14" viewBox="0 0 24 24" {...trait} aria-hidden>
+                <path d="M19 12H5M11 18l-6-6 6-6" />
+              </svg>
+              Retour au site
+            </a>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

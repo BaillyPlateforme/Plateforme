@@ -1,0 +1,418 @@
+/*
+ * La page de connexion de l'app interne, dans le langage du CRM (« Fusion » :
+ * violet, Plus Jakarta Sans, grands rayons). À gauche la vitrine de la
+ * plateforme, à droite le formulaire ; sur un téléphone, la vitrine se réduit
+ * à un bandeau.
+ */
+
+.page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  background: #f6f4fb;
+  color: #17142b;
+}
+
+/* ───────────── La vitrine ───────────── */
+
+.vitrine {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(28px, 4vw, 52px);
+  color: #fff;
+  background:
+    radial-gradient(900px 520px at 100% 0%, rgba(167, 139, 250, 0.55), transparent 62%),
+    radial-gradient(700px 520px at 0% 100%, rgba(76, 29, 149, 0.9), transparent 60%),
+    linear-gradient(155deg, #4c1d95 0%, #6d28d9 48%, #7c3aed 100%);
+}
+/* Une trame très fine, pour que l'aplat ne soit pas plat. */
+.vitrine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 30% 40%, #000 20%, transparent 75%);
+}
+/* Deux anneaux de lumière, en arrière-plan. */
+.vitrine::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -180px;
+  bottom: -220px;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 0 0 70px rgba(255, 255, 255, 0.035),
+    0 0 0 140px rgba(255, 255, 255, 0.025);
+}
+
+.marque {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.monogramme {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.marque b {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.marque small {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.promesse {
+  margin: auto 0;
+  padding: 48px 0;
+  max-width: 520px;
+}
+.surtitre {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.surtitre::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c4b5fd;
+  box-shadow: 0 0 0 3px rgba(196, 181, 253, 0.3);
+}
+.promesse h1 {
+  margin: 22px 0 0;
+  font-size: clamp(34px, 3.4vw, 50px);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+}
+.promesse p {
+  margin: 18px 0 0;
+  max-width: 44ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.outils {
+  display: grid;
+  gap: 10px;
+  margin: 34px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.outil {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.outil i {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #6d28d9;
+  font-style: normal;
+}
+.outil i svg {
+  width: 20px;
+  height: 20px;
+}
+.outil b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.outil small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.pied {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ───────────── Le formulaire ───────────── */
+
+.colonne {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 4vw, 52px);
+}
+.zone {
+  width: 100%;
+  max-width: 400px;
+  margin: auto;
+  padding: 24px 0;
+}
+.zone h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.chapo {
+  margin: 8px 0 28px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #6b6886;
+}
+
+.alerte {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: apparition 0.25s ease-out;
+}
+.alerte svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+@keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.champ {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.champ > span {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #2a2640;
+}
+.saisie {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.saisie > svg {
+  position: absolute;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  color: #9a97ad;
+  pointer-events: none;
+  transition: color 0.15s;
+}
+.saisie input {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px 0 46px;
+  border-radius: 14px;
+  border: 1.5px solid #e4e0f0;
+  background: #fff;
+  font: inherit;
+  font-size: 15.5px;
+  color: #17142b;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.saisie input::placeholder {
+  color: #b3b0c4;
+}
+.saisie input:hover {
+  border-color: #cfc7e8;
+}
+.saisie input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.14);
+}
+.saisie:focus-within > svg {
+  color: #7c3aed;
+}
+.saisie input.avecBouton {
+  padding-right: 96px;
+}
+.voir {
+  position: absolute;
+  right: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: #6d28d9;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.voir:hover,
+.voir:focus-visible {
+  background: #f3effd;
+  outline: none;
+}
+.majuscules {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #b45309;
+}
+
+.envoyer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 52px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  color: #fff;
+  font: inherit;
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 14px 28px -14px rgba(109, 40, 217, 0.85);
+  transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+}
+.envoyer:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 18px 34px -14px rgba(109, 40, 217, 0.95);
+}
+.envoyer:active {
+  transform: scale(0.99);
+}
+.envoyer:disabled {
+  cursor: progress;
+  filter: saturate(0.8);
+}
+.envoyer:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.35);
+  outline-offset: 3px;
+}
+.envoyer svg {
+  width: 18px;
+  height: 18px;
+}
+.roue {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: tour 0.7s linear infinite;
+}
+@keyframes tour {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.renvois {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid #ebe8f4;
+  font-size: 13.5px;
+  color: #6b6886;
+}
+.renvois a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6d28d9;
+  font-weight: 650;
+  text-decoration: none;
+}
+.renvois a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ───────────── Téléphone ───────────── */
+
+@media (max-width: 900px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+  .vitrine {
+    padding: 22px 22px 26px;
+  }
+  .promesse {
+    margin: 0;
+    padding: 26px 0 0;
+  }
+  .promesse h1 {
+    font-size: 30px;
+  }
+  .promesse p,
+  .outils,
+  .pied {
+    display: none;
+  }
+  .zone {
+    padding-top: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alerte,
+  .roue {
+    animation: none;
+  }
+}
