@@ -6,6 +6,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
+import { envoyerConfirmationRdv } from "@/crm/rdv/sms";
 import { randomBytes } from "node:crypto";
 
 /*
@@ -217,11 +218,16 @@ export async function creerRdv(f: FormData) {
   const u = await currentUser();
   const debut = new Date(`${s(f, "date")}T${s(f, "heure") ?? "09:00"}`);
   const dossierId = n(f, "dossier_id");
-  await q("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes) values($1,$2,$3,$4,$5,$6,$7,$8)",
+  const rdv = await q1<{ id: number }>("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes) values($1,$2,$3,$4,$5,$6,$7,$8) returning id",
     [n(f, "commercial_id") ?? u.id, dossierId, s(f, "type") ?? "phys", s(f, "titre") ?? "Rendez-vous", s(f, "lieu"), debut.toISOString(), n(f, "duree_min") ?? 60, s(f, "notes")]);
   if (dossierId) {
     await q("update dossiers set statut='visite' where id=$1 and statut='prospect'", [dossierId]);
     await log(dossierId, `${s(f, "type") === "visio" ? "Visio" : "Visite"} planifiée`);
+    // Le SMS de confirmation part à la prise du rendez-vous (carte « Visite confirmée »), s'il s'agit d'une visite.
+    if (rdv && ["phys", "visio"].includes(s(f, "type") ?? "phys")) {
+      const sms = await envoyerConfirmationRdv(dossierId, rdv.id);
+      if (sms) await log(dossierId, `SMS de confirmation ${sms.libelle} : « ${sms.texte} »`);
+    }
   }
   refresh();
   redirect(`/planning?semaine=${debut.toISOString().slice(0, 10)}`);

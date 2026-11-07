@@ -10,6 +10,8 @@ import * as B from "@/crm/actions2";
 import { litiges as getLitiges } from "@/crm/lib/data2";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
 import { EspaceClient } from "@/crm/components/EspaceClient";
+import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
+import { etatsRdv } from "@/crm/rdv/sms";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
   const d = await getDossier(id);
   if (!d) notFound();
   const lit = await getLitiges(id);
+  const etatsSms = await etatsRdv(d.rdvs.map((r: Row) => r.id));
   const users = await q("select id,nom,role from utilisateurs order by id");
   const step = STEP_OF[d.statut];
   const emb = emballages(d.volume);
@@ -267,7 +270,9 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
 
         <section className="card note" style={{ gridColumn: apresCommande ? "span 5" : "span 12", background: "var(--surface)" }}>
           <div className="card-h"><h3>Rendez-vous & activité</h3><Link className="btn ghost sm" href={`/planning/nouveau?dossier=${id}`}><Ic n="cal" />Planifier une visite</Link></div>
-          {d.rdvs.map((r: Row) => <div key={r.id} className="sub" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "4px 0" }}>📅 {dateFr(r.debut, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {r.titre} · {r.commercial}<form action={B.envoyerSms.bind(null, id, r.id)}><button className="btn ghost sm">SMS de confirmation</button></form></div>)}
+          {d.rdvs.map((r: Row) => <div key={r.id} className="sub" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "4px 0" }}>📅 {dateFr(r.debut, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {r.titre} · {r.commercial}<form action={B.envoyerSms.bind(null, id, r.id)}><button className="btn ghost sm">SMS de confirmation</button></form>
+            {/* L'état du SMS et la réponse du client (src/crm/rdv) ; la réponse se saisit aussi à la main. */}
+            <EtatSmsRdv etat={etatsSms.get(r.id)} confirmer={B.reponseRdv.bind(null, id, r.id, "confirme")} annuler={B.reponseRdv.bind(null, id, r.id, "annule")} /></div>)}
           <ul className="tl-list" style={{ gridTemplateColumns: apresCommande ? "1fr" : "repeat(3,1fr)" }}>
             {d.activite.length === 0 && <li>Aucune activité.</li>}
             {d.activite.map((a: Row, i: number) => <li key={i} className={i === 0 ? "now" : "done"}><i />{a.libelle}<small>{a.initiales} · {ilYa(a.cree_le)}</small></li>)}

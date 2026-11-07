@@ -6,7 +6,8 @@ import { currentUser } from "@/crm/lib/auth";
 import { jetonValide } from "@/crm/lib/data2";
 import { headers } from "next/headers";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
-import { envoyerDevisParEmail, envoyerSmsRendezVous } from "@/crm/envois";
+import { envoyerDevisParEmail } from "@/crm/envois";
+import { enregistrerReponseRdv, envoyerConfirmationRdv, marquerVu } from "@/crm/rdv/sms";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -71,10 +72,24 @@ export async function majModele(id: number, f: FormData) { await exiger(); await
  */
 export async function envoyerSms(dossierId: number, rdv: number) {
   await exiger();
-  const r = await envoyerSmsRendezVous(dossierId, rdv);
+  const r = await envoyerConfirmationRdv(dossierId, rdv);
   if (!r) return;
   await log(dossierId, `SMS de confirmation ${r.libelle} : « ${r.texte} »`); refresh(dossierId);
 }
+/**
+ * La réponse du client au SMS, saisie par l'équipe (au téléphone, ou quand
+ * le SMS entrant n'arrive pas par Brevo) : confirmé ou annulé.
+ */
+export async function reponseRdv(dossierId: number, rdv: number, reponse: "confirme" | "annule") {
+  const u = await exiger();
+  if (!["confirme", "annule"].includes(reponse)) return;
+  if (!(await q1("select 1 from rendez_vous where id=$1 and dossier_id=$2", [rdv, dossierId]))) return;
+  await enregistrerReponseRdv(rdv, reponse, "manuel", { par: u.nom });
+  await marquerVu(rdv);
+  refresh(dossierId); revalidatePath("/planning");
+}
+/** L'annulation vue par l'équipe : elle quitte la cloche. */
+export async function rdvVu(rdv: number) { await exiger(); await marquerVu(rdv); refresh(); }
 
 /* ---------- litiges ---------- */
 export async function ouvrirLitige(id: number, f: FormData) { await exiger(); await q("insert into litiges(dossier_id,objet,montant) values($1,$2,$3)", [id, s(f, "objet") ?? "Litige", n(f, "montant")]); await log(id, "Litige ouvert"); refresh(id); }

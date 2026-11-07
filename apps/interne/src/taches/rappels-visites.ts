@@ -4,6 +4,8 @@ import { envoyerEmail, envoyerSms, libelleStatut, type ResultatEnvoi } from "@/l
 import { TEL_AGENCE } from "@/lib/messaging";
 import { getSettings } from "@/lib/settings";
 import { dossierFictif } from "@/crm/envois";
+import { modeleDe, raisonDeNePasEnvoyer } from "@/crm/messages/catalogue";
+import { noterEnvoiRdv } from "@/crm/rdv/sms";
 import { q, q1 } from "@/crm/lib/db";
 import type { Tache } from "./types";
 
@@ -35,6 +37,8 @@ export type SourceRappels = (jour: Date) => Promise<RappelVisite[]>;
 /** Envoie une liste de rappels ; chacun laisse une ligne au fil d'activité de son dossier. */
 export async function envoyerRappelsVisites(liste: RappelVisite[]) {
   const settings = await getSettings();
+  // La carte « Rappel de la veille » de « Courriers et SMS » : désactivée, les rappels restent au journal.
+  const retenu = raisonDeNePasEnvoyer(await modeleDe("rdv_rappel_veille"));
   const issues: { cle: string; rendezVousId: number; canal: string; statut: string; doublon: boolean }[] = [];
   for (const r of liste) {
     const reference = (await q1<{ ref: string }>("select ref from dossiers where id=$1", [r.dossierId]).catch(() => undefined))?.ref ?? `dossier ${r.dossierId}`;
@@ -44,8 +48,8 @@ export async function envoyerRappelsVisites(liste: RappelVisite[]) {
       [r.dossierId, r.rendezVousId],
     );
     // Sans fiche, ou dossier du jeu de démonstration : rien ne part.
-    const fictif = !client || (await dossierFictif(r.dossierId, { ...client, ref: reference, commercial: null }));
-    const commun = { cle: r.cle, origine: "veille" as const, modele: "Rappel de visite (veille)", reference, fictif };
+    const fictif = !client || (await dossierFictif(r.dossierId, client));
+    const commun = { cle: r.cle, origine: "veille" as const, modele: "Rappel de visite (veille)", reference, fictif, retenu: r.texte.trim() ? retenu : (retenu ?? "Rappel sans texte : rien n'est parti.") };
     let res: ResultatEnvoi;
     if (r.canal === "sms") {
       res = await envoyerSms({ ...commun, a: r.destinataire, texte: r.texte, expediteur: settings.sms_sender });
@@ -65,6 +69,8 @@ export async function envoyerRappelsVisites(liste: RappelVisite[]) {
       });
     }
     issues.push({ cle: r.cle, rendezVousId: r.rendezVousId, canal: r.canal, statut: res.statut, doublon: res.doublon });
+    // L'état du rendez-vous (planning, cloche) : le rappel est parti, ou non, vers ce numéro.
+    if (r.canal === "sms") await noterEnvoiRdv(r.rendezVousId, "rappel", res, r.destinataire).catch(() => undefined);
     if (!res.doublon) {
       await q("insert into activite(dossier_id, libelle) values($1, $2)", [r.dossierId, `Rappel de visite (veille) par ${r.canal === "sms" ? "SMS" : "e-mail"} : ${libelleStatut(res)}`]).catch(() => undefined);
     }
