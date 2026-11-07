@@ -5,6 +5,8 @@ import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
+import { envoyerDevisParEmail } from "@/crm/envois";
+import { randomBytes } from "node:crypto";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -123,12 +125,24 @@ export async function genererDevis(id: number) {
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
   await log(id, "Devis générés (3 formules)"); refresh(id);
 }
+/**
+ * « Envoyer » : le devis part au client par e-mail, avec son lien de
+ * signature (le jeton est créé s'il n'existe pas, gardé sinon — un lien déjà
+ * envoyé reste valable). L'envoi suit les garde-fous de la plateforme
+ * (envoi désactivé, recette, dossier fictif) ; le fil d'activité dit ce qui
+ * s'est vraiment passé.
+ */
 export async function envoyerDevis(id: number, devisId: number) {
   await exiger();
-  await q("update devis set statut='envoye', envoye_le=now() where id=$1 and statut in ('brouillon','envoye')", [devisId]);
+  const v = await q1<{ id: number; numero: string; formule: string; montant: number; token: string }>(
+    "update devis set statut='envoye', envoye_le=now(), token=coalesce(token, $3) where id=$1 and dossier_id=$2 and statut in ('brouillon','envoye') returning id, numero, formule, montant::float8 as montant, token",
+    [devisId, id, randomBytes(12).toString("hex")],
+  );
+  if (!v) return;
   await q("update dossiers set statut='devis' where id=$1 and statut in ('prospect','visite')", [id]);
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
-  await log(id, "Devis envoyé au client"); refresh(id);
+  const e = await envoyerDevisParEmail(id, v);
+  await log(id, `Devis ${v.numero} envoyé au client · e-mail ${e.libelle}`); refresh(id);
 }
 /**
  * « Signé par le client » : la règle de signature est celle de la page

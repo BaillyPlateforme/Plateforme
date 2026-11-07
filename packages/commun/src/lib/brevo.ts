@@ -1,68 +1,15 @@
 import "server-only";
 import { env } from "@/lib/env";
 
+/*
+ * La connexion au compte Brevo, pour l'écran des Paramètres.
+ *
+ * Les envois, eux, ne passent plus par ici : tout e-mail et tout SMS part
+ * par le module d'envoi (lib/envois), seul à appeler Brevo, après ses
+ * garde-fous et son journal.
+ */
+
 const BREVO = "https://api.brevo.com/v3";
-
-function headers() {
-  return {
-    "api-key": env.brevoApiKey(),
-    "Content-Type": "application/json",
-    accept: "application/json",
-  };
-}
-
-// Format international pour Brevo SMS : 0612… → 33612…
-function normalizePhone(raw: string): string {
-  let p = raw.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  else if (p.startsWith("0")) p = "33" + p.slice(1);
-  return p;
-}
-
-export async function sendBrevoEmail(input: {
-  to: string;
-  subject: string;
-  html: string;
-  senderName?: string | null;
-  senderEmail?: string | null;
-  /** Pièces jointes, déjà encodées en base64 — l'estimation en PDF, surtout. */
-  attachments?: { name: string; contentBase64: string }[];
-}) {
-  if (!env.brevoApiKey()) throw new Error("Clé Brevo absente");
-  const res = await fetch(`${BREVO}/smtp/email`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      sender: {
-        name: input.senderName || "Bailly Déménagement",
-        email: input.senderEmail || "no-reply@bailly.fr",
-      },
-      to: [{ email: input.to }],
-      subject: input.subject,
-      htmlContent: input.html,
-      ...(input.attachments?.length
-        ? { attachment: input.attachments.map((a) => ({ name: a.name, content: a.contentBase64 })) }
-        : {}),
-    }),
-  });
-  if (!res.ok) throw new Error(`Brevo email ${res.status} : ${await res.text()}`);
-}
-
-export async function sendBrevoSms(input: { to: string; content: string; sender?: string | null }) {
-  if (!env.brevoApiKey()) throw new Error("Clé Brevo absente");
-  const res = await fetch(`${BREVO}/transactionalSMS/sms`, {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      type: "transactional",
-      unicodeEnabled: true,
-      sender: (input.sender || "Bailly").replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "Bailly",
-      recipient: normalizePhone(input.to),
-      content: input.content,
-    }),
-  });
-  if (!res.ok) throw new Error(`Brevo SMS ${res.status} : ${await res.text()}`);
-}
 
 // Vérifie la validité de la clé (compte).
 // L'appel sort chez Brevo : 200 à 400 ms, à chaque ouverture des paramètres.
@@ -78,7 +25,7 @@ export async function checkBrevo(): Promise<{ ok: boolean; message: string }> {
     return v;
   };
   try {
-    const res = await fetch(`${BREVO}/account`, { headers: headers() });
+    const res = await fetch(`${BREVO}/account`, { headers: { "api-key": env.brevoApiKey(), accept: "application/json" } });
     if (res.ok) return garder({ ok: true, message: "Connexion Brevo active." });
     const body = await res.text();
     return garder({ ok: false, message: `Brevo ${res.status} : ${body.slice(0, 200)}` });

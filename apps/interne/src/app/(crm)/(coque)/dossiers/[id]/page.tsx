@@ -191,7 +191,8 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
             ["Demande de stationnement renseignée", d.stops.some((x: Row) => x.acces)], ["Proposition de sous-traitance éditée", d.lettres.some((l: Row) => l.prix_sous_traitance != null)],
             ["Personnel affecté", d.lettres.some((l: Row) => l.equipe)], ["Véhicule affecté", d.lettres.some((l: Row) => l.immatriculation)],
             ["Instructions rédigées", d.lettres.some((l: Row) => l.instructions)], ["Matériel (emballages) prévu", d.volume > 0],
-            ["SMS de confirmation envoyé", d.activite.some((a: Row) => String(a.libelle).startsWith("SMS"))], ["Lettres de voiture créées", d.lettres.length > 0],
+            // Coché seulement si le SMS est vraiment parti (pas journalisé ni bloqué : voir crm/envois.ts).
+            ["SMS de confirmation envoyé", d.activite.some((a: Row) => /^SMS de confirmation (envoyé|déjà envoyé)/.test(String(a.libelle)))], ["Lettres de voiture créées", d.lettres.length > 0],
           ];
           return (
             <section className="card docs" style={{ gridColumn: "span 12" }}>

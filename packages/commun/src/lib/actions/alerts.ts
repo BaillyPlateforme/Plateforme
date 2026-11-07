@@ -6,7 +6,8 @@ import { exigerEquipe } from "@/lib/supabase/auth";
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
-import { checkBrevo, sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
+import { checkBrevo } from "@/lib/brevo";
+import { envoyerEmail, envoyerSms, estParti, libelleStatut } from "@/lib/envois";
 import { getSettings } from "@/lib/settings";
 import { TEL_AGENCE, type Channel, type RuleKind } from "@/lib/messaging";
 import { habillerTexte } from "@/lib/email-render";
@@ -50,27 +51,25 @@ export async function testBrevo() {
 export async function sendTest(channel: Channel, to: string, message: string, subject?: string) {
   await exigerEquipe();
   const settings = await getSettings();
-  try {
-    if (channel === "sms") {
-      await sendBrevoSms({ to, content: message || "Test SMS Bailly", sender: settings.sms_sender });
-    } else {
-      await sendBrevoEmail({
-        to,
-        subject: subject || "Test — Bailly Déménagement",
-        html: habillerTexte(subject || "Test — Bailly Déménagement", message || "Ceci est un e-mail de test.", {
-          base: (settings.base_url || "").replace(/\/$/, ""),
-          entreprise: {
-            nom: settings.entreprise_nom ?? undefined,
-            email: settings.entreprise_email ?? undefined,
-            tel: settings.entreprise_tel || TEL_AGENCE,
-          },
-        }),
-        senderName: settings.entreprise_nom,
-        senderEmail: settings.entreprise_email,
-      });
-    }
-    return { ok: true, message: "Envoyé ✓" };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Erreur" };
-  }
+  // Le test suit les mêmes garde-fous que tout le reste : il dit ce qui s'est vraiment passé.
+  const r =
+    channel === "sms"
+      ? await envoyerSms({ origine: "test", modele: "Test des paramètres", a: to, texte: message || "Test SMS Bailly", expediteur: settings.sms_sender })
+      : await envoyerEmail({
+          origine: "test",
+          modele: "Test des paramètres",
+          a: to,
+          sujet: subject || "Test — Bailly Déménagement",
+          html: habillerTexte(subject || "Test — Bailly Déménagement", message || "Ceci est un e-mail de test.", {
+            base: (settings.base_url || "").replace(/\/$/, ""),
+            entreprise: {
+              nom: settings.entreprise_nom ?? undefined,
+              email: settings.entreprise_email ?? undefined,
+              tel: settings.entreprise_tel || TEL_AGENCE,
+            },
+          }),
+          expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
+        });
+  if (estParti(r)) return { ok: true, message: "Envoyé ✓" };
+  return { ok: false, message: r.motif ?? `Non envoyé : ${libelleStatut(r)}.` };
 }

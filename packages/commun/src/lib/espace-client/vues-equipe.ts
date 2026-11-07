@@ -1,6 +1,8 @@
 import "server-only";
 import { CAPACITE_SAMEDI } from "./cartons";
-import { demoEquipeActive, envoiReel, modeDonnees } from "./config";
+import { etatEnvois } from "@/lib/envois";
+import { envoisDesNotifications } from "@/lib/envois/journal";
+import { demoEquipeActive, estDemo, modeDonnees } from "./config";
 import { lireDonnees } from "./depot";
 import { devisDeLaDemande, lireDemande, listerDemandes } from "./demandes";
 import { rendreEmail, texteSms } from "./emails";
@@ -22,8 +24,20 @@ import type { Donnees } from "./types";
 /** Combien de jours avant le déménagement une étape bloquante non faite devient une alerte. */
 const SEUIL_ALERTE_JOURS = 21;
 
+/**
+ * Où vivent les données, et ce que deviennent les messages : l'état réel du
+ * module d'envoi (désactivé, recette avec liste blanche, actif). En
+ * démonstration en mémoire, rien ne part jamais.
+ */
 function mode() {
-  return { donnees: modeDonnees(), envoi: envoiReel(), demoEquipe: demoEquipeActive() };
+  const e = etatEnvois();
+  const demo = estDemo();
+  return {
+    donnees: modeDonnees(),
+    envoi: !demo && e.mode !== "desactive",
+    envois: demo ? { ...e, libelle: "Démonstration", detail: "Démonstration en mémoire : aucun message ne part, quel que soit le réglage." } : e,
+    demoEquipe: demoEquipeActive(),
+  };
 }
 
 export function vueApercu(d: Donnees) {
@@ -180,10 +194,19 @@ export function vueDestinations(d: Donnees) {
   };
 }
 
-export function vueJournal(d: Donnees) {
+/**
+ * Le journal de l'espace : chaque message, avec ce que le module d'envoi en
+ * a fait (envoyé, journalisé, bloqué par la liste blanche, bac à sable…). Si
+ * le journal des envois ne se lit pas, les lignes gardent leur statut court.
+ */
+export async function vueJournal(d: Donnees) {
+  const envois = estDemo() ? new Map() : await envoisDesNotifications().catch(() => new Map());
   return {
     mode: mode(),
-    notifications: d.notifications.slice(0, 400).map((n) => ({ ...n, reference: d.dossiers.find((x) => x.id === n.dossier_id)?.reference ?? null })),
+    notifications: d.notifications.slice(0, 400).map((n) => {
+      const e = envois.get(n.id) as { statut: string; motif: string | null; brevo_id: string | null } | undefined;
+      return { ...n, reference: d.dossiers.find((x) => x.id === n.dossier_id)?.reference ?? null, envoi: e ? { statut: e.statut, motif: e.motif, brevo: e.brevo_id } : null };
+    }),
   };
 }
 
@@ -251,7 +274,7 @@ export async function lireVue(chemin: string[], params: URLSearchParams, base: s
     case "destinations":
       return vueDestinations(d);
     case "journal":
-      return vueJournal(d);
+      return await vueJournal(d);
     case "reglages":
       return vueReglages(d);
     case "nouveau":

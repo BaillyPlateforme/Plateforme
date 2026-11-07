@@ -6,6 +6,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { jetonValide } from "@/crm/lib/data2";
 import { headers } from "next/headers";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
+import { envoyerDevisParEmail, envoyerSmsRendezVous } from "@/crm/envois";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -63,14 +64,16 @@ export async function majConteneur(id: number, f: FormData) {
 
 /* ---------- modèles de courriers et SMS ---------- */
 export async function majModele(id: number, f: FormData) { await exiger(); await q("update modeles_messages set nom=$2, objet=$3, corps=$4 where id=$1", [id, s(f, "nom"), s(f, "objet"), s(f, "corps")]); refresh(); }
+/**
+ * « SMS de confirmation » d'un rendez-vous : le modèle du CRM, envoyé par le
+ * module d'envoi de la plateforme. Le fil d'activité dit ce qui s'est
+ * vraiment passé (envoyé, journalisé, bloqué par la recette…).
+ */
 export async function envoyerSms(dossierId: number, rdv: number) {
   await exiger();
-  const m = await q1<Row>("select corps from modeles_messages where canal='sms' and nom='Confirmation de rendez-vous' limit 1");
-  const r = await q1<Row>("select r.debut, u.nom as commercial from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.id=$1", [rdv]);
-  if (!m || !r) return;
-  const d = new Date(r.debut);
-  const texte = String(m.corps).replace("{commercial}", r.commercial).replace("{date}", d.toLocaleDateString("fr-FR")).replace("{heure}", d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }));
-  await log(dossierId, `SMS de confirmation (envoi simulé) : « ${texte} »`); refresh(dossierId);
+  const r = await envoyerSmsRendezVous(dossierId, rdv);
+  if (!r) return;
+  await log(dossierId, `SMS de confirmation ${r.libelle} : « ${r.texte} »`); refresh(dossierId);
 }
 
 /* ---------- litiges ---------- */
@@ -103,12 +106,22 @@ export async function majPrestations(devisId: number, f: FormData) {
 }
 
 /* ---------- signature électronique ---------- */
+/**
+ * « Envoyer pour signature » : le lien de signature part au client par
+ * e-mail (envoyerDevisParEmail), comme « Envoyer ». Le jeton est gardé s'il
+ * existe déjà : un lien envoyé plus tôt reste valable, au lieu d'être
+ * remplacé en silence.
+ */
 export async function envoyerPourSignature(dossierId: number, devisId: number) {
   await exiger();
-  const token = randomBytes(12).toString("hex");
-  await q("update devis set token=$2, statut='envoye', envoye_le=coalesce(envoye_le, now()) where id=$1", [devisId, token]);
+  const v = await q1<{ id: number; numero: string; formule: string; montant: number; token: string }>(
+    "update devis set token=coalesce(token, $3), statut='envoye', envoye_le=coalesce(envoye_le, now()) where id=$1 and dossier_id=$2 and statut in ('brouillon','envoye') returning id, numero, formule, montant::float8 as montant, token",
+    [devisId, dossierId, randomBytes(12).toString("hex")],
+  );
+  if (!v) return;
   await q("update dossiers set statut='devis' where id=$1 and statut in ('prospect','visite')", [dossierId]);
-  await log(dossierId, "Devis envoyé pour signature électronique"); refresh(dossierId);
+  const e = await envoyerDevisParEmail(dossierId, v);
+  await log(dossierId, `Devis ${v.numero} envoyé pour signature électronique · e-mail ${e.libelle}`); refresh(dossierId);
 }
 /**
  * La signature du client, depuis /signature/[token], sans session. Le jeton

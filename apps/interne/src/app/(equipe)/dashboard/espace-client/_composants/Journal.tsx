@@ -6,9 +6,9 @@ import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import { MODELES_MESSAGE } from "@/lib/espace-client/libelles";
 import type { vueJournal } from "@/lib/espace-client/vues-equipe";
-import { BandeauMode, Carte, Pastille, champ, dateHeureFr, usePorte } from "./socle";
+import { BandeauMode, Carte, EtatDesEnvois, PastilleEnvoi, champ, dateHeureFr, usePorte } from "./socle";
 
-type Donnees = ReturnType<typeof vueJournal>;
+type Donnees = Awaited<ReturnType<typeof vueJournal>>;
 
 /** Le journal : chaque e-mail et chaque SMS, envoyé ou non, avec son aperçu. */
 export function Journal({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }) {
@@ -25,6 +25,7 @@ export function Journal({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
   return (
     <div className="space-y-5">
       <BandeauMode mode={donnees.mode} />
+      <EtatDesEnvois envois={donnees.mode.envois} />
       <Carte titre={`${lignes.length} message${lignes.length > 1 ? "s" : ""}`} action={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Destinataire, dossier, modèle…" className={`${champ} !w-64`} aria-label="Rechercher dans le journal" />}>
         <div className="-mx-5 overflow-x-auto">
           <table className="w-full min-w-[820px] text-[13px]">
@@ -41,12 +42,12 @@ export function Journal({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
               {lignes.map((n) => (
                 <tr key={n.id} className="align-top">
                   <td className="whitespace-nowrap px-5 py-2.5 tabular-nums text-ink-soft">{dateHeureFr(n.sent_at)}</td>
-                  <td className="px-5 py-2.5">{n.canal === "sms" ? "SMS" : "E-mail"}</td>
+                  <td className="whitespace-nowrap px-5 py-2.5">{n.canal === "sms" ? "SMS" : "E-mail"}</td>
                   <td className="max-w-[320px] px-5 py-2.5">
                     <span className="font-medium">{MODELES_MESSAGE[n.modele] ?? n.modele}</span>
                     <span className="block truncate text-[12px] text-ink-soft">{n.canal === "sms" ? String(n.payload.texte ?? "") : n.sujet}</span>
                   </td>
-                  <td className="px-5 py-2.5">
+                  <td className="whitespace-nowrap px-5 py-2.5">
                     {n.reference && n.dossier_id ? (
                       <Link href={`${racine}/dossiers/${n.dossier_id}`} className="tabular-nums hover:text-brand-ink">
                         {n.reference}
@@ -56,9 +57,12 @@ export function Journal({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
                     )}
                   </td>
                   <td className="px-5 py-2.5 text-ink-soft">{n.destinataire}</td>
-                  <td className="px-5 py-2.5">
-                    {n.statut === "envoyee" ? <Pastille ton="ok">Envoyé</Pastille> : n.statut === "echec" ? <Pastille ton="alerte">Échec</Pastille> : <Pastille>Journalisé</Pastille>}
-                    {n.erreur && <span className="mt-1 block text-[11px] text-danger">{n.erreur}</span>}
+                  <td className="max-w-[260px] px-5 py-2.5">
+                    {/* Le statut du module d'envoi quand il est connu (bloqué, bac à sable…), sinon celui du journal de l'espace. */}
+                    <PastilleEnvoi statut={n.envoi?.statut ?? (n.statut === "envoyee" ? "envoye" : n.statut === "echec" ? "echec" : "journalise")} />
+                    {(n.envoi?.motif ?? n.erreur) && (
+                      <span className={`mt-1 block text-[11px] ${n.statut === "echec" ? "text-danger" : "text-ink-soft"}`}>{n.envoi?.motif ?? n.erreur}</span>
+                    )}
                   </td>
                   <td className="px-5 py-2.5 text-right">
                     <button onClick={() => ouvrirApercu(n.id)} className="font-medium hover:text-brand-ink">

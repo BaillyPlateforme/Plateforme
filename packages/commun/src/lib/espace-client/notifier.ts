@@ -1,25 +1,27 @@
 import "server-only";
-import { sendBrevoEmail, sendBrevoSms } from "@/lib/brevo";
-import { adresseFictive, adressePublique, envoiReel } from "./config";
+import { envoyerEmail, envoyerSms, type ResultatEnvoi } from "@/lib/envois";
+import { adressePublique, estDemo } from "./config";
 import { depot, maintenant, nouvelId } from "./depot";
 import { rendreEmail } from "./emails";
 import type { CanalNotification, Notification } from "./types";
 
 /*
- * L'envoi des e-mails et des SMS.
+ * Les e-mails et les SMS de l'espace client.
  *
- * Tout message, envoyé ou non, laisse une ligne dans le journal
+ * Tout message, envoyé ou non, laisse une ligne dans le journal de l'espace
  * (ec_notifications) : c'est là que l'équipe le retrouve et le prévisualise.
- * Tant que ESPACE_CLIENT_ENVOI ne vaut pas 1, rien ne part — la ligne est
- * « journalisée ». Avec, l'envoi passe par Brevo, le prestataire que la
- * plateforme utilise déjà ; un échec d'envoi ne fait pas échouer l'action du
- * client, il se lit dans le journal.
+ * L'envoi lui-même passe par le module d'envoi de la plateforme
+ * (lib/envois), et lui seul : garde-fous (envoi désactivé, recette et liste
+ * blanche, bac à sable, destinataire fictif), clé d'idempotence, journal des
+ * envois et appel à Brevo. Un échec d'envoi ne fait pas échouer l'action du
+ * client : il se lit dans le journal.
  *
- * Deux garde-fous : un message destiné à un client fictif (adresse
- * @example.com, dossier de démonstration) n'est jamais envoyé pour de vrai —
- * les numéros du jeu de démonstration ressemblent à de vrais numéros ; et ce
- * qui est confidentiel (le lien d'accès d'un vrai client) part dans l'e-mail
- * mais n'est pas gardé dans le journal.
+ * Deux garde-fous propres à l'espace : un message destiné à un client fictif
+ * (adresse @example.com, dossier de démonstration) n'est jamais envoyé — les
+ * numéros du jeu de démonstration ressemblent à de vrais numéros ; et ce qui
+ * est confidentiel (le lien d'accès d'un vrai client) part dans l'e-mail
+ * mais n'est gardé dans aucun journal. En démonstration en mémoire, rien ne
+ * part jamais.
  */
 
 export interface MessageSortant {
@@ -33,57 +35,80 @@ export interface MessageSortant {
 export interface OptionsEnvoi {
   /** Les champs du message à remplacer dans le journal, une fois envoyé. */
   confidentiel?: Record<string, unknown>;
+  /**
+   * La clé d'idempotence du message : avec la même clé, il ne part qu'une
+   * fois (la tâche de la veille relancée, un double clic). Sans clé, chaque
+   * appel est un message nouveau.
+   */
+  cle?: string;
+  /** Pièces jointes de l'e-mail (déjà en base64) : elles partent, le journal ne les garde pas. */
+  piecesJointes?: { nom: string; base64: string }[];
+  /** D'où part le message, pour le journal des envois : l'espace client, ou la tâche de la veille. */
+  origine?: "espace_client" | "veille";
+  /** Retenu quel que soit le mode, avec cette raison : il est journalisé, il ne part pas. */
+  retenu?: string | null;
 }
+
+/** La ligne du journal ; `doublon` : la clé était déjà prise, rien n'a été refait ni réinscrit. */
+export type NotificationEnvoyee = Notification & { doublon?: boolean };
 
 export interface Notifier {
-  envoyer(message: MessageSortant, options?: OptionsEnvoi): Promise<Notification>;
+  envoyer(message: MessageSortant, options?: OptionsEnvoi): Promise<NotificationEnvoyee>;
 }
 
-/** Le message vise-t-il un client fictif ? Alors il reste journalisé, même avec l'envoi réel. */
-async function fictif(m: MessageSortant) {
-  if (adresseFictive(m.destinataire)) return true;
-  if (!m.dossier_id) return false;
+/** Le dossier du message : sa référence pour le journal, et s'il est fictif (rien ne part alors, même avec l'envoi actif). */
+async function dossierDu(m: MessageSortant): Promise<{ reference: string | null; demo: boolean }> {
+  if (!m.dossier_id) return { reference: null, demo: false };
   const dossier = await depot().trouver("dossiers", m.dossier_id);
   const client = dossier && (await depot().trouver("clients", dossier.client_id));
-  return !!client?.demo;
+  return { reference: dossier?.reference ?? null, demo: !!client?.demo };
+}
+
+/** Le statut du journal de l'espace (journalisee, envoyee, echec) d'après celui du module d'envoi. */
+function statutDe(r: ResultatEnvoi): Notification["statut"] {
+  if (r.statut === "envoye") return "envoyee";
+  if (r.statut === "echec" || r.statut === "incertain") return "echec";
+  return "journalisee";
 }
 
 class NotifierJournal implements Notifier {
-  async envoyer(m: MessageSortant, options: OptionsEnvoi = {}): Promise<Notification> {
+  async envoyer(m: MessageSortant, options: OptionsEnvoi = {}): Promise<NotificationEnvoyee> {
     const base = await adressePublique();
-    let sujet: string;
+    const id = nouvelId();
+    const rendu = m.canal === "email" ? rendreEmail(m.modele, m.payload, base) : null;
+    const sujet = rendu?.sujet ?? "SMS";
     let statut: Notification["statut"] = "journalisee";
     let erreur: string | null = null;
-    const partir = envoiReel() && !(await fictif(m).catch(() => true));
 
-    if (m.canal === "email") {
-      const rendu = rendreEmail(m.modele, m.payload, base);
-      sujet = rendu.sujet;
-      if (partir) {
-        try {
-          await sendBrevoEmail({ to: m.destinataire, subject: rendu.sujet, html: rendu.html });
-          statut = "envoyee";
-        } catch (e) {
-          statut = "echec";
-          erreur = e instanceof Error ? e.message : "Envoi impossible";
-        }
-      }
+    if (estDemo()) {
+      erreur = "Démonstration en mémoire : rien ne part.";
     } else {
-      sujet = "SMS";
-      if (partir) {
-        try {
-          await sendBrevoSms({ to: m.destinataire, content: String(m.payload.texte ?? "") });
-          statut = "envoyee";
-        } catch (e) {
-          statut = "echec";
-          erreur = e instanceof Error ? e.message : "Envoi impossible";
-        }
+      // Si le dossier ne se relit pas, on le tient pour fictif : mieux vaut ne rien envoyer.
+      const dossier = await dossierDu(m).catch(() => ({ reference: null, demo: true }));
+      const commun = {
+        cle: options.cle ?? `ec:${id}`,
+        origine: options.origine ?? ("espace_client" as const),
+        modele: m.modele,
+        reference: dossier.reference,
+        fictif: dossier.demo,
+        notificationId: id,
+        retenu: options.retenu ?? null,
+      };
+      const r =
+        rendu
+          ? await envoyerEmail({ ...commun, a: m.destinataire, sujet: rendu.sujet, html: rendu.html, texte: rendu.texte, piecesJointes: options.piecesJointes })
+          : await envoyerSms({ ...commun, a: m.destinataire, texte: String(m.payload.texte ?? "") });
+      if (r.doublon) {
+        // Déjà traité sous cette clé : pas de seconde ligne au journal de l'espace.
+        return { id, ...m, sujet, statut: statutDe(r), erreur: `Déjà traité (clé ${r.cle}).`, sent_at: maintenant(), doublon: true };
       }
+      statut = statutDe(r);
+      erreur = r.statut === "envoye" ? null : r.motif;
     }
 
     const masque = options.confidentiel && Object.keys(options.confidentiel).length > 0;
     const payload = masque ? { ...m.payload, ...options.confidentiel, confidentiel: true } : m.payload;
-    const n: Notification = { id: nouvelId(), ...m, payload, sujet, statut, erreur, sent_at: maintenant() };
+    const n: Notification = { id, ...m, payload, sujet, statut, erreur, sent_at: maintenant() };
     await depot().inserer("notifications", n);
     return n;
   }

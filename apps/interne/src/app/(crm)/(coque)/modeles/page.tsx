@@ -1,10 +1,13 @@
 import { modeles } from "@/crm/lib/data2";
 import { majModele } from "@/crm/actions2";
 import Bandeau from "@/ui/Bandeau";
+import { etatEnvois } from "@/lib/envois";
 
 export const dynamic = "force-dynamic";
 export default async function Modeles() {
   const rows = await modeles();
+  // L'état réel des envois de la plateforme (lib/envois) : désactivé, recette ou actif.
+  const envois = etatEnvois();
   const bloc = (canal: string, titre: string) => (
     <section className="card" style={{ marginBottom: 18 }}>
       <h3>{titre}</h3>
@@ -18,7 +21,7 @@ export default async function Modeles() {
     </section>);
   return (
     <div className="view">
-      <Bandeau surtitre="Gestion" titre="Courriers & SMS" texte="Des modèles à volonté, utilisables depuis chaque dossier. Le SMS de confirmation de rendez-vous demande de répondre 1 ou 2. L’envoi réel est simulé dans cette version." />
+      <Bandeau surtitre="Gestion" titre="Courriers & SMS" texte={`Des modèles à volonté, utilisables depuis chaque dossier. Le SMS de confirmation de rendez-vous demande de répondre 1 ou 2. Envois : ${envois.libelle.toLowerCase()} — ${envois.detail}`} />
       {bloc("sms", "Modèles de SMS")}
       {bloc("email", "Modèles d'e-mails")}
     </div>
