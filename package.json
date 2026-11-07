@@ -18,7 +18,9 @@
     "start:interne": "npm run start -w @bailly/interne",
     "build": "npm run build:externe && npm run build:interne",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "migrations": "node scripts/appliquer-migrations.mjs",
+    "semer:espace-client": "node scripts/semer-espace-client.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",
@@ -39,6 +41,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "pg": "^8.23.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
