@@ -15,6 +15,15 @@ const nextConfig: NextConfig = {
       dynamic: 30,
       static: 180,
     },
+    /**
+     * Les pièces et les photos de l'espace client passent par des actions
+     * serveur : une photo de téléphone dépasse à elle seule le mégaoctet par
+     * défaut. Les formulaires plafonnent un envoi à 30 Mo (10 Mo par fichier) ;
+     * la limite laisse la place de l'enveloppe du formulaire.
+     */
+    serverActions: {
+      bodySizeLimit: "32mb",
+    },
   },
 };
 
