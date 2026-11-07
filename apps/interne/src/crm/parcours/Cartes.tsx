@@ -120,9 +120,11 @@ export function CarteClient({ p }: { p: P }) {
         <dt>Espace client</dt>
         <dd>
           {p.espace ? (
-            <Link href={`/dashboard/espace-client/dossiers/${p.espace.id}`}>
-              Ouvert · {p.espace.reference}
-              {p.espace.derniereConnexion ? ` · vu le ${quand(p.espace.derniereConnexion, false)}` : " · jamais ouvert par le client"}
+            <Link href={`/dashboard/espace-client/dossiers/${p.espace.id}`} title={`Espace ${p.espace.reference}`}>
+              Ouvert
+              {p.espace.derniereConnexion
+                ? ` · vu le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" }).format(new Date(p.espace.derniereConnexion))}`
+                : " · jamais consulté"}
             </Link>
           ) : (
             <span className={s.manque}>Pas encore ouvert</span>

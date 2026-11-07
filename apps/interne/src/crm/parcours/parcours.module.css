@@ -22,6 +22,7 @@
 }
 /* La frise de la bande garde son dessin ; elle prend seulement la largeur de son contenu pour pouvoir défiler. */
 .defile > ol {
+  flex: none;
   width: max-content;
   min-width: 100%;
 }
@@ -1172,6 +1173,13 @@
   }
   .cherche {
     flex-basis: 220px;
+  }
+  .listeTete {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .liste {
+    grid-template-columns: minmax(0, 1fr);
   }
   .duo {
     grid-template-columns: 1fr;
