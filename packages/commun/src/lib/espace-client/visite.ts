@@ -7,7 +7,7 @@ import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 
 /*
- * La visite technique entre l'espace client et le CRM (migration 0013) : le
+ * La visite technique entre l'espace client et le CRM (migration 0015) : le
  * pendant de crm.ts pour les créneaux. Comme lui, il ne lit ni n'écrit le
  * schéma crm : il appelle les fonctions de la migration, réservées à la clé
  * de service, qui écrivent dans le CRM sous verrou puis projettent le

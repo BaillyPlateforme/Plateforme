@@ -242,13 +242,13 @@ const JOURNAL_MAX = 1000;
 type Requeteur = ReturnType<typeof createServiceClient>;
 
 /**
- * Les tables de la visite technique (migration 0013). Tant que la migration
+ * Les tables de la visite technique (migration 0015). Tant que la migration
  * n'est pas appliquée, elles manquent : l'espace se lit sans elles plutôt que
  * de tomber en entier.
  */
-const TABLES_0013 = new Set<Table>(["creneaux", "visites"]);
+const TABLES_0015 = new Set<Table>(["creneaux", "visites"]);
 const tableAbsente = (table: Table, e: { code?: string; message?: string }) =>
-  TABLES_0013.has(table) && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|does not exist/i.test(e.message ?? ""));
+  TABLES_0015.has(table) && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|does not exist/i.test(e.message ?? ""));
 
 async function lireTable<K extends Table>(db: Requeteur, table: K): Promise<Ligne<K>[]> {
   const tout: Ligne<K>[] = [];

@@ -201,7 +201,7 @@ export interface DocumentFichier {
   requirement_id: string | null;
   created_by: string;
   created_at: string;
-  /** Le compte-rendu de visite signé dont ce document est le PDF (migration 0013). */
+  /** Le compte-rendu de visite signé dont ce document est le PDF (migration 0015). */
   crm_visite_id?: number | null;
 }
 
@@ -394,7 +394,7 @@ export interface SessionPaiement {
 }
 
 /**
- * Un créneau de visite technique proposé au client (migration 0013). Il
+ * Un créneau de visite technique proposé au client (migration 0015). Il
  * projette un créneau du CRM, qui tient le planning des commerciaux : le
  * client le choisit ici, la réservation se fait dans le CRM.
  */
@@ -415,7 +415,7 @@ export interface CreneauVisite {
 
 export type StatutVisite = "planifiee" | "en_cours" | "realisee" | "signee";
 
-/** Une visite technique du dossier, et le résumé de son compte-rendu une fois signé (migration 0013). */
+/** Une visite technique du dossier, et le résumé de son compte-rendu une fois signé (migration 0015). */
 export interface VisiteTechnique {
   id: string;
   dossier_id: string;

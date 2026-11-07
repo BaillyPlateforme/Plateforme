@@ -22,7 +22,7 @@ const jourSemaine = (iso: string) => new Intl.DateTimeFormat("fr-FR", { timeZone
  * « Ma visite technique » (cahier des charges, §3.2) : les créneaux que le
  * conseiller propose — un clic réserve —, la visite réservée, puis le
  * compte-rendu signé sur la tablette du conseiller, en PDF. Tout vient du
- * CRM par la projection (migration 0013) : le client ne lit que ses lignes.
+ * CRM par la projection (migration 0015) : le client ne lit que ses lignes.
  */
 export default async function MaVisite({ params, searchParams }: { params: Promise<{ ref: string }>; searchParams: Promise<{ indisponible?: string }> }) {
   const { ref } = await params;

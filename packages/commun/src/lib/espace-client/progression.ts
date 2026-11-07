@@ -104,7 +104,7 @@ export function livraisonCourante(livraisons: LivraisonCartons[]) {
 
 const fait = (iso: string | null | undefined) => (iso ? `Fait le ${jourMois(iso)}` : "Fait");
 
-// --- La visite technique (§3.2, migration 0013) ------------------------------------------------------
+// --- La visite technique (§3.2, migration 0015) ------------------------------------------------------
 
 /** Les créneaux de visite que le client peut encore choisir. */
 export const creneauxAChoisir = (s: Pick<DossierSnapshot, "creneaux">, now = new Date()) =>

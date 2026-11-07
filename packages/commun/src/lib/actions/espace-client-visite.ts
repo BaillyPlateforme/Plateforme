@@ -14,7 +14,7 @@ import { choisirCreneauCrm, demanderCreneauxCrm } from "@/lib/espace-client/visi
  * Comme les autres actions du client (espace-client.ts), chacune refait tout
  * le chemin : la session, la propriété du dossier — cherché dans ce que la
  * RLS rend au client —, puis l'écriture, ici par les fonctions de la
- * migration 0013, qui réservent dans le CRM sous verrou et revérifient que
+ * migration 0015, qui réservent dans le CRM sous verrou et revérifient que
  * le créneau est bien à ce client.
  */
 

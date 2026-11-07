@@ -20,7 +20,7 @@ export async function projeterEspace(dossierId: number | null | undefined) {
   } catch (e) {
     console.error(`BaillyCRM : projection du dossier ${dossierId} vers l'espace client impossible`, e instanceof Error ? e.message : e);
   }
-  // La visite technique (migration 0013) : créneaux proposés, visites, comptes-rendus signés.
+  // La visite technique (migration 0015) : créneaux proposés, visites, comptes-rendus signés.
   try {
     await q1("select public.ec_projeter_visites_crm($1)", [dossierId]);
   } catch (e) {
