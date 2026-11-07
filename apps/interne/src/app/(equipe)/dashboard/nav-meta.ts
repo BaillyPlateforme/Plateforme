@@ -21,6 +21,7 @@ export const META: Record<string, { titre: string; sous?: string }> = {
   "/dashboard/equipe": { titre: "Équipe", sous: "Profils et accès" },
   "/dashboard/configuration": { titre: "Configuration", sous: "Grille, photos, analyse d'image, qualification" },
   "/dashboard/parametres": { titre: "Paramètres", sous: "Entreprise, devis, envois" },
+  "/dashboard/envois": { titre: "Envois et veille", sous: "Ce qui part vraiment, et la tâche de la veille" },
 };
 
 export function metaDe(pathname: string): { titre: string; sous?: string } {

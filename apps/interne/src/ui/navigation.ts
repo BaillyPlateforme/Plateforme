@@ -19,10 +19,12 @@ export type Entree = {
 export type Groupe = { titre: string; entrees: Entree[] };
 
 const sous = (href: string) => (c: string) => c === href || c.startsWith(`${href}/`);
+/** Les adresses de la section Réglages (crm/sections.ts, ADRESSES_REGLAGES). */
+const REGLAGES_ADRESSES = ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe", "/dashboard/envois"];
 const questionnaires = (c: string) =>
   c.startsWith("/dashboard") &&
   !c.startsWith("/dashboard/espace-client") &&
-  !["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p));
+  !REGLAGES_ADRESSES.some((p) => c.startsWith(p));
 
 export const GROUPES: Groupe[] = [
   {
@@ -74,7 +76,7 @@ export const REGLAGES: Entree = {
   href: "/dashboard/parametres",
   label: "Réglages",
   icone: "reglages",
-  actif: (c) => ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p)),
+  actif: (c) => REGLAGES_ADRESSES.some((p) => c.startsWith(p)),
 };
 
 export function estActif(e: Entree, chemin: string) {

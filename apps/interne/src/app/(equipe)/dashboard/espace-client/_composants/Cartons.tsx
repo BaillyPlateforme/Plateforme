@@ -9,7 +9,7 @@ import { Echec, Squelette } from "@/components/Squelette";
 import { calculerTournee, enregistrerNbCartons, envoyerCreneaux, marquerCartonsLivres } from "@/lib/actions/espace-client-equipe";
 import { STATUT_LIVRAISON } from "@/lib/espace-client/libelles";
 import type { vueCartons } from "@/lib/espace-client/vues-equipe";
-import { BandeauMode, Bouton, Carte, LienBouton, Pastille, Retour, champ, dateFr, useAction, usePorte } from "./socle";
+import { BandeauMode, Bouton, Carte, EtatDesEnvois, LienBouton, Pastille, Retour, champ, dateFr, useAction, usePorte } from "./socle";
 
 // Leaflet touche à `window` : la carte ne se rend que dans le navigateur.
 const CarteTournee = dynamic(() => import("./CarteTournee").then((m) => m.CarteTournee), { ssr: false, loading: () => <div className="h-[400px] animate-pulse rounded-xl bg-subtle" /> });
@@ -47,6 +47,7 @@ export function Cartons() {
   return (
     <div className="space-y-5">
       <BandeauMode mode={donnees.mode} />
+      <EtatDesEnvois envois={donnees.mode.envois} />
       {donnees.samedis.length === 0 ? (
         <Carte>
           <p className="text-[13px] text-ink-soft">Aucune livraison de cartons à venir. Les clients choisissent leur samedi depuis leur espace ; l&apos;équipe reçoit un e-mail à chaque demande.</p>
@@ -195,7 +196,7 @@ export function Cartons() {
                 }
               >
                 <p className="mb-4 text-[12.5px] text-ink-soft">
-                  Il part automatiquement la veille par SMS et par e-mail (tâche planifiée /espace-client/taches/veille), dès que le nombre de cartons et le créneau sont connus. Le bouton l&apos;envoie tout de suite ; un client déjà prévenu ne l&apos;est pas deux fois.
+                  Il part automatiquement la veille par SMS et par e-mail (tâche de la veille, avec les bons de livraison et le récapitulatif pour l&apos;équipe), dès que le nombre de cartons et le créneau sont connus. Le bouton l&apos;envoie tout de suite ; un client déjà prévenu ne l&apos;est pas deux fois. Ce qui part vraiment dépend du réglage des envois, ci-dessus.
                 </p>
                 {!donnees.planifiee || donnees.aSaisir > 0 ? (
                   <p className="text-[13px] text-ink-soft">Saisissez tous les nombres de cartons et calculez la tournée pour voir les messages.</p>

@@ -1,0 +1,97 @@
+import "server-only";
+import { habillerTexte } from "@/lib/email-render";
+import { envoyerEmail, envoyerSms, libelleStatut, type ResultatEnvoi } from "@/lib/envois";
+import { TEL_AGENCE } from "@/lib/messaging";
+import { getSettings } from "@/lib/settings";
+import { dossierFictif } from "@/crm/envois";
+import { q, q1 } from "@/crm/lib/db";
+import type { Tache } from "./types";
+
+/*
+ * Les rappels de visite technique, la veille (cahier des charges, §3.2 : le
+ * client reçoit un SMS et un e-mail de confirmation la veille).
+ *
+ * La liste des rappels est calculée par le module des visites techniques
+ * (apps/interne/src/crm/visites/rappels.ts, `rappelsVisitesDuLendemain`),
+ * écrit à part ; cette tâche ne fait que les envoyer, chacun par le module
+ * d'envoi avec SA clé — relancée, elle ne renvoie rien. Tant que la source
+ * n'est pas branchée (SOURCE_RAPPELS, registre.ts), la tâche le dit et ne
+ * fait rien.
+ */
+
+/** Un rappel, tel que le rend rappelsVisitesDuLendemain(jour). */
+export type RappelVisite = {
+  canal: "sms" | "email";
+  destinataire: string;
+  objet?: string;
+  texte: string;
+  dossierId: number;
+  rendezVousId: number;
+  cle: string;
+};
+
+export type SourceRappels = (jour: Date) => Promise<RappelVisite[]>;
+
+/** Envoie une liste de rappels ; chacun laisse une ligne au fil d'activité de son dossier. */
+export async function envoyerRappelsVisites(liste: RappelVisite[]) {
+  const settings = await getSettings();
+  const issues: { cle: string; rendezVousId: number; canal: string; statut: string; doublon: boolean }[] = [];
+  for (const r of liste) {
+    const reference = (await q1<{ ref: string }>("select ref from dossiers where id=$1", [r.dossierId]).catch(() => undefined))?.ref ?? `dossier ${r.dossierId}`;
+    const client = await q1<{ email: string | null; notes: string | null; civilite: string | null; prenom: string | null; nom: string | null; societe: string | null; telephone: string | null; commercial_email: string | null }>(
+      `select c.email, c.notes, c.civilite, c.prenom, c.nom, c.societe, c.telephone, u.email as commercial_email
+         from dossiers d join clients c on c.id = d.client_id left join rendez_vous rv on rv.id = $2 left join utilisateurs u on u.id = rv.commercial_id where d.id = $1`,
+      [r.dossierId, r.rendezVousId],
+    );
+    // Sans fiche, ou dossier du jeu de démonstration : rien ne part.
+    const fictif = !client || (await dossierFictif(r.dossierId, { ...client, ref: reference, commercial: null }));
+    const commun = { cle: r.cle, origine: "veille" as const, modele: "Rappel de visite (veille)", reference, fictif };
+    let res: ResultatEnvoi;
+    if (r.canal === "sms") {
+      res = await envoyerSms({ ...commun, a: r.destinataire, texte: r.texte, expediteur: settings.sms_sender });
+    } else {
+      // Le texte est celui que rend le module des visites ; il est habillé comme les autres e-mails de Bailly.
+      const sujet = r.objet?.trim() || settings.entreprise_nom || "Bailly Déménagement";
+      res = await envoyerEmail({
+        ...commun,
+        a: r.destinataire,
+        sujet,
+        texte: r.texte,
+        html: habillerTexte(sujet, r.texte, {
+          base: (settings.base_url || "").replace(/\/$/, ""),
+          entreprise: { nom: settings.entreprise_nom ?? undefined, email: settings.entreprise_email ?? undefined, tel: settings.entreprise_tel || TEL_AGENCE },
+        }),
+        expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
+      });
+    }
+    issues.push({ cle: r.cle, rendezVousId: r.rendezVousId, canal: r.canal, statut: res.statut, doublon: res.doublon });
+    if (!res.doublon) {
+      await q("insert into activite(dossier_id, libelle) values($1, $2)", [r.dossierId, `Rappel de visite (veille) par ${r.canal === "sms" ? "SMS" : "e-mail"} : ${libelleStatut(res)}`]).catch(() => undefined);
+    }
+  }
+  return issues;
+}
+
+/** La tâche, pour le registre : la source des rappels lui est donnée (null tant qu'elle n'est pas branchée). */
+export function tacheRappelsVisites(source: SourceRappels | null): Tache {
+  return {
+    cle: "rappels_visites",
+    libelle: "Rappels de visite technique",
+    async executer({ jour }) {
+      if (!source) return { statut: "en_attente", resume: "Pas encore branchée : la liste des rappels viendra du module des visites techniques." };
+      // Le jour de l'exécution (aujourd'hui, à midi à Paris) : la source rend les visites du lendemain.
+      // À vérifier à la fusion : si la source attend le jour de la visite, lui passer `demain`.
+      const liste = await source(new Date(`${jour}T12:00:00+01:00`));
+      if (!liste.length) return { statut: "rien", resume: "Aucune visite technique demain." };
+      const issues = await envoyerRappelsVisites(liste);
+      const partis = issues.filter((i) => i.statut === "envoye" && !i.doublon).length;
+      const deja = issues.filter((i) => i.doublon).length;
+      const echecs = issues.filter((i) => !i.doublon && (i.statut === "echec" || i.statut === "incertain")).length;
+      return {
+        statut: echecs ? "partielle" : "faite",
+        resume: `${liste.length} rappel${liste.length > 1 ? "s" : ""} : ${partis} parti${partis > 1 ? "s" : ""}${deja ? `, ${deja} déjà traité${deja > 1 ? "s" : ""}` : ""}${echecs ? `, ${echecs} en échec` : ""}, ${liste.length - partis - deja - echecs} au journal.`,
+        details: { issues },
+      };
+    },
+  };
+}

@@ -101,4 +101,5 @@ export const MODELES_MESSAGE: Record<string, string> = {
   message_conseiller: "Message au conseiller",
   service_demande: "Service demandé (équipe)",
   demande_avis: "Demande d'avis",
+  recap_cartons_equipe: "Récapitulatif des cartons (équipe)",
 };

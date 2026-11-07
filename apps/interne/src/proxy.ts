@@ -67,7 +67,10 @@ export async function proxy(request: NextRequest) {
  *   polices, icônes), reconnus à leur extension ;
  * - /espace-client/demo-equipe, le back-office de démonstration de l'espace
  *   client, conçu pour s'ouvrir sans session sur des données fictives (il
- *   n'existe qu'en développement ou avec ESPACE_CLIENT_DEMO_EQUIPE=1).
+ *   n'existe qu'en développement ou avec ESPACE_CLIENT_DEMO_EQUIPE=1) ;
+ * - /api/taches/…, les tâches planifiées (la veille) : un cron n'a pas de
+ *   session ; chaque route exige son secret (TACHES_SECRET), et n'existe pas
+ *   sans lui (src/app/api/taches/veille/route.ts).
  *
  * Une adresse inconnue passe donc par le proxy : sans session, elle mène à la
  * connexion, et la 404 ne s'affiche qu'une fois connecté.
@@ -77,6 +80,6 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!login(?:/|$)|signature/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
+    "/((?!login(?:/|$)|signature/|api/taches/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
   ],
 };

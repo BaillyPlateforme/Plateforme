@@ -295,14 +295,24 @@ export async function marquerRealise(dossierId: string): Promise<Resultat> {
       termine_le: dossier.termine_le ?? maintenant(),
       ...(dejaDemande ? {} : { avis_demande_le: maintenant() }),
     });
-    if (!dejaDemande) {
-      await notifier.envoyer({
-        dossier_id: dossierId, canal: "email", modele: "demande_avis", destinataire: client.email,
-        payload: { salutation: salutation(client), trajet: `${dossier.ville_depart} → ${dossier.ville_arrivee}`, lien_avis: avis?.lien ?? null, signature: signatureDe(conseillerDe(d, client.conseiller_id)) },
-      });
-    }
-    await noterDansLeCrm(dossier.crm_dossier_id, `Fin de chantier signée (espace client)${dejaDemande ? "" : " · demande d'avis partie"}`);
-    return { ok: true, message: dejaDemande ? "Dossier terminé (la demande d'avis était déjà partie)." : "Dossier terminé : la demande d'avis est partie." };
+    // La demande d'avis (cahier des charges, §3.9) : une par dossier — la clé l'assure même sur deux clics simultanés.
+    const n = dejaDemande
+      ? null
+      : await notifier.envoyer(
+          {
+            dossier_id: dossierId, canal: "email", modele: "demande_avis", destinataire: client.email,
+            payload: { salutation: salutation(client), trajet: `${dossier.ville_depart} → ${dossier.ville_arrivee}`, lien_avis: avis?.lien ?? null, signature: signatureDe(conseillerDe(d, client.conseiller_id)) },
+          },
+          // Sans lien de dépôt d'avis, le message dirait « le lien sera fourni par l'outil métier » : il reste au journal.
+          { cle: `ec:demande-avis:${dossierId}`, retenu: avis?.lien ? null : "Demande d'avis retenue : aucun lien de dépôt d'avis (outil métier non branché, ESPACE_CLIENT_LIEN_AVIS absent)." },
+        );
+    const partie = n?.statut === "envoyee";
+    await noterDansLeCrm(dossier.crm_dossier_id, `Fin de chantier signée (espace client)${n ? (partie ? " · demande d'avis envoyée" : " · demande d'avis journalisée (non envoyée)") : ""}`);
+    return {
+      ok: true,
+      apercu: n ? apercuDe(n.id) : null,
+      message: !n ? "Dossier terminé (la demande d'avis était déjà partie)." : partie ? "Dossier terminé : la demande d'avis est partie." : `Dossier terminé : la demande d'avis est au journal, non envoyée (${n.erreur ?? "envoi désactivé"}).`,
+    };
   });
 }
 
@@ -456,7 +466,16 @@ export async function calculerTournee(samedi: string): Promise<Resultat> {
 export async function envoyerCreneaux(samedi: string): Promise<Resultat> {
   return garde(async () => {
     const r = await envoyerCreneauxDuSamedi(samedi);
-    return { ok: true, message: r.envoyes ? `${r.envoyes} client${r.envoyes > 1 ? "s" : ""} prévenu${r.envoyes > 1 ? "s" : ""} (SMS et e-mail).` : "Aucun message à envoyer : tous sont déjà partis, ou il manque un créneau ou un nombre de cartons." };
+    if (!r.prevenus) return { ok: true, message: "Aucun message à envoyer : tous sont déjà partis, ou il manque un créneau ou un nombre de cartons." };
+    const s = r.prevenus > 1 ? "s" : "";
+    // Ce qui est vraiment parti : en recette ou envoi désactivé, les messages restent au journal.
+    return {
+      ok: true,
+      message:
+        r.partis === r.prevenus * 2
+          ? `${r.prevenus} client${s} prévenu${s} (SMS et e-mail).`
+          : `${r.prevenus} client${s} traité${s} : ${r.partis} message${r.partis > 1 ? "s" : ""} parti${r.partis > 1 ? "s" : ""} sur ${r.prevenus * 2}${r.echecs ? `, ${r.echecs} en échec` : ""} — les autres sont au journal des messages.`,
+    };
   });
 }
 

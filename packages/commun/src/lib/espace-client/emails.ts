@@ -29,7 +29,8 @@ export type ModeleEmail =
   | "avarie_bailleur"
   | "message_conseiller"
   | "service_demande"
-  | "demande_avis";
+  | "demande_avis"
+  | "recap_cartons_equipe";
 
 export interface Rendu {
   sujet: string;
@@ -256,6 +257,26 @@ ${encadre(url, "Accéder à mon espace client", [
           corps: `${bonjour}${p(`Votre déménagement <b>${s("trajet")}</b> est terminé. Merci de votre confiance !`)}${p("Votre avis nous aide à progresser et guide les prochains clients. Il ne vous prendra qu'une minute.")}${payload.lien_avis ? encadre(String(payload.lien_avis), "Donner mon avis") : p("<i>Le lien de dépôt d'avis sera fourni par l'outil métier de Bailly.</i>")}`,
         }),
       };
+
+    // La veille d'un samedi de cartons, pour l'équipe : la tournée et les bons en pièce jointe.
+    // Texte nouveau (novembre 2026), à faire valider par Bailly.
+    case "recap_cartons_equipe": {
+      const lignes = (payload.lignes as { ordre: number | null; creneau: string | null; client: string; reference: string; adresse: string; nb: number | null }[] | undefined) ?? [];
+      const td = "padding:8px 10px;border-bottom:1px solid #eeeeee;font-size:13px;line-height:18px;vertical-align:top;";
+      const tableau = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border-collapse:collapse;">
+<tr>${["#", "Créneau", "Client", "Adresse", "Cartons"].map((h) => `<td style="${td}font-weight:700;color:${C.doux};font-size:11px;text-transform:uppercase;letter-spacing:.06em;">${h}</td>`).join("")}</tr>
+${lignes.map((l) => `<tr><td style="${td}font-weight:700;">${l.ordre ?? "–"}</td><td style="${td}white-space:nowrap;">${esc(l.creneau ?? "à calculer")}</td><td style="${td}"><b>${esc(l.client)}</b><br><span style="color:${C.doux};">${esc(l.reference)}</span></td><td style="${td}">${esc(l.adresse)}</td><td style="${td}font-weight:700;text-align:right;">${l.nb ?? "?"}</td></tr>`).join("\n")}
+</table>`;
+      return {
+        sujet: `Cartons du samedi — ${payload.jour} — ${lignes.length} livraison${lignes.length > 1 ? "s" : ""}`,
+        texte: `Tournée des cartons du ${payload.jour} : ${lignes.length} livraison(s), ${payload.total} cartons à préparer. Bons de livraison en pièce jointe. ${lien(payload.chemin)}`,
+        html: cadre({
+          base, preheader: `${payload.total} cartons à préparer · ${lignes.length} livraison(s)`, signature,
+          mention: "Message automatique de la plateforme Bailly : récapitulatif de la tournée de cartons, la veille.",
+          corps: `${p(`Tournée des cartons du <b>${s("jour")}</b> : <b>${lignes.length} livraison${lignes.length > 1 ? "s" : ""}</b>, <b>${s("total")} cartons à préparer</b>, dans l'ordre de passage calculé.`)}${tableau}${Number(payload.incomplets) > 0 ? p(`<b>${s("incomplets")} livraison(s) sans créneau ou sans nombre de cartons</b> : ces clients ne reçoivent pas le message de la veille.`) : ""}${p("Les bons de livraison sont joints en PDF : la page récapitulative, puis un bon par client.")}${encadre(lien(payload.chemin), "Ouvrir les cartons du samedi")}`,
+        }),
+      };
+    }
 
     default:
       return { sujet: String(payload.sujet ?? modele), texte: "", html: cadre({ base, preheader: "", signature, corps: p(esc(modele)) }) };
