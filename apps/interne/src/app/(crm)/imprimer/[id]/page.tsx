@@ -10,12 +10,13 @@ import type { Row } from "@/crm/lib/db";
 export const dynamic = "force-dynamic";
 const GENRE: Record<string, string> = { depart: "Départ", garde_meuble: "Garde-meuble", arrivee: "Arrivée", autre: "Étape" };
 
-export default async function Imprimer({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string; lv?: string }> }) {
+export default async function Imprimer({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string; lv?: string; f?: string }> }) {
   await currentUser();
   const d = await getDossier(Number((await params).id));
   if (!d) notFound();
   const sp = await searchParams;
-  const doc = sp.doc === "devis" ? "devis" : sp.doc === "soustraitance" ? "soustraitance" : sp.doc === "lettre" ? "lettre" : "fiche";
+  const doc = sp.doc === "devis" ? "devis" : sp.doc === "soustraitance" ? "soustraitance" : sp.doc === "lettre" ? "lettre" : sp.doc === "facture" ? "facture" : "fiche";
+  const fa = d.factures.find((f: Row) => String(f.id) === sp.f);
   const lv = d.lettres.find((l: Row) => String(l.id) === sp.lv);
   const emb = emballages(d.volume);
   const pieces = [...new Set(d.inv.map((i: Row) => i.piece))] as string[];
@@ -62,7 +63,7 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
       <style>{"body{background:#ececec}"}</style>
       <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
       <div className="doc">
-        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : doc === "devis" ? "Proposition de déménagement" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
+        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : doc === "devis" ? "Proposition de déménagement" : doc === "facture" ? "Facture" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
         <h2>Client</h2>
         <table><tbody>
           <tr><th>Contact</th><td>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ")}</td><th>Téléphone</th><td>{d.telephone ?? "—"}</td></tr>
@@ -71,6 +72,19 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
         </tbody></table>
         <h2>Itinéraire</h2>
         <table><tbody>{d.stops.map((s: Row) => <tr key={s.id}><th>{GENRE[s.genre]}</th><td>{s.adresse}</td><td>{s.etage ? `Étage ${s.etage}` : ""} {s.ascenseur ? "· ascenseur" : "· sans ascenseur"}</td><td>{s.acces ?? ""}</td></tr>)}</tbody></table>
+        {doc === "facture" && fa && <>
+          <h2>Facture {fa.numero}</h2>
+          <table><tbody>
+            <tr><th>Émise le</th><td>{dateFr(fa.emise_le, { day: "numeric", month: "long", year: "numeric" })}</td><th>Dossier</th><td>{d.ref}</td></tr>
+            <tr><th>Objet</th><td colSpan={3}>{fa.objet} · {d.stops[0]?.adresse} → {d.stops[d.stops.length - 1]?.adresse}</td></tr>
+          </tbody></table>
+          <h2>Détail</h2>
+          <table><thead><tr><th>Désignation</th><th className="r">Montant HT</th><th className="r">TVA 20 %</th><th className="r">Montant TTC</th></tr></thead><tbody>
+            <tr><td>{fa.objet}</td><td className="r">{eur(fa.montant / 1.2)}</td><td className="r">{eur(fa.montant - fa.montant / 1.2)}</td><td className="r"><b>{eur(fa.montant)}</b></td></tr>
+            {d.paiements.map((p: Row) => <tr key={p.id}><td>Déjà réglé : {p.libelle}</td><td /><td /><td className="r">− {eur(p.montant)}</td></tr>)}
+          </tbody></table>
+          <p style={{ marginTop: 16 }}>Statut : <b>{fa.statut === "payee" ? "Payée" : "À régler"}</b>. Paiement par virement ou carte bancaire à réception.</p>
+        </>}
         {doc === "soustraitance" && lv && <>
           <h2>Prestation confiée</h2>
           <table><tbody>

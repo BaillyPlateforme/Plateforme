@@ -12,7 +12,7 @@ export default async function Factures({ searchParams }: { searchParams: Promise
       <div className="filters"><Link href="/factures" className={!st ? "on" : ""}>Toutes</Link><Link href="/factures?statut=impayees" className={st === "impayees" ? "on" : ""}>Impayées</Link><Link href="/factures?statut=payee" className={st === "payee" ? "on" : ""}>Payées</Link></div>
       <div className="card tcard"><table className="tbl"><thead><tr><th>N°</th><th>Client</th><th>Objet</th><th>Émise le</th><th>Statut</th><th>Montant</th><th>Reste à payer</th></tr></thead><tbody>
         {rows.length === 0 && <tr><td colSpan={7} className="empty">Aucune facture.</td></tr>}
-        {rows.map((r) => <tr key={r.id} className="row"><td><Link href={`/dossiers/${r.did}`}><b>{r.numero}</b></Link></td><td>{nomClient(r)}<small> · {r.ref}</small></td><td>{r.objet}</td><td>{dateFr(r.emise_le)}</td><td><i className={`st ${ST[r.statut][1]}`}>{ST[r.statut][0]}</i></td><td className="num"><b>{eur(r.montant)}</b></td><td className="num" style={{ color: r.statut === "payee" ? "var(--muted)" : "#be123c", fontWeight: 700 }}>{r.statut === "payee" ? "0 €" : eur(r.montant)}</td></tr>)}
+        {rows.map((r) => <tr key={r.id} className="row"><td>{r.did ? <Link href={`/dossiers/${r.did}`}><b>{r.numero}</b></Link> : <b>{r.numero}</b>}</td><td>{r.did ? nomClient(r) : r.affiche}<small> · {r.ref ?? "garde-meuble"}</small></td><td>{r.objet}</td><td>{dateFr(r.emise_le)}</td><td><i className={`st ${ST[r.statut][1]}`}>{ST[r.statut][0]}</i></td><td className="num"><b>{eur(r.montant)}</b></td><td className="num" style={{ color: r.statut === "payee" ? "var(--muted)" : "#be123c", fontWeight: 700 }}>{r.statut === "payee" ? "0 €" : eur(r.montant)}</td></tr>)}
       </tbody></table></div></div>
   );
 }

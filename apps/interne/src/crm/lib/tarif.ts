@@ -28,3 +28,16 @@ export function emballages(volume: number) {
   const paquets = (n: number) => Math.ceil(n / 20) * 20;
   return { cartonsStandard: paquets(volume * 1.4), cartonsLivres: paquets(volume * 0.4), penderies: Math.max(2, Math.ceil(volume / 8)), bulle: Math.max(1, Math.round(volume / 14)) };
 }
+
+export interface Prestation { libelle: string; charge: "bailly" | "client" }
+const PRESTATIONS = [
+  "Fournitures nécessaires : cartons et adhésifs", "Emballage des objets fragiles (bacs plastiques, cartons à verres)", "Mise en penderies des vêtements sur cintres",
+  "Démontage des meubles et remontage", "Protection du mobilier (housses, couvertures)", "Chargement et arrimage dans le camion", "Transport",
+  "Déchargement et mise en place selon vos instructions", "Déballage des objets fragiles et de la vaisselle", "Déballage des livres, du linge et des objets non fragiles",
+  "Évacuation des emballages", "Fixation des éléments aux murs et plafonds",
+];
+const PAR_FORMULE: Record<string, number[]> = { premium: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], standard: [0, 1, 3, 4, 5, 6, 7], economique: [3, 4, 5, 6, 7] };
+export function prestationsPour(cle: string): Prestation[] {
+  const on = new Set(PAR_FORMULE[cle] ?? PAR_FORMULE.standard);
+  return PRESTATIONS.map((libelle, i) => ({ libelle, charge: on.has(i) ? "bailly" : "client" }));
+}

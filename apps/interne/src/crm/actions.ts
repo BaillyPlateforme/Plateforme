@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
-import { formules, type Formule } from "@/crm/lib/tarif";
+import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -108,7 +108,7 @@ export async function genererDevis(id: number) {
   if (!d) return;
   await q("delete from devis where dossier_id=$1 and statut='brouillon'", [id]);
   for (const fo of formules(d.volume) as Formule[]) {
-    await q("insert into devis(dossier_id,numero,formule,lignes,montant) values($1,$2,$3,$4,$5)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant]);
+    await q("insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite) values($1,$2,$3,$4,$5,$6,current_date + 60)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant, JSON.stringify(prestationsPour(fo.cle))]);
   }
   if (["prospect", "visite"].includes(d.statut)) await q("update dossiers set statut='devis' where id=$1", [id]);
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);

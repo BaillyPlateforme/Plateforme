@@ -40,7 +40,10 @@ export async function proxy(request: NextRequest) {
 
 /*
  * Tout passe par le proxy, sauf :
- * - /login, la seule page ouverte sans session ;
+ * - /login, la page de connexion ;
+ * - /signature/…, la page où le client signe son devis depuis le lien qu'on
+ *   lui envoie : il n'a pas de compte, le jeton du lien en tient lieu (la page
+ *   et son action le vérifient, src/crm/actions2.ts) ;
  * - les fichiers de Next (_next/static, _next/image), ses pages internes
  *   (_not-found, __nextjs*) et les fichiers statiques de public/ (images,
  *   polices, icônes), reconnus à leur extension ;
@@ -56,6 +59,6 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!login(?:/|$)|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
+    "/((?!login(?:/|$)|signature/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
   ],
 };
