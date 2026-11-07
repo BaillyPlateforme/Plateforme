@@ -7,6 +7,7 @@ import Applications from "@/composants/Applications";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
 import { GROUPES, estActif, groupeDe, type Entree } from "./navigation";
+import OngletsTravail from "./OngletsTravail";
 import s from "./coque.module.css";
 
 /*
@@ -179,6 +180,7 @@ function Entete({
           ))}
         </div>
       </nav>
+      <OngletsTravail />
     </header>
   );
 }
