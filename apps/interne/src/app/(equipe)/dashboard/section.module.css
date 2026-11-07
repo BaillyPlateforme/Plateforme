@@ -36,7 +36,7 @@
 .onglet[aria-current="page"],
 .onglet.actif {
   background: #fff;
-  color: #2b2170;
+  color: #2e1f9e;
   box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
 }
 .plus {
@@ -67,7 +67,7 @@
   background: #f8f6fd;
 }
 .menu a[aria-current="page"] {
-  background: #ece9fb;
-  color: #3d2f8f;
+  background: #ece8ff;
+  color: #4b2fe0;
   font-weight: 700;
 }

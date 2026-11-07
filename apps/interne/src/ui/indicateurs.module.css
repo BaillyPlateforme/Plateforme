@@ -19,7 +19,7 @@
 }
 a.carte:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 34px -24px rgba(43, 33, 112, 0.55);
+  box-shadow: 0 18px 34px -24px rgba(46, 31, 158, 0.55);
 }
 .pastille {
   display: grid;
@@ -29,7 +29,7 @@ a.carte:hover {
   height: 48px;
   border-radius: 50%;
 }
-.violet { background: #ece9fb; color: #33277a; }
+.violet { background: #ece8ff; color: #3a22c4; }
 .ambre { background: #fff4e0; color: #b45309; }
 .ciel { background: #e6f5fd; color: #0369a1; }
 .vert { background: #e7f8ee; color: #15803d; }

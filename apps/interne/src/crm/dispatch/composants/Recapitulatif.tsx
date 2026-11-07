@@ -58,7 +58,7 @@ export default function Recapitulatif({ plan, lignes, couleurs }: { plan: Plan; 
           const villes = new Map<string, { n: number; v: number; c: string }>();
           for (const l of ls) {
             const nom = l.ville ?? l.pays ?? "—";
-            const x = villes.get(nom) ?? { n: 0, v: 0, c: couleurs.get(cleDestination(l)) ?? "#3d2f8f" };
+            const x = villes.get(nom) ?? { n: 0, v: 0, c: couleurs.get(cleDestination(l)) ?? "#4b2fe0" };
             villes.set(nom, { ...x, n: x.n + 1, v: x.v + l.volume });
           }
           return (
@@ -74,7 +74,7 @@ export default function Recapitulatif({ plan, lignes, couleurs }: { plan: Plan; 
                   </p>
                   {c.conteneur && (
                     <p>
-                      <Link href={`/conteneurs/${c.conteneurId}`} style={{ color: "#3d2f8f", fontWeight: 650 }}>
+                      <Link href={`/conteneurs/${c.conteneurId}`} style={{ color: "#4b2fe0", fontWeight: 650 }}>
                         {c.conteneur.numero}
                       </Link>{" "}
                       · {STATUTS[c.conteneur.statut] ?? c.conteneur.statut}

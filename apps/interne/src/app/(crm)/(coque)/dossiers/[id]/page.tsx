@@ -5,7 +5,7 @@ import { getDossier } from "@/crm/lib/data";
 import { q, type Row } from "@/crm/lib/db";
 import { Ic } from "@/crm/lib/icons";
 import { emballages } from "@/crm/lib/tarif";
-import { eur, m3, nomClient, initiales, dateFr, ilYa, STATUTS, TYPES } from "@/crm/lib/format";
+import { eur, m3, nomClient, dateFr, ilYa, STATUTS, TYPES } from "@/crm/lib/format";
 import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
 import { litiges as getLitiges } from "@/crm/lib/data2";

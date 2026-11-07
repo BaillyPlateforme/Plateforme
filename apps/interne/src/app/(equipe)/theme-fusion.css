@@ -23,25 +23,25 @@
   --color-line-strong: #dcd9ea;
 
   /* L'action et la mise en avant : le violet du CRM */
-  --color-accent: #33277a;
-  --color-accent-dark: #3d2f8f;
-  --color-accent-soft: #ece9fb;
-  --color-accent-vif: #3d2f8f;
-  --color-brand: #3d2f8f;
-  --color-brand-mid: #33277a;
-  --color-brand-dark: #3d2f8f;
-  --color-brand-ink: #33277a;
-  --color-brand-soft: #ece9fb;
+  --color-accent: #3a22c4;
+  --color-accent-dark: #4b2fe0;
+  --color-accent-soft: #ece8ff;
+  --color-accent-vif: #4b2fe0;
+  --color-brand: #4b2fe0;
+  --color-brand-mid: #3a22c4;
+  --color-brand-dark: #4b2fe0;
+  --color-brand-ink: #3a22c4;
+  --color-brand-soft: #ece8ff;
   --color-sur-brand: #ffffff;
-  --color-brand-clair: #b9b0ec;
-  --color-peach: #3d2f8f;
-  --color-peach-soft: #ece9fb;
-  --color-peach-ink: #33277a;
-  --color-olive: #33277a;
+  --color-brand-clair: #b9a8ff;
+  --color-peach: #4b2fe0;
+  --color-peach-soft: #ece8ff;
+  --color-peach-ink: #3a22c4;
+  --color-olive: #3a22c4;
   --color-nuit: #17142b;
 
   /* États */
-  --color-good: #1a9a63;
+  --color-good: #10a86b;
   --color-good-soft: #e6f6ee;
   --color-warn: #b45309;
   --color-warn-soft: #fff6e5;
@@ -49,15 +49,15 @@
   --color-danger-soft: #fff1f3;
 
   /* Séries de graphiques : la gamme du CRM */
-  --chart-1: #3d2f8f;
-  --chart-2: #1faa6e;
+  --chart-1: #4b2fe0;
+  --chart-2: #14c27d;
   --chart-3: #f5a524;
   --chart-4: #0ea5e9;
-  --chart-5: #b9b0ec;
+  --chart-5: #b9a8ff;
   --chart-6: #48445f;
   --chart-7: #f97316;
 
-  --shadow-md: 0 14px 34px -20px rgba(43, 33, 112, 0.35);
+  --shadow-md: 0 14px 34px -20px rgba(46, 31, 158, 0.35);
 }
 
 body {
@@ -65,6 +65,6 @@ body {
 }
 
 ::selection {
-  background: #3d2f8f;
+  background: #4b2fe0;
   color: #fff;
 }

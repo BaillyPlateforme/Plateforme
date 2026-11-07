@@ -4,10 +4,11 @@
  * bande indigo (bandeau.module.css). Indigo profond, accents verts.
  */
 .coque {
-  --indigo: #3d2f8f;
-  --indigo-fonce: #2b2170;
-  --indigo-doux: #ece9fb;
-  --vert: #1faa6e;
+  --indigo: #4b2fe0;
+  --indigo-fonce: #2e1f9e;
+  --indigo-doux: #ece8ff;
+  --vert: #14c27d;
+  --violet: #7a52ff;
   --encre: #14121f;
   --gris: #6f6c80;
   --filet: #e8e6ef;
@@ -19,90 +20,82 @@
   font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* ─────────────── La barre du haut ─────────────── */
+/* ─────────────── Les deux étages du haut ─────────────── */
 
-.barre {
+.entete {
   position: sticky;
   top: 0;
   z-index: 50;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(1.5) blur(16px);
+  box-shadow: 0 1px 0 var(--filet), 0 10px 30px -24px rgba(46, 31, 158, 0.35);
+}
+.barre {
   display: flex;
   align-items: center;
   gap: 10px;
   height: 64px;
   padding: 0 28px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: saturate(1.4) blur(14px);
-  border-bottom: 1px solid var(--filet);
 }
 .marque {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-right: 14px;
-  color: var(--encre);
+  gap: 8px;
+  margin-right: 22px;
   text-decoration: none;
 }
-.marque b {
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+.marque img {
+  display: block;
+  height: 30px;
+  width: auto;
 }
-.monogramme {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #6a55d8, var(--indigo) 60%, var(--indigo-fonce));
+.crm {
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--indigo);
   color: #fff;
-  font-size: 15px;
+  font-size: 10.5px;
   font-weight: 800;
-  box-shadow: 0 6px 14px -6px rgba(43, 33, 112, 0.7);
+  letter-spacing: 0.08em;
 }
+
+/* Les rubriques : du texte, et un repère qui glisse sous celle qu'on regarde. */
 .rubriques {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 4px;
   min-width: 0;
 }
 .rubrique {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 13px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #4a475c;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 7px;
+  padding: 0 12px;
+  color: #5b5870;
+  font-size: 14.5px;
+  font-weight: 650;
   white-space: nowrap;
   text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s;
+  transition: color 0.18s;
 }
-.rubrique svg {
-  color: #8e8aa3;
-}
-.rubrique:hover {
-  background: #f3f2f8;
+.rubrique:hover,
+.rubrique[data-montre] {
   color: var(--encre);
 }
-.rubrique[aria-current="page"],
-.rubrique.actif,
-.rubrique[aria-expanded="true"] {
-  background: var(--indigo-doux);
+.rubrique[data-courant] {
   color: var(--indigo);
 }
-.rubrique[aria-current="page"] svg,
-.rubrique.actif svg,
-.rubrique[aria-expanded="true"] svg {
-  color: var(--indigo);
-}
-.groupe {
-  position: relative;
+.repere {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(90deg, var(--indigo), var(--violet));
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 .nombre {
   min-width: 20px;
@@ -117,59 +110,59 @@
   text-align: center;
 }
 
-/* Le menu d'une rubrique */
-.deroulant {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 0;
-  z-index: 60;
-  display: grid;
-  gap: 2px;
-  min-width: 270px;
-  padding: 8px;
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid rgba(20, 18, 31, 0.07);
-  box-shadow: 0 1px 2px rgba(20, 18, 31, 0.05), 0 30px 60px -26px rgba(43, 33, 112, 0.45);
-  animation: ouverture 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-origin: top left;
+/* Le second étage : les pages de la rubrique, à l'horizontale. */
+.sousBarre {
+  height: 50px;
+  padding: 0 22px;
+  border-top: 1px solid #f0eef6;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.page {
+.sousBarre::-webkit-scrollbar {
+  display: none;
+}
+.pages {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 46px;
-  padding: 0 10px 0 6px;
-  border-radius: 12px;
-  color: var(--encre);
+  gap: 4px;
+  height: 100%;
+  animation: bascule 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes bascule {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.page {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #5b5870;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
   text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.page svg {
+  color: #9b97b0;
+  transition: color 0.15s;
 }
 .page:hover {
-  background: #f6f5fa;
-}
-.pictogramme {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #f3f2f8;
-  color: #6f6c80;
-  flex-shrink: 0;
+  background: #f4f2fb;
+  color: var(--encre);
 }
 .page[aria-current="page"] {
-  background: var(--indigo-doux);
-  color: var(--indigo);
-}
-.page[aria-current="page"] .pictogramme {
-  background: var(--indigo);
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
   color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(75, 47, 224, 0.8);
 }
-.libelle {
-  flex: 1;
-  min-width: 0;
+.page[aria-current="page"] svg {
+  color: #fff;
 }
 
 .espace {
@@ -190,7 +183,7 @@
 .recherche:focus-within {
   width: 300px;
   background: #fff;
-  box-shadow: 0 0 0 2px var(--indigo-doux), 0 0 0 1px #c9c2f0 inset;
+  box-shadow: 0 0 0 2px var(--indigo-doux), 0 0 0 1px #c6b8ff inset;
 }
 .recherche input {
   flex: 1;
@@ -229,7 +222,7 @@
   font-weight: 650;
   white-space: nowrap;
   text-decoration: none;
-  box-shadow: 0 10px 22px -12px rgba(43, 33, 112, 0.8);
+  box-shadow: 0 10px 22px -12px rgba(46, 31, 158, 0.8);
   transition: background-color 0.15s, transform 0.15s;
 }
 .action:hover {
@@ -252,7 +245,7 @@
   transition: border-color 0.15s, box-shadow 0.2s;
 }
 .rond:hover {
-  border-color: #cfc9ee;
+  border-color: #cfc3ff;
   box-shadow: 0 10px 22px -16px rgba(20, 18, 31, 0.5);
 }
 .rond[aria-expanded="true"] {
@@ -297,7 +290,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #dcd6f6;
+  background: #dcd3ff;
   color: var(--indigo);
   font-size: 13.5px;
   font-weight: 800;
@@ -335,7 +328,7 @@
   border-radius: 20px;
   background: #fff;
   border: 1px solid rgba(20, 18, 31, 0.08);
-  box-shadow: 0 1px 2px rgba(20, 18, 31, 0.06), 0 32px 70px -28px rgba(43, 33, 112, 0.5);
+  box-shadow: 0 1px 2px rgba(20, 18, 31, 0.06), 0 32px 70px -28px rgba(46, 31, 158, 0.5);
   animation: ouverture 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   transform-origin: top right;
 }
@@ -392,7 +385,7 @@
 }
 .aFaire i {
   background: var(--vert);
-  box-shadow: 0 0 0 3px rgba(31, 170, 110, 0.18);
+  box-shadow: 0 0 0 3px rgba(20, 194, 125, 0.18);
 }
 .alerte b {
   display: block;
@@ -477,13 +470,42 @@
   gap: 10px;
   padding: 4px 4px 10px;
 }
+.tiroirTete img {
+  height: 28px;
+  width: auto;
+}
 .tiroirTete b {
   flex: 1;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--indigo);
 }
 .tiroirTete .rond svg {
   transform: rotate(45deg);
+}
+.tiroir .page {
+  display: flex;
+  height: 44px;
+  border-radius: 12px;
+}
+.tiroir .page[aria-current="page"] .pictogramme {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.pictogramme {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #f3f2f8;
+  color: #6f6c80;
+  flex-shrink: 0;
+}
+.libelle {
+  flex: 1;
+  min-width: 0;
 }
 .titreGroupe {
   margin: 14px 10px 6px;
@@ -512,15 +534,6 @@
   }
   .touche {
     display: none;
-  }
-}
-@media (max-width: 1440px) {
-  .rubrique svg {
-    display: none;
-  }
-  .rubrique .nombre + svg,
-  .rubrique > svg:last-child {
-    display: block;
   }
 }
 @media (max-width: 1320px) {

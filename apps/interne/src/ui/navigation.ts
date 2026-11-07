@@ -26,10 +26,10 @@ const questionnaires = (c: string) =>
 
 export const GROUPES: Groupe[] = [
   {
-    titre: "Démarrer",
+    titre: "Accueil",
     entrees: [
-      { href: "/", label: "Accueil", icone: "accueil", actif: (c) => c === "/" },
-      { href: "/tableau-de-bord", label: "Tableau de bord", icone: "bord" },
+      { href: "/", label: "Tableau de bord", icone: "accueil", actif: (c) => c === "/" },
+      { href: "/tableau-de-bord", label: "Pilotage", icone: "bord" },
     ],
   },
   {
@@ -66,16 +66,23 @@ export const GROUPES: Groupe[] = [
     entrees: [
       { href: "/factures", label: "Factures", icone: "facture" },
       { href: "/modeles", label: "Courriers et SMS", icone: "courrier" },
+      {
+        href: "/dashboard/parametres",
+        label: "Réglages",
+        icone: "reglages",
+        actif: (c) => ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p)),
+      },
     ],
   },
 ];
 
-export const REGLAGES: Entree = {
-  href: "/dashboard/parametres",
-  label: "Réglages",
-  icone: "reglages",
-  actif: (c) => ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe"].some((p) => c.startsWith(p)),
-};
+/** Les réglages : la dernière page de « Gestion ». */
+export const REGLAGES: Entree = GROUPES[GROUPES.length - 1].entrees[GROUPES[GROUPES.length - 1].entrees.length - 1];
+
+/** La rubrique de la page courante (celle dont une page est active), « Accueil » à défaut. */
+export function groupeDe(chemin: string): Groupe {
+  return GROUPES.find((g) => g.entrees.some((e) => estActif(e, chemin))) ?? GROUPES[0];
+}
 
 export function estActif(e: Entree, chemin: string) {
   return e.actif ? e.actif(chemin) : sous(e.href)(chemin);

@@ -9,7 +9,7 @@ import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
 const STATUT_TC: Record<string, string> = { preparation: "En préparation", charge: "Chargé", en_mer: "En mer", arrive: "Arrivé", livre: "Livré" };
-const COULEURS = ["#3d2f8f", "#0ea5e9", "#f59e0b", "#16a34a", "#e11d48", "#14b8a6"];
+const COULEURS = ["#4b2fe0", "#0ea5e9", "#f59e0b", "#16a34a", "#e11d48", "#14b8a6"];
 
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);

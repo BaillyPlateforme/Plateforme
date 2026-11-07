@@ -76,7 +76,7 @@ export default function Planche({
   const couleurs = useMemo(() => couleursDestinations(plan.lignes), [plan.lignes]);
   const noms = useMemo(() => nomsDestinations(plan.lignes), [plan.lignes]);
   const parCle = useMemo(() => new Map(plan.colonnes.map((c) => [String(c.id), c])), [plan.colonnes]);
-  const couleur = (l: Ligne) => couleurs.get(cleDestination(l)) ?? "#3d2f8f";
+  const couleur = (l: Ligne) => couleurs.get(cleDestination(l)) ?? "#4b2fe0";
 
   const executer = (fn: () => Promise<Resultat<unknown>>, succes?: string) =>
     demarrer(async () => {

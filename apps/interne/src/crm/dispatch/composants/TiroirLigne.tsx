@@ -176,7 +176,7 @@ export default function TiroirLigne({
                 {dossier ? (
                   <small>
                     Rattaché à{" "}
-                    <Link href={`/dossiers/${dossier.id}`} style={{ color: "#3d2f8f", fontWeight: 650 }}>
+                    <Link href={`/dossiers/${dossier.id}`} style={{ color: "#4b2fe0", fontWeight: 650 }}>
                       {dossier.ref} · {dossier.nom}
                     </Link>
                   </small>

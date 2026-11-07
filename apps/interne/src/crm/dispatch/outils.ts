@@ -60,7 +60,7 @@ export function jauge(volume: number, capacite: number | null) {
  * teintes de la palette Fusion et leurs voisines, attribuées dans l'ordre
  * alphabétique des destinations du plan (donc stables d'un écran à l'autre).
  */
-const TEINTES = ["#3d2f8f", "#0ea5e9", "#f59e0b", "#10b981", "#e11d48", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#d946ef", "#0891b2", "#a16207"];
+const TEINTES = ["#4b2fe0", "#0ea5e9", "#f59e0b", "#10b981", "#e11d48", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#d946ef", "#0891b2", "#a16207"];
 
 export function couleursDestinations(lignes: Pick<Ligne, "pays" | "ville">[]) {
   const cles = [...new Set(lignes.map(cleDestination))].sort((a, b) => a.localeCompare(b, "fr"));

@@ -35,7 +35,7 @@
   color: #fff;
 }
 .bouton:focus-visible {
-  outline: 3px solid rgba(61, 47, 143, 0.35);
+  outline: 3px solid rgba(75, 47, 224, 0.35);
   outline-offset: 2px;
 }
 /* Dans la barre de l'espace équipe, les boutons sont ronds. */
@@ -121,7 +121,7 @@
   outline: none;
 }
 .app[aria-current="page"] {
-  background: #ece9fb;
+  background: #ece8ff;
 }
 
 .icone {
@@ -137,7 +137,7 @@
   height: 20px;
 }
 .crm {
-  background: linear-gradient(140deg, #6a55d8, #33277a);
+  background: linear-gradient(140deg, #7a52ff, #3a22c4);
   box-shadow: 0 8px 18px -10px rgba(109, 40, 217, 0.9);
 }
 .questionnaires {

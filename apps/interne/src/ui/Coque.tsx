@@ -2,19 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Applications from "@/composants/Applications";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
-import { GROUPES, REGLAGES, estActif, type Entree, type Groupe } from "./navigation";
+import { GROUPES, estActif, groupeDe, type Entree } from "./navigation";
 import s from "./coque.module.css";
 
 /*
- * La coque de l'app interne, dans le design « Quantum » modernisé : une barre
- * blanche en haut — la marque, les rubriques (menus déroulants par groupe),
- * la recherche, « Nouveau dossier », les applications, la cloche, le compte —
- * puis la page, dont l'en-tête se pose sur une bande indigo (voir Bandeau).
- * Sur un écran étroit, les rubriques passent dans un tiroir.
+ * La coque de l'app interne, dans le design « Quantum » modernisé : en haut,
+ * deux étages blancs. Le premier porte le logo, les rubriques (un repère
+ * glisse sous celle qu'on regarde), la recherche, « Nouveau dossier », les
+ * applications, la cloche et le compte. Le second aligne les pages de la
+ * rubrique, à l'horizontale : celle de la page courante, ou celle qu'on
+ * survole, avec un fondu. Puis la page, dont l'en-tête se pose sur une bande
+ * indigo (voir Bandeau). Sur un écran étroit, les rubriques passent dans un
+ * tiroir et le second étage défile.
  *
  * Le CRM et les sections venues de l'espace équipe la posent l'un et l'autre
  * (deux mises en page racines) : le même dessin partout, et un menu unique.
@@ -23,9 +26,6 @@ import s from "./coque.module.css";
 export type Utilisateur = { nom: string; initiales: string; role: string };
 export type Alerte = { id: string; aFaire: boolean; titre: string; sous: string; quand?: string; href: string };
 
-/** Le groupe « Démarrer » s'affiche en liens directs ; les autres en menus. */
-const DIRECTS = GROUPES[0].entrees;
-const MENUS = GROUPES.slice(1).map((g) => (g.titre === "Gestion" ? { ...g, entrees: [...g.entrees, REGLAGES] } : g));
 
 export default function Coque({
   utilisateur,
@@ -59,28 +59,7 @@ export default function Coque({
 
   return (
     <div className={s.coque}>
-      <header className={s.barre}>
-        <button type="button" className={`${s.rond} ${s.burger}`} aria-label="Ouvrir le menu" onClick={() => setTiroir(true)}>
-          <Icone nom="menu" />
-        </button>
-        <Link href="/" className={s.marque} aria-label="Bailly CRM, accueil">
-          <span className={s.monogramme}>B</span>
-          <b>Bailly</b>
-        </Link>
-
-        <nav className={s.rubriques} aria-label="Menu principal">
-          {DIRECTS.map((e) => (
-            <Link key={e.href} href={e.href} className={s.rubrique} aria-current={estActif(e, chemin) ? "page" : undefined}>
-              <Icone nom={e.icone} taille={18} />
-              <span>{e.label}</span>
-            </Link>
-          ))}
-          {MENUS.map((g) => (
-            <MenuGroupe key={g.titre} groupe={g} chemin={chemin} compteur={compteur} />
-          ))}
-        </nav>
-
-        <span className={s.espace} />
+      <Entete chemin={chemin} compteur={compteur} ouvrirTiroir={() => setTiroir(true)}>
         <form action="/dossiers" className={s.recherche} role="search">
           <Icone nom="recherche" taille={17} />
           <input ref={recherche} name="q" placeholder="Rechercher…" aria-label="Rechercher un client, un dossier, un devis" />
@@ -93,12 +72,114 @@ export default function Coque({
         <Applications rond />
         <Cloche alertes={alertes} />
         <Compte utilisateur={utilisateur} />
-      </header>
+      </Entete>
 
       {tiroir && <Tiroir chemin={chemin} compteur={compteur} fermer={() => setTiroir(false)} />}
 
       <main className={s.contenu}>{children}</main>
     </div>
+  );
+}
+
+/**
+ * Les deux étages du haut. La rubrique « montrée » est celle qu'on survole
+ * (après un court délai, pour ne pas clignoter en traversant la barre), ou à
+ * défaut celle de la page courante ; quitter l'en-tête y revient.
+ */
+function Entete({
+  chemin,
+  compteur,
+  ouvrirTiroir,
+  children,
+}: {
+  chemin: string;
+  compteur: (e: Entree) => number;
+  ouvrirTiroir: () => void;
+  children: React.ReactNode;
+}) {
+  const courant = groupeDe(chemin);
+  const [apercu, setApercu] = useState<string | null>(null);
+  const montre = GROUPES.find((g) => g.titre === apercu) ?? courant;
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onglets = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [repere, setRepere] = useState<{ x: number; l: number } | null>(null);
+
+  const planifier = useCallback((titre: string | null, delai: number) => {
+    if (minuteur.current) clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(() => setApercu(titre), delai);
+  }, []);
+  useEffect(() => () => void (minuteur.current && clearTimeout(minuteur.current)), []);
+
+  // Changer de page referme l'aperçu.
+  const [vu, setVu] = useState(chemin);
+  if (vu !== chemin) {
+    setVu(chemin);
+    setApercu(null);
+  }
+
+  // Le repère glisse sous la rubrique montrée.
+  useLayoutEffect(() => {
+    const placer = () => {
+      const el = onglets.current[montre.titre];
+      if (el) setRepere({ x: el.offsetLeft, l: el.offsetWidth });
+    };
+    placer();
+    window.addEventListener("resize", placer);
+    return () => window.removeEventListener("resize", placer);
+  }, [montre.titre]);
+
+  return (
+    <header className={s.entete} onMouseLeave={() => planifier(null, 260)}>
+      <div className={s.barre}>
+        <button type="button" className={`${s.rond} ${s.burger}`} aria-label="Ouvrir le menu" onClick={ouvrirTiroir}>
+          <Icone nom="menu" />
+        </button>
+        <Link href="/" className={s.marque} aria-label="Bailly CRM, tableau de bord">
+          {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
+          <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={94} height={30} />
+          <span className={s.crm}>CRM</span>
+        </Link>
+
+        <nav className={s.rubriques} aria-label="Rubriques">
+          {GROUPES.map((g) => {
+            const total = g.entrees.reduce((n, e) => n + compteur(e), 0);
+            return (
+              <Link
+                key={g.titre}
+                ref={(el) => {
+                  onglets.current[g.titre] = el;
+                }}
+                href={g.entrees[0].href}
+                className={s.rubrique}
+                data-courant={g.titre === courant.titre || undefined}
+                data-montre={g.titre === montre.titre || undefined}
+                onMouseEnter={() => planifier(g.titre, apercu ? 0 : 90)}
+                onFocus={() => planifier(g.titre, 0)}
+              >
+                {g.titre}
+                {total > 0 && <span className={s.nombre}>{total}</span>}
+              </Link>
+            );
+          })}
+          {repere && <span className={s.repere} style={{ transform: `translateX(${repere.x}px)`, width: repere.l }} aria-hidden />}
+        </nav>
+
+        <span className={s.espace} />
+        {children}
+      </div>
+
+      <nav className={s.sousBarre} aria-label={montre.titre} onMouseEnter={() => planifier(montre.titre === courant.titre ? null : montre.titre, 0)}>
+        <div key={montre.titre} className={s.pages}>
+          {montre.entrees.map((e) => (
+            <Link key={e.href} href={e.href} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
+              <Icone nom={e.icone} taille={17} />
+              <span>{e.label}</span>
+              {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </header>
   );
 }
 
@@ -117,48 +198,6 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
     };
   }, [ouvert, fermer]);
   return ref;
-}
-
-/** Une rubrique du haut qui ouvre la liste de ses pages. */
-function MenuGroupe({ groupe, chemin, compteur }: { groupe: Groupe; chemin: string; compteur: (e: Entree) => number }) {
-  const [ouvert, setOuvert] = useState(false);
-  const ref = useFermeture(ouvert, () => setOuvert(false));
-  const actif = groupe.entrees.some((e) => estActif(e, chemin));
-  const total = groupe.entrees.reduce((n, e) => n + compteur(e), 0);
-  // Changer de page referme le menu.
-  const [vu, setVu] = useState(chemin);
-  if (vu !== chemin) {
-    setVu(chemin);
-    setOuvert(false);
-  }
-  return (
-    <div className={s.groupe} ref={ref}>
-      <button
-        type="button"
-        className={`${s.rubrique} ${actif ? s.actif : ""}`}
-        aria-expanded={ouvert}
-        aria-haspopup="menu"
-        onClick={() => setOuvert((o) => !o)}
-      >
-        <span>{groupe.titre}</span>
-        {total > 0 && <span className={s.nombre}>{total}</span>}
-        <Icone nom="chevron" taille={14} />
-      </button>
-      {ouvert && (
-        <div className={s.deroulant} role="menu" aria-label={groupe.titre}>
-          {groupe.entrees.map((e) => (
-            <Link key={e.href} href={e.href} role="menuitem" className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
-              <span className={s.pictogramme}>
-                <Icone nom={e.icone} taille={18} />
-              </span>
-              <span className={s.libelle}>{e.label}</span>
-              {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /** Le menu complet, pour les écrans étroits. */
@@ -182,13 +221,14 @@ function Tiroir({ chemin, compteur, fermer }: { chemin: string; compteur: (e: En
       <button type="button" className={s.voile} aria-label="Fermer le menu" onClick={fermer} />
       <aside className={s.tiroir} aria-label="Menu">
         <div className={s.tiroirTete}>
-          <span className={s.monogramme}>B</span>
-          <b>Bailly CRM</b>
+          {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly */}
+          <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={88} height={28} />
+          <b>CRM</b>
           <button type="button" className={s.rond} aria-label="Fermer" onClick={fermer}>
             <Icone nom="plus" taille={18} />
           </button>
         </div>
-        {[...GROUPES.slice(0, 1), ...MENUS].map((g) => (
+        {GROUPES.map((g) => (
           <div key={g.titre}>
             <p className={s.titreGroupe}>{g.titre}</p>
             {g.entrees.map(lien)}

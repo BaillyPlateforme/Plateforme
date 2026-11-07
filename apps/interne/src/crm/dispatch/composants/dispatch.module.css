@@ -5,9 +5,9 @@
  * coque ; transparences en dégradés, jamais de flou.
  */
 .racine {
-  --violet: #3d2f8f;
-  --violet-fonce: #3d2f8f;
-  --violet-doux: #ece9fb;
+  --violet: #4b2fe0;
+  --violet-fonce: #4b2fe0;
+  --violet-doux: #ece8ff;
   --violet-pale: #f7f6fc;
   --encre: #17142b;
   --gris: #77738f;
@@ -109,7 +109,7 @@
 }
 .boutonPlein {
   border-color: transparent;
-  background: linear-gradient(135deg, #33277a, #6a55d8);
+  background: linear-gradient(135deg, #3a22c4, #7a52ff);
   color: #fff;
   box-shadow: 0 12px 24px -14px rgba(109, 40, 217, 0.9);
 }
@@ -199,7 +199,7 @@
   border-radius: 22px;
   background: #fff;
   border: 1px solid var(--filet);
-  box-shadow: 0 16px 34px -30px rgba(43, 33, 112, 0.55);
+  box-shadow: 0 16px 34px -30px rgba(46, 31, 158, 0.55);
   transition: box-shadow 0.15s, border-color 0.15s, background-color 0.15s;
 }
 .colonne.attente {
@@ -209,7 +209,7 @@
 }
 .colonne.cible {
   border-color: var(--violet);
-  box-shadow: 0 0 0 3px rgba(61, 47, 143, 0.16), 0 20px 40px -28px rgba(43, 33, 112, 0.7);
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.16), 0 20px 40px -28px rgba(46, 31, 158, 0.7);
 }
 .colonne.refus {
   border-color: #fda4af;
@@ -311,7 +311,7 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6a55d8, #33277a);
+  background: linear-gradient(90deg, #7a52ff, #3a22c4);
   transition: width 0.35s ease;
 }
 .plein .barre i {
@@ -366,7 +366,7 @@
   scrollbar-width: thin;
 }
 .verrouillee .corps {
-  background: repeating-linear-gradient(135deg, transparent 0 12px, rgba(61, 47, 143, 0.035) 12px 24px);
+  background: repeating-linear-gradient(135deg, transparent 0 12px, rgba(75, 47, 224, 0.035) 12px 24px);
   border-radius: 0 0 22px 22px;
 }
 .vide {
@@ -426,7 +426,7 @@
   border-radius: 16px;
   background: #fff;
   border: 1px solid var(--filet);
-  box-shadow: 0 1px 0 rgba(23, 20, 43, 0.03), 0 8px 18px -16px rgba(43, 33, 112, 0.6);
+  box-shadow: 0 1px 0 rgba(23, 20, 43, 0.03), 0 8px 18px -16px rgba(46, 31, 158, 0.6);
   cursor: grab;
   touch-action: manipulation;
   user-select: none;
@@ -444,7 +444,7 @@
 }
 .bulle:hover {
   border-color: #d9ccfb;
-  box-shadow: 0 14px 26px -18px rgba(43, 33, 112, 0.75);
+  box-shadow: 0 14px 26px -18px rgba(46, 31, 158, 0.75);
 }
 .bulle:focus-visible {
   outline: 2px solid var(--violet);
@@ -466,8 +466,8 @@
   pointer-events: none;
   cursor: grabbing;
   transform: rotate(1.6deg) scale(1.02);
-  border-color: #b9b0ec;
-  box-shadow: 0 30px 60px -22px rgba(46, 16, 101, 0.55), 0 0 0 4px rgba(61, 47, 143, 0.1);
+  border-color: #b9a8ff;
+  box-shadow: 0 30px 60px -22px rgba(46, 16, 101, 0.55), 0 0 0 4px rgba(75, 47, 224, 0.1);
 }
 .prise {
   display: grid;
@@ -572,7 +572,7 @@
   height: 4px;
   border-radius: 999px;
   background: var(--violet);
-  box-shadow: 0 0 0 4px rgba(61, 47, 143, 0.15);
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.15);
 }
 .insertion::after {
   content: "";
@@ -870,7 +870,7 @@
   border-color: var(--violet);
   background: var(--violet-pale);
   color: var(--violet-fonce);
-  box-shadow: 0 0 0 3px rgba(61, 47, 143, 0.1);
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.1);
 }
 .choix label:has(input:disabled) {
   opacity: 0.5;
@@ -963,8 +963,8 @@
   height: 78px;
   border-radius: 50%;
   color: #fff;
-  background: radial-gradient(circle at 30% 30%, #8c7fe0, #33277a 70%);
-  box-shadow: 0 0 0 12px #ece9fb, 0 0 0 26px #f7f6fc, 0 24px 44px -16px rgba(109, 40, 217, 0.8);
+  background: radial-gradient(circle at 30% 30%, #9b7bff, #3a22c4 70%);
+  box-shadow: 0 0 0 12px #ece8ff, 0 0 0 26px #f7f6fc, 0 24px 44px -16px rgba(109, 40, 217, 0.8);
   animation: pulsation 1.8s ease-in-out infinite;
 }
 .etapesIa h3 {
@@ -989,7 +989,7 @@
   gap: 8px 12px;
   padding: 14px 16px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #efedfb, #fdfcff);
+  background: linear-gradient(135deg, #efebff, #fdfcff);
   border: 1px solid #e6dcfd;
   font-size: 13px;
 }
@@ -1029,7 +1029,7 @@
 }
 .proposee.nouvelle {
   border-style: dashed;
-  border-color: #b9b0ec;
+  border-color: #b9a8ff;
   background: linear-gradient(180deg, #f7f6fc, #fff);
 }
 .proposee h4 {
@@ -1361,7 +1361,7 @@
 .plan:hover {
   transform: translateY(-2px);
   border-color: #d6c6ff;
-  box-shadow: 0 24px 44px -28px rgba(43, 33, 112, 0.6);
+  box-shadow: 0 24px 44px -28px rgba(46, 31, 158, 0.6);
 }
 .plan h3 {
   font-size: 17px;
@@ -1475,7 +1475,7 @@
 }
 @keyframes pulsation {
   50% {
-    box-shadow: 0 0 0 16px #ece9fb, 0 0 0 34px #f7f6fc, 0 24px 44px -16px rgba(109, 40, 217, 0.8);
+    box-shadow: 0 0 0 16px #ece8ff, 0 0 0 34px #f7f6fc, 0 24px 44px -16px rgba(109, 40, 217, 0.8);
   }
 }
 

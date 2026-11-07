@@ -13,9 +13,10 @@
   padding: 26px 32px 24px;
   color: #fff;
   background:
-    radial-gradient(640px 280px at 86% -20%, rgba(124, 104, 230, 0.9), transparent 70%),
-    radial-gradient(480px 260px at 0% 120%, rgba(31, 22, 92, 0.85), transparent 65%),
-    linear-gradient(118deg, #2b2170 0%, #3d2f8f 52%, #4b3aa6 100%);
+    radial-gradient(760px 340px at 88% -30%, rgba(196, 160, 255, 0.95), transparent 62%),
+    radial-gradient(520px 300px at 58% 130%, rgba(255, 92, 205, 0.42), transparent 64%),
+    radial-gradient(560px 300px at -4% 120%, rgba(14, 6, 70, 0.95), transparent 62%),
+    linear-gradient(112deg, #170c5c 0%, #2e1f9e 34%, #4b2fe0 64%, #7a52ff 100%);
 }
 /* Le décor tient dans la bande ; les menus (onglets « Plus », statut) en sortent. */
 .decor {
@@ -45,7 +46,7 @@
   height: 260px;
   transform: translateY(-46%) rotate(-8deg);
   background: #fff;
-  opacity: 0.08;
+  opacity: 0.1;
   -webkit-mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
   mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
 }
@@ -66,7 +67,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #c9c1f3;
+  color: #ddd3ff;
 }
 .titre {
   margin: 6px 0 0;
@@ -127,14 +128,14 @@
   border: 0;
   border-radius: 999px;
   background: #fff;
-  color: #2b2170;
+  color: #2e1f9e;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 12px 26px -14px rgba(10, 6, 40, 0.7);
+  box-shadow: 0 12px 26px -14px rgba(14, 6, 70, 0.75);
   transition: transform 0.15s, box-shadow 0.2s;
 }
 .bouton:hover,
@@ -149,7 +150,7 @@
   height: 26px;
   margin-right: -10px;
   border-radius: 50%;
-  background: #2b2170;
+  background: #2e1f9e;
   color: #fff;
   font-style: normal;
 }
@@ -241,7 +242,7 @@
 }
 .pilule[aria-current="page"] {
   background: #fff;
-  color: #2b2170;
+  color: #2e1f9e;
   box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
 }
 /* Une flèche (semaine précédente / suivante) : un rond de verre. */

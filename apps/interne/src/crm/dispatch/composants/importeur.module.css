@@ -63,9 +63,9 @@
 }
 .depot:hover,
 .depot.survol {
-  border-color: #3d2f8f;
+  border-color: #4b2fe0;
   background: #f6f1ff;
-  box-shadow: 0 0 0 4px rgba(61, 47, 143, 0.1);
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.1);
 }
 .depot input {
   position: absolute;
@@ -88,7 +88,7 @@
   height: 54px;
   border-radius: 18px;
   background: #fff;
-  color: #3d2f8f;
+  color: #4b2fe0;
   box-shadow: 0 14px 28px -16px rgba(109, 40, 217, 0.7);
 }
 .manuel {
@@ -114,7 +114,7 @@
   margin-top: 14px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #efedfb;
+  background: #efebff;
   font-size: 13px;
 }
 .fichier b {
