@@ -7,6 +7,8 @@ import { eur, m3, nomClient, dateFr, TYPES } from "@/crm/lib/format";
 import { emballages } from "@/crm/lib/tarif";
 import type { Row } from "@/crm/lib/db";
 import DevisBailly from "@/crm/documents/DevisBailly";
+import FactureBailly, { AvisMentions } from "@/crm/documents/FactureBailly";
+import { getSettings } from "@/lib/settings";
 import { versInterne } from "@/lib/adresses";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +31,26 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
         <style>{"body{background:#ececec}@media print{body{background:#fff}}"}</style>
         <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
         <DevisBailly d={d} lienSignature={(token) => versInterne(`/signature/${token}`)} />
+      </>
+    );
+  }
+  // La facture aussi est un document client : même mise en page aux couleurs de Bailly que le devis.
+  if (doc === "facture") {
+    if (!fa) notFound();
+    const reglages = await getSettings().catch(() => null);
+    const entreprise = { adresse: reglages?.entreprise_adresse?.trim() || null, siret: reglages?.siret?.trim() || null };
+    return (
+      <>
+        <style>{"body{background:#ececec}@media print{body{background:#fff}}"}</style>
+        <div className="pdf-bar">
+          <span style={{ display: "flex", gap: 18 }}>
+            <Link href="/factures">← Factures</Link>
+            <Link href={`/dossiers/${d.id}`}>Dossier {d.ref}</Link>
+          </span>
+          <PrintButton />
+        </div>
+        <AvisMentions entreprise={entreprise} />
+        <FactureBailly d={d} f={fa} entreprise={entreprise} />
       </>
     );
   }
@@ -75,7 +97,7 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
       <style>{"body{background:#ececec}"}</style>
       <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
       <div className="doc">
-        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : doc === "facture" ? "Facture" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
+        <div className="doc-head"><div><h1>{doc === "fiche" ? "Fiche de visite" : "Proposition de sous-traitance"}</h1><div>{d.ref} · {nomClient(d)} · {TYPES[d.type]}</div></div><i className="logo">B</i></div>
         <h2>Client</h2>
         <table><tbody>
           <tr><th>Contact</th><td>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ")}</td><th>Téléphone</th><td>{d.telephone ?? "—"}</td></tr>
@@ -84,19 +106,6 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
         </tbody></table>
         <h2>Itinéraire</h2>
         <table><tbody>{d.stops.map((s: Row) => <tr key={s.id}><th>{GENRE[s.genre]}</th><td>{s.adresse}</td><td>{s.etage ? `Étage ${s.etage}` : ""} {s.ascenseur ? "· ascenseur" : "· sans ascenseur"}</td><td>{s.acces ?? ""}</td></tr>)}</tbody></table>
-        {doc === "facture" && fa && <>
-          <h2>Facture {fa.numero}</h2>
-          <table><tbody>
-            <tr><th>Émise le</th><td>{dateFr(fa.emise_le, { day: "numeric", month: "long", year: "numeric" })}</td><th>Dossier</th><td>{d.ref}</td></tr>
-            <tr><th>Objet</th><td colSpan={3}>{fa.objet} · {d.stops[0]?.adresse} → {d.stops[d.stops.length - 1]?.adresse}</td></tr>
-          </tbody></table>
-          <h2>Détail</h2>
-          <table><thead><tr><th>Désignation</th><th className="r">Montant HT</th><th className="r">TVA 20 %</th><th className="r">Montant TTC</th></tr></thead><tbody>
-            <tr><td>{fa.objet}</td><td className="r">{eur(fa.montant / 1.2)}</td><td className="r">{eur(fa.montant - fa.montant / 1.2)}</td><td className="r"><b>{eur(fa.montant)}</b></td></tr>
-            {d.paiements.map((p: Row) => <tr key={p.id}><td>Déjà réglé : {p.libelle}</td><td /><td /><td className="r">− {eur(p.montant)}</td></tr>)}
-          </tbody></table>
-          <p style={{ marginTop: 16 }}>Statut : <b>{fa.statut === "payee" ? "Payée" : "À régler"}</b>. Paiement par virement ou carte bancaire à réception.</p>
-        </>}
         {doc === "soustraitance" && lv && <>
           <h2>Prestation confiée</h2>
           <table><tbody>

@@ -1,0 +1,364 @@
+/*
+ * La facture Bailly : un document client, aux couleurs de la maison — le
+ * jaune et le noir du logo —, dans la même mise en page que le devis
+ * (devis.module.css). Format A4, couleurs gardées à l'impression.
+ */
+.feuille {
+  --jaune: #f5d033;
+  --jaune-doux: #fdf6d6;
+  --noir: #1b1a18;
+  --gris: #615f68;
+  --filet: #e9e7e2;
+  --fond: #f6f5f2;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 24px auto 40px;
+  padding: 16mm 15mm 14mm;
+  background: #fff;
+  color: var(--noir);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  box-shadow: 0 30px 70px -40px rgba(27, 26, 24, 0.45);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── En-tête ── */
+.entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 9mm;
+  border-bottom: 1px solid var(--filet);
+}
+.logo {
+  display: block;
+  width: 52mm;
+  height: auto;
+}
+.agence {
+  margin-top: 4mm;
+  font-size: 8.5pt;
+  line-height: 1.55;
+  color: var(--gris);
+}
+.agence b {
+  color: var(--noir);
+}
+.reference {
+  text-align: right;
+}
+.etiquette {
+  display: inline-block;
+  padding: 1.2mm 3mm;
+  border-radius: 999px;
+  background: var(--jaune);
+  color: var(--noir);
+  font-size: 7.5pt;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.reference h1 {
+  margin: 3mm 0 1mm;
+  font-size: 22pt;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+.reference p {
+  margin: 0;
+  font-size: 9pt;
+  color: var(--gris);
+}
+.statut {
+  display: inline-block;
+  margin-top: 3mm;
+  padding: 1mm 3mm;
+  border-radius: 999px;
+  border: 1.2px solid var(--noir);
+  font-size: 8pt;
+  font-weight: 800;
+}
+.statut.reglee {
+  border-color: transparent;
+  background: var(--noir);
+  color: var(--jaune);
+}
+
+/* ── Les parties ── */
+.parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3.5mm;
+  margin-top: 8mm;
+}
+.case {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6mm;
+  padding: 4mm 4.5mm;
+  border-radius: 3.5mm;
+  background: var(--fond);
+}
+.case.client {
+  background: var(--noir);
+  color: #fff;
+}
+.case small {
+  font-size: 7.5pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+.case.client small {
+  color: var(--jaune);
+}
+.case b {
+  margin-top: 0.6mm;
+  font-size: 12pt;
+  font-weight: 750;
+}
+.case span {
+  font-size: 8.8pt;
+  color: var(--gris);
+}
+.case.client span {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Le détail ── */
+.titre {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  margin: 9mm 0 3.5mm;
+  font-size: 12pt;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.titre::before {
+  content: "";
+  width: 2.2mm;
+  height: 5mm;
+  border-radius: 1mm;
+  background: var(--jaune);
+}
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+}
+.tableau th {
+  padding: 2.4mm 3mm;
+  border-bottom: 1.4px solid var(--noir);
+  font-size: 7.5pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--gris);
+}
+.tableau td {
+  padding: 3.4mm 3mm;
+  border-bottom: 1px solid var(--filet);
+  vertical-align: top;
+  font-size: 10pt;
+}
+.tableau td b {
+  display: block;
+  font-weight: 750;
+}
+.tableau td small {
+  display: block;
+  margin-top: 0.6mm;
+  font-size: 8.5pt;
+  color: var(--gris);
+}
+.nombre {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.totaux {
+  display: grid;
+  gap: 1.4mm;
+  width: 78mm;
+  margin: 5mm 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+.totaux div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  padding: 0 3mm;
+  font-size: 9.5pt;
+  color: var(--gris);
+}
+.totaux div b {
+  color: var(--noir);
+  font-weight: 700;
+}
+.totaux .total {
+  margin-top: 1.4mm;
+  padding: 3.2mm 4mm;
+  border-radius: 3mm;
+  background: var(--noir);
+  color: #fff;
+  font-size: 11pt;
+  font-weight: 700;
+}
+.totaux .total b {
+  color: var(--jaune);
+  font-size: 14pt;
+  font-weight: 800;
+}
+
+/* ── Situation et règlement ── */
+.bas {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 5mm;
+  margin-top: 9mm;
+}
+.sousTitre {
+  display: block;
+  margin-bottom: 2.4mm;
+  font-size: 9.5pt;
+  font-weight: 800;
+}
+.situation {
+  padding: 4.5mm 5mm;
+  border-radius: 4mm;
+  background: var(--fond);
+}
+.situation dl {
+  display: grid;
+  gap: 1.6mm;
+  margin: 0;
+  font-size: 8.8pt;
+}
+.ligne {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+}
+.ligne dt {
+  color: var(--gris);
+}
+.ligne dd {
+  margin: 0;
+  font-weight: 650;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ligne.fort {
+  margin-top: 1.2mm;
+  padding-top: 2mm;
+  border-top: 1px solid #dedad2;
+}
+.ligne.fort dt,
+.ligne.fort dd {
+  color: var(--noir);
+  font-weight: 800;
+}
+.reglement {
+  display: flex;
+  flex-direction: column;
+  padding: 4.5mm 5mm;
+  border-radius: 4mm;
+  border: 1.4px solid var(--noir);
+}
+.reste {
+  display: flex;
+  flex-direction: column;
+  padding: 3mm 3.5mm;
+  border-radius: 2.5mm;
+  background: var(--jaune);
+}
+.reste small {
+  font-size: 7.5pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.reste strong {
+  font-size: 17pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.reglement p {
+  margin: 3mm 0 0;
+  font-size: 8.5pt;
+  color: var(--gris);
+}
+
+/* ── Pied ── */
+.pied {
+  display: flex;
+  justify-content: space-between;
+  gap: 6mm;
+  margin-top: auto;
+  padding-top: 6mm;
+  border-top: 1px solid var(--filet);
+  font-size: 7.5pt;
+  color: var(--gris);
+}
+.pied b {
+  color: var(--noir);
+}
+
+/* ── Ce qui manque, à l'écran seulement ── */
+.manques {
+  width: 210mm;
+  margin: 24px auto 0;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #fff7e0;
+  border: 1px solid #f3dc8a;
+  color: #6b4d00;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.manques b {
+  display: block;
+  margin-bottom: 4px;
+  color: #3d2c00;
+}
+.manques ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.manques + .feuille {
+  margin-top: 16px;
+}
+
+@media print {
+  .feuille,
+  .manques + .feuille {
+    margin: 0;
+    box-shadow: none;
+    min-height: auto;
+  }
+  .manques {
+    display: none;
+  }
+}
+@media screen and (max-width: 860px) {
+  .feuille,
+  .manques {
+    width: auto;
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .feuille {
+    padding: 8mm 6mm;
+  }
+}
