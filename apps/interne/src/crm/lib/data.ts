@@ -15,7 +15,17 @@ const TRAJET = `(select adresse from etapes_trajet where dossier_id=d.id and gen
 
 export async function listDossiers(f: { q?: string; type?: string; statuts?: string[] } = {}) {
   const w: string[] = [], p: unknown[] = [];
-  if (f.q) { p.push(`%${f.q}%`); w.push(`(c.nom ilike $${p.length} or c.prenom ilike $${p.length} or c.societe ilike $${p.length} or d.ref ilike $${p.length})`); }
+  if (f.q) {
+    // Nom, prénom, société, référence, e-mail ; et le téléphone, chiffres seuls (« 06 12… » comme « 0612… »).
+    p.push(`%${f.q}%`);
+    const cond = [`c.nom ilike $${p.length}`, `c.prenom ilike $${p.length}`, `c.societe ilike $${p.length}`, `d.ref ilike $${p.length}`, `c.email ilike $${p.length}`];
+    const chiffres = f.q.replace(/[^0-9]/g, "");
+    if (chiffres.length >= 4) {
+      p.push(`%${chiffres}%`);
+      cond.push(`regexp_replace(coalesce(c.telephone, ''), '[^0-9]', '', 'g') like $${p.length}`);
+    }
+    w.push(`(${cond.join(" or ")})`);
+  }
   if (f.type) { p.push(f.type); w.push(`c.type=$${p.length}`); }
   if (f.statuts?.length) { p.push(f.statuts); w.push(`d.statut = any($${p.length})`); }
   return q(`select ${ARR}, ${MONTANT}, ${TRAJET} from dossiers d join clients c on c.id=d.client_id
@@ -33,7 +43,7 @@ export async function getDossier(id: number) {
   const [stops, inv, devis, lettres, factures, paiements, activite, rdvs] = await Promise.all([
     q("select * from etapes_trajet where dossier_id=$1 order by ordre,id", [id]),
     q("select id,piece,libelle,quantite,volume::float8 as volume,destination,demontage from inventaire where dossier_id=$1 order by piece,id", [id]),
-    q("select id,numero,formule,lignes,token,prestations,montant::float8 as montant,statut,envoye_le,signe_le from devis where dossier_id=$1 order by montant desc", [id]),
+    q("select id,numero,formule,lignes,token,prestations,montant::float8 as montant,statut,envoye_le,signe_le,validite,conditions,deplacement,groupage,distance_km from devis where dossier_id=$1 order by montant desc", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,immatriculation,instructions,prix_sous_traitance::float8 as prix_sous_traitance,montant::float8 as montant,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
     q("select id,numero,objet,montant::float8 as montant,statut,emise_le,payee_le from factures where dossier_id=$1 order by id", [id]),
     q("select id,libelle,montant::float8 as montant,recu_le from paiements where dossier_id=$1 order by id", [id]),

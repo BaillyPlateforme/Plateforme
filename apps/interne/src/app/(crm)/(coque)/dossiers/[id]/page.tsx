@@ -41,13 +41,20 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
     d.devis.map((v: Row) => `• ${v.formule[0].toUpperCase() + v.formule.slice(1)} : ${eur(v.montant)}`).join("\n") +
     `\n\nLes arrhes s'élèvent à 30 % de la formule retenue. Je reste à votre disposition.\n\nCordialement,\n${d.commercial ?? "Bailly Déménagement"}`)}`;
   const apresCommande = ["commande", "planifie", "termine"].includes(d.statut);
+  // Le solde : ce que le client doit encore. Le plus grand du montant signé et du total facturé, moins les règlements.
+  const montantSigne = d.devis.filter((v: Row) => v.statut === "signe").reduce((a: number, v: Row) => a + Number(v.montant ?? 0), 0);
+  const facture = d.factures.reduce((a: number, f: Row) => a + Number(f.montant ?? 0), 0);
+  const regle = d.paiements.reduce((a: number, x: Row) => a + Number(x.montant ?? 0), 0);
+  const solde = Math.max(0, Math.max(montantSigne, facture) - regle);
+  // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
+  const espaceOuvert = !!(await q("select 1 from public.ec_dossiers where crm_dossier_id=$1 limit 1", [id]).catch(() => [])).length;
 
   return (
     <div className="view dossier">
       <Bandeau
         surtitre={`Dossier ${d.ref}`}
         titre={nomClient(d)}
-        texte={`${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"} · ${m3(d.volume)}`}
+        texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, m3(d.volume)].filter(Boolean).join(" · ")}
         etiquettes={[
           STATUTS[d.statut].label,
           TYPES[d.type],
@@ -66,6 +73,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
           />
         }
       >
+        <Link href="#facturation" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">Solde · {eur(solde)}</Link>
         <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
         <form action={A.dupliquerDossier.bind(null, id)}><button data-ton="contour">Dupliquer</button></form>
         {d.statut === "perdu"
@@ -78,6 +86,17 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
 
       <div className="d-grid">
         <form action={A.majFiche.bind(null, id)} style={{ display: "contents" }}>
+          <section className="card route" style={{ gridColumn: "span 12" }}>
+            <h3>Client</h3>
+            <div className="form-grid">
+              <div className="fld w2"><label>Civilité</label><select name="client_civilite" defaultValue={d.civilite ?? ""}><option value="">—</option><option>Madame</option><option>Monsieur</option></select></div>
+              <div className="fld w3"><label>Prénom</label><input type="text" name="client_prenom" defaultValue={d.prenom ?? ""} /></div>
+              <div className="fld w3"><label>Nom</label><input type="text" name="client_nom" defaultValue={d.nom ?? ""} required /></div>
+              <div className="fld w4"><label>Société</label><input type="text" name="client_societe" defaultValue={d.societe ?? ""} placeholder="Pour un compte ou un partenaire" /></div>
+              <div className="fld w4"><label>Téléphone</label><input type="tel" name="client_telephone" defaultValue={d.telephone ?? ""} /></div>
+              <div className="fld w8"><label>E-mail</label><input type="email" name="client_email" defaultValue={d.email ?? ""} readOnly={espaceOuvert} title={espaceOuvert ? "Identifiant de connexion de l’espace client : il se modifie depuis la fiche de l’espace" : undefined} /></div>
+            </div>
+          </section>
           <section className="card route">
             <h3>Itinéraire & période</h3>
             <div style={{ display: "grid", gap: 10 }}>

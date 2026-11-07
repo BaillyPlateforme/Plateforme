@@ -66,6 +66,18 @@ export async function majFiche(id: number, f: FormData) {
   await exiger();
   await q(`update dossiers set periode=$2, mois_ca=$3, observations=$4, traite_par_id=$5, commercial_id=$6, passer_en_dernier=$7, vehicule=$8, maj_le=now() where id=$1`,
     [id, s(f, "periode"), s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : null, s(f, "observations"), n(f, "traite_par_id"), n(f, "commercial_id"), f.get("passer_en_dernier") === "on", f.get("vehicule") === "on"]);
+  // L'identité du client. Son e-mail ne change pas ici quand un espace client existe : c'est
+  // l'identifiant de connexion du client, qui se modifie depuis la fiche de l'espace (compte compris).
+  const nomClientSaisi = s(f, "client_nom");
+  if (nomClientSaisi) {
+    const espace = await q1<{ n: number }>("select 1 as n from public.ec_dossiers where crm_dossier_id=$1 limit 1", [id]).catch(() => null);
+    const valeurs = [id, s(f, "client_civilite"), s(f, "client_prenom"), nomClientSaisi, s(f, "client_societe"), s(f, "client_telephone")];
+    if (espace) {
+      await q("update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, telephone=$6 where id=(select client_id from dossiers where id=$1)", valeurs);
+    } else {
+      await q("update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, telephone=$6, email=$7 where id=(select client_id from dossiers where id=$1)", [...valeurs, s(f, "client_email")]);
+    }
+  }
   // Le type de client : il fixe le parcours de l'espace client (segment, cahier des charges §2).
   const type = s(f, "type_client");
   if (type && ["particulier", "compte", "militaire", "partenaire", "logement_social"].includes(type)) {

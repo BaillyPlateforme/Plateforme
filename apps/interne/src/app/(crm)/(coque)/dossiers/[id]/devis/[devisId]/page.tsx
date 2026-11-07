@@ -19,7 +19,8 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
   const facturees = lignes.filter((l) => l.charge !== "client");
   const ttc = facturees.reduce((a, l) => a + l.prix, 0), ht = ttc / 1.2;
   const achats = facturees.reduce((a, l) => a + (l.achat ?? 0), 0);
-  const marge = ttc - achats;
+  // Les coûts d'achat (sous-traitance, matériel) sont hors taxes : la marge se lit sur le HT.
+  const marge = ht - achats;
   const iso = (d: string | Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
   return (
     <div className="view">
@@ -41,19 +42,19 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
           </form>)}
         {(onglet === "chiffrage" || onglet === "achats") && (
           <form action={majChiffrage.bind(null, v.id)}>
-            <table className="tbl"><thead><tr><th>Prestation</th><th>À charge</th><th className="num">Prix client (TTC)</th>{onglet === "achats" && <><th className="num">Coût d’achat</th><th className="num">Marge</th></>}</tr></thead><tbody>
+            <table className="tbl"><thead><tr><th>Prestation</th><th>À charge</th><th className="num">Prix client (TTC)</th>{onglet === "achats" && <><th className="num">Coût d’achat (HT)</th><th className="num">Marge (HT)</th></>}</tr></thead><tbody>
               {lignes.map((l, i) => (
                 <tr key={i}><td>{l.libelle}</td>
                   <td><select name={`charge_${i}`} defaultValue={l.charge} style={{ maxWidth: 130 }}><option value="bailly">Bailly</option><option value="client">Client</option></select></td>
                   <td className="num"><input type="number" name={`prix_${i}`} defaultValue={l.prix} style={{ maxWidth: 120, textAlign: "right" }} /></td>
                   {onglet === "achats" && <><td className="num"><input type="number" name={`achat_${i}`} defaultValue={l.achat ?? 0} style={{ maxWidth: 120, textAlign: "right" }} /></td>
-                    <td className="num" style={{ color: l.charge === "client" ? "var(--muted)" : (l.prix - (l.achat ?? 0)) >= 0 ? "var(--ok)" : "var(--warn)" }}><b>{l.charge === "client" ? "—" : eur(l.prix - (l.achat ?? 0))}</b></td></>}
+                    <td className="num" style={{ color: l.charge === "client" ? "var(--muted)" : (l.prix - (l.achat ?? 0)) >= 0 ? "var(--ok)" : "var(--warn)" }}><b>{l.charge === "client" ? "—" : eur(l.prix / 1.2 - (l.achat ?? 0))}</b></td></>}
                 </tr>))}
             </tbody></table>
             <div className="minil" style={{ marginTop: 18 }}>
               <div className="kpi"><small>Total HT</small><b>{eur(ht)}</b></div><div className="kpi"><small>TVA 20 %</small><b>{eur(ttc - ht)}</b></div>
               <div className="kpi"><small>Total TTC</small><b>{eur(ttc)}</b></div>
-              {onglet === "achats" ? <div className="kpi ok"><small>Marge prévue</small><b>{eur(marge)} · {ttc ? Math.round((marge / ttc) * 100) : 0} %</b></div> : <div className="kpi"><small>Arrhes 30 %</small><b>{eur(Math.round(ttc * 0.3))}</b></div>}
+              {onglet === "achats" ? <div className="kpi ok"><small>Marge prévue (HT)</small><b>{eur(marge)} · {ht ? Math.round((marge / ht) * 100) : 0} %</b></div> : <div className="kpi"><small>Arrhes 30 %</small><b>{eur(Math.round(ttc * 0.3))}</b></div>}
             </div>
             <div className="form-actions"><button className="btn primary sm">Enregistrer</button></div>
           </form>)}

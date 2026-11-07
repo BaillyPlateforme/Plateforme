@@ -351,3 +351,32 @@
     min-height: auto;
   }
 }
+
+/* Qui fait quoi : les prestations de chaque formule, Bailly ou le client. */
+.prestations {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  margin-bottom: 18px;
+}
+.prestations th {
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b6b6b;
+  border-bottom: 2px solid #111;
+}
+.prestations th + th,
+.prestations td + td {
+  text-align: center;
+  width: 16%;
+}
+.prestations td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #ececec;
+}
+.prestations td b {
+  color: #111;
+}

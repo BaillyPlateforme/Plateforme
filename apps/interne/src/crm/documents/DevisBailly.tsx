@@ -38,6 +38,17 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
   // Une seule formule : le numéro de son devis. Plusieurs : la proposition porte le dossier, et les numéros suivent.
   const numeros = formules.map((f) => f.numero).filter(Boolean);
   const aSigner = formules.find((f) => f.token && !f.signe_le);
+  // Les prestations (Bailly ou le client), dans l'ordre du premier devis qui les porte.
+  const prestations = [...new Set(formules.flatMap((f) => ((f.prestations ?? []) as any[]).map((x) => String(x.libelle))))];
+  // Les conditions saisies dans le devis (onglet « Données contractuelles ») : seulement ce qui est renseigné.
+  const validite = formules.map((f) => f.validite).filter(Boolean).sort()[0];
+  const conditions = [...new Set(formules.map((f) => String(f.conditions ?? "").trim()).filter(Boolean))];
+  const ref = formules[0] ?? {};
+  const transport = [
+    ref.distance_km ? `Distance : ${ref.distance_km} km` : null,
+    ref.deplacement === "urbain" ? "Déménagement urbain" : ref.deplacement === "route" ? "Déménagement par la route" : null,
+    ref.groupage === true ? "En groupage avec d’autres clients" : ref.groupage === false ? "Camion dédié" : null,
+  ].filter(Boolean) as string[];
 
   return (
     <article className={s.feuille}>
@@ -133,11 +144,43 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
         </div>
       )}
 
+      {prestations.length > 0 && (
+        <>
+          <h2 className={s.titre}>Qui fait quoi</h2>
+          <table className={s.prestations}>
+            <thead>
+              <tr>
+                <th>Prestation</th>
+                {formules.map((f) => (
+                  <th key={f.id}>{nomFormule(f.formule)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {prestations.map((libelle) => (
+                <tr key={libelle}>
+                  <td>{libelle}</td>
+                  {formules.map((f) => {
+                    const p = ((f.prestations ?? []) as any[]).find((x) => x.libelle === libelle);
+                    return <td key={f.id}>{!p ? "—" : p.charge === "client" ? "Vous" : <b>Bailly</b>}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       <section className={s.bas}>
         <div className={s.conditions}>
           <b>Conditions</b>
           <ul>
             <li>Arrhes à la réservation : 30 % du montant de la formule retenue.</li>
+            {validite && <li>Offre valable jusqu’au {dateFr(validite, { day: "numeric", month: "long", year: "numeric" })}.</li>}
+            {transport.length > 0 && <li>{transport.join(" · ")}.</li>}
+            {conditions.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
           </ul>
         </div>
         <div className={s.accord}>
