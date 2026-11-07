@@ -66,6 +66,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
           />
         }
       >
+        <Link href={`/parcours/${id}`} data-ton="contour">Parcours</Link>
         <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
         <form action={A.dupliquerDossier.bind(null, id)}><button data-ton="contour">Dupliquer</button></form>
         {d.statut === "perdu"
