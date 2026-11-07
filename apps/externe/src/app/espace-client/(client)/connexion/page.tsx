@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DUREE_LIEN_MIN, estDemo } from "@/lib/espace-client/config";
+import { DUREE_LIEN_MIN, estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
 import { PROFILS_DEMO } from "@/lib/espace-client/seed";
 import { clientConnecte } from "@/lib/espace-client/session";
 import { entrerDemo, voirEmailDemo } from "@/lib/actions/espace-client";
@@ -32,7 +32,8 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
   const email = lu(sp, "email") ?? "";
   const apercu = lu(sp, "apercu");
   const erreur = lu(sp, "erreur");
-  const demo = estDemo();
+  // Les raccourcis des profils fictifs : en démonstration, ou en développement sur le jeu semé en base.
+  const demo = profilsDemoOuverts();
 
   return (
     <div className="connexion">
@@ -94,7 +95,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
               <h2>Bonjour !</h2>
               <p className="lede">Saisissez l&apos;adresse e-mail que vous avez donnée à votre conseiller Bailly : nous vous envoyons un lien de connexion.</p>
               {lu(sp, "au-revoir") && <p className="flash ok">Vous êtes déconnecté. À bientôt !</p>}
-              {lu(sp, "reinitialise") && <p className="flash info">La démonstration est revenue à son état de départ.</p>}
+              {estDemo() && lu(sp, "reinitialise") && <p className="flash info">La démonstration est revenue à son état de départ.</p>}
               {erreur && ERREURS[erreur] && (
                 <p className="flash ko" role="alert">
                   {ERREURS[erreur]}

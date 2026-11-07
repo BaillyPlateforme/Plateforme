@@ -35,6 +35,7 @@ export async function lireSession(request: NextRequest) {
   const { data: claims } = await supabase.auth.getClaims();
   let valide = !!claims?.claims?.sub;
   let role = (claims?.claims?.app_metadata as { role?: string } | undefined)?.role;
+  let email = typeof claims?.claims?.email === "string" ? claims.claims.email : null;
 
   if (!valide) {
     const {
@@ -42,6 +43,7 @@ export async function lireSession(request: NextRequest) {
     } = await supabase.auth.getUser();
     valide = !!user;
     role = (user?.app_metadata as { role?: string } | undefined)?.role;
+    email = user?.email ?? null;
   }
 
   const chemin = request.nextUrl.pathname;
@@ -55,5 +57,5 @@ export async function lireSession(request: NextRequest) {
   };
 
   // `response` peut avoir été remplacée par setAll : on la lit au dernier moment.
-  return { valide, role, chemin, api: chemin.startsWith("/api/"), vers, reponse: () => response };
+  return { valide, role, email, chemin, api: chemin.startsWith("/api/"), vers, reponse: () => response };
 }

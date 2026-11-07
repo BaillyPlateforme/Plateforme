@@ -1,6 +1,7 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { roleDuCompte } from "./roles";
 
 // Client serveur lié à la session (cookies) — pour lire l'utilisateur connecté.
 export async function createAuthClient() {
@@ -52,9 +53,10 @@ export async function getUser() {
 }
 
 /**
- * Qui est connecté. Deux sortes de comptes partagent la même authentification :
- * l'équipe Bailly, et les comptes RH — ceux des entreprises clientes, rattachés
- * chacun à un espace pro (`app_metadata`, que seul le serveur peut écrire).
+ * Qui est connecté. Trois sortes de comptes partagent la même authentification :
+ * l'équipe Bailly, les comptes RH — ceux des entreprises clientes, rattachés
+ * chacun à un espace pro (`app_metadata`, que seul le serveur peut écrire) —, et
+ * les clients de l'espace client, qui n'ont accès à rien ici (voir roles.ts).
  */
 export type Acces =
   | { id: string; email: string; role: "equipe" }
@@ -64,6 +66,8 @@ export async function getAcces(): Promise<Acces | null> {
   const user = await getUser();
   if (!user) return null;
   const m = (user.app_metadata ?? {}) as { role?: string; espace_id?: string };
+  // Un client de l'espace client n'est ni de l'équipe ni des RH : il n'a accès à rien d'ici.
+  if (roleDuCompte(m) === "client") return null;
   if (m.role === "rh")
     return {
       id: user.id,

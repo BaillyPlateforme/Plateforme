@@ -149,7 +149,7 @@ export function BandeauMode({ mode }: { mode: { donnees: string; envoi: boolean;
   const { demo } = usePorte();
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
-      {mode.donnees === "demo" ? <Pastille ton="attente">Données de démonstration, en mémoire</Pastille> : <Pastille ton="ok">Données enregistrées (Supabase Storage)</Pastille>}
+      {mode.donnees === "demo" ? <Pastille ton="attente">Données de démonstration, en mémoire</Pastille> : <Pastille ton="ok">Données en base (tables ec_*, cloisonnées par client)</Pastille>}
       {mode.envoi ? <Pastille ton="ok">E-mails et SMS envoyés par Brevo</Pastille> : <Pastille>E-mails et SMS journalisés, non envoyés</Pastille>}
       {demo && <Pastille ton="alerte">Back-office de démonstration, sans connexion</Pastille>}
     </div>

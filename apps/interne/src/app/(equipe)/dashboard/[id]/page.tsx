@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getRequestDetail } from "@/lib/requests";
+import { dossierDeLaDemande } from "@/lib/espace-client/demandes";
 import { createServiceClient } from "@/lib/supabase/server";
 import { qualifyRequest } from "@/lib/qualification";
 import { env } from "@/lib/env";
@@ -38,12 +39,15 @@ export default async function RequestPage({
     }),
   );
 
+  // L'espace client déjà ouvert pour cette demande : la fiche y mène plutôt que d'en ouvrir un second.
+  const espaceClient = await dossierDeLaDemande(id);
+
   return (
     <div className="px-5 py-5 md:px-7 md:py-6">
       <Link href="/dashboard" className="text-sm text-ink-soft transition hover:text-accent">
         ← Toutes les demandes
       </Link>
-      <RequestDetail detail={detail} photoUrls={photoUrls} />
+      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} />
     </div>
   );
 }

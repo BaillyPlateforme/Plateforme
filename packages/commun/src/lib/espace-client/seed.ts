@@ -13,6 +13,12 @@
  * le devis du profil B attend l'accord du client (c'est le parcours « accepter
  * et payer les arrhes » de la micro démo) et sa facture de solde, émise avant
  * l'acceptation, a disparu.
+ *
+ * Le même jeu sert deux fois : en mémoire pour la démonstration
+ * (ESPACE_CLIENT_DONNEES=demo), et dans les tables ec_* par
+ * scripts/semer-espace-client.mjs, qui donne à chaque client fictif un compte
+ * Supabase Auth en @example.com (app_metadata : role « client », demo). Ce
+ * fichier ne doit donc importer que des types : le script le charge tel quel.
  */
 
 import type { Donnees, DocumentRequirement, Service, Tuto } from "./types";
@@ -72,21 +78,22 @@ export const SERVICES_PAR_DEFAUT: Service[] = [
 
 /** Les quatre profils du brief, pour l'écran de connexion et le bouton « Démo ». */
 export const PROFILS_DEMO = [
-  { lettre: "A", email: "claire.dumont@exemple.fr", reference: "BD-2026-0147", titre: "Particulier · Paris → Lyon", detail: "Arrhes réglées, conditions de livraison à remplir, cartons planifiés" },
-  { lettre: "B", email: "julien.roussel@exemple.fr", reference: "BD-2026-0152", titre: "International · Marseille → Montréal", detail: "Devis à accepter et arrhes à payer, pièces du Canada, conteneur" },
-  { lettre: "C", email: "mobilite@atlantique-industrie.exemple", reference: "BD-2026-0139", titre: "Grand compte · Nantes → Bordeaux", detail: "Devis et factures masqués" },
-  { lettre: "D", email: "claire.dumont@exemple.fr", reference: "BD-2024-0311", titre: "Ancien dossier · Lille → Paris", detail: "Terminé : SAV, sélecteur de dossiers" },
+  { lettre: "A", email: "claire.dumont@example.com", reference: "BD-2026-0147", titre: "Particulier · Paris → Lyon", detail: "Arrhes réglées, conditions de livraison à remplir, cartons planifiés" },
+  { lettre: "B", email: "julien.roussel@example.com", reference: "BD-2026-0152", titre: "International · Marseille → Montréal", detail: "Devis à accepter et arrhes à payer, pièces du Canada, conteneur" },
+  { lettre: "C", email: "mobilite.atlantique@example.com", reference: "BD-2026-0139", titre: "Grand compte · Nantes → Bordeaux", detail: "Devis et factures masqués" },
+  { lettre: "D", email: "claire.dumont@example.com", reference: "BD-2024-0311", titre: "Ancien dossier · Lille → Paris", detail: "Terminé : SAV, sélecteur de dossiers" },
 ] as const;
 
 /**
  * Un profil de la démonstration ? Seuls ceux-là s'ouvrent sans boîte mail
  * (bouton « Entrer », aperçu de l'e-mail reçu) : un client que l'équipe
- * crée, même en démonstration, ne reçoit son lien que par e-mail.
+ * crée, même en démonstration, ne reçoit son lien que par e-mail. En base, il
+ * faut de plus que la ligne du client soit marquée « demo » (acces.ts).
  */
 export const estProfilDemo = (email: string) => PROFILS_DEMO.some((p) => p.email === email.trim().toLowerCase());
 
-/** Le point de départ du mode « stockage » : aucun client, les listes de la v0. */
-export function donneesVides(): Donnees {
+/** Le point de départ : aucun client, les listes de la v0 (pièces, tutos, services). */
+function depart(): Donnees {
   return {
     version: VERSION_DONNEES,
     conseillers: [],
@@ -104,7 +111,6 @@ export function donneesVides(): Donnees {
     tutos: TUTOS_PAR_DEFAUT.map((t) => ({ ...t, etapes: [...t.etapes] })),
     services: SERVICES_PAR_DEFAUT.map((s) => ({ ...s })),
     notifications: [],
-    jetons_acces: [],
     sessions_paiement: [],
   };
 }
@@ -115,24 +121,24 @@ const national = { portee: "national" as const, mode_transport: "route" as const
 /** Le jeu de démonstration, daté par rapport à `now`. */
 export function amorcer(now = new Date()): Donnees {
   const semaines = Math.round((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - REFERENCE) / (7 * 86_400_000));
-  const base = donneesVides();
+  const base = depart();
 
   const d: Donnees = {
     ...base,
     conseillers: [
-      { id: "eq-nadia", prenom: "Nadia", nom: "Berthier", email: "nadia.berthier@bailly-demenagement.exemple", telephone: "01 84 60 12 30" },
-      { id: "eq-marc", prenom: "Marc", nom: "Delaunay", email: "marc.delaunay@bailly-demenagement.exemple", telephone: "01 84 60 12 31" },
+      { id: "eq-nadia", prenom: "Nadia", nom: "Berthier", email: "nadia.berthier@example.com", telephone: "01 84 60 12 30", demo: true },
+      { id: "eq-marc", prenom: "Marc", nom: "Delaunay", email: "marc.delaunay@example.com", telephone: "01 84 60 12 31", demo: true },
     ],
 
     clients: [
-      { id: "cl-dumont", type: "particulier", civilite: "Madame", prenom: "Claire", nom: "Dumont", societe: null, email: "claire.dumont@exemple.fr", telephone: "06 12 34 56 78", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", version_acces: 0, created_at: "2024-03-02T10:00:00.000Z" },
-      { id: "cl-roussel", type: "particulier", civilite: "Monsieur", prenom: "Julien", nom: "Roussel", societe: null, email: "julien.roussel@exemple.fr", telephone: "06 23 45 67 89", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", version_acces: 0, created_at: T },
-      { id: "cl-atlantique", type: "grand_compte", civilite: "Madame", prenom: "Sophie", nom: "Lemaire", societe: "Groupe Atlantique Industrie", email: "mobilite@atlantique-industrie.exemple", telephone: "02 40 00 11 22", masquer_devis: true, masquer_factures: true, conseiller_id: "eq-marc", version_acces: 0, created_at: T },
-      { id: "cl-garnier", type: "particulier", civilite: "Monsieur", prenom: "Hugo", nom: "Garnier", societe: null, email: "hugo.garnier@exemple.fr", telephone: "06 34 56 78 90", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", version_acces: 0, created_at: T },
-      { id: "cl-benoit", type: "particulier", civilite: "Madame", prenom: "Léa", nom: "Benoît", societe: null, email: "lea.benoit@exemple.fr", telephone: "06 45 67 89 01", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-marc", version_acces: 0, created_at: T },
-      { id: "cl-fabre", type: "particulier", civilite: "Monsieur", prenom: "Antoine", nom: "Fabre", societe: null, email: "antoine.fabre@exemple.fr", telephone: "06 56 78 90 12", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", version_acces: 0, created_at: T },
-      { id: "cl-marchal", type: "particulier", civilite: "Madame", prenom: "Inès", nom: "Marchal", societe: null, email: "ines.marchal@exemple.fr", telephone: "06 67 89 01 23", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-marc", version_acces: 0, created_at: T },
-      { id: "cl-perrin", type: "particulier", civilite: "Monsieur", prenom: "Karim", nom: "Perrin", societe: null, email: "karim.perrin@exemple.fr", telephone: "06 78 90 12 34", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", version_acces: 0, created_at: T },
+      { id: "cl-dumont", type: "particulier", civilite: "Madame", prenom: "Claire", nom: "Dumont", societe: null, email: "claire.dumont@example.com", telephone: "06 12 34 56 78", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: "2024-03-02T10:00:00.000Z" },
+      { id: "cl-roussel", type: "particulier", civilite: "Monsieur", prenom: "Julien", nom: "Roussel", societe: null, email: "julien.roussel@example.com", telephone: "06 23 45 67 89", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-atlantique", type: "grand_compte", civilite: "Madame", prenom: "Sophie", nom: "Lemaire", societe: "Groupe Atlantique Industrie", email: "mobilite.atlantique@example.com", telephone: "02 40 00 11 22", masquer_devis: true, masquer_factures: true, conseiller_id: "eq-marc", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-garnier", type: "particulier", civilite: "Monsieur", prenom: "Hugo", nom: "Garnier", societe: null, email: "hugo.garnier@example.com", telephone: "06 34 56 78 90", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-benoit", type: "particulier", civilite: "Madame", prenom: "Léa", nom: "Benoît", societe: null, email: "lea.benoit@example.com", telephone: "06 45 67 89 01", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-marc", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-fabre", type: "particulier", civilite: "Monsieur", prenom: "Antoine", nom: "Fabre", societe: null, email: "antoine.fabre@example.com", telephone: "06 56 78 90 12", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-marchal", type: "particulier", civilite: "Madame", prenom: "Inès", nom: "Marchal", societe: null, email: "ines.marchal@example.com", telephone: "06 67 89 01 23", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-marc", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
+      { id: "cl-perrin", type: "particulier", civilite: "Monsieur", prenom: "Karim", nom: "Perrin", societe: null, email: "karim.perrin@example.com", telephone: "06 78 90 12 34", masquer_devis: false, masquer_factures: false, conseiller_id: "eq-nadia", auth_user_id: null, sessions_revoquees_le: null, demo: true, created_at: T },
     ],
 
     dossiers: [
@@ -288,9 +294,9 @@ export function amorcer(now = new Date()): Donnees {
     ],
 
     notifications: [
-      { id: "no-seed-1", dossier_id: "do-a", canal: "email", modele: "document_depose", destinataire: "claire.dumont@exemple.fr", sujet: "Un nouveau document a été déposé dans votre espace client", payload: { salutation: "Madame Dumont", document: "Attestation d'assurance", chemin: "/espace-client/BD-2026-0147/documents#equipe", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2026-09-09T10:15:05.000Z" },
-      { id: "no-seed-2", dossier_id: "do-b", canal: "email", modele: "document_depose", destinataire: "julien.roussel@exemple.fr", sujet: "Un nouveau document a été déposé dans votre espace client", payload: { salutation: "Monsieur Roussel", document: "Guide des formalités douanières · Canada", chemin: "/espace-client/BD-2026-0152/documents#equipe", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2026-09-08T16:40:05.000Z" },
-      { id: "no-seed-3", dossier_id: "do-d", canal: "email", modele: "demande_avis", destinataire: "claire.dumont@exemple.fr", sujet: "Votre déménagement Lille → Paris : votre avis compte", payload: { salutation: "Madame Dumont", trajet: "Lille → Paris", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2024-06-13T18:05:00.000Z" },
+      { id: "no-seed-1", dossier_id: "do-a", canal: "email", modele: "document_depose", destinataire: "claire.dumont@example.com", sujet: "Un nouveau document a été déposé dans votre espace client", payload: { salutation: "Madame Dumont", document: "Attestation d'assurance", chemin: "/espace-client/BD-2026-0147/documents#equipe", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2026-09-09T10:15:05.000Z" },
+      { id: "no-seed-2", dossier_id: "do-b", canal: "email", modele: "document_depose", destinataire: "julien.roussel@example.com", sujet: "Un nouveau document a été déposé dans votre espace client", payload: { salutation: "Monsieur Roussel", document: "Guide des formalités douanières · Canada", chemin: "/espace-client/BD-2026-0152/documents#equipe", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2026-09-08T16:40:05.000Z" },
+      { id: "no-seed-3", dossier_id: "do-d", canal: "email", modele: "demande_avis", destinataire: "claire.dumont@example.com", sujet: "Votre déménagement Lille → Paris : votre avis compte", payload: { salutation: "Madame Dumont", trajet: "Lille → Paris", signature: { nom: "Nadia Berthier", role: "Votre contact", telephone: "01 84 60 12 30" } }, statut: "journalisee", sent_at: "2024-06-13T18:05:00.000Z" },
     ],
   };
 

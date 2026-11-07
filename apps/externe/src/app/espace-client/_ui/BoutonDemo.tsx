@@ -1,16 +1,17 @@
 import { entrerDemo, reinitialiserDemo, voirEmailDemo } from "@/lib/actions/espace-client";
-import { estDemo } from "@/lib/espace-client/config";
-import { PROFILS_DEMO } from "@/lib/espace-client/seed";
+import { estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
+import { estProfilDemo, PROFILS_DEMO } from "@/lib/espace-client/seed";
 import { Icone } from "./Icone";
 
 /**
  * Le bouton rond « Démo » de la micro démo, en bas à gauche : il bascule
- * entre les profils A à D et remet la démonstration à zéro. Il n'existe
- * qu'en mode démonstration, et chaque bascule repasse par un vrai lien
+ * entre les profils A à D et, en mémoire, remet la démonstration à zéro. Il
+ * n'existe qu'avec les raccourcis des profils fictifs, et seulement dans
+ * l'espace d'un profil fictif ; chaque bascule repasse par un vrai lien
  * d'accès, journalisé.
  */
-export function BoutonDemo({ reference, email }: { reference: string; email: string }) {
-  if (!estDemo()) return null;
+export function BoutonDemo({ reference, email, fictif }: { reference: string; email: string; fictif: boolean }) {
+  if (!profilsDemoOuverts() || !fictif || !estProfilDemo(email)) return null;
   return (
     <details className="demo">
       <summary aria-label="Changer de profil de démonstration">
@@ -36,9 +37,13 @@ export function BoutonDemo({ reference, email }: { reference: string; email: str
           </form>
         ))}
         <div className="demo-foot">
-          <form action={reinitialiserDemo}>
-            <button>Réinitialiser la démo</button>
-          </form>
+          {estDemo() ? (
+            <form action={reinitialiserDemo}>
+              <button>Réinitialiser la démo</button>
+            </form>
+          ) : (
+            <span />
+          )}
           <form action={voirEmailDemo}>
             <input type="hidden" name="email" value={email} />
             <input type="hidden" name="reference" value={reference} />

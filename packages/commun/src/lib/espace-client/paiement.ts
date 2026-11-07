@@ -1,10 +1,10 @@
 import "server-only";
-import { maintenant, modifierDonnees, nouvelId } from "./depot";
+import { depot, maintenant, nouvelId } from "./depot";
 import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 import { signer, verifier } from "./signature";
 import { aujourdhui, euros, salutation } from "./format";
-import type { Donnees, Facture, SessionPaiement } from "./types";
+import type { Facture, SessionPaiement } from "./types";
 
 /*
  * Le paiement en ligne, derrière une interface : la page est hébergée par le
@@ -42,17 +42,16 @@ export interface PaymentProvider {
 
 export class PaiementSimule implements PaymentProvider {
   async creerPaiement(demande: DemandePaiement) {
-    const session: SessionPaiement = { id: nouvelId("ps"), ...demande, statut: "ouverte", reference: null, created_at: maintenant() };
-    await modifierDonnees((d) => {
-      d.sessions_paiement.push(session);
-    });
+    const session: SessionPaiement = { id: nouvelId(), ...demande, statut: "ouverte", reference: null, created_at: maintenant() };
+    await depot().inserer("sessions_paiement", session);
     return { sessionId: session.id, url: `/espace-client/paiement/${session.id}` };
   }
 
   verifierEvenement(corps: string, signature: string | null) {
     if (!signature || !verifier(corps, signature, "paiement")) return null;
     try {
-      return JSON.parse(corps) as EvenementPaiement;
+      const ev = JSON.parse(corps) as EvenementPaiement;
+      return typeof ev.session_id === "string" && typeof ev.reference === "string" ? ev : null;
     } catch {
       return null;
     }
@@ -68,66 +67,66 @@ export class PaiementSimule implements PaymentProvider {
 export const paiements = new PaiementSimule();
 
 /** Le prochain numéro de facture de l'année : FA-2026-0469. */
-export function prochainNumeroFacture(d: Donnees, annee = aujourdhui().slice(0, 4)) {
-  const max = d.factures
-    .map((f) => /^FA-(\d{4})-(\d+)$/.exec(f.numero))
-    .filter((m): m is RegExpExecArray => !!m && m[1] === annee)
-    .reduce((n, m) => Math.max(n, Number(m[2])), 0);
-  return `FA-${annee}-${String(max + 1).padStart(4, "0")}`;
-}
+export const prochainNumeroFacture = (annee = aujourdhui().slice(0, 4)) => depot().prochainNumero("factures", `FA-${annee}-`, 4);
 
 /**
  * Le traitement de l'événement du prestataire : SEULE voie qui fait passer
  * une facture à « payée » ou un devis à « accepté » par paiement. Signature
- * vérifiée, et sans effet s'il est rejoué.
+ * vérifiée, et sans effet s'il est rejoué : la session ne passe d'« ouverte »
+ * à « payée » qu'une fois, en une seule requête.
  */
 export async function traiterEvenement(corps: string, signature: string | null): Promise<{ ok: boolean; message: string }> {
   const ev = paiements.verifierEvenement(corps, signature);
   if (!ev) return { ok: false, message: "Signature invalide." };
 
-  const r = await modifierDonnees((d) => {
-    const session = d.sessions_paiement.find((x) => x.id === ev.session_id);
-    if (!session) return { ok: false, message: "Session inconnue." } as const;
-    if (session.statut !== "ouverte") return { ok: true, message: "Déjà traité." } as const;
-    if (ev.type === "paiement.annule") {
-      session.statut = "annulee";
-      return { ok: true, message: "Paiement annulé." } as const;
-    }
-    session.statut = "payee";
-    session.reference = ev.reference;
-    const jour = aujourdhui();
+  const db = depot();
+  const session = await db.trouver("sessions_paiement", ev.session_id).catch(() => null);
+  if (!session) return { ok: false, message: "Session inconnue." };
+  if (session.statut !== "ouverte") return { ok: true, message: "Déjà traité." };
 
-    if (session.cible === "facture") {
-      const f = d.factures.find((x) => x.id === session.cible_id);
-      if (f) Object.assign(f, { statut: "payee", payee_le: jour, paiement_ref: ev.reference });
-    } else {
-      const devis = d.devis.find((x) => x.id === session.cible_id);
-      if (devis) {
-        // Payer les arrhes d'un devis en attente, c'est l'accepter : les autres
-        // devis du dossier ne sont plus retenus.
-        if (devis.statut !== "accepte") {
-          devis.statut = "accepte";
-          devis.accepte_le = jour;
-          for (const autre of d.devis) if (autre.dossier_id === devis.dossier_id && autre.id !== devis.id && autre.statut === "envoye") autre.statut = "refuse";
-          if (session.trace) {
-            d.acceptations.push({ id: nouvelId("ac"), dossier_id: devis.dossier_id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: session.created_at, ...session.trace });
-          }
+  if (ev.type === "paiement.annule") {
+    await db.modifier("sessions_paiement", session.id, { statut: "annulee" }, { statut: "ouverte" });
+    return { ok: true, message: "Paiement annulé." };
+  }
+  // Le passage à « payée » : celui qui le gagne fait le reste, un rejeu simultané ne fait rien.
+  if (!(await db.modifier("sessions_paiement", session.id, { statut: "payee", reference: ev.reference }, { statut: "ouverte" }))) {
+    return { ok: true, message: "Déjà traité." };
+  }
+
+  const dossier = await db.trouver("dossiers", session.dossier_id);
+  if (!dossier) return { ok: false, message: "Dossier introuvable." };
+  const d = await db.lireDuClient(dossier.client_id);
+  const jour = aujourdhui();
+
+  if (session.cible === "facture") {
+    await db.modifier("factures", session.cible_id, { statut: "payee", payee_le: jour, paiement_ref: ev.reference });
+  } else {
+    const devis = d.devis.find((x) => x.id === session.cible_id);
+    if (devis) {
+      // Payer les arrhes d'un devis en attente, c'est l'accepter : les autres
+      // devis du dossier ne sont plus retenus.
+      if (devis.statut !== "accepte") {
+        await db.modifier("devis", devis.id, { statut: "accepte", accepte_le: jour });
+        for (const autre of d.devis) {
+          if (autre.dossier_id === devis.dossier_id && autre.id !== devis.id && autre.statut === "envoye") await db.modifier("devis", autre.id, { statut: "refuse" }, { statut: "envoye" });
         }
-        const facture: Facture = {
-          id: nouvelId("fa"), dossier_id: session.dossier_id, devis_id: devis.id, numero: prochainNumeroFacture(d),
-          type: "arrhes", libelle: `Arrhes ${devis.arrhes_pourcentage} % — devis ${devis.numero}`, montant_ttc: session.montant,
-          statut: "payee", emise_le: jour, echeance: jour, periode: null, payee_le: jour, paiement_ref: ev.reference,
-        };
-        d.factures.push(facture);
+        if (session.trace) {
+          await db.inserer("acceptations", {
+            id: nouvelId(), dossier_id: devis.dossier_id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: session.created_at, ...session.trace,
+          });
+        }
       }
+      const facture: Facture = {
+        id: nouvelId(), dossier_id: session.dossier_id, devis_id: devis.id, numero: await prochainNumeroFacture(),
+        type: "arrhes", libelle: `Arrhes ${devis.arrhes_pourcentage} % — devis ${devis.numero}`, montant_ttc: session.montant,
+        statut: "payee", emise_le: jour, echeance: jour, periode: null, payee_le: jour, paiement_ref: ev.reference,
+      };
+      await db.inserer("factures", facture);
     }
-    const dossier = d.dossiers.find((x) => x.id === session.dossier_id)!;
-    const client = d.clients.find((c) => c.id === dossier.client_id)!;
-    return { ok: true, message: "Paiement enregistré.", envoi: { client, conseiller: conseillerDe(d, client.conseiller_id), dossier, session: { ...session } } } as const;
-  });
+  }
 
-  if ("envoi" in r && r.envoi) {
-    const { client, conseiller, dossier, session } = r.envoi;
+  const client = d.clients[0];
+  if (client) {
     await notifier.envoyer({
       dossier_id: dossier.id,
       canal: "email",
@@ -139,9 +138,9 @@ export async function traiterEvenement(corps: string, signature: string | null):
         libelle: session.libelle,
         reference: ev.reference,
         chemin: `/espace-client/${dossier.reference}/devis#factures`,
-        signature: signatureDe(conseiller),
+        signature: signatureDe(conseillerDe(d, client.conseiller_id)),
       },
     });
   }
-  return { ok: r.ok, message: r.message };
+  return { ok: true, message: "Paiement enregistré." };
 }

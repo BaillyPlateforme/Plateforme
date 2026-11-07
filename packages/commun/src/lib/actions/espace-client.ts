@@ -1,12 +1,13 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { consommerJeton, envoyerLienAcces } from "@/lib/espace-client/acces";
+import { clientParEmail, consommerLien, envoyerLienAuClient, estClientDemo } from "@/lib/espace-client/acces";
+import { AdresseDejaPrise } from "@/lib/espace-client/comptes";
 import { bornesCartons, CAPACITE_SAMEDI } from "@/lib/espace-client/cartons";
-import { emailEquipe, estDemo } from "@/lib/espace-client/config";
-import { depot, lireDonnees, maintenant, modifierDonnees, nouvelId } from "@/lib/espace-client/depot";
+import { emailEquipe, estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
+import { depot, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { cheminFichier, deposerFichier, octets } from "@/lib/espace-client/fichiers";
 import { aujourdhui, jourLong, joursRestants, nomClient, salutation } from "@/lib/espace-client/format";
 import { conseillerDe, signatureDe } from "@/lib/espace-client/lectures";
@@ -14,30 +15,33 @@ import { estProfilDemo } from "@/lib/espace-client/seed";
 import { notifier } from "@/lib/espace-client/notifier";
 import { paiements, traiterEvenement } from "@/lib/espace-client/paiement";
 import { arrhesPayees, livraisonEffectuee, montantArrhes, requirementsApplicables } from "@/lib/espace-client/progression";
+import { occupationSamedis } from "@/lib/espace-client/samedi";
 import {
   acceptationsSchema, avarieSchema, conditionsLivraisonSchema, connexionSchema, declarationValeursSchema, erreursDe,
   ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons, messageSchema,
   TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
 } from "@/lib/espace-client/schemas";
-import { cookieSession, COOKIE_CLIENT, exigerClient } from "@/lib/espace-client/session";
+import { exigerClient, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo } from "@/lib/espace-client/session";
 import { VERSIONS } from "@/lib/espace-client/textes";
-import type { Acceptation, Donnees, PieceJointe, TypeAcceptation } from "@/lib/espace-client/types";
+import type { Acceptation, Client, PieceJointe, TypeAcceptation } from "@/lib/espace-client/types";
 import { TEL_AGENCE } from "@/lib/messaging";
 
 /*
  * Les actions du client. Une action serveur répond depuis n'importe quelle
  * page : chacune refait donc elle-même tout le chemin —
- *   1. la session (cookie signé),
- *   2. la propriété du dossier (la référence doit être à ce client),
+ *   1. la session (Supabase Auth, inscrite au registre ec_sessions),
+ *   2. la propriété du dossier : il est cherché dans ce que la RLS rend au
+ *      client, et la référence doit être à lui,
  *   3. le schéma (le même que celui du navigateur),
- *   4. l'écriture, puis le message éventuel.
+ *   4. l'écriture, par la clé de service, puis le message éventuel.
+ * La clé publique, elle, n'écrit rien : la base le refuse.
  */
 
 export type EtatFormulaire = { ok?: boolean; erreurs?: Erreurs; message?: string };
 
 async function contexte(reference: string) {
   const client = await exigerClient();
-  const d = await lireDonnees();
+  const d = await lireDonneesClient();
   const dossier = d.dossiers.find((x) => x.reference === reference && x.client_id === client.id);
   if (!dossier) throw new Error("Dossier introuvable.");
   return { client, dossier, conseiller: conseillerDe(d, client.conseiller_id), d };
@@ -51,7 +55,7 @@ async function traces() {
 }
 
 function acceptation(dossierId: string, type: Exclude<TypeAcceptation, "devis">, t: { ip: string; user_agent: string }): Acceptation {
-  return { id: nouvelId("ac"), dossier_id: dossierId, type, version_texte: VERSIONS[type], accepted_at: maintenant(), ...t };
+  return { id: nouvelId(), dossier_id: dossierId, type, version_texte: VERSIONS[type], accepted_at: maintenant(), objet: null, ...t };
 }
 
 const rafraichir = (reference: string) => revalidatePath(`/espace-client/${reference}`, "layout");
@@ -63,68 +67,87 @@ async function deposerPhotos(dossierId: string, rubrique: string, fichiers: File
   for (const f of fichiers) {
     const chemin = cheminFichier(dossierId, f.name, rubrique);
     await deposerFichier(chemin, await octets(f), f.type);
-    out.push({ id: nouvelId("pj"), chemin, nom: f.name, taille: f.size, mime: f.type });
+    out.push({ id: nouvelId(), chemin, nom: f.name, taille: f.size, mime: f.type });
   }
   return out;
 }
 
 // --- Connexion ---------------------------------------------------------------------------------
 
+/** Un profil fictif qui peut s'ouvrir sans boîte mail : raccourcis ouverts, client de démonstration. */
+async function profilDemo(email: string): Promise<Client | null> {
+  if (!profilsDemoOuverts() || !estProfilDemo(email)) return null;
+  const client = await clientParEmail(email);
+  return client && estClientDemo(client) ? client : null;
+}
+
 export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   const r = connexionSchema.safeParse({ email: String(fd.get("email") ?? "").trim() });
   if (!r.success) return { erreurs: erreursDe(r.error) };
-  let n: Awaited<ReturnType<typeof envoyerLienAcces>>;
+  let apercu = "";
   try {
-    n = await envoyerLienAcces(r.data.email);
-  } catch {
-    // Le stockage ne répond pas : le dire sous le champ, plutôt qu'une page d'erreur.
-    return { erreurs: { email: `Le service est momentanément indisponible. Réessayez dans quelques instants, ou appelez l'agence au ${TEL_AGENCE}.` } };
+    const client = await clientParEmail(r.data.email);
+    const n = client ? await envoyerLienAuClient(client) : null;
+    // En démonstration seulement, et pour un profil fictif : la page ouvre l'e-mail « reçu ».
+    if (n && client && profilsDemoOuverts() && estClientDemo(client) && estProfilDemo(client.email)) apercu = `&apercu=${n.id}`;
+  } catch (e) {
+    // Une adresse prise par un compte de l'équipe : la même réponse qu'une adresse inconnue.
+    if (!(e instanceof AdresseDejaPrise)) {
+      // La base ne répond pas : le dire sous le champ, plutôt qu'une page d'erreur.
+      return { erreurs: { email: `Le service est momentanément indisponible. Réessayez dans quelques instants, ou appelez l'agence au ${TEL_AGENCE}.` } };
+    }
   }
   // La même réponse, que l'adresse soit connue ou non : la page ne dit pas qui est client.
-  // En démonstration seulement, elle ouvre l'e-mail « reçu ».
-  const apercu = n && estDemo() && estProfilDemo(r.data.email) ? `&apercu=${n.id}` : "";
   redirect(`/espace-client/connexion?envoye=1&email=${encodeURIComponent(r.data.email)}${apercu}`);
+}
+
+/** Ouvre la session du client d'un lien qu'on vient de consommer, puis l'emmène à son dossier. */
+async function entrer(jeton: string, destination?: string | null): Promise<never> {
+  const r = await consommerLien(jeton);
+  if (!r.ok) redirect(`/espace-client/connexion?erreur=${r.raison}`);
+  if (estDemo()) await ouvrirSessionDemo(r.client);
+  else {
+    const o = await ouvrirSessionBase(r.client, jeton, r.lien.auth_user_id!, await traces());
+    if (!o.ok) redirect(`/espace-client/connexion?erreur=${o.raison}`);
+  }
+  const vise = destination ?? r.lien.reference;
+  // Le dossier visé n'est ouvert que s'il est bien au client : la page le revérifie de toute façon.
+  redirect(vise ? `/espace-client/${encodeURIComponent(vise)}?ok=bienvenue` : "/espace-client?ok=bienvenue");
 }
 
 /** Le clic « Accéder à mon espace » de la page d'arrivée : c'est lui qui consomme le lien. */
 export async function entrerAvecJeton(fd: FormData) {
-  const r = await consommerJeton(String(fd.get("jeton") ?? ""));
-  if (!r.ok) redirect(`/espace-client/connexion?erreur=${r.raison}`);
-  const c = cookieSession(r.client);
-  (await cookies()).set(c.name, c.value, c.options);
-  const d = await lireDonnees();
-  const vise = r.reference && d.dossiers.some((x) => x.reference === r.reference && x.client_id === r.client.id) ? r.reference : null;
-  redirect(vise ? `/espace-client/${vise}?ok=bienvenue` : "/espace-client?ok=bienvenue");
+  await entrer(String(fd.get("token_hash") ?? ""));
 }
 
 /**
  * Démonstration seulement : entrer comme l'un des profils A à D. Le chemin
- * est le vrai — un lien est émis et journalisé, puis consommé — sans passer
- * par la boîte de réception.
+ * est le vrai — un lien est émis et journalisé, puis consommé, et la session
+ * ouverte comme au clic « Accéder » — sans passer par la boîte de réception.
  */
 export async function entrerDemo(fd: FormData) {
-  if (!estDemo() || !estProfilDemo(String(fd.get("email") ?? ""))) redirect("/espace-client/connexion");
-  const n = await envoyerLienAcces(String(fd.get("email") ?? ""), { reference: String(fd.get("reference") ?? "") || null });
-  const jeton = n ? new URL(String(n.payload.lien)).searchParams.get("jeton") : null;
+  const client = await profilDemo(String(fd.get("email") ?? ""));
+  if (!client) redirect("/espace-client/connexion");
+  const reference = String(fd.get("reference") ?? "") || null;
+  const n = await envoyerLienAuClient(client, { reference });
+  const jeton = new URL(String(n.payload.lien)).searchParams.get("token_hash");
   if (!jeton) redirect("/espace-client/connexion");
-  const r = await consommerJeton(jeton);
-  if (!r.ok) redirect(`/espace-client/connexion?erreur=${r.raison}`);
-  const c = cookieSession(r.client);
-  (await cookies()).set(c.name, c.value, c.options);
-  redirect(r.reference ? `/espace-client/${r.reference}` : "/espace-client");
+  await entrer(jeton, reference);
 }
 
 /** Démonstration seulement : émettre le lien d'un profil et ouvrir l'e-mail « reçu ». */
 export async function voirEmailDemo(fd: FormData) {
-  if (!estDemo() || !estProfilDemo(String(fd.get("email") ?? ""))) redirect("/espace-client/connexion");
-  const n = await envoyerLienAcces(String(fd.get("email") ?? ""), { reference: String(fd.get("reference") ?? "") || null });
-  redirect(n ? `/espace-client/apercu-email/${n.id}` : "/espace-client/connexion");
+  const client = await profilDemo(String(fd.get("email") ?? ""));
+  if (!client) redirect("/espace-client/connexion");
+  const n = await envoyerLienAuClient(client, { reference: String(fd.get("reference") ?? "") || null });
+  redirect(`/espace-client/apercu-email/${n.id}`);
 }
 
+/** Démonstration en mémoire seulement : tout revient à l'état de départ. */
 export async function reinitialiserDemo() {
   if (!estDemo()) return;
   await depot().reinitialiser();
-  (await cookies()).delete({ name: COOKIE_CLIENT, path: "/espace-client" });
+  await fermerSession();
   revalidatePath("/espace-client", "layout");
   redirect("/espace-client/connexion?reinitialise=1");
 }
@@ -145,12 +168,10 @@ export async function deposerPiece(reference: string, _: EtatFormulaire, fd: For
 
   const chemin = cheminFichier(dossier.id, fichier!.name);
   await deposerFichier(chemin, await octets(fichier!), fichier!.type);
-  await modifierDonnees((m) => {
-    m.documents.push({
-      id: nouvelId("doc"), dossier_id: dossier.id, categorie: piece?.pays ? "pays" : piece ? "identite" : "autre", libelle, source: "client",
-      chemin, nom_fichier: fichier!.name, taille_octets: fichier!.size, mime: fichier!.type, requirement_id: piece?.id ?? null,
-      created_by: client.id, created_at: maintenant(),
-    });
+  await depot().inserer("documents", {
+    id: nouvelId(), dossier_id: dossier.id, categorie: piece?.pays ? "pays" : piece ? "identite" : "autre", libelle, source: "client",
+    chemin, nom_fichier: fichier!.name, taille_octets: fichier!.size, mime: fichier!.type, requirement_id: piece?.id ?? null,
+    created_by: client.id, created_at: maintenant(),
   });
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=piece#pieces`);
@@ -158,7 +179,8 @@ export async function deposerPiece(reference: string, _: EtatFormulaire, fd: For
 
 export async function enregistrerConditions(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   const { dossier, d } = await contexte(reference);
-  if (d.conditions_livraison.some((c) => c.dossier_id === dossier.id && c.valide_at)) {
+  const existant = d.conditions_livraison.find((c) => c.dossier_id === dossier.id);
+  if (existant?.valide_at) {
     return { message: "Vos conditions de livraison sont déjà validées : pour les modifier, contactez votre conseiller." };
   }
   const r = conditionsLivraisonSchema.safeParse(lireConditions(fd));
@@ -169,35 +191,33 @@ export async function enregistrerConditions(reference: string, _: EtatFormulaire
   const t = await traces();
   const pieces = await deposerPhotos(dossier.id, "acces", photos);
   const v = r.data;
-  await modifierDonnees((m) => {
-    const ligne = {
-      adresse_livraison: v.adresse_livraison,
-      etage: v.etage,
-      ascenseur: v.ascenseur,
-      ascenseur_dimensions: v.ascenseur ? { largeur: Number(v.asc_largeur), profondeur: Number(v.asc_profondeur), hauteur: Number(v.asc_hauteur) } : null,
-      escalier: v.escalier,
-      distance_portage_m: v.distance_portage_m,
-      acces_poids_lourd: v.acces_poids_lourd,
-      stationnement: v.stationnement,
-      particularites_rue: v.particularites_rue,
-      monte_meuble: v.monte_meuble,
-      horaires_restreints: v.horaires_restreints,
-      commentaire: v.commentaire,
-      photos: pieces,
-      valide_at: maintenant(),
-    };
-    const existant = m.conditions_livraison.find((x) => x.dossier_id === dossier.id);
-    if (existant) Object.assign(existant, ligne);
-    else m.conditions_livraison.push({ id: nouvelId("cl-liv"), dossier_id: dossier.id, ...ligne });
-    m.acceptations.push(acceptation(dossier.id, "conditions_livraison", t));
-  });
+  const ligne = {
+    adresse_livraison: v.adresse_livraison,
+    etage: v.etage,
+    ascenseur: v.ascenseur,
+    ascenseur_dimensions: v.ascenseur ? { largeur: Number(v.asc_largeur), profondeur: Number(v.asc_profondeur), hauteur: Number(v.asc_hauteur) } : null,
+    escalier: v.escalier,
+    distance_portage_m: v.distance_portage_m,
+    acces_poids_lourd: v.acces_poids_lourd,
+    stationnement: v.stationnement,
+    particularites_rue: v.particularites_rue,
+    monte_meuble: v.monte_meuble,
+    horaires_restreints: v.horaires_restreints,
+    commentaire: v.commentaire,
+    photos: pieces,
+    valide_at: maintenant(),
+  };
+  if (existant) await depot().modifier("conditions_livraison", existant.id, ligne, { valide_at: null });
+  else await depot().inserer("conditions_livraison", { id: nouvelId(), dossier_id: dossier.id, ...ligne });
+  await depot().inserer("acceptations", acceptation(dossier.id, "conditions_livraison", t));
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=conditions#conditions`);
 }
 
 export async function soumettreDeclaration(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   const { dossier, d } = await contexte(reference);
-  if (d.declarations_valeurs.some((x) => x.dossier_id === dossier.id && x.statut === "soumise")) {
+  const existante = d.declarations_valeurs.find((x) => x.dossier_id === dossier.id);
+  if (existante?.statut === "soumise") {
     return { message: "Votre déclaration est déjà transmise : pour la modifier, contactez votre conseiller." };
   }
   const r = declarationValeursSchema.safeParse(lireDeclaration(fd));
@@ -206,28 +226,23 @@ export async function soumettreDeclaration(reference: string, _: EtatFormulaire,
   const contenu = { declarant_nom, declarant_qualite, lieu, date, objets };
   const total = Math.round(contenu.objets.reduce((n, o) => n + o.quantite * o.valeur_unitaire, 0) * 100) / 100;
   const t = await traces();
-  await modifierDonnees((m) => {
-    const ligne = { contenu, total, statut: "soumise" as const, soumise_at: maintenant() };
-    const existant = m.declarations_valeurs.find((x) => x.dossier_id === dossier.id);
-    if (existant) Object.assign(existant, ligne);
-    else m.declarations_valeurs.push({ id: nouvelId("dv-val"), dossier_id: dossier.id, ...ligne });
-    m.acceptations.push(acceptation(dossier.id, "declaration_valeurs", t));
-  });
+  const ligne = { contenu, total, statut: "soumise" as const, soumise_at: maintenant() };
+  if (existante) await depot().modifier("declarations_valeurs", existante.id, ligne, { statut: "brouillon" });
+  else await depot().inserer("declarations_valeurs", { id: nouvelId(), dossier_id: dossier.id, ...ligne });
+  await depot().inserer("acceptations", acceptation(dossier.id, "declaration_valeurs", t));
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=valeurs#valeurs`);
 }
 
 export async function accepterConditionsGenerales(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
-  const { dossier } = await contexte(reference);
+  const { dossier, d } = await contexte(reference);
   const r = acceptationsSchema.safeParse(lireAcceptations(fd));
   if (!r.success) return { erreurs: erreursDe(r.error) };
   const t = await traces();
-  await modifierDonnees((m) => {
-    for (const type of ["cgv", "rgpd"] as const) {
-      const deja = m.acceptations.some((a) => a.dossier_id === dossier.id && a.type === type && a.version_texte === VERSIONS[type]);
-      if (!deja) m.acceptations.push(acceptation(dossier.id, type, t));
-    }
-  });
+  const nouvelles = (["cgv", "rgpd"] as const)
+    .filter((type) => !d.acceptations.some((a) => a.dossier_id === dossier.id && a.type === type && a.version_texte === VERSIONS[type]))
+    .map((type) => acceptation(dossier.id, type, t));
+  await depot().inserer("acceptations", nouvelles);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=cgv#cgv`);
 }
@@ -244,20 +259,19 @@ export async function planifierCartons(reference: string, _: EtatFormulaire, fd:
   if (existante && joursRestants(existante.date_samedi) < 2) {
     return { message: "Votre livraison est trop proche pour être modifiée en ligne : appelez votre conseiller." };
   }
-  const autres = d.livraisons_cartons.filter((l) => l.date_samedi === r.data.date_samedi && l.id !== existante?.id).length;
+  const autres = (await occupationSamedis(r.data.date_samedi, r.data.date_samedi, existante?.id))[r.data.date_samedi] ?? 0;
   if (autres >= CAPACITE_SAMEDI) return { erreurs: { date_samedi: "Ce samedi vient d'être complet : choisissez-en un autre." } };
 
-  await modifierDonnees((m) => {
-    const champs = { ...r.data, ordre_passage: null, creneau_debut: null, creneau_fin: null, creneau_envoye_le: null };
-    const l = existante && m.livraisons_cartons.find((x) => x.id === existante.id);
-    if (l) {
-      const memeAdresse = l.adresse === r.data.adresse;
-      Object.assign(l, champs, memeAdresse ? {} : { lat: null, lng: null });
-    } else {
-      m.livraisons_cartons.push({ id: nouvelId("lc"), dossier_id: dossier.id, ...champs, nb_cartons: null, lat: null, lng: null, statut: "demandee", created_at: maintenant() });
-    }
-    m.dossiers.find((x) => x.id === dossier.id)!.cartons_non_necessaires = false;
-  });
+  const champs = { ...r.data, ordre_passage: null, creneau_debut: null, creneau_fin: null, creneau_envoye_le: null };
+  if (existante) {
+    const memeAdresse = existante.adresse === r.data.adresse;
+    await depot().modifier("livraisons_cartons", existante.id, { ...champs, ...(memeAdresse ? {} : { lat: null, lng: null }) });
+  } else {
+    await depot().inserer("livraisons_cartons", {
+      id: nouvelId(), dossier_id: dossier.id, ...champs, nb_cartons: null, lat: null, lng: null, statut: "demandee", created_at: maintenant(),
+    });
+  }
+  if (dossier.cartons_non_necessaires) await depot().modifier("dossiers", dossier.id, { cartons_non_necessaires: false });
 
   // L'e-mail à l'équipe, pour qu'elle saisisse le nombre de cartons.
   await notifier.envoyer({
@@ -277,23 +291,12 @@ export async function planifierCartons(reference: string, _: EtatFormulaire, fd:
 
 export async function pasBesoinDeCartons(reference: string) {
   const { dossier } = await contexte(reference);
-  await modifierDonnees((m) => {
-    m.dossiers.find((x) => x.id === dossier.id)!.cartons_non_necessaires = true;
-  });
+  await depot().modifier("dossiers", dossier.id, { cartons_non_necessaires: true });
   rafraichir(reference);
   redirect(`/espace-client/${reference}?ok=sans-cartons#progression`);
 }
 
 // --- SAV ---------------------------------------------------------------------------------------
-
-function prochainNumeroSav(d: Donnees) {
-  const annee = aujourdhui().slice(0, 4);
-  const max = d.sav_declarations
-    .map((s) => /^SAV-(\d{4})-(\d+)$/.exec(s.numero))
-    .filter((x): x is RegExpExecArray => !!x && x[1] === annee)
-    .reduce((n, x) => Math.max(n, Number(x[2])), 0);
-  return `SAV-${annee}-${String(max + 1).padStart(3, "0")}`;
-}
 
 export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   const { client, dossier, conseiller } = await contexte(reference);
@@ -304,11 +307,8 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
   if (!r.success || errPhotos) return { erreurs: { ...(r.success ? {} : erreursDe(r.error)), ...(errPhotos ? { photos: errPhotos } : {}) } };
 
   const pieces = await deposerPhotos(dossier.id, "sav", photos);
-  const numero = await modifierDonnees((m) => {
-    const n = prochainNumeroSav(m);
-    m.sav_declarations.push({ id: nouvelId("sav"), dossier_id: dossier.id, numero: n, ...r.data, photos: pieces, statut: "recue", created_at: maintenant() });
-    return n;
-  });
+  const numero = await depot().prochainNumero("sav_declarations", `SAV-${aujourdhui().slice(0, 4)}-`, 3);
+  await depot().inserer("sav_declarations", { id: nouvelId(), dossier_id: dossier.id, numero, ...r.data, photos: pieces, statut: "recue", created_at: maintenant() });
 
   const signature = signatureDe(conseiller);
   await notifier.envoyer({
@@ -344,17 +344,19 @@ export async function payerArrhes(reference: string, devisId: string) {
 
 /** Un devis sans arrhes s'accepte d'un clic : l'acceptation est horodatée comme les autres. */
 export async function accepterDevis(reference: string, devisId: string) {
-  const { client, dossier } = await contexte(reference);
+  const { client, dossier, d } = await contexte(reference);
   if (client.type !== "particulier" || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
-  const t = await traces();
-  await modifierDonnees((m) => {
-    const devis = m.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
-    if (!devis || devis.statut !== "envoye" || devis.arrhes_pourcentage > 0) return;
-    devis.statut = "accepte";
-    devis.accepte_le = aujourdhui();
-    for (const autre of m.devis) if (autre.dossier_id === dossier.id && autre.id !== devis.id && autre.statut === "envoye") autre.statut = "refuse";
-    m.acceptations.push({ id: nouvelId("ac"), dossier_id: dossier.id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: maintenant(), ...t });
-  });
+  const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
+  if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0) {
+    const t = await traces();
+    // Accepté une seule fois, même sur deux clics simultanés.
+    if (await depot().modifier("devis", devis.id, { statut: "accepte", accepte_le: aujourdhui() }, { statut: "envoye" })) {
+      for (const autre of d.devis) {
+        if (autre.dossier_id === dossier.id && autre.id !== devis.id && autre.statut === "envoye") await depot().modifier("devis", autre.id, { statut: "refuse" }, { statut: "envoye" });
+      }
+      await depot().inserer("acceptations", { id: nouvelId(), dossier_id: dossier.id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: maintenant(), ...t });
+    }
+  }
   rafraichir(reference);
   redirect(`/espace-client/${reference}/devis`);
 }
@@ -377,7 +379,7 @@ export async function payerFacture(reference: string, factureId: string) {
  */
 export async function issuePaiementSimule(sessionId: string, fd: FormData) {
   const client = await exigerClient();
-  const d = await lireDonnees();
+  const d = await lireDonneesClient();
   const session = d.sessions_paiement.find((s) => s.id === sessionId);
   const dossier = session && d.dossiers.find((x) => x.id === session.dossier_id && x.client_id === client.id);
   if (!session || !dossier) redirect("/espace-client");

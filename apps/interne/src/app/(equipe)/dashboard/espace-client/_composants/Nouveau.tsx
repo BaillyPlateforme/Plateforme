@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
@@ -21,10 +21,14 @@ type Formulaire = typeof vide;
 
 const adresse = (a: string | null, cp: string | null, v: string | null) => [a, [cp, v].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 
-/** Le préremplissage depuis une demande : tout ce qu'on peut reprendre, rien d'inventé. */
+/**
+ * Le préremplissage depuis une demande : le client, les adresses, le volume —
+ * tout ce qu'on peut reprendre, rien d'inventé. La date, le conseiller et le
+ * devis signé se complètent à la main (décision du 7/11) : la date souhaitée
+ * du questionnaire n'est pas la date convenue.
+ */
 function depuisDemande(f: Formulaire, d: DemandeResume): Formulaire {
   const [prenom, ...reste] = (d.client_nom ?? "").trim().split(/\s+/);
-  const jour = d.date_souhaitee?.slice(0, 10) ?? "";
   return {
     ...f,
     prenom: reste.length ? prenom : f.prenom,
@@ -37,8 +41,6 @@ function depuisDemande(f: Formulaire, d: DemandeResume): Formulaire {
     ville_arrivee: d.arrivee_ville ?? f.ville_arrivee,
     adresse_depart: adresse(d.depart_adresse, d.depart_code_postal, d.depart_ville) || f.adresse_depart,
     adresse_arrivee: adresse(d.arrivee_adresse, d.arrivee_code_postal, d.arrivee_ville) || f.adresse_arrivee,
-    periode_debut: jour || f.periode_debut,
-    periode_fin: jour || f.periode_fin,
     volume_m3: d.volume_m3 != null ? String(d.volume_m3) : f.volume_m3,
     formule: d.formule ?? f.formule,
     logement: d.type_logement_depart ?? f.logement,
@@ -47,10 +49,18 @@ function depuisDemande(f: Formulaire, d: DemandeResume): Formulaire {
   };
 }
 
-/** « Nouveau dossier » : l'espace d'un client, prérempli au besoin depuis une demande des questionnaires. */
+type DepuisDemande = { demande: DemandeResume | null; devis: DevisDemande[]; dossier: { id: string; reference: string } | null; erreur: string | null };
+
+/**
+ * « Nouveau dossier » : l'espace d'un client, prérempli au besoin depuis une
+ * demande des questionnaires — choisie ici, ou ouverte depuis sa fiche
+ * (« Ouvrir l'espace client », qui arrive avec ?demande=<id>).
+ */
 export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }) {
   const { base, racine } = usePorte();
   const router = useRouter();
+  const demandeId = useSearchParams().get("demande");
+  const depuis = useRessource<DepuisDemande>(demandeId ? `${base}/demandes/${demandeId}` : null);
   const { donnees, erreur, recharger } = useRessource<Donnees>(`${base}/nouveau`);
   const [chercher, setChercher] = useState(false);
   const demandes = useRessource<{ demandes: DemandeResume[]; erreur: string | null }>(chercher ? `${base}/demandes` : null);
@@ -58,14 +68,26 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
   const devisDemande = useRessource<{ devis: DevisDemande[]; erreur: string | null }>(choisie ? `${base}/demandes/${choisie}` : null);
   const [f, setF] = useState<Formulaire>(vide);
   const [photoChoisie, setPhotoChoisie] = useState(false);
-  const [importer, setImporter] = useState(true);
+  // Depuis la fiche d'une demande, le devis du dossier est celui du logiciel de devis (le PDF), pas l'estimation.
+  const [importer, setImporter] = useState(!demandeId);
   const [acces, setAcces] = useState(true);
+  const [pdf, setPdf] = useState<File | null>(null);
   const { lancer, enCours, resultat } = useAction();
+
+  // La demande de la fiche, reprise une fois arrivée (un réglage d'état au rendu, sans effet).
+  const [reprise, setReprise] = useState<string | null>(null);
+  const demandeLue = depuis.donnees?.demande;
+  if (demandeLue && reprise !== demandeLue.id) {
+    setReprise(demandeLue.id);
+    setF((x) => depuisDemande(x, demandeLue));
+    setChoisie(demandeLue.id);
+  }
 
   if (erreur) return <Echec message={erreur} onRetry={recharger} />;
   if (!donnees) return <Squelette titre={false} lignes={8} />;
 
-  const conseiller = f.conseiller_id || donnees.conseillers[0]?.id || "";
+  // Ouvert depuis une demande, le conseiller se choisit : pas de valeur par défaut. Sinon, le premier réel.
+  const conseiller = f.conseiller_id || (demandeId ? "" : (donnees.conseillers.find((c) => !c.demo) ?? donnees.conseillers[0])?.id) || "";
   const photo = f.photo || photoPourVille(f.ville_arrivee);
   const maj = (p: Partial<Formulaire>) => setF((x) => ({ ...x, ...p }));
   const err = (k: string) => (resultat && !resultat.ok ? resultat.erreurs?.[k] : undefined);
@@ -73,13 +95,16 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
 
   const envoyer = () =>
     lancer(
-      () =>
-        creerDossier({
+      () => {
+        const pieces = new FormData();
+        if (pdf) pieces.append("devis_pdf", pdf);
+        return creerDossier({
           client: { civilite: f.civilite, prenom: f.prenom, nom: f.nom, email: f.email.trim(), telephone: f.telephone, type: f.type, societe: f.societe, masquer_devis: f.masquer_devis, masquer_factures: f.masquer_factures, conseiller_id: conseiller },
           dossier: { ville_depart: f.ville_depart, ville_arrivee: f.ville_arrivee, adresse_depart: f.adresse_depart, adresse_arrivee: f.adresse_arrivee, periode_debut: f.periode_debut, periode_fin: f.periode_fin || f.periode_debut, portee: f.portee, mode_transport: f.mode_transport, pays_destination: f.pays_destination, statut: f.statut, volume_m3: f.volume_m3, formule: f.formule, logement: f.logement, photo, request_id: f.request_id },
           importerDevis: importer && !!f.request_id,
           envoyerAcces: acces,
-        }),
+        }, pieces);
+      },
       (r) => {
         if (r.ok && r.id) {
           if (r.apercu) ouvrirApercu(r.apercu);
@@ -91,6 +116,30 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
       <div className="space-y-5">
+        {demandeId && (
+          <Carte titre="Ouvert depuis une demande">
+            {depuis.erreur || depuis.donnees?.erreur ? (
+              <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-[13px] text-brand-ink">Lecture de la demande impossible ({depuis.erreur ?? depuis.donnees?.erreur}) : remplissez le formulaire à la main.</p>
+            ) : !depuis.donnees ? (
+              <p className="text-[13px] text-ink-soft">Lecture de la demande…</p>
+            ) : depuis.donnees.dossier ? (
+              <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-[13px] text-brand-ink">
+                Cette demande a déjà son espace client :{" "}
+                <a className="font-medium underline" href={`${racine}/dossiers/${depuis.donnees.dossier.id}`}>
+                  dossier {depuis.donnees.dossier.reference}
+                </a>
+                .
+              </p>
+            ) : depuis.donnees.demande ? (
+              <p className="text-[13px] text-ink-soft">
+                Demande de <b className="text-ink">{depuis.donnees.demande.client_nom ?? depuis.donnees.demande.client_email ?? "sans nom"}</b>, reçue le {dateFr(depuis.donnees.demande.created_at)} : coordonnées,
+                adresses et volume sont repris. Complétez à la main la date convenue, le conseiller et le devis signé (PDF).
+              </p>
+            ) : (
+              <p className="text-[13px] text-ink-soft">Demande introuvable : remplissez le formulaire à la main.</p>
+            )}
+          </Carte>
+        )}
         <Carte titre="Reprendre une demande des questionnaires" action={!chercher && <Bouton variante="contour" onClick={() => setChercher(true)}>Afficher les demandes récentes</Bouton>}>
           {!chercher ? (
             <p className="text-[13px] text-ink-soft">Facultatif : le dossier se remplit avec ce que le client a saisi (coordonnées, adresses, date, volume), et son estimation peut devenir le devis du dossier.</p>
@@ -168,10 +217,11 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
             </Champ>
             <Champ label="Conseiller" erreur={err("client.conseiller_id")}>
               <select className={champ} value={conseiller} onChange={(e) => maj({ conseiller_id: e.target.value })}>
-                {donnees.conseillers.length === 0 && <option value="">Aucun : ajoutez-en dans Réglages</option>}
+                {donnees.conseillers.length === 0 ? <option value="">Aucun : ajoutez-en dans Réglages</option> : !conseiller && <option value="">Choisir le conseiller…</option>}
                 {donnees.conseillers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.prenom} {c.nom}
+                    {c.demo ? " (fictif)" : ""}
                   </option>
                 ))}
               </select>
@@ -282,6 +332,9 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
           <p className="mt-2 text-[11.5px] text-ink-soft">Choisie d&apos;après la ville d&apos;arrivée, tant qu&apos;on n&apos;en désigne pas une.</p>
         </Carte>
         <Carte titre="Création">
+          <Champ label="Devis signé (PDF)" erreur={err("devis_pdf")} aide="Facultatif : le devis du logiciel de devis, déposé dans « Mes documents » du client." className="mb-4">
+            <input className={champ} type="file" accept="application/pdf" onChange={(e) => setPdf(e.target.files?.[0] ?? null)} />
+          </Champ>
           <label className="flex items-start gap-2 text-[13px]">
             <input type="checkbox" className="mt-0.5" checked={acces} onChange={(e) => setAcces(e.target.checked)} />
             <span>Envoyer tout de suite le lien d&apos;accès au client (valable 15 minutes ; il pourra en redemander un depuis la page de connexion).</span>

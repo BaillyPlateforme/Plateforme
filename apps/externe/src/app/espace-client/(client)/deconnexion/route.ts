@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE_CLIENT } from "@/lib/espace-client/session";
+import { fermerSession } from "@/lib/espace-client/session";
 
-/** La déconnexion : le cookie de session s'efface, retour à la connexion. */
+export const dynamic = "force-dynamic";
+
+/**
+ * La déconnexion : la session sort du registre de l'espace client, Supabase
+ * la révoque et ses cookies s'effacent ; retour à la connexion. Un lien
+ * simple (pas un <Link>) y mène, pour qu'aucun préchargement ne déconnecte.
+ */
 export async function GET(req: NextRequest) {
-  const res = NextResponse.redirect(new URL("/espace-client/connexion?au-revoir=1", req.url));
-  res.cookies.set(COOKIE_CLIENT, "", { path: "/espace-client", maxAge: 0, httpOnly: true, sameSite: "lax" });
-  return res;
+  await fermerSession();
+  return NextResponse.redirect(new URL("/espace-client/connexion?au-revoir=1", req.url));
 }

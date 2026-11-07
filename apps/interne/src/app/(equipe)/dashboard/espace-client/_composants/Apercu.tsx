@@ -106,6 +106,7 @@ export function Apercu() {
                     <div className="mt-1 flex flex-wrap gap-1">
                       {l.client.type === "grand_compte" ? <Pastille ton="noir">Grand compte</Pastille> : <Pastille>Particulier</Pastille>}
                       {l.client.masquage && <Pastille ton="attente">Devis/factures masqués</Pastille>}
+                      {l.client.demo && <Pastille ton="alerte">Fictif (démonstration)</Pastille>}
                     </div>
                   </td>
                   <td className="px-5 py-3">

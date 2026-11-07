@@ -41,6 +41,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "32mb",
     },
+    /**
+     * Le proxy garde aussi les pages qui reçoivent ces envois : il met le
+     * corps de la requête en mémoire, et le tronquerait au-delà de 10 Mo par
+     * défaut. Même plafond que les actions serveur.
+     */
+    proxyClientMaxBodySize: "32mb",
   },
 };
 

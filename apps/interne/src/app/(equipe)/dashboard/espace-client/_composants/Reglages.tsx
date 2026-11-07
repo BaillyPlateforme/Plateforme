@@ -142,7 +142,7 @@ export function Reglages() {
         <Carte titre="Où vivent les données">
           <ul className="space-y-2 text-[13px]">
             <li>
-              <b>Données :</b> {donnees.mode.donnees === "demo" ? "démonstration en mémoire, amorcée par les profils A à D (perdue au redémarrage)." : "document JSON du seau privé « espace-client » de Supabase Storage."}
+              <b>Données :</b> {donnees.mode.donnees === "demo" ? "démonstration en mémoire, amorcée par les profils A à D (perdue au redémarrage)." : "tables ec_* de Supabase, cloisonnées par client (RLS) ; fichiers dans le seau privé « espace-client », servis par liens signés de courte durée. Les clients se connectent par lien magique, sans mot de passe."}
             </li>
             <li>
               <b>Envois :</b> {donnees.mode.envoi ? "e-mails et SMS envoyés par Brevo." : "e-mails et SMS journalisés seulement (ESPACE_CLIENT_ENVOI=1 pour envoyer)."}

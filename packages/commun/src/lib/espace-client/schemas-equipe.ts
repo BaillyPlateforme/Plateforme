@@ -45,7 +45,8 @@ export const dossierSchema = z
     formule: texte(2, 60, "La formule"),
     logement: facultatif(60),
     photo: texte(1, 200, "La photo"),
-    request_id: facultatif(60),
+    // L'identifiant de la demande des questionnaires (un UUID), ou rien.
+    request_id: z.string().trim().transform((v) => v || null).pipe(z.uuid({ error: "Demande inconnue." }).nullable()),
   })
   .superRefine((v, ctx) => {
     if (v.periode_fin < v.periode_debut) ctx.addIssue({ code: "custom", path: ["periode_fin"], message: "La fin précède le début." });

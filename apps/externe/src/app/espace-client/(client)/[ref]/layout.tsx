@@ -4,7 +4,7 @@ import { PiedDePage } from "../../_ui/Cadre";
 
 /**
  * Le cadre d'un dossier : chaque page pose son propre bandeau, celui-ci
- * ajoute le pied de page et, en démonstration, le bouton des profils.
+ * ajoute le pied de page et, pour un profil fictif, le bouton des profils.
  * `chargerEspace` vérifie la session et la propriété du dossier : un dossier
  * qui n'est pas au client connecté répond 404.
  */
@@ -15,7 +15,7 @@ export default async function DossierLayout({ children, params }: { children: Re
     <>
       {children}
       <PiedDePage e={e} />
-      <BoutonDemo reference={e.dossier.reference} email={e.client.email} />
+      <BoutonDemo reference={e.dossier.reference} email={e.client.email} fictif={e.client.demo} />
     </>
   );
 }

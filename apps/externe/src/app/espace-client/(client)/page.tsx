@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { dateLongue, joursRestants, periodeCompacte } from "@/lib/espace-client/format";
 import { dossiersDuClient } from "@/lib/espace-client/lectures";
 import { photoDe } from "@/lib/espace-client/photos";
-import { clientConnecte } from "@/lib/espace-client/session";
+import { clientConnecte, lireDonneesClient } from "@/lib/espace-client/session";
 import { Icone } from "../_ui/Icone";
 import { Logo } from "../_ui/Logo";
 
@@ -21,7 +20,7 @@ export default async function MesDossiers({ searchParams }: { searchParams: Prom
   const client = await clientConnecte();
   if (!client) redirect("/espace-client/connexion");
   const sp = await searchParams;
-  const dossiers = dossiersDuClient(await lireDonnees(), client.id);
+  const dossiers = dossiersDuClient(await lireDonneesClient(), client.id);
   const ok = typeof sp.ok === "string" ? `?ok=${sp.ok}` : "";
   if (dossiers.length === 1 && !sp.choisir) redirect(`/espace-client/${dossiers[0].reference}${ok}`);
 

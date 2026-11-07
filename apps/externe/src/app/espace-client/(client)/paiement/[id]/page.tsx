@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { lireDonnees } from "@/lib/espace-client/depot";
 import { euros } from "@/lib/espace-client/format";
-import { exigerClient } from "@/lib/espace-client/session";
+import { exigerClient, lireDonneesClient } from "@/lib/espace-client/session";
 import { issuePaiementSimule } from "@/lib/actions/espace-client";
 import { Icone } from "../../../_ui/Icone";
 
@@ -17,7 +16,7 @@ export const metadata: Metadata = { title: "Paiement sécurisé" };
 export default async function PaiementSimule({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const client = await exigerClient();
-  const d = await lireDonnees();
+  const d = await lireDonneesClient();
   const session = d.sessions_paiement.find((s) => s.id === id);
   const dossier = session && d.dossiers.find((x) => x.id === session.dossier_id && x.client_id === client.id);
   if (!session || !dossier) notFound();

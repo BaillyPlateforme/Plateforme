@@ -2,7 +2,7 @@ import "server-only";
 import { CAPACITE_SAMEDI } from "./cartons";
 import { demoEquipeActive, envoiReel, modeDonnees } from "./config";
 import { lireDonnees } from "./depot";
-import { devisDeLaDemande, listerDemandes } from "./demandes";
+import { devisDeLaDemande, lireDemande, listerDemandes } from "./demandes";
 import { rendreEmail, texteSms } from "./emails";
 import { lienFichier } from "./fichiers";
 import { aujourdhui, heure, joursRestants, nomClient, PAYS } from "./format";
@@ -39,7 +39,7 @@ export function vueApercu(d: Donnees) {
         id: dossier.id,
         reference: dossier.reference,
         statut: dossier.statut,
-        client: { nom: nomClient(s.client), societe: s.client.societe, type: s.client.type, email: s.client.email, masquage: s.client.masquer_devis || s.client.masquer_factures },
+        client: { nom: nomClient(s.client), societe: s.client.societe, type: s.client.type, email: s.client.email, masquage: s.client.masquer_devis || s.client.masquer_factures, demo: s.client.demo },
         depart: dossier.ville_depart,
         arrivee: dossier.ville_arrivee,
         portee: dossier.portee,
@@ -73,7 +73,8 @@ export function vueApercu(d: Donnees) {
   };
 }
 
-export function vueDossier(d: Donnees, id: string) {
+export function vueDossier(d: Donnees, id: string, porte: string) {
+  const lien = (type: Parameters<typeof lienFichier>[0], x: string) => lienFichier(type, x, { porte });
   const s = snapshotDe(d, id);
   if (!s) return null;
   const frise = calculerFrise(s);
@@ -88,16 +89,16 @@ export function vueDossier(d: Donnees, id: string) {
     suiviConteneur: estInternationalSuivi(s.dossier),
     pieces: s.requirements.map((r) => {
       const depot = s.documents.find((x) => x.requirement_id === r.id);
-      return { ...r, depot: depot ? { id: depot.id, nom: depot.nom_fichier, le: depot.created_at, lien: lienFichier("doc", depot.id) } : null };
+      return { ...r, depot: depot ? { id: depot.id, nom: depot.nom_fichier, le: depot.created_at, lien: lien("doc", depot.id) } : null };
     }),
-    documents: s.documents.filter((x) => !x.requirement_id).map((x) => ({ ...x, lien: lienFichier("doc", x.id) })),
-    devis: s.devis.map((x) => ({ ...x, lien: lienFichier("devis", x.id) })),
-    factures: s.factures.map((x) => ({ ...x, lien: lienFichier("facture", x.id) })),
+    documents: s.documents.filter((x) => !x.requirement_id).map((x) => ({ ...x, lien: lien("doc", x.id) })),
+    devis: s.devis.map((x) => ({ ...x, lien: lien("devis", x.id) })),
+    factures: s.factures.map((x) => ({ ...x, lien: lien("facture", x.id) })),
     declaration: s.declaration,
-    conditions: s.conditions ? { ...s.conditions, photos: s.conditions.photos.map((p) => ({ ...p, lien: lienFichier("photo", p.id) })) } : null,
+    conditions: s.conditions ? { ...s.conditions, photos: s.conditions.photos.map((p) => ({ ...p, lien: lien("photo", p.id) })) } : null,
     acceptations: [...s.acceptations].sort((a, b) => b.accepted_at.localeCompare(a.accepted_at)),
     livraisons: s.livraisons,
-    sav: s.sav.map((x) => ({ ...x, photos: x.photos.map((p) => ({ ...p, lien: lienFichier("photo", p.id) })) })),
+    sav: s.sav.map((x) => ({ ...x, photos: x.photos.map((p) => ({ ...p, lien: lien("photo", p.id) })) })),
     notifications: d.notifications.filter((n) => n.dossier_id === id).slice(0, 40),
     photos: PHOTOS,
     pays: PAYS,
@@ -149,7 +150,7 @@ export function vueCartons(d: Donnees, samediDemande: string | null) {
   };
 }
 
-export function vueSav(d: Donnees) {
+export function vueSav(d: Donnees, porte: string) {
   return {
     mode: mode(),
     declarations: [...d.sav_declarations]
@@ -157,7 +158,7 @@ export function vueSav(d: Donnees) {
       .map((x) => {
         const dossier = d.dossiers.find((y) => y.id === x.dossier_id);
         const client = dossier && d.clients.find((c) => c.id === dossier.client_id);
-        return { ...x, reference: dossier?.reference ?? "", dossierId: dossier?.id ?? "", client: client ? nomClient(client) : "", photos: x.photos.map((p) => ({ ...p, lien: lienFichier("photo", p.id) })) };
+        return { ...x, reference: dossier?.reference ?? "", dossierId: dossier?.id ?? "", client: client ? nomClient(client) : "", photos: x.photos.map((p) => ({ ...p, lien: lienFichier("photo", p.id, { porte }) })) };
       }),
   };
 }
@@ -195,12 +196,19 @@ export async function vueDemandes() {
   }
 }
 
-export async function vueDemande(id: string) {
+/**
+ * Une demande, pour préremplir « Nouveau dossier » (et l'action « Ouvrir
+ * l'espace client » de sa fiche) : la demande, son estimation, et le dossier
+ * déjà ouvert pour elle, s'il y en a un.
+ */
+export async function vueDemande(d: Donnees, id: string) {
+  const dossier = d.dossiers.find((x) => x.request_id === id);
+  const existant = dossier ? { id: dossier.id, reference: dossier.reference } : null;
   try {
-    const [demandes, devis] = await Promise.all([listerDemandes(), devisDeLaDemande(id)]);
-    return { demande: demandes.find((x) => x.id === id) ?? null, devis, erreur: null };
+    const [demande, devis] = await Promise.all([lireDemande(id), devisDeLaDemande(id)]);
+    return { demande, devis, dossier: existant, erreur: null };
   } catch (e) {
-    return { demande: null, devis: [], erreur: e instanceof Error ? e.message : "Lecture impossible" };
+    return { demande: null, devis: [], dossier: existant, erreur: e instanceof Error ? e.message : "Lecture impossible" };
   }
 }
 
@@ -213,19 +221,20 @@ export function apercuNotification(d: Donnees, id: string, base: string) {
 }
 
 /** Le routeur des vues : /…/espace-client/<vue>/<id>. */
-export async function lireVue(chemin: string[], params: URLSearchParams, base: string) {
+export async function lireVue(chemin: string[], params: URLSearchParams, base: string, porteFichiers: string) {
   const [vue = "apercu", id] = chemin;
-  if (vue === "demandes") return id ? vueDemande(id) : vueDemandes();
+  if (vue === "demandes" && !id) return vueDemandes();
   const d = await lireDonnees();
+  if (vue === "demandes") return /^[0-9a-f-]{36}$/i.test(id!) ? vueDemande(d, id!) : null;
   switch (vue) {
     case "apercu":
       return vueApercu(d);
     case "dossier":
-      return id ? vueDossier(d, id) : null;
+      return id ? vueDossier(d, id, porteFichiers) : null;
     case "cartons":
       return vueCartons(d, params.get("samedi"));
     case "sav":
-      return vueSav(d);
+      return vueSav(d, porteFichiers);
     case "destinations":
       return vueDestinations(d);
     case "journal":

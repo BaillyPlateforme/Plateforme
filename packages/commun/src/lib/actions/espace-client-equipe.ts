@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { envoyerLienAuClient } from "@/lib/espace-client/acces";
+import { annulerLiens, envoyerLienAuClient } from "@/lib/espace-client/acces";
+import { AdresseDejaPrise, changerAdresseDuCompte, verifierAdresseLibre } from "@/lib/espace-client/comptes";
 import { estDemo } from "@/lib/espace-client/config";
 import { devisDeLaDemande } from "@/lib/espace-client/demandes";
-import { depot, lireDonnees, maintenant, modifierDonnees, nouvelId } from "@/lib/espace-client/depot";
+import { depot, lireDonnees, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { exigerEquipe, type Equipe } from "@/lib/espace-client/equipe";
 import { cheminFichier, deposerFichier, octets, retirerFichier } from "@/lib/espace-client/fichiers";
 import { aujourdhui, salutation } from "@/lib/espace-client/format";
@@ -17,13 +18,15 @@ import { erreursDe, TYPES_DOCUMENTS, verifierFichier, type Erreurs } from "@/lib
 import {
   clientSchema, conseillerSchema, conteneurSchema, devisSchema, dossierSchema, factureSchema, lireLignes, pieceSchema, serviceSchema, tutoSchema,
 } from "@/lib/espace-client/schemas-equipe";
-import type { Client, Devis, Donnees, StatutDevis, StatutSav } from "@/lib/espace-client/types";
+import type { Client, Devis, DocumentFichier, StatutDevis, StatutSav } from "@/lib/espace-client/types";
 
 /*
  * Les actions de l'équipe. Une action serveur répond depuis n'importe quelle
  * adresse : le garde de /dashboard ne la protège pas. Chacune commence donc
- * par `exigerEquipe()` — une session Supabase de la plateforme, sans le rôle
- * RH (ou le back-office de démonstration, sur données fictives).
+ * par `exigerEquipe()` — une session Supabase d'un compte de l'équipe, ni RH
+ * ni client (ou le back-office de démonstration, sur données fictives en
+ * mémoire). Elles lisent tout et écrivent par la clé de service : l'équipe
+ * tient tous les dossiers.
  *
  * Elles rendent un résultat plutôt que de lever : l'écran l'affiche.
  */
@@ -43,20 +46,38 @@ async function garde(fn: (equipe: Equipe) => Promise<Resultat>): Promise<Resulta
 
 const echec = (erreurs: Erreurs): Resultat => ({ ok: false, erreurs });
 
-/** Le prochain numéro de dossier de l'année : BD-2026-0164. */
-function prochaineReference(d: Donnees, annee: string) {
-  const max = d.dossiers
-    .map((x) => /^BD-(\d{4})-(\d+)$/.exec(x.reference))
-    .filter((m): m is RegExpExecArray => !!m && m[1] === annee)
-    .reduce((n, m) => Math.max(n, Number(m[2])), 0);
-  return `BD-${annee}-${String(max + 1).padStart(4, "0")}`;
-}
-
 const plusJours = (jour: string, n: number) => {
   const d = new Date(`${jour}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 };
+
+/** Le message d'erreur si l'adresse appartient à un compte de l'équipe ou RH ; null si elle est libre. */
+async function adresseRefusee(email: string): Promise<string | null> {
+  if (estDemo()) return null;
+  try {
+    await verifierAdresseLibre(email);
+    return null;
+  } catch (e) {
+    if (e instanceof AdresseDejaPrise) return e.message;
+    throw e;
+  }
+}
+
+/** L'aperçu du message envoyé : en démonstration seulement (en base, il est au journal). */
+const apercuDe = (id: string) => (estDemo() ? id : null);
+
+/** Le dépôt d'un fichier de l'équipe dans un dossier, sans e-mail : la ligne du document. */
+async function deposerPourLEquipe(dossierId: string, fichier: File, libelle: string, categorie: string, equipe: Equipe): Promise<DocumentFichier> {
+  const chemin = cheminFichier(dossierId, fichier.name);
+  await deposerFichier(chemin, await octets(fichier), fichier.type);
+  const doc: DocumentFichier = {
+    id: nouvelId(), dossier_id: dossierId, categorie, libelle, source: "equipe", chemin, nom_fichier: fichier.name,
+    taille_octets: fichier.size, mime: fichier.type, requirement_id: null, created_by: equipe.nom, created_at: maintenant(),
+  };
+  await depot().inserer("documents", doc);
+  return doc;
+}
 
 // --- Dossiers ----------------------------------------------------------------------------------
 
@@ -67,28 +88,46 @@ export type NouveauDossier = {
   envoyerAcces: boolean;
 };
 
-export async function creerDossier(entree: NouveauDossier): Promise<Resultat> {
+/**
+ * Ouvre l'espace d'un client : son dossier, et sa fiche s'il n'en a pas
+ * encore. `pieces` : le devis signé (PDF du logiciel de devis), déposé tout
+ * de suite dans « Mes documents » — FormData, seul moyen de faire passer un
+ * fichier à une action.
+ */
+export async function creerDossier(entree: NouveauDossier, pieces?: FormData): Promise<Resultat> {
   return garde(async (equipe) => {
     const c = clientSchema.safeParse(entree.client);
     const x = dossierSchema.safeParse(entree.dossier);
-    if (!c.success || !x.success) {
+    const f = pieces?.get("devis_pdf");
+    const pdf = f instanceof File && f.size > 0 ? f : null;
+    const errPdf = pdf ? verifierFichier(pdf, ["application/pdf"]) : null;
+    if (!c.success || !x.success || errPdf) {
       return echec({
         ...(c.success ? {} : Object.fromEntries(Object.entries(erreursDe(c.error)).map(([k, v]) => [`client.${k}`, v]))),
         ...(x.success ? {} : Object.fromEntries(Object.entries(erreursDe(x.error)).map(([k, v]) => [`dossier.${k}`, v]))),
+        ...(errPdf ? { devis_pdf: errPdf } : {}),
       });
     }
     const avant = await lireDonnees();
     if (!avant.conseillers.some((k) => k.id === c.data.conseiller_id)) return echec({ "client.conseiller_id": "Choisissez un conseiller (Réglages pour en ajouter un)." });
+    if (x.data.request_id) {
+      const deja = avant.dossiers.find((y) => y.request_id === x.data.request_id);
+      if (deja) return { ok: false, erreur: `Cette demande a déjà son espace client : le dossier ${deja.reference}.` };
+    }
+    // Une adresse de l'équipe ou d'un compte RH ne peut pas devenir celle d'un client.
+    const prise = await adresseRefusee(c.data.email);
+    if (prise) return echec({ "client.email": prise });
 
     // L'estimation de la demande devient le devis du dossier, si on le demande et si Supabase répond.
-    let devisImportes: Omit<Devis, "id" | "dossier_id">[] = [];
+    let devisImportes: Omit<Devis, "id" | "dossier_id" | "numero">[] = [];
+    let numerosImportes: string[] = [];
     let avertissement = "";
     // Sans session réelle (démonstration), on ne lit rien de la base des demandes.
     if (entree.importerDevis && x.data.request_id && !equipe.demo) {
       try {
         const lus = await devisDeLaDemande(x.data.request_id);
+        numerosImportes = lus.map((v) => v.reference);
         devisImportes = lus.map((v) => ({
-          numero: v.reference,
           formule: x.data.formule,
           lignes: (v.lignes ?? []).map((l) => ({ libelle: l.label, montant_ht: Number(l.amount) || 0, ...(l.detail ? { detail: l.detail } : {}) })),
           inclus: [],
@@ -106,30 +145,42 @@ export async function creerDossier(entree: NouveauDossier): Promise<Resultat> {
       }
     }
 
-    const { id, reference, client } = await modifierDonnees((m) => {
-      let client: Client | undefined = m.clients.find((k) => k.email.toLowerCase() === c.data.email);
-      const reglages = c.data.type === "particulier" ? { masquer_devis: false, masquer_factures: false } : { masquer_devis: c.data.masquer_devis, masquer_factures: c.data.masquer_factures };
-      if (!client) {
-        client = { id: nouvelId("cl"), ...c.data, ...reglages, version_acces: 0, created_at: maintenant() };
-        m.clients.push(client);
-      }
-      const reference = prochaineReference(m, x.data.periode_debut.slice(0, 4));
-      const id = nouvelId("do");
-      m.dossiers.push({
-        id, client_id: client.id, reference, request_id: x.data.request_id,
-        ville_depart: x.data.ville_depart, ville_arrivee: x.data.ville_arrivee, adresse_depart: x.data.adresse_depart, adresse_arrivee: x.data.adresse_arrivee,
-        periode_debut: x.data.periode_debut, periode_fin: x.data.periode_fin, portee: x.data.portee, mode_transport: x.data.mode_transport,
-        pays_destination: x.data.pays_destination, statut: x.data.statut, volume_m3: x.data.volume_m3, formule: x.data.formule, logement: x.data.logement,
-        compagnie: null, numero_conteneur: null, url_tracking: null, statut_conteneur: null, navire: null, port_depart: null, port_arrivee: null, eta: null,
-        cartons_non_necessaires: false, photo: x.data.photo, termine_le: null, avis_demande_le: null, created_at: maintenant(),
-      });
-      for (const v of devisImportes) m.devis.push({ id: nouvelId("dv"), dossier_id: id, ...v });
-      return { id, reference, client: { ...client } };
+    // Le client : celui de cette adresse s'il existe déjà, sinon une nouvelle fiche.
+    const reglages = c.data.type === "particulier" ? { masquer_devis: false, masquer_factures: false } : { masquer_devis: c.data.masquer_devis, masquer_factures: c.data.masquer_factures };
+    let client: Client | undefined = avant.clients.find((k) => k.email === c.data.email);
+    if (!client) {
+      client = { id: nouvelId(), ...c.data, ...reglages, auth_user_id: null, sessions_revoquees_le: null, demo: false, created_at: maintenant() };
+      await depot().inserer("clients", client);
+    }
+
+    const reference = await depot().prochainNumero("dossiers", `BD-${x.data.periode_debut.slice(0, 4)}-`, 4);
+    const id = nouvelId();
+    await depot().inserer("dossiers", {
+      id, client_id: client.id, reference, request_id: x.data.request_id,
+      ville_depart: x.data.ville_depart, ville_arrivee: x.data.ville_arrivee, adresse_depart: x.data.adresse_depart, adresse_arrivee: x.data.adresse_arrivee,
+      periode_debut: x.data.periode_debut, periode_fin: x.data.periode_fin, portee: x.data.portee, mode_transport: x.data.mode_transport,
+      pays_destination: x.data.pays_destination, statut: x.data.statut, volume_m3: x.data.volume_m3, formule: x.data.formule, logement: x.data.logement,
+      compagnie: null, numero_conteneur: null, url_tracking: null, statut_conteneur: null, navire: null, port_depart: null, port_arrivee: null, eta: null,
+      cartons_non_necessaires: false, photo: x.data.photo, termine_le: null, avis_demande_le: null, created_at: maintenant(),
     });
+    // Le numéro de l'estimation reste le sien ; à défaut, celui du dossier.
+    await depot().inserer(
+      "devis",
+      devisImportes.map((v, i) => ({ id: nouvelId(), dossier_id: id, numero: numerosImportes[i] || `DV-${reference.slice(3)}-${i + 1}`, ...v })),
+    );
+    if (pdf) await deposerPourLEquipe(id, pdf, "Devis signé", "devis", equipe);
 
     let apercu: string | null = null;
-    if (entree.envoyerAcces) apercu = (await envoyerLienAuClient(client, { reference })).id;
-    return { ok: true, id, apercu: estDemo() ? apercu : null, message: `Dossier ${reference} créé.${entree.envoyerAcces ? " Lien d'accès envoyé." : ""}${avertissement}` };
+    let accesMessage = "";
+    if (entree.envoyerAcces) {
+      try {
+        apercu = (await envoyerLienAuClient(client, { reference })).id;
+        accesMessage = " Lien d'accès envoyé.";
+      } catch (e) {
+        accesMessage = ` Le lien d'accès n'est pas parti : ${e instanceof Error ? e.message : "erreur inconnue"}`;
+      }
+    }
+    return { ok: true, id, apercu: apercu && apercuDe(apercu), message: `Dossier ${reference} créé.${pdf ? " Devis déposé dans ses documents." : ""}${accesMessage}${avertissement}` };
   });
 }
 
@@ -137,11 +188,9 @@ export async function modifierDossier(id: string, entree: Record<string, unknown
   return garde(async () => {
     const x = dossierSchema.safeParse(entree);
     if (!x.success) return echec(erreursDe(x.error));
-    await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === id);
-      if (!dossier) throw new Error("Dossier introuvable.");
-      Object.assign(dossier, x.data, { request_id: x.data.request_id ?? dossier.request_id });
-    });
+    const dossier = await depot().trouver("dossiers", id);
+    if (!dossier) throw new Error("Dossier introuvable.");
+    if (!(await depot().modifier("dossiers", id, { ...x.data, request_id: x.data.request_id ?? dossier.request_id }))) throw new Error("Dossier introuvable.");
     return { ok: true, message: "Dossier enregistré." };
   });
 }
@@ -150,11 +199,7 @@ export async function modifierConteneur(id: string, entree: Record<string, unkno
   return garde(async () => {
     const x = conteneurSchema.safeParse(entree);
     if (!x.success) return echec(erreursDe(x.error));
-    await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === id);
-      if (!dossier) throw new Error("Dossier introuvable.");
-      Object.assign(dossier, x.data);
-    });
+    if (!(await depot().modifier("dossiers", id, x.data))) throw new Error("Dossier introuvable.");
     return { ok: true, message: "Suivi du conteneur enregistré." };
   });
 }
@@ -164,41 +209,45 @@ export async function modifierClient(dossierId: string, entree: Record<string, u
   return garde(async () => {
     const c = clientSchema.safeParse(entree);
     if (!c.success) return echec(erreursDe(c.error));
-    const r = await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === dossierId);
-      const client = dossier && m.clients.find((k) => k.id === dossier.client_id);
-      if (!client) throw new Error("Client introuvable.");
-      if (m.clients.some((k) => k.id !== client.id && k.email.toLowerCase() === c.data.email)) return "doublon";
-      const reglages = c.data.type === "particulier" ? { masquer_devis: false, masquer_factures: false } : {};
-      Object.assign(client, c.data, reglages);
-      return "ok";
-    });
-    if (r === "doublon") return echec({ email: "Cette adresse est déjà celle d'un autre client." });
+    const d = await lireDonnees();
+    const dossier = d.dossiers.find((y) => y.id === dossierId);
+    const client = dossier && d.clients.find((k) => k.id === dossier.client_id);
+    if (!client) throw new Error("Client introuvable.");
+    if (d.clients.some((k) => k.id !== client.id && k.email === c.data.email)) return echec({ email: "Cette adresse est déjà celle d'un autre client." });
+    // L'adresse de connexion suit l'adresse du client, si elle change — et jamais vers le compte de quelqu'un d'autre.
+    if (c.data.email !== client.email) {
+      const prise = await adresseRefusee(c.data.email);
+      if (prise) return echec({ email: prise });
+      if (!estDemo()) await changerAdresseDuCompte(client, c.data.email);
+    }
+    const reglages = c.data.type === "particulier" ? { masquer_devis: false, masquer_factures: false } : {};
+    await depot().modifier("clients", client.id, { ...c.data, ...reglages });
     return { ok: true, message: "Client enregistré : son espace est à jour." };
   });
 }
 
 export async function envoyerAcces(dossierId: string): Promise<Resultat> {
   return garde(async () => {
-    const d = await lireDonnees();
-    const dossier = d.dossiers.find((y) => y.id === dossierId);
-    const client = dossier && d.clients.find((k) => k.id === dossier.client_id);
+    const dossier = await depot().trouver("dossiers", dossierId);
+    const client = dossier && (await depot().trouver("clients", dossier.client_id));
     if (!dossier || !client) throw new Error("Dossier introuvable.");
     const n = await envoyerLienAuClient(client, { reference: dossier.reference });
-    return { ok: true, apercu: estDemo() ? n.id : null, message: `Lien d'accès ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}.` };
+    return { ok: true, apercu: apercuDe(n.id), message: `Lien d'accès ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}.` };
   });
 }
 
-/** Coupe toutes les sessions ouvertes du client : un lien transféré par erreur, un téléphone perdu. */
+/**
+ * Coupe toutes les sessions ouvertes du client — un lien transféré par
+ * erreur, un téléphone perdu — et les liens pas encore utilisés. Effet
+ * immédiat : la base ne rend plus rien à une session ouverte avant cet
+ * instant, même si son jeton n'a pas expiré.
+ */
 export async function revoquerSessions(dossierId: string): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === dossierId);
-      const client = dossier && m.clients.find((k) => k.id === dossier.client_id);
-      if (!client) throw new Error("Client introuvable.");
-      client.version_acces += 1;
-      m.jetons_acces = m.jetons_acces.filter((j) => j.client_id !== client.id);
-    });
+    const dossier = await depot().trouver("dossiers", dossierId);
+    if (!dossier) throw new Error("Client introuvable.");
+    await depot().modifier("clients", dossier.client_id, { sessions_revoquees_le: maintenant() });
+    await annulerLiens(dossier.client_id);
     return { ok: true, message: "Sessions coupées : le client devra demander un nouveau lien." };
   });
 }
@@ -212,11 +261,10 @@ export async function marquerRealise(dossierId: string): Promise<Resultat> {
     if (!dossier || !client) throw new Error("Dossier introuvable.");
     const dejaDemande = !!dossier.avis_demande_le;
     const avis = dejaDemande ? null : await outilMetier.demanderAvis(dossierId);
-    await modifierDonnees((m) => {
-      const x = m.dossiers.find((y) => y.id === dossierId)!;
-      x.statut = "termine";
-      x.termine_le = x.termine_le ?? maintenant();
-      if (!dejaDemande) x.avis_demande_le = maintenant();
+    await depot().modifier("dossiers", dossierId, {
+      statut: "termine",
+      termine_le: dossier.termine_le ?? maintenant(),
+      ...(dejaDemande ? {} : { avis_demande_le: maintenant() }),
     });
     if (!dejaDemande) {
       await notifier.envoyer({
@@ -236,7 +284,7 @@ export async function deposerDocumentEquipe(dossierId: string, fd: FormData): Pr
     const f = fd.get("fichier");
     const fichier = f instanceof File ? f : null;
     const libelle = String(fd.get("libelle") ?? "").trim().slice(0, 120);
-    const categorie = String(fd.get("categorie") ?? "autre");
+    const categorie = String(fd.get("categorie") ?? "autre").slice(0, 40);
     const erreurs: Erreurs = {};
     if (libelle.length < 3) erreurs.libelle = "Donnez un nom au document (3 caractères au moins).";
     const e = verifierFichier(fichier, TYPES_DOCUMENTS);
@@ -247,30 +295,22 @@ export async function deposerDocumentEquipe(dossierId: string, fd: FormData): Pr
     const dossier = d.dossiers.find((y) => y.id === dossierId);
     const client = dossier && d.clients.find((k) => k.id === dossier.client_id);
     if (!dossier || !client) throw new Error("Dossier introuvable.");
-    const chemin = cheminFichier(dossierId, fichier!.name);
-    await deposerFichier(chemin, await octets(fichier!), fichier!.type);
-    await modifierDonnees((m) => {
-      m.documents.push({
-        id: nouvelId("doc"), dossier_id: dossierId, categorie, libelle, source: "equipe", chemin, nom_fichier: fichier!.name,
-        taille_octets: fichier!.size, mime: fichier!.type, requirement_id: null, created_by: equipe.nom, created_at: maintenant(),
-      });
-    });
+    await deposerPourLEquipe(dossierId, fichier!, libelle, categorie, equipe);
     const n = await notifier.envoyer({
       dossier_id: dossierId, canal: "email", modele: "document_depose", destinataire: client.email,
       payload: { salutation: salutation(client), document: libelle, chemin: `/espace-client/${dossier.reference}/documents#equipe`, signature: signatureDe(conseillerDe(d, client.conseiller_id)) },
     });
-    return { ok: true, apercu: estDemo() ? n.id : null, message: `« ${libelle} » déposé : le client est prévenu par e-mail${n.statut === "envoyee" ? "" : " (journalisé)"}.` };
+    return { ok: true, apercu: apercuDe(n.id), message: `« ${libelle} » déposé : le client est prévenu par e-mail${n.statut === "envoyee" ? "" : " (journalisé)"}.` };
   });
 }
 
 export async function supprimerDocument(documentId: string): Promise<Resultat> {
   return garde(async () => {
-    const chemin = await modifierDonnees((m) => {
-      const doc = m.documents.find((x) => x.id === documentId);
-      m.documents = m.documents.filter((x) => x.id !== documentId);
-      return doc?.chemin ?? null;
-    });
-    if (chemin) await retirerFichier(chemin);
+    const doc = await depot().trouver("documents", documentId);
+    if (doc) {
+      await depot().supprimer("documents", documentId);
+      await retirerFichier(doc.chemin);
+    }
     return { ok: true, message: "Document retiré." };
   });
 }
@@ -283,16 +323,14 @@ export async function ajouterDevis(dossierId: string, entree: { formule: string;
     if (!r.success) return echec(erreursDe(r.error));
     const v = r.data;
     const ht = Math.round(v.lignes.reduce((n, l) => n + l.montant_ht, 0) * 100) / 100;
-    await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === dossierId);
-      if (!dossier) throw new Error("Dossier introuvable.");
-      const rang = m.devis.filter((x) => x.dossier_id === dossierId).length + 1;
-      const numero = `DV-${dossier.reference.slice(3)}-${rang}`;
-      m.devis.push({
-        id: nouvelId("dv"), dossier_id: dossierId, numero, formule: v.formule, lignes: v.lignes, inclus: v.inclus,
-        montant_ht: ht, montant_ttc: Math.round(ht * 120) / 100, arrhes_pourcentage: v.arrhes_pourcentage, statut: v.statut,
-        emis_le: aujourdhui(), valide_jusqu_au: v.valide_jusqu_au, accepte_le: v.statut === "accepte" ? aujourdhui() : null,
-      });
+    const d = await lireDonnees();
+    const dossier = d.dossiers.find((y) => y.id === dossierId);
+    if (!dossier) throw new Error("Dossier introuvable.");
+    const rang = d.devis.filter((x) => x.dossier_id === dossierId).length + 1;
+    await depot().inserer("devis", {
+      id: nouvelId(), dossier_id: dossierId, numero: `DV-${dossier.reference.slice(3)}-${rang}`, formule: v.formule, lignes: v.lignes, inclus: v.inclus,
+      montant_ht: ht, montant_ttc: Math.round(ht * 120) / 100, arrhes_pourcentage: v.arrhes_pourcentage, statut: v.statut,
+      emis_le: aujourdhui(), valide_jusqu_au: v.valide_jusqu_au, accepte_le: v.statut === "accepte" ? aujourdhui() : null,
     });
     return { ok: true, message: "Devis ajouté : il apparaît dans l'espace du client." };
   });
@@ -301,12 +339,9 @@ export async function ajouterDevis(dossierId: string, entree: { formule: string;
 export async function changerStatutDevis(devisId: string, statut: StatutDevis): Promise<Resultat> {
   return garde(async () => {
     if (!["envoye", "accepte", "refuse", "expire"].includes(statut)) throw new Error("Statut inconnu.");
-    await modifierDonnees((m) => {
-      const v = m.devis.find((x) => x.id === devisId);
-      if (!v) throw new Error("Devis introuvable.");
-      v.statut = statut;
-      v.accepte_le = statut === "accepte" ? (v.accepte_le ?? aujourdhui()) : null;
-    });
+    const v = await depot().trouver("devis", devisId);
+    if (!v) throw new Error("Devis introuvable.");
+    await depot().modifier("devis", devisId, { statut, accepte_le: statut === "accepte" ? (v.accepte_le ?? aujourdhui()) : null });
     return { ok: true, message: "Devis mis à jour." };
   });
 }
@@ -315,15 +350,13 @@ export async function ajouterFacture(dossierId: string, entree: Record<string, u
   return garde(async () => {
     const r = factureSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
-    await modifierDonnees((m) => {
-      const dossier = m.dossiers.find((y) => y.id === dossierId);
-      if (!dossier) throw new Error("Dossier introuvable.");
-      const retenu = m.devis.filter((x) => x.dossier_id === dossierId && x.statut === "accepte").sort((a, b) => b.emis_le.localeCompare(a.emis_le))[0];
-      m.factures.push({
-        id: nouvelId("fa"), dossier_id: dossierId, devis_id: r.data.type === "garde_meubles" ? null : (retenu?.id ?? null), numero: prochainNumeroFacture(m),
-        type: r.data.type, libelle: r.data.libelle, montant_ttc: r.data.montant_ttc, statut: "a_payer", emise_le: aujourdhui(), echeance: r.data.echeance,
-        periode: r.data.periode, payee_le: null, paiement_ref: null,
-      });
+    const d = await lireDonnees();
+    if (!d.dossiers.some((y) => y.id === dossierId)) throw new Error("Dossier introuvable.");
+    const retenu = d.devis.filter((x) => x.dossier_id === dossierId && x.statut === "accepte").sort((a, b) => b.emis_le.localeCompare(a.emis_le))[0];
+    await depot().inserer("factures", {
+      id: nouvelId(), dossier_id: dossierId, devis_id: r.data.type === "garde_meubles" ? null : (retenu?.id ?? null), numero: await prochainNumeroFacture(),
+      type: r.data.type, libelle: r.data.libelle, montant_ttc: r.data.montant_ttc, statut: "a_payer", emise_le: aujourdhui(), echeance: r.data.echeance,
+      periode: r.data.periode, payee_le: null, paiement_ref: null,
     });
     return { ok: true, message: "Facture émise : le client peut la régler en ligne." };
   });
@@ -332,11 +365,9 @@ export async function ajouterFacture(dossierId: string, entree: Record<string, u
 /** Un règlement reçu hors ligne (virement, chèque). */
 export async function marquerFacturePayee(factureId: string): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      const f = m.factures.find((x) => x.id === factureId);
-      if (!f) throw new Error("Facture introuvable.");
-      Object.assign(f, { statut: "payee", payee_le: aujourdhui(), paiement_ref: f.paiement_ref ?? "HORS-LIGNE" });
-    });
+    const f = await depot().trouver("factures", factureId);
+    if (!f) throw new Error("Facture introuvable.");
+    await depot().modifier("factures", factureId, { statut: "payee", payee_le: aujourdhui(), paiement_ref: f.paiement_ref ?? "HORS-LIGNE" });
     return { ok: true, message: "Facture marquée réglée." };
   });
 }
@@ -347,20 +378,16 @@ export async function enregistrerPiece(id: string | null, entree: Record<string,
   return garde(async () => {
     const r = pieceSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
-    await modifierDonnees((m) => {
-      const existante = id ? m.document_requirements.find((x) => x.id === id) : null;
-      if (existante) Object.assign(existante, r.data);
-      else m.document_requirements.push({ id: nouvelId("rq"), ...r.data });
-    });
+    const existe = id ? await depot().trouver("document_requirements", id) : null;
+    if (existe) await depot().modifier("document_requirements", existe.id, r.data);
+    else await depot().inserer("document_requirements", { id: nouvelId(), ...r.data });
     return { ok: true, message: `« ${r.data.libelle} » enregistrée : les listes des dossiers concernés sont à jour.` };
   });
 }
 
 export async function supprimerPiece(id: string): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      m.document_requirements = m.document_requirements.filter((x) => x.id !== id);
-    });
+    await depot().supprimer("document_requirements", id);
     return { ok: true, message: "Pièce retirée des listes." };
   });
 }
@@ -369,15 +396,13 @@ export async function supprimerPiece(id: string): Promise<Resultat> {
 
 export async function enregistrerNbCartons(valeurs: Record<string, number | null>): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      for (const [id, n] of Object.entries(valeurs)) {
-        const l = m.livraisons_cartons.find((x) => x.id === id);
-        if (!l) continue;
-        if (n !== null && (!Number.isInteger(n) || n < 0 || n > 500)) continue;
-        l.nb_cartons = n || null;
-        if (n && l.statut === "demandee") l.statut = "confirmee";
-      }
-    });
+    const d = await lireDonnees();
+    for (const [id, n] of Object.entries(valeurs)) {
+      const l = d.livraisons_cartons.find((x) => x.id === id);
+      if (!l) continue;
+      if (n !== null && (!Number.isInteger(n) || n < 0 || n > 500)) continue;
+      await depot().modifier("livraisons_cartons", id, { nb_cartons: n || null, ...(n && l.statut === "demandee" ? { statut: "confirmee" as const } : {}) });
+    }
     return { ok: true, message: "Nombres de cartons enregistrés." };
   });
 }
@@ -398,9 +423,8 @@ export async function envoyerCreneaux(samedi: string): Promise<Resultat> {
 
 export async function marquerCartonsLivres(samedi: string): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      for (const l of m.livraisons_cartons) if (l.date_samedi === samedi && l.nb_cartons) l.statut = "livree";
-    });
+    const d = await lireDonnees();
+    for (const l of d.livraisons_cartons) if (l.date_samedi === samedi && l.nb_cartons && l.statut !== "livree") await depot().modifier("livraisons_cartons", l.id, { statut: "livree" });
     return { ok: true, message: "Livraisons du samedi marquées livrées." };
   });
 }
@@ -410,11 +434,7 @@ export async function marquerCartonsLivres(samedi: string): Promise<Resultat> {
 export async function changerStatutSav(id: string, statut: StatutSav): Promise<Resultat> {
   return garde(async () => {
     if (!["recue", "en_analyse", "cloturee"].includes(statut)) throw new Error("Statut inconnu.");
-    await modifierDonnees((m) => {
-      const s = m.sav_declarations.find((x) => x.id === id);
-      if (!s) throw new Error("Déclaration introuvable.");
-      s.statut = statut;
-    });
+    if (!(await depot().modifier("sav_declarations", id, { statut }))) throw new Error("Déclaration introuvable.");
     return { ok: true, message: "Déclaration mise à jour : le client voit le nouveau statut." };
   });
 }
@@ -425,21 +445,17 @@ export async function ajouterConseiller(entree: Record<string, unknown>): Promis
   return garde(async () => {
     const r = conseillerSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
-    await modifierDonnees((m) => {
-      m.conseillers.push({ id: nouvelId("eq"), ...r.data });
-    });
+    await depot().inserer("conseillers", { id: nouvelId(), ...r.data, demo: false });
     return { ok: true, message: `${r.data.prenom} ${r.data.nom} ajouté(e).` };
   });
 }
 
 export async function supprimerConseiller(id: string): Promise<Resultat> {
   return garde(async () => {
-    const r = await modifierDonnees((m) => {
-      if (m.clients.some((c) => c.conseiller_id === id)) return false;
-      m.conseillers = m.conseillers.filter((c) => c.id !== id);
-      return true;
-    });
-    return r ? { ok: true, message: "Conseiller retiré." } : { ok: false, erreur: "Ce conseiller suit encore des clients : réattribuez-les d'abord." };
+    const d = await lireDonnees();
+    if (d.clients.some((c) => c.conseiller_id === id)) return { ok: false, erreur: "Ce conseiller suit encore des clients : réattribuez-les d'abord." };
+    await depot().supprimer("conseillers", id);
+    return { ok: true, message: "Conseiller retiré." };
   });
 }
 
@@ -447,9 +463,8 @@ export async function ajouterTuto(entree: Record<string, unknown>): Promise<Resu
   return garde(async () => {
     const r = tutoSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
-    await modifierDonnees((m) => {
-      m.tutos.push({ id: nouvelId("tu"), ...r.data, duree_min: Math.max(1, r.data.etapes.length), image: "/espace-client/interieur-2.jpg", ordre: m.tutos.length + 1, actif: true });
-    });
+    const d = await lireDonnees();
+    await depot().inserer("tutos", { id: nouvelId(), ...r.data, duree_min: Math.max(1, r.data.etapes.length), image: "/espace-client/interieur-2.jpg", ordre: d.tutos.length + 1, actif: true });
     return { ok: true, message: "Tuto publié dans tous les espaces." };
   });
 }
@@ -458,19 +473,16 @@ export async function ajouterService(entree: Record<string, unknown>): Promise<R
   return garde(async () => {
     const r = serviceSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
-    await modifierDonnees((m) => {
-      m.services.push({ id: nouvelId("sv"), ...r.data, ordre: m.services.length + 1, actif: true });
-    });
+    const d = await lireDonnees();
+    await depot().inserer("services", { id: nouvelId(), ...r.data, ordre: d.services.length + 1, actif: true });
     return { ok: true, message: "Service ajouté à « Mes services complémentaires »." };
   });
 }
 
 export async function basculerContenu(type: "tutos" | "services", id: string): Promise<Resultat> {
   return garde(async () => {
-    await modifierDonnees((m) => {
-      const ligne = (type === "tutos" ? m.tutos : m.services).find((x) => x.id === id);
-      if (ligne) ligne.actif = !ligne.actif;
-    });
+    const ligne = await depot().trouver(type, id);
+    if (ligne) await depot().modifier(type, id, { actif: !ligne.actif });
     return { ok: true };
   });
 }
