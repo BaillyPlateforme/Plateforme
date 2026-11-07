@@ -11,6 +11,7 @@ import * as B from "@/crm/actions2";
 import { litiges as getLitiges } from "@/crm/lib/data2";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
 import { EspaceClient } from "@/crm/components/EspaceClient";
+import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
         {d.statut === "perdu"
           ? <form action={A.rouvrir.bind(null, id)}><button>Rouvrir</button></form>
           : d.statut !== "termine" && <form action={A.marquerPerdu.bind(null, id)}><button data-ton="contour">Marquer perdu</button></form>}
+        <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
       </Bandeau>
 
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
