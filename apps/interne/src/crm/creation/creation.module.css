@@ -1,0 +1,1264 @@
+/*
+ * La création de dossier, dans le design « Quantum » modernisé : cartes
+ * blanches arrondies, ombres douces teintées d'indigo, indigo profond et
+ * accents violets ; un champ prérempli par une reprise est lavande.
+ */
+.ecran {
+  --indigo: #4b2fe0;
+  --indigo-fonce: #2e1f9e;
+  --violet: #7a52ff;
+  --vert: #14c27d;
+  --ambre: #f59e0b;
+  --doux: #ece8ff;
+  --encre: #14121f;
+  --gris: #6f6c80;
+  --filet: #e8e6ef;
+  --ombre: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 54px -34px rgba(46, 31, 158, 0.48);
+
+  display: grid;
+  gap: 20px;
+  color: var(--encre);
+}
+
+/* Les touches de clavier, discrètes. */
+.touche {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #e3dff2;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: #fff;
+  color: #5b5870;
+  font: 650 11px/1 var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ─────────────── Partir de… (en tête du rail) ─────────────── */
+
+.pastille {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: #fff;
+  font-style: normal;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  box-shadow: 0 10px 20px -12px rgba(75, 47, 224, 0.9);
+}
+.pastille[data-ton="mien"] {
+  background: linear-gradient(135deg, #10a86b, var(--vert));
+  box-shadow: 0 10px 20px -12px rgba(16, 168, 107, 0.9);
+}
+.pastille[data-ton="agence"] {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  box-shadow: 0 10px 20px -12px rgba(14, 165, 233, 0.9);
+}
+.pastille[data-ton="proche"] {
+  background: radial-gradient(circle at 30% 25%, #b79bff, var(--violet) 45%, var(--indigo) 80%);
+}
+.sources {
+  display: grid;
+  gap: 6px;
+}
+.source {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #ebe8f5;
+  border-radius: 16px;
+  background: #fbfaff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.2s, background-color 0.15s;
+}
+.source:hover:not(:disabled) {
+  border-color: #cfc3ff;
+  box-shadow: 0 14px 28px -22px rgba(75, 47, 224, 0.7);
+}
+.source[aria-pressed="true"] {
+  border-color: var(--indigo);
+  background: linear-gradient(180deg, #f6f3ff, #fff 80%);
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.1);
+}
+.source:disabled {
+  cursor: default;
+}
+.source:disabled .pastille {
+  filter: grayscale(0.6);
+  opacity: 0.55;
+}
+.source .touche {
+  margin-top: 1px;
+}
+.sourceCorps {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.sourceCorps b {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+.sourceCorps > span {
+  overflow: hidden;
+  color: var(--gris);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sourceCorps .sourceTrajet {
+  color: #3d3a52;
+  font-weight: 600;
+}
+.source:focus-visible,
+.modele:focus-visible,
+.proche:focus-visible,
+.creer:focus-visible {
+  outline: 3px solid rgba(75, 47, 224, 0.35);
+  outline-offset: 2px;
+}
+
+.groupeTete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 16px 2px 7px;
+}
+.groupeTete span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #9a97ad;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.groupeTete a,
+.sansModele a {
+  color: var(--indigo);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.groupeTete a:hover,
+.sansModele a:hover {
+  text-decoration: underline;
+}
+.sansModele {
+  margin: 0;
+  color: var(--gris);
+  font-size: 13px;
+}
+.modeles {
+  display: grid;
+  gap: 2px;
+  margin: 0 -6px;
+  padding: 0;
+  list-style: none;
+}
+.modele {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 38px;
+  padding: 0 8px 0 6px;
+  border-radius: 12px;
+  color: #2a2740;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+.modele:hover {
+  background: #f4f1ff;
+}
+.modeleIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  background: #fff5e0;
+  color: #d97706;
+  font-style: normal;
+}
+.modele[aria-pressed="true"] {
+  background: var(--indigo);
+  color: #fff;
+}
+.modele[aria-pressed="true"] .modeleIcone {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+.modele[aria-pressed="true"] .modeleUsage {
+  color: rgba(255, 255, 255, 0.75);
+}
+.modele[aria-pressed="true"] .touche {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.modeleNom {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.modeleUsage {
+  color: #9a97ad;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+/* ─────────────── Le formulaire et son rail ─────────────── */
+
+.grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+}
+.formulaire {
+  position: relative;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--ombre);
+}
+
+/* Le bandeau de reprise : d'où vient le préremplissage, ce qu'il a touché, et l'annulation. */
+.origine {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 22px 0;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid #ddd3ff;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #f4f0ff, #fbfaff);
+  animation: apparition 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.origineIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  color: #fff;
+  font-style: normal;
+}
+.origineTexte {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.origineTexte b {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--indigo-fonce);
+}
+.origineTexte span {
+  color: var(--gris);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.annuler {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d9cfff;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--indigo-fonce);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.15s;
+}
+.annuler:hover {
+  background: #f1edff;
+}
+
+.section {
+  padding: 20px 28px 4px;
+}
+.section + .section {
+  margin-top: 8px;
+  border-top: 1px solid #f0eef6;
+}
+.sectionTete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.sectionTete h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+}
+.sectionTete p {
+  margin: 0 0 0 4px;
+  color: var(--gris);
+  font-size: 13px;
+}
+.numero {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--doux);
+  color: var(--indigo);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.segment {
+  margin-left: auto;
+  min-width: 0;
+}
+.facultatif .numero {
+  background: #f3f2f7;
+  color: var(--gris);
+}
+
+.ligne {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+.champs {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px 14px;
+  margin-bottom: 16px;
+}
+.w3 { grid-column: span 3; }
+.w4 { grid-column: span 4; }
+.w5 { grid-column: span 5; }
+.w7 { grid-column: span 7; }
+.w12 { grid-column: span 12; }
+
+.champ {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.etiquette {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #55526a;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.marqueRepris {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--doux);
+  color: var(--indigo);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Les champs : sur la feuille du CRM, il faut deux classes pour l'emporter sur `input[type=…]`. */
+.formulaire .saisie {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fbfaff;
+  color: var(--encre);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 550;
+  outline: 0;
+  box-shadow: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.formulaire .saisie::placeholder {
+  color: #aaa7bb;
+  font-weight: 500;
+}
+.formulaire .saisie:hover {
+  border-color: #dcd8ea;
+}
+.formulaire .saisie:focus {
+  border-color: #a996ff;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.1);
+}
+.formulaire .repris {
+  border-color: #d6caff;
+  background: #f5f2ff;
+}
+.formulaire .enErreur {
+  border-color: #f4a3b5;
+  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.08);
+}
+.formulaire select.saisie {
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236f6c80' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 13px;
+  cursor: pointer;
+}
+.formulaire .zone {
+  height: auto;
+  min-height: 74px;
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+  field-sizing: content;
+}
+.suffixe {
+  position: relative;
+  display: block;
+}
+.suffixe em {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gris);
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 650;
+  pointer-events: none;
+}
+.suffixe .saisie {
+  padding-right: 42px;
+}
+
+/* Un choix : des pilules, une seule tabulation pour le groupe. */
+.choix {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.choix button {
+  height: 38px;
+  padding: 0 15px;
+  border: 1.5px solid var(--filet);
+  border-radius: 999px;
+  background: #fff;
+  color: #4a475c;
+  font-size: 13.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.choix button:hover {
+  border-color: #cfc3ff;
+  color: var(--indigo-fonce);
+}
+.choix button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.16);
+  border-color: #a996ff;
+}
+.choix button[aria-checked="true"] {
+  border-color: var(--indigo);
+  background: var(--indigo);
+  color: #fff;
+  box-shadow: 0 10px 20px -14px rgba(75, 47, 224, 0.95);
+}
+.choixRepris button[aria-checked="true"] {
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+}
+/* La civilité occupe sa colonne, à la hauteur des champs voisins. */
+.choixPlein {
+  flex-wrap: nowrap;
+}
+.choixPlein button {
+  flex: 1;
+  height: 46px;
+  padding: 0 8px;
+  border-radius: 14px;
+}
+
+/* Le trajet : départ → arrivée. */
+.trajet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.fleche {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 30px;
+  border-radius: 50%;
+  background: var(--doux);
+  color: var(--indigo);
+  font-style: normal;
+}
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: #f3f2f7;
+  color: #4a475c;
+  font-size: 12px;
+  font-weight: 600;
+}
+.detailRepris {
+  background: var(--doux);
+  color: var(--indigo-fonce);
+}
+.detail button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.detail button:hover {
+  background: rgba(46, 31, 158, 0.12);
+  opacity: 1;
+}
+
+.mois {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px;
+  padding-bottom: 6px;
+}
+.moisPuce {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #f3f2f7;
+  color: #4a475c;
+  font-size: 12.5px;
+  font-weight: 650;
+  transition: background-color 0.15s, color 0.15s;
+}
+.moisPuce:hover {
+  background: var(--doux);
+  color: var(--indigo-fonce);
+}
+.moisPuce[aria-pressed="true"] {
+  background: var(--indigo);
+  color: #fff;
+}
+
+/* Les options : deux bascules. */
+.bascules {
+  display: flex;
+  gap: 8px;
+}
+.formulaire .bascule {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fbfaff;
+  color: #4a475c;
+  font-size: 13.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.bascule i {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #cfcbe0;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+  font-style: normal;
+}
+.bascule i svg {
+  width: 14px;
+  height: 14px;
+}
+.formulaire .bascule[aria-pressed="true"] {
+  border-color: var(--indigo);
+  background: #f6f3ff;
+  color: var(--indigo-fonce);
+}
+.bascule[aria-pressed="true"] i {
+  border-color: var(--indigo);
+  background: var(--indigo);
+}
+.bascule:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.16);
+}
+
+/* Les repères : client déjà connu (indigo), doublon possible (ambre). */
+.alerte {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid #ddd3ff;
+  border-radius: 16px;
+  background: #f7f5ff;
+  animation: apparition 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.alerte[data-ton="doublon"] {
+  border-color: #fde3a7;
+  background: #fffaf0;
+}
+.alerteIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--indigo);
+  font-style: normal;
+  box-shadow: 0 6px 14px -10px rgba(46, 31, 158, 0.6);
+}
+.alerte[data-ton="doublon"] .alerteIcone {
+  color: #b45309;
+}
+.alerteTexte {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.alerteTexte b {
+  font-size: 13.5px;
+  font-weight: 750;
+}
+.alerteTexte span {
+  color: var(--gris);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.alerteActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.boutonPlein,
+.boutonDoux {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.15s, transform 0.15s;
+}
+.boutonPlein {
+  background: var(--indigo);
+  color: #fff;
+  box-shadow: 0 10px 20px -14px rgba(75, 47, 224, 0.95);
+}
+.boutonPlein:hover {
+  background: var(--indigo-fonce);
+}
+.boutonDoux {
+  border: 1px solid #d9cfff;
+  background: #fff;
+  color: var(--indigo-fonce);
+}
+.boutonDoux:hover {
+  background: #f1edff;
+}
+.boutonLien {
+  height: 34px;
+  padding: 0 8px;
+  color: var(--gris);
+  font-size: 13px;
+  font-weight: 650;
+}
+.boutonLien:hover {
+  color: var(--encre);
+}
+
+/* Le client rattaché : une carte à la place des champs d'identité. */
+.clientRattache {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid #ddd3ff;
+  border-radius: 18px;
+  background: linear-gradient(100deg, #f4f0ff, #fff);
+}
+.clientRattache > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.clientRattache b {
+  font-size: 15px;
+  font-weight: 750;
+}
+.clientRattache span {
+  overflow: hidden;
+  color: var(--gris);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #b79bff, var(--violet) 50%, var(--indigo));
+  color: #fff;
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 800;
+}
+.marqueRattache {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--indigo);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.marqueRattache svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Le pied : ce qui manque, et la création. Collé au bas de l'écran tant que la carte est visible. */
+.pied {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 10px;
+  padding: 16px 22px 16px 28px;
+  border-top: 1px solid #f0eef6;
+  border-radius: 0 0 24px 24px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(1.4) blur(12px);
+}
+.progression {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.points {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.points i {
+  width: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e7e4f1;
+  transition: background-color 0.2s;
+}
+.points i[data-ok] {
+  background: linear-gradient(90deg, var(--indigo), var(--violet));
+}
+.manque {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gris);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.complet {
+  color: #0d8a5a;
+  font-weight: 700;
+}
+.erreur {
+  color: #be123c;
+  font-weight: 700;
+}
+.aidePied {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--gris);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.aidePied .touche + .touche,
+.aidePied .touche:nth-of-type(2) {
+  margin-left: 8px;
+}
+.creer {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  height: 48px;
+  padding: 0 10px 0 22px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, var(--indigo-fonce), var(--indigo) 55%, var(--violet));
+  color: #fff;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  box-shadow: 0 16px 30px -16px rgba(75, 47, 224, 0.95);
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.15s;
+}
+.creer:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 20px 34px -16px rgba(75, 47, 224, 1);
+}
+.creer:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.creer kbd {
+  display: inline-grid;
+  place-items: center;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: 700 12px var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+}
+
+/* ─────────────── Le rail ─────────────── */
+
+.rail {
+  display: grid;
+  gap: 16px;
+}
+.carte {
+  padding: 20px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--ombre);
+}
+.carteTete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.carteTete h3,
+.aide h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+.carteTete p {
+  margin: 1px 0 0;
+  color: var(--gris);
+  font-size: 12.5px;
+}
+/* Les plus proches : des lignes compactes, en tête de « Partir de… ». */
+.prochesBloc .groupeTete {
+  margin-top: 4px;
+}
+.prochesBloc .groupeTete span {
+  color: var(--violet);
+}
+.prochesVide {
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px dashed #ddd5f7;
+  border-radius: 14px;
+  color: var(--gris);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.proches {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.proche {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px 9px 9px;
+  border: 1px solid #e3dcff;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #f7f4ff, #fff 70%);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: apparition 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: border-color 0.15s, box-shadow 0.2s;
+}
+.proche:hover {
+  border-color: #b9a8ff;
+  box-shadow: 0 14px 28px -22px rgba(75, 47, 224, 0.75);
+}
+.proche[aria-pressed="true"] {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.1);
+}
+.proche .touche {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+/* Le score : un anneau qui se remplit. */
+.score {
+  --p: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: conic-gradient(var(--indigo) calc(var(--p) * 1%), #e9e5f7 0);
+}
+.score::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #fff;
+}
+.score b {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.score small {
+  margin: 0 0 0 1px;
+  color: var(--gris);
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1;
+}
+.procheCorps {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+.procheRef {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+.procheRef b {
+  color: var(--indigo-fonce);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.procheRef span {
+  overflow: hidden;
+  color: var(--gris);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.procheTrajet {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.raisons {
+  color: var(--violet);
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+/* Sous le trajet, seulement sur écran étroit. */
+.prochesFormulaire {
+  display: none;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.aide dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px 12px;
+  align-items: center;
+  margin: 14px 0 0;
+}
+.aide dt {
+  justify-self: start;
+}
+.aide dd {
+  margin: 0;
+  color: #4a475c;
+  font-size: 12.5px;
+}
+
+/* ─────────────── Écrans plus étroits ─────────────── */
+
+@media (max-width: 1280px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+  .aidePied {
+    display: none;
+  }
+  .segment {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 1080px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Le rail se défait : « Partir de… » passe avant le formulaire, les plus proches après. */
+  .rail {
+    display: contents;
+  }
+  .partir {
+    order: -1;
+  }
+  .aide {
+    display: none;
+  }
+  .prochesRail {
+    display: none;
+  }
+  .prochesFormulaire {
+    display: block;
+    margin: 4px 28px 8px;
+  }
+}
+@media (max-width: 760px) {
+  .ecran {
+    gap: 14px;
+  }
+  .grille {
+    gap: 14px;
+  }
+  .carte {
+    padding: 16px;
+    border-radius: 20px;
+  }
+  .partir {
+    padding-right: 0;
+  }
+  .partir .carteTete {
+    margin-bottom: 10px;
+  }
+  /* « Partir de… » défile à l'horizontale, au pouce. */
+  .sources,
+  .modeles {
+    display: flex;
+    gap: 8px;
+    margin: 0;
+    padding: 0 16px 4px 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+  .source {
+    flex: 0 0 78%;
+    scroll-snap-align: start;
+  }
+  .source:first-child {
+    flex-basis: 58%;
+  }
+  .sourceCorps > span {
+    display: -webkit-box;
+    white-space: normal;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .partir .groupeTete {
+    margin: 12px 16px 6px 2px;
+  }
+  .prochesFormulaire {
+    margin: 4px 16px 8px;
+  }
+  .modeles li {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+  .modele {
+    height: 36px;
+    padding: 0 12px 0 5px;
+    border: 1px solid #ebe8f5;
+    border-radius: 999px;
+    background: #fbfaff;
+    white-space: nowrap;
+  }
+  .modeleNom {
+    overflow: visible;
+  }
+  .touche {
+    display: none;
+  }
+  .formulaire {
+    border-radius: 20px;
+  }
+  .origine {
+    flex-wrap: wrap;
+    margin: 14px 14px 0;
+  }
+  .annuler {
+    margin-left: 48px;
+  }
+  .section {
+    padding: 18px 16px 4px;
+  }
+  .sectionTete p {
+    flex-basis: 100%;
+    margin: -4px 0 0 36px;
+  }
+  .segment {
+    margin-right: -16px;
+  }
+  .w3,
+  .w4,
+  .w5,
+  .w7 {
+    grid-column: span 12;
+  }
+  .choix:not(.choixPlein) {
+    flex-wrap: nowrap;
+    padding-right: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .trajet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fleche {
+    display: none;
+  }
+  .mois {
+    flex-wrap: nowrap;
+    margin-right: -16px;
+    padding: 0 16px 0 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .moisPuce {
+    flex-shrink: 0;
+  }
+  .bascules {
+    flex-wrap: wrap;
+  }
+  .alerte,
+  .clientRattache {
+    flex-wrap: wrap;
+  }
+  .alerteActions {
+    justify-content: flex-start;
+    width: 100%;
+    padding-left: 46px;
+  }
+  .marqueRattache {
+    display: none;
+  }
+  .pied {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 14px 12px;
+    border-radius: 0 0 20px 20px;
+  }
+  .progression {
+    flex-basis: 100%;
+  }
+  .manque {
+    font-size: 12px;
+  }
+  .creer {
+    flex: 1;
+    justify-content: center;
+    padding: 0 18px;
+  }
+  .creer kbd {
+    display: none;
+  }
+}

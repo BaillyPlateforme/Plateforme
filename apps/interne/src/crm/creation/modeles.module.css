@@ -1,0 +1,636 @@
+/*
+ * Les modèles de dossier : leur page (des cartes) et leur éditeur (une
+ * fenêtre), dans le design « Quantum » modernisé.
+ */
+.page,
+.fenetre {
+  --indigo: #4b2fe0;
+  --indigo-fonce: #2e1f9e;
+  --violet: #7a52ff;
+  --vert: #14c27d;
+  --ambre: #f59e0b;
+  --doux: #ece8ff;
+  --encre: #14121f;
+  --gris: #6f6c80;
+  --filet: #e8e6ef;
+  --ombre: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 54px -34px rgba(46, 31, 158, 0.48);
+  color: var(--encre);
+}
+
+/* ─────────────── Boutons ─────────────── */
+
+.principal,
+.secondaire,
+.discret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background-color 0.15s;
+}
+.principal {
+  border: 0;
+  background: linear-gradient(135deg, var(--indigo-fonce), var(--indigo) 55%, var(--violet));
+  color: #fff;
+  box-shadow: 0 14px 26px -16px rgba(75, 47, 224, 0.95);
+}
+.principal:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.principal:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+.secondaire {
+  border: 1px solid #d9cfff;
+  background: #fff;
+  color: var(--indigo-fonce);
+}
+.secondaire:hover {
+  background: #f1edff;
+}
+.discret {
+  border: 0;
+  background: transparent;
+  color: var(--gris);
+}
+.discret:hover {
+  color: var(--encre);
+  background: #f4f2fb;
+}
+
+/* ─────────────── La page ─────────────── */
+
+.message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 0 0 16px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 14px;
+  background: #e8faf2;
+  color: #0b6b46;
+  font-size: 13.5px;
+  font-weight: 650;
+  animation: apparition 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.message button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  color: inherit;
+  opacity: 0.7;
+}
+.message button:hover {
+  background: rgba(11, 107, 70, 0.1);
+  opacity: 1;
+}
+@keyframes apparition {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.carte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 20px 16px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--ombre);
+  transition: transform 0.18s, box-shadow 0.2s;
+}
+.carte:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 30px 60px -34px rgba(46, 31, 158, 0.6);
+}
+.carteTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.carteIcone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--ambre), #ffb547);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px rgba(245, 158, 11, 0.9);
+}
+.demo {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #fff5e0;
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 750;
+}
+.carte h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.description {
+  margin: 0;
+  color: var(--gris);
+  font-size: 13px;
+}
+.prerempli {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+.prerempli > span {
+  margin-right: 3px;
+  color: #9a97ad;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.prerempli b {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--doux);
+  color: var(--indigo-fonce);
+  font-size: 12px;
+  font-weight: 650;
+}
+.prerempli em {
+  color: var(--gris);
+  font-size: 12.5px;
+}
+.observations {
+  display: -webkit-box;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: #4a475c;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.cartePied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #f0eef6;
+}
+.usage {
+  min-width: 0;
+  color: var(--gris);
+  font-size: 12.5px;
+}
+.carteActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.utiliser {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px 0 14px;
+  border-radius: 11px;
+  background: var(--doux);
+  color: var(--indigo-fonce);
+  font-size: 13.5px;
+  font-weight: 750;
+  transition: background-color 0.15s;
+}
+.utiliser:hover {
+  background: #ddd3ff;
+}
+.icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 9px;
+  border-radius: 11px;
+  color: var(--gris);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.15s, color 0.15s;
+}
+.icone:hover {
+  background: #f4f2fb;
+  color: var(--encre);
+}
+.confirmer,
+.confirmer:hover {
+  background: #fff1f3;
+  color: #be123c;
+}
+
+/* La carte d'ajout, en dernier. */
+.ajouter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  padding: 24px;
+  border: 2px dashed #ddd6f5;
+  border-radius: 22px;
+  background: #fbfaff;
+  color: var(--indigo-fonce);
+  font-size: 15px;
+  font-weight: 750;
+  text-align: center;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.ajouter:hover {
+  border-color: #b9a8ff;
+  background: #f6f3ff;
+}
+.ajouter > span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  color: #fff;
+  box-shadow: 0 0 0 8px #efeaff;
+  margin-bottom: 6px;
+}
+.ajouter small {
+  max-width: 240px;
+  color: var(--gris);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.videCarte {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 560px;
+  margin: 24px auto;
+  padding: 40px 32px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: var(--ombre);
+  text-align: center;
+}
+.videCarte h2 {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 750;
+}
+.videCarte p {
+  margin: 0 0 8px;
+  color: var(--gris);
+}
+.videOrbe {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: #fff;
+  background: radial-gradient(circle at 30% 25%, #ffd28a, var(--ambre) 55%, #d97706);
+  box-shadow: 0 0 0 10px #fff5e0;
+}
+
+/* ─────────────── L'éditeur ─────────────── */
+
+/* La feuille du CRM remet toutes les marges à zéro : on rend à la fenêtre son centrage. */
+.fenetre {
+  margin: auto;
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  border: 0;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 40px 90px -30px rgba(23, 12, 92, 0.55);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", sans-serif;
+  overflow: auto;
+}
+.fenetre::backdrop {
+  background: rgba(23, 12, 92, 0.32);
+  backdrop-filter: blur(3px);
+}
+.fenetre[open] {
+  animation: ouverture 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ouverture {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+.editeurTete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 22px 16px 24px;
+  border-bottom: 1px solid #f0eef6;
+}
+.editeurTete > div {
+  flex: 1;
+  min-width: 0;
+}
+.editeurTete h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.editeurTete p {
+  margin: 3px 0 0;
+  color: var(--gris);
+  font-size: 13px;
+}
+.editeurIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--ambre), #ffb547);
+  color: #fff;
+}
+.fermer {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  color: var(--gris);
+}
+.fermer:hover {
+  background: #f4f2fb;
+  color: var(--encre);
+}
+.editeurCorps {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 8px;
+}
+.champ {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.champ > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #55526a;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.champ em {
+  color: #a3a0b5;
+  font-style: normal;
+  font-weight: 550;
+}
+.fenetre .champ input,
+.fenetre .champ textarea {
+  width: 100%;
+  min-height: 0;
+  padding: 0 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fbfaff;
+  color: var(--encre);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 550;
+  outline: 0;
+  box-shadow: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.fenetre .champ input {
+  height: 46px;
+}
+.fenetre .champ textarea {
+  padding: 12px 14px;
+  line-height: 1.5;
+  resize: vertical;
+  field-sizing: content;
+  min-height: 82px;
+}
+.fenetre .champ input:focus,
+.fenetre .champ textarea:focus {
+  border-color: #a996ff;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.1);
+}
+.suffixe {
+  position: relative;
+  display: block;
+}
+.suffixe em {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gris);
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.deux {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 14px;
+}
+.puces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.puces button {
+  height: 36px;
+  padding: 0 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 999px;
+  background: #fff;
+  color: #4a475c;
+  font-size: 13px;
+  font-weight: 650;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.puces button:hover {
+  border-color: #cfc3ff;
+}
+.puces button[aria-checked="true"] {
+  border-color: var(--indigo);
+  background: var(--indigo);
+  color: #fff;
+}
+.puces button:first-child[aria-checked="true"] {
+  border-color: #c9c5d8;
+  background: #f3f2f7;
+  color: #4a475c;
+}
+.bascules {
+  display: flex;
+  gap: 8px;
+}
+.bascules button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fbfaff;
+  color: #4a475c;
+  font-size: 13.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.bascules i {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid #cfcbe0;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+}
+.bascules i svg {
+  width: 14px;
+  height: 14px;
+}
+.bascules button[aria-pressed="true"] {
+  border-color: var(--indigo);
+  background: #f6f3ff;
+  color: var(--indigo-fonce);
+}
+.bascules button[aria-pressed="true"] i {
+  border-color: var(--indigo);
+  background: var(--indigo);
+}
+.copier {
+  margin-left: auto;
+  color: var(--indigo);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.copier:hover {
+  text-decoration: underline;
+}
+.avertir {
+  color: #b45309;
+  font-size: 12.5px;
+}
+.editeurPied {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px 20px;
+  background: linear-gradient(rgba(255, 255, 255, 0), #fff 30%);
+}
+.erreur {
+  margin-right: auto;
+  color: #be123c;
+  font-size: 13px;
+}
+
+/* La confirmation, après un enregistrement depuis une fiche. */
+.fait {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 36px 28px 28px;
+  text-align: center;
+}
+.faitIcone {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10a86b, var(--vert));
+  color: #fff;
+  box-shadow: 0 0 0 9px #e3f8ef;
+}
+.fait h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.fait p {
+  margin: 0 0 12px;
+  color: var(--gris);
+  font-size: 13.5px;
+}
+.faitActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .cartes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .ajouter {
+    min-height: 150px;
+  }
+  .deux {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editeurCorps {
+    padding: 18px 18px 8px;
+  }
+  .editeurTete {
+    padding: 18px 16px 14px 18px;
+  }
+  .editeurPied {
+    padding: 14px 18px 18px;
+  }
+}
