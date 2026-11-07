@@ -23,7 +23,7 @@ export function snapshotDe(d: Donnees, dossierId: string): DossierSnapshot | nul
     devis: du(d.devis).sort((a, b) => b.emis_le.localeCompare(a.emis_le)),
     factures: du(d.factures).sort((a, b) => b.emise_le.localeCompare(a.emise_le)),
     documents: du(d.documents).sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    requirements: requirementsApplicables(dossier, d.document_requirements),
+    requirements: requirementsApplicables(dossier, client.type, d.document_requirements),
     acceptations: du(d.acceptations),
     declaration: du(d.declarations_valeurs)[0] ?? null,
     conditions: du(d.conditions_livraison)[0] ?? null,
@@ -50,17 +50,14 @@ export function dossiersDuClient(d: Donnees, clientId: string) {
     .sort((a, b) => Number(a.statut === "termine") - Number(b.statut === "termine") || b.periode_debut.localeCompare(a.periode_debut));
 }
 
+/**
+ * Le conseiller du client. Celui qui vient du CRM (le commercial du dossier)
+ * n'a pas toujours de ligne directe : le standard de l'agence en tient lieu.
+ */
 export function conseillerDe(d: Donnees, conseillerId: string): Conseiller {
-  return (
-    d.conseillers.find((c) => c.id === conseillerId) ?? {
-      id: "",
-      prenom: "Service",
-      nom: "clients",
-      email: "",
-      telephone: TEL_AGENCE,
-      demo: false,
-    }
-  );
+  const c = d.conseillers.find((x) => x.id === conseillerId);
+  if (c) return c.telephone.trim() ? c : { ...c, telephone: TEL_AGENCE };
+  return { id: "", prenom: "Service", nom: "clients", email: "", telephone: TEL_AGENCE, demo: false };
 }
 
 /** La signature des e-mails envoyés au nom du conseiller. */

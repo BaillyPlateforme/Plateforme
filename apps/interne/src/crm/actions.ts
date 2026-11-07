@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
+import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -21,6 +22,8 @@ async function log(dossierId: number | null, libelle: string) {
   const u = await currentUser();
   await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [dossierId, u.id, libelle]);
   if (dossierId) await q("update dossiers set maj_le=now() where id=$1", [dossierId]);
+  // Le dossier a changé : son espace client suit (devis, factures, dates, trajet).
+  await projeterEspace(dossierId);
 }
 /**
  * Rafraîchit les pages du CRM. Le chemin désigne la mise en page racine du
@@ -63,6 +66,11 @@ export async function majFiche(id: number, f: FormData) {
   await exiger();
   await q(`update dossiers set periode=$2, mois_ca=$3, observations=$4, traite_par_id=$5, commercial_id=$6, passer_en_dernier=$7, vehicule=$8, maj_le=now() where id=$1`,
     [id, s(f, "periode"), s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : null, s(f, "observations"), n(f, "traite_par_id"), n(f, "commercial_id"), f.get("passer_en_dernier") === "on", f.get("vehicule") === "on"]);
+  // Le type de client : il fixe le parcours de l'espace client (segment, cahier des charges §2).
+  const type = s(f, "type_client");
+  if (type && ["particulier", "compte", "militaire", "partenaire", "logement_social"].includes(type)) {
+    await q("update clients set type=$2 where id=(select client_id from dossiers where id=$1)", [id, type]);
+  }
   for (const st of await q<{ id: number }>("select id from etapes_trajet where dossier_id=$1", [id])) {
     await q("update etapes_trajet set adresse=$2, etage=$3, ascenseur=$4, acces=$5 where id=$1",
       [st.id, s(f, `adresse_${st.id}`), s(f, `etage_${st.id}`), f.get(`asc_${st.id}`) === "on", s(f, `acces_${st.id}`)]);
@@ -91,6 +99,7 @@ export async function rouvrir(id: number) { await exiger(); await q("update doss
 /* ---------- inventaire ---------- */
 async function recalcVolume(id: number) {
   await q("update dossiers set volume=coalesce((select sum(quantite*volume) from inventaire where dossier_id=$1),0) where id=$1", [id]);
+  await projeterEspace(id);
 }
 export async function ajouterObjet(id: number, f: FormData) {
   await exiger();
@@ -121,12 +130,16 @@ export async function envoyerDevis(id: number, devisId: number) {
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
   await log(id, "Devis envoyé au client"); refresh(id);
 }
+/**
+ * « Signé par le client » : la règle de signature est celle de la page
+ * /signature et de l'espace client — un devis ouvert, aucun autre signé —,
+ * tenue par la base, qui inscrit l'activité et projette l'espace.
+ */
 export async function signerDevis(id: number, devisId: number) {
-  await exiger();
-  await q("update devis set statut='refuse' where dossier_id=$1 and id<>$2 and statut in ('brouillon','envoye')", [id, devisId]);
-  await q("update devis set statut='signe', signe_le=now(), envoye_le=coalesce(envoye_le,now()) where id=$1", [devisId]);
-  await q("update dossiers set statut='commande' where id=$1 and statut in ('prospect','visite','devis')", [id]);
-  await log(id, "Devis signé par le client"); refresh(id);
+  const u = await exiger();
+  if (!(await q1("select 1 from devis where id=$1 and dossier_id=$2", [devisId, id]))) return;
+  await signerDevisUnique(devisId, "equipe", { utilisateurId: u.id });
+  refresh(id);
 }
 
 /* ---------- commande / planning / lettres de voiture ---------- */

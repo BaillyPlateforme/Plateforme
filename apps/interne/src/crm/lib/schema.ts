@@ -133,6 +133,21 @@ create table if not exists crm.operations (
   id serial primary key, equipe text not null, jour date not null, genre text not null check (genre in ('chargement','livraison','groupage','manuelle')),
   titre text not null, detail text, dossier_id int references crm.dossiers(id) on delete set null
 );
+-- L'espace client relié au CRM (migration 0012) : le segment « logement
+-- social » (cahier des charges, §2), la demande du site d'où vient un
+-- dossier, et la session de paiement en ligne qui a produit un paiement (un
+-- événement rejoué n'inscrit pas deux fois les mêmes arrhes).
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'crm.clients'::regclass and conname = 'clients_type_check'
+                 and pg_get_constraintdef(oid) like '%logement_social%') then
+    alter table crm.clients drop constraint if exists clients_type_check;
+    alter table crm.clients add constraint clients_type_check check (type in ('particulier','compte','militaire','partenaire','logement_social'));
+  end if;
+end $$;
+alter table crm.dossiers add column if not exists request_id uuid;
+create unique index if not exists idx_dossiers_request on crm.dossiers(request_id);
+alter table crm.paiements add column if not exists session_paiement_id uuid;
+create unique index if not exists idx_paiements_session on crm.paiements(session_paiement_id);
 create index if not exists idx_dossiers_client on crm.dossiers(client_id);
 create index if not exists idx_dossiers_statut on crm.dossiers(statut);
 create index if not exists idx_rdv_debut on crm.rendez_vous(debut);

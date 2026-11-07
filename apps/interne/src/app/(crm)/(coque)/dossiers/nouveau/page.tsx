@@ -10,19 +10,19 @@ export default async function NouveauDossier() {
   const [coms, tous, u] = await Promise.all([commerciaux(), q("select id,nom from utilisateurs order by id"), currentUser()]);
   return (
     <div className="view">
-      <Bandeau surtitre="Commercial" titre="Nouveau dossier" texte="Le type de client détermine le parcours : particulier (devis, paiement en ligne), compte (pas de facture client), militaire (documents à déposer)…" />
+      <Bandeau surtitre="Commercial" titre="Nouveau dossier" texte="Le type de client détermine le parcours : particulier (devis, paiement en ligne), compte (pas de facture client), militaire (prise en charge par l'administration, documents à déposer), logement social (pièces du bailleur)…" />
       <form action={creerDossier}>
         <div className="d-grid">
           <section className="card" style={{ gridColumn: "span 12" }}>
             <h3>Client</h3>
             <div className="form-grid">
-              <div className="fld w4"><label>Type de client</label><select name="type" defaultValue="particulier"><option value="particulier">Particulier</option><option value="compte">Compte entreprise</option><option value="militaire">Militaire</option><option value="partenaire">Partenaire / agent</option></select></div>
+              <div className="fld w4"><label>Type de client</label><select name="type" defaultValue="particulier"><option value="particulier">Particulier</option><option value="compte">Compte entreprise</option><option value="militaire">Militaire</option><option value="logement_social">Logement social</option><option value="partenaire">Partenaire / agent</option></select></div>
               <div className="fld w4"><label>Civilité</label><select name="civilite"><option value="">—</option><option>Madame</option><option>Monsieur</option></select></div>
               <div className="fld w4"><label>Société (comptes)</label><input type="text" name="societe" /></div>
               <div className="fld w4"><label>Prénom</label><input type="text" name="prenom" /></div>
               <div className="fld w4"><label>Nom</label><input type="text" name="nom" required /></div>
               <div className="fld w4"><label>Téléphone</label><input type="tel" name="telephone" /></div>
-              <div className="fld w12"><label>E-mail</label><input type="email" name="email" /></div>
+              <div className="fld w12"><label>E-mail</label><input type="email" name="email" /><span className="sub">L&apos;identifiant de son espace client : le lien d&apos;accès part à cette adresse.</span></div>
             </div>
           </section>
           <section className="card" style={{ gridColumn: "span 12" }}>

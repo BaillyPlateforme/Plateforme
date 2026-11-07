@@ -10,12 +10,14 @@ import { BandeauMode, Bouton, Carte, Champ, Pastille, Retour, champ, useAction, 
 type Donnees = ReturnType<typeof vueDestinations>;
 type Piece = Donnees["pieces"][number];
 
-const vide = { pays: "", libelle: "", description: "", obligatoire: true, ordre: "50" };
+const vide = { pays: "", segment: "", libelle: "", description: "", obligatoire: true, ordre: "50" };
 
 /**
- * Les pièces à fournir, destination par destination. Une pièce sans pays est
- * demandée à tous ; une pièce d'un pays ne l'est qu'aux dossiers
- * internationaux vers ce pays. Les listes réelles sont à fournir par Bailly.
+ * Les pièces à fournir, par destination et par segment. Une pièce sans pays
+ * ni segment est demandée à tous ; une pièce d'un pays ne l'est qu'aux
+ * dossiers internationaux vers ce pays ; une pièce d'un segment, qu'à ses
+ * clients — l'ordre de mutation d'un militaire, les documents du bailleur
+ * d'un logement social. Les listes réelles sont à fournir par Bailly.
  */
 export function Destinations() {
   const { base } = usePorte();
@@ -25,17 +27,22 @@ export function Destinations() {
   if (erreur) return <Echec message={erreur} onRetry={recharger} />;
   if (!donnees) return <Squelette titre={false} lignes={6} />;
 
+  // Un groupe par segment, puis par destination : « Toutes les destinations », « Canada (CA) », « Militaires »…
+  const nomSegment = (s: string | null) => donnees.segments.find((x) => x.cle === s)?.libelle ?? s ?? "";
+  const titreGroupe = (p: Piece) =>
+    [p.segment ? `Segment ${nomSegment(p.segment).toLowerCase()}` : null, p.pays ? `${donnees.pays[p.pays] ?? p.pays} (${p.pays})` : p.segment ? null : "Toutes les destinations"].filter(Boolean).join(" · ");
   const groupes = new Map<string, Piece[]>();
-  for (const p of donnees.pieces) groupes.set(p.pays ?? "", [...(groupes.get(p.pays ?? "") ?? []), p]);
+  for (const p of donnees.pieces) groupes.set(titreGroupe(p), [...(groupes.get(titreGroupe(p)) ?? []), p]);
   const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
-  const editer = (p: Piece | null) => setEdition({ id: p?.id ?? null, v: p ? { pays: p.pays ?? "", libelle: p.libelle, description: p.description, obligatoire: p.obligatoire, ordre: String(p.ordre) } : vide });
+  const editer = (p: Piece | null) =>
+    setEdition({ id: p?.id ?? null, v: p ? { pays: p.pays ?? "", segment: p.segment ?? "", libelle: p.libelle, description: p.description, obligatoire: p.obligatoire, ordre: String(p.ordre) } : vide });
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
       <div className="space-y-5">
         <BandeauMode mode={donnees.mode} />
-        {[...groupes.entries()].map(([pays, pieces]) => (
-          <Carte key={pays || "tous"} titre={pays ? `${donnees.pays[pays] ?? pays} (${pays})` : "Toutes les destinations"}>
+        {[...groupes.entries()].map(([titre, pieces]) => (
+          <Carte key={titre} titre={titre}>
             <ul className="divide-y divide-line/70">
               {pieces.map((p) => (
                 <li key={p.id} className="flex items-start justify-between gap-3 py-2.5 text-[13px]">
@@ -73,6 +80,16 @@ export function Destinations() {
                       </option>
                     ))}
                   </datalist>
+                </Champ>
+                <Champ label="Segment (vide pour tous les clients)" erreur={erreurs.segment}>
+                  <select className={champ} value={v.segment} onChange={(e) => maj({ segment: e.target.value })}>
+                    <option value="">Tous les segments</option>
+                    {donnees.segments.map((s) => (
+                      <option key={s.cle} value={s.cle}>
+                        {s.libelle}
+                      </option>
+                    ))}
+                  </select>
                 </Champ>
                 <Champ label="Libellé" erreur={erreurs.libelle}>
                   <input className={champ} value={v.libelle} onChange={(e) => maj({ libelle: e.target.value })} />

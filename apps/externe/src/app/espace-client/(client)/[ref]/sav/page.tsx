@@ -30,6 +30,11 @@ export default async function Sav({ params, searchParams }: { params: Promise<{ 
             <p>
               Tout se joue sur une question : avez-vous écrit des réserves sur la lettre de voiture le jour de la livraison ? Selon la réponse, la démarche n&apos;est pas la même. Déclarez le dommage dès que vous le découvrez.
             </p>
+            {e.client.type === "logement_social" && dossier.bailleur_email && (
+              <p style={{ marginTop: 12, color: "rgba(255,255,255,.8)" }}>
+                Votre bailleur{dossier.bailleur_nom ? `, ${dossier.bailleur_nom},` : ""} est prévenu par e-mail de chaque déclaration.
+              </p>
+            )}
             {vis.savActif ? (
               <FormulaireAvarie reference={ref} ouvertParDefaut={sp.declarer === "1"} />
             ) : (

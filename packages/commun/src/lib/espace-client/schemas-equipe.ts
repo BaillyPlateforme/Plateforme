@@ -22,7 +22,7 @@ export const clientSchema = z.object({
   nom: texte(1, 60, "Le nom"),
   email: z.email({ error: "Une adresse e-mail valide." }).transform((v) => v.toLowerCase()),
   telephone: z.string().trim().regex(TELEPHONE_FR, { error: "Un numéro français, par exemple 06 12 34 56 78." }),
-  type: z.enum(["particulier", "grand_compte"]),
+  type: z.enum(["particulier", "grand_compte", "militaire", "logement_social"]),
   societe: facultatif(120),
   masquer_devis: z.boolean(),
   masquer_factures: z.boolean(),
@@ -52,6 +52,26 @@ export const dossierSchema = z
     if (v.periode_fin < v.periode_debut) ctx.addIssue({ code: "custom", path: ["periode_fin"], message: "La fin précède le début." });
     if (v.portee === "national" && v.pays_destination !== "FR") ctx.addIssue({ code: "custom", path: ["pays_destination"], message: "Un déménagement national arrive en France (FR)." });
   });
+
+/**
+ * Un dossier relié au CRM : le trajet, les dates, le volume, la formule et le
+ * statut viennent du CRM et ne se modifient que là-bas. Restent à l'espace :
+ * le pays et le mode de transport d'un déménagement international, le
+ * logement, la photo de la page de garde, et le bailleur d'un logement social.
+ */
+export const dossierLieSchema = z.object({
+  pays_destination: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/, { error: "Code pays à deux lettres (FR, CA…)." }),
+  mode_transport: z.enum(["route", "maritime", "aerien"]),
+  logement: facultatif(60),
+  photo: texte(1, 200, "La photo"),
+  bailleur_nom: facultatif(120),
+  bailleur_email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .transform((v) => v || null)
+    .pipe(z.email({ error: "Une adresse e-mail valide pour le bailleur." }).nullable()),
+});
 
 export const conteneurSchema = z.object({
   compagnie: facultatif(80),
@@ -101,6 +121,7 @@ export const factureSchema = z.object({
 
 export const pieceSchema = z.object({
   pays: z.string().trim().toUpperCase().regex(/^([A-Z]{2})?$/, { error: "Code pays à deux lettres (CA), ou vide pour toutes les destinations." }).transform((v) => v || null),
+  segment: z.enum(["", "particulier", "grand_compte", "militaire", "logement_social"]).transform((v) => (v === "" ? null : v)),
   libelle: texte(3, 120, "Le libellé"),
   description: z.string().trim().max(300, { error: "300 caractères au plus." }),
   obligatoire: z.boolean(),

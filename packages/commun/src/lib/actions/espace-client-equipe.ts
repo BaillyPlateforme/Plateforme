@@ -16,8 +16,10 @@ import { prochainNumeroFacture } from "@/lib/espace-client/paiement";
 import { calculerTourneeDuSamedi, envoyerCreneauxDuSamedi } from "@/lib/espace-client/samedi";
 import { erreursDe, TYPES_DOCUMENTS, verifierFichier, type Erreurs } from "@/lib/espace-client/schemas";
 import {
-  clientSchema, conseillerSchema, conteneurSchema, devisSchema, dossierSchema, factureSchema, lireLignes, pieceSchema, serviceSchema, tutoSchema,
+  clientSchema, conseillerSchema, conteneurSchema, devisSchema, dossierLieSchema, dossierSchema, factureSchema, lireLignes, pieceSchema, serviceSchema, tutoSchema,
 } from "@/lib/espace-client/schemas-equipe";
+import { estRelie, facturePayeeCrm, majClientCrm, noterDansLeCrm } from "@/lib/espace-client/crm";
+import { segmentDe } from "@/lib/espace-client/segments";
 import type { Client, Devis, DocumentFichier, StatutDevis, StatutSav } from "@/lib/espace-client/types";
 
 /*
@@ -67,6 +69,9 @@ async function adresseRefusee(email: string): Promise<string | null> {
 /** L'aperçu du message envoyé : en démonstration seulement (en base, il est au journal). */
 const apercuDe = (id: string) => (estDemo() ? id : null);
 
+/** Les devis et factures d'un dossier relié vivent dans le CRM : on y renvoie. */
+const VIENT_DU_CRM = "Ce dossier est relié au CRM : ses devis et ses factures s'établissent dans la fiche du dossier CRM, et arrivent ici tout seuls.";
+
 /** Le dépôt d'un fichier de l'équipe dans un dossier, sans e-mail : la ligne du document. */
 async function deposerPourLEquipe(dossierId: string, fichier: File, libelle: string, categorie: string, equipe: Equipe): Promise<DocumentFichier> {
   const chemin = cheminFichier(dossierId, fichier.name);
@@ -96,6 +101,9 @@ export type NouveauDossier = {
  */
 export async function creerDossier(entree: NouveauDossier, pieces?: FormData): Promise<Resultat> {
   return garde(async (equipe) => {
+    // En base, un dossier naît dans le CRM et son espace s'ouvre depuis sa fiche :
+    // un espace sans dossier du CRM aurait ses propres devis et sa propre numérotation.
+    if (!estDemo()) return { ok: false, erreur: "Un espace client s'ouvre depuis la fiche d'un dossier du CRM (« Ouvrir l'espace client »)." };
     const c = clientSchema.safeParse(entree.client);
     const x = dossierSchema.safeParse(entree.dossier);
     const f = pieces?.get("devis_pdf");
@@ -186,10 +194,22 @@ export async function creerDossier(entree: NouveauDossier, pieces?: FormData): P
 
 export async function modifierDossier(id: string, entree: Record<string, unknown>): Promise<Resultat> {
   return garde(async () => {
-    const x = dossierSchema.safeParse(entree);
-    if (!x.success) return echec(erreursDe(x.error));
     const dossier = await depot().trouver("dossiers", id);
     if (!dossier) throw new Error("Dossier introuvable.");
+    // Relié au CRM : seules les données propres à l'espace se modifient ici.
+    if (estRelie(dossier)) {
+      const l = dossierLieSchema.safeParse(entree);
+      if (!l.success) return echec(erreursDe(l.error));
+      const international = dossier.portee === "international";
+      if (international && l.data.pays_destination === "FR") return echec({ pays_destination: "Choisissez le pays de destination : il fixe les pièces à fournir." });
+      await depot().modifier("dossiers", id, {
+        logement: l.data.logement, photo: l.data.photo, bailleur_nom: l.data.bailleur_nom, bailleur_email: l.data.bailleur_email,
+        ...(international ? { pays_destination: l.data.pays_destination, mode_transport: l.data.mode_transport } : {}),
+      });
+      return { ok: true, message: "Dossier enregistré : son espace est à jour." };
+    }
+    const x = dossierSchema.safeParse(entree);
+    if (!x.success) return echec(erreursDe(x.error));
     if (!(await depot().modifier("dossiers", id, { ...x.data, request_id: x.data.request_id ?? dossier.request_id }))) throw new Error("Dossier introuvable.");
     return { ok: true, message: "Dossier enregistré." };
   });
@@ -220,8 +240,16 @@ export async function modifierClient(dossierId: string, entree: Record<string, u
       if (prise) return echec({ email: prise });
       if (!estDemo()) await changerAdresseDuCompte(client, c.data.email);
     }
-    const reglages = c.data.type === "particulier" ? { masquer_devis: false, masquer_factures: false } : {};
+    // Le masquage suit le segment : jamais pour qui paie lui-même, toujours pour un militaire,
+    // au choix de l'équipe pour un grand compte.
+    const masquage = segmentDe(c.data.type).masquage;
+    const reglages = masquage === "jamais" ? { masquer_devis: false, masquer_factures: false } : masquage === "toujours" ? { masquer_devis: true, masquer_factures: true } : {};
     await depot().modifier("clients", client.id, { ...c.data, ...reglages });
+    // Relié au CRM : les coordonnées et le segment s'y écrivent aussi, le CRM les tient.
+    if (estRelie(dossier)) {
+      await majClientCrm(dossier.crm_dossier_id!, { ...c.data });
+      return { ok: true, message: "Client enregistré dans le CRM et dans son espace." };
+    }
     return { ok: true, message: "Client enregistré : son espace est à jour." };
   });
 }
@@ -232,6 +260,7 @@ export async function envoyerAcces(dossierId: string): Promise<Resultat> {
     const client = dossier && (await depot().trouver("clients", dossier.client_id));
     if (!dossier || !client) throw new Error("Dossier introuvable.");
     const n = await envoyerLienAuClient(client, { reference: dossier.reference });
+    await noterDansLeCrm(dossier.crm_dossier_id, `Lien d'accès à l'espace client ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}`);
     return { ok: true, apercu: apercuDe(n.id), message: `Lien d'accès ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}.` };
   });
 }
@@ -272,6 +301,7 @@ export async function marquerRealise(dossierId: string): Promise<Resultat> {
         payload: { salutation: salutation(client), trajet: `${dossier.ville_depart} → ${dossier.ville_arrivee}`, lien_avis: avis?.lien ?? null, signature: signatureDe(conseillerDe(d, client.conseiller_id)) },
       });
     }
+    await noterDansLeCrm(dossier.crm_dossier_id, `Fin de chantier signée (espace client)${dejaDemande ? "" : " · demande d'avis partie"}`);
     return { ok: true, message: dejaDemande ? "Dossier terminé (la demande d'avis était déjà partie)." : "Dossier terminé : la demande d'avis est partie." };
   });
 }
@@ -326,6 +356,7 @@ export async function ajouterDevis(dossierId: string, entree: { formule: string;
     const d = await lireDonnees();
     const dossier = d.dossiers.find((y) => y.id === dossierId);
     if (!dossier) throw new Error("Dossier introuvable.");
+    if (estRelie(dossier)) return { ok: false, erreur: VIENT_DU_CRM };
     const rang = d.devis.filter((x) => x.dossier_id === dossierId).length + 1;
     await depot().inserer("devis", {
       id: nouvelId(), dossier_id: dossierId, numero: `DV-${dossier.reference.slice(3)}-${rang}`, formule: v.formule, lignes: v.lignes, inclus: v.inclus,
@@ -341,6 +372,7 @@ export async function changerStatutDevis(devisId: string, statut: StatutDevis): 
     if (!["envoye", "accepte", "refuse", "expire"].includes(statut)) throw new Error("Statut inconnu.");
     const v = await depot().trouver("devis", devisId);
     if (!v) throw new Error("Devis introuvable.");
+    if (typeof v.crm_devis_id === "number") return { ok: false, erreur: VIENT_DU_CRM };
     await depot().modifier("devis", devisId, { statut, accepte_le: statut === "accepte" ? (v.accepte_le ?? aujourdhui()) : null });
     return { ok: true, message: "Devis mis à jour." };
   });
@@ -351,7 +383,9 @@ export async function ajouterFacture(dossierId: string, entree: Record<string, u
     const r = factureSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
     const d = await lireDonnees();
-    if (!d.dossiers.some((y) => y.id === dossierId)) throw new Error("Dossier introuvable.");
+    const dossier = d.dossiers.find((y) => y.id === dossierId);
+    if (!dossier) throw new Error("Dossier introuvable.");
+    if (estRelie(dossier)) return { ok: false, erreur: VIENT_DU_CRM };
     const retenu = d.devis.filter((x) => x.dossier_id === dossierId && x.statut === "accepte").sort((a, b) => b.emis_le.localeCompare(a.emis_le))[0];
     await depot().inserer("factures", {
       id: nouvelId(), dossier_id: dossierId, devis_id: r.data.type === "garde_meubles" ? null : (retenu?.id ?? null), numero: await prochainNumeroFacture(),
@@ -367,6 +401,11 @@ export async function marquerFacturePayee(factureId: string): Promise<Resultat> 
   return garde(async () => {
     const f = await depot().trouver("factures", factureId);
     if (!f) throw new Error("Facture introuvable.");
+    // Une facture du CRM se règle dans le CRM : il la marque payée, et l'espace suit.
+    if (typeof f.crm_facture_id === "number") {
+      await facturePayeeCrm(f.crm_facture_id, "HORS-LIGNE");
+      return { ok: true, message: "Facture marquée réglée dans le CRM et dans l'espace du client." };
+    }
     await depot().modifier("factures", factureId, { statut: "payee", payee_le: aujourdhui(), paiement_ref: f.paiement_ref ?? "HORS-LIGNE" });
     return { ok: true, message: "Facture marquée réglée." };
   });

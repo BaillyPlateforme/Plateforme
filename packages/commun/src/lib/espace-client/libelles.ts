@@ -97,6 +97,7 @@ export const MODELES_MESSAGE: Record<string, string> = {
   paiement_confirme: "Paiement reçu",
   avarie_recue: "Avarie : accusé de réception",
   avarie_equipe: "Avarie déclarée (équipe)",
+  avarie_bailleur: "Avarie déclarée (bailleur)",
   message_conseiller: "Message au conseiller",
   service_demande: "Service demandé (équipe)",
   demande_avis: "Demande d'avis",

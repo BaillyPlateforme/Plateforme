@@ -19,7 +19,9 @@ export const STATUTS: Record<string, { label: string; cls: string }> = {
   prospect: { label: "Nouveau", cls: "i" }, visite: { label: "Visite à faire", cls: "i" }, devis: { label: "Devis envoyé", cls: "w" },
   commande: { label: "Signé", cls: "g" }, planifie: { label: "Planifié", cls: "p" }, termine: { label: "Terminé", cls: "g" }, perdu: { label: "Perdu", cls: "r" },
 };
-export const TYPES: Record<string, string> = { particulier: "Particulier", compte: "Compte", militaire: "Militaire", partenaire: "Partenaire" };
+export const TYPES: Record<string, string> = { particulier: "Particulier", compte: "Compte", militaire: "Militaire", partenaire: "Partenaire", logement_social: "Logement social" };
+/** Les mêmes, au pluriel : « Logements sociaux » ne se forme pas en ajoutant un s. */
+export const TYPES_PLURIEL: Record<string, string> = { particulier: "Particuliers", compte: "Comptes", militaire: "Militaires", partenaire: "Partenaires", logement_social: "Logements sociaux" };
 export const RDV_TYPES: Record<string, string> = { phys: "Visite physique", visio: "Visio", tache: "Tâche", perso: "Perso" };
 
 /** Les vignettes des dossiers, servies depuis public/photos-crm (le proxy laisse passer les images sans session). */

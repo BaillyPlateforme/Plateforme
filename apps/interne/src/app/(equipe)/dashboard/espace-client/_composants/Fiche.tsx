@@ -12,6 +12,7 @@ import {
 import { CATEGORIES_DOCUMENT_EQUIPE, ESCALIER, MODELES_MESSAGE, MONTE_MEUBLE, POIDS_LOURD, STATIONNEMENT, STATUT_DOSSIER, STATUT_LIVRAISON, STATUT_SAV, TYPE_FACTURE, libelleEtage } from "@/lib/espace-client/libelles";
 import { TYPES_DOCUMENTS, verifierFichier } from "@/lib/espace-client/schemas";
 import type { StatutDevis } from "@/lib/espace-client/types";
+import { LISTE_SEGMENTS } from "@/lib/espace-client/segments";
 import type { vueDossier } from "@/lib/espace-client/vues-equipe";
 import { BandeauMode, Bouton, Carte, Champ, LienBouton, Pastille, Retour, champ, dateFr, dateHeureFr, euro, useAction, usePorte, zoneTexte } from "./socle";
 
@@ -28,7 +29,8 @@ const TYPE_ACCEPTATION: Record<string, string> = {
 
 /** La fiche d'un dossier, vue de l'équipe : tout ce que voit le client, et tout ce qu'on peut y faire. */
 export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }) {
-  const { base, racine } = usePorte();
+  const porte = usePorte();
+  const { base, racine } = porte;
   const { donnees, erreur, recharger } = useRessource<Donnees>(`${base}/dossier/${id}`);
   const cree = useSearchParams().get("cree");
   const action = useAction(recharger);
@@ -52,7 +54,8 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
           <div>
             <div className="flex flex-wrap gap-1.5">
               <Pastille ton="attente">{dossier.reference}</Pastille>
-              <Pastille>{client.type === "grand_compte" ? "Grand compte" : "Particulier"}</Pastille>
+              <Pastille>{donnees.segment.libelle}</Pastille>
+              {donnees.crm != null && <Pastille ton="ok">Relié au CRM</Pastille>}
               <Pastille>{STATUT_DOSSIER[dossier.statut]}</Pastille>
               {(client.masquer_devis || client.masquer_factures) && <Pastille ton="attente">{[client.masquer_devis && "devis", client.masquer_factures && "factures"].filter(Boolean).join(" et ")} masqués</Pastille>}
             </div>
@@ -65,6 +68,11 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {donnees.crm != null && !porte.demo && (
+              <Link href={`/dossiers/${donnees.crm}#espace-client`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/30 px-3.5 py-2 text-[13px] font-medium text-white transition hover:border-white">
+                Dossier du CRM
+              </Link>
+            )}
             <Bouton variante="jaune" disabled={action.enCours} onClick={() => action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu))}>
               Envoyer le lien d&apos;accès
             </Bouton>
@@ -86,17 +94,24 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
         <div className="space-y-5">
           <Frise d={donnees} />
           <Documents d={donnees} recharger={recharger} ouvrirApercu={ouvrirApercu} />
-          {!client.masquer_devis || !client.masquer_factures ? <DevisFactures d={donnees} recharger={recharger} /> : null}
-          {(client.masquer_devis || client.masquer_factures) && (
-            <Carte titre="Devis et factures">
-              <p className="text-[13px] text-ink-soft">Masqués pour ce grand compte : le client ne les voit pas. Décochez le masquage dans « Client et réglages » pour les gérer ici.</p>
-            </Carte>
+          {donnees.crm != null ? (
+            <DevisFacturesCrm d={donnees} recharger={recharger} />
+          ) : (
+            <>
+              {!client.masquer_devis || !client.masquer_factures ? <DevisFactures d={donnees} recharger={recharger} /> : null}
+              {(client.masquer_devis || client.masquer_factures) && (
+                <Carte titre="Devis et factures">
+                  <p className="text-[13px] text-ink-soft">Masqués pour ce grand compte : le client ne les voit pas. Décochez le masquage dans « Client et réglages » pour les gérer ici.</p>
+                </Carte>
+              )}
+            </>
           )}
           <Engagements d={donnees} />
         </div>
         <div className="space-y-5">
+          <ReglesSegment d={donnees} />
           <ReglagesClient d={donnees} recharger={recharger} />
-          <InfosDossier d={donnees} recharger={recharger} />
+          {donnees.crm != null ? <InfosDossierLie d={donnees} recharger={recharger} /> : <InfosDossier d={donnees} recharger={recharger} />}
           {donnees.suiviConteneur && <SuiviConteneur d={donnees} recharger={recharger} />}
           <CartonsSav d={donnees} />
           <Carte titre="Messages du dossier">
@@ -373,6 +388,88 @@ function DevisFactures({ d, recharger }: { d: Donnees; recharger: () => void }) 
   );
 }
 
+/**
+ * Les devis et factures d'un dossier relié : ils viennent du CRM, qui les
+ * établit, les envoie et les encaisse. Ici, on les voit tels que le client
+ * les voit, et un règlement reçu hors ligne s'inscrit dans le CRM.
+ */
+function DevisFacturesCrm({ d, recharger }: { d: Donnees; recharger: () => void }) {
+  const action = useAction(recharger);
+  const { demo } = usePorte();
+  const masques = [d.client.masquer_devis && "les devis", d.client.masquer_factures && "les factures"].filter(Boolean).join(" et ");
+  return (
+    <Carte
+      titre="Devis et factures"
+      action={!demo && d.crm != null && <LienBouton href={`/dossiers/${d.crm}`}>Gérer dans le CRM</LienBouton>}
+    >
+      <p className="mb-4 rounded-xl bg-subtle/70 px-3.5 py-2.5 text-[12.5px] text-ink-soft">
+        Établis dans le CRM, ils arrivent ici d&apos;eux-mêmes : un devis envoyé apparaît chez le client, son acceptation ou ses arrhes réglées en ligne reviennent au CRM.
+        {masques && ` Pour ce client, ${masques} ne s'affichent pas dans son espace (${d.segment.libelle.toLowerCase()}).`}
+      </p>
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Devis</p>
+      <ul className="divide-y divide-line/70">
+        {d.devis.map((v) => (
+          <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
+            <span>
+              <span className="font-semibold">{v.numero}</span> · {v.formule} · {euro(v.montant_ttc)} TTC
+              {v.arrhes_pourcentage > 0 && <span className="text-ink-soft"> · arrhes {v.arrhes_pourcentage} %</span>}
+            </span>
+            <span className="flex items-center gap-3">
+              <Pastille ton={v.statut === "accepte" ? "ok" : v.statut === "envoye" ? "attente" : "neutre"}>
+                {v.statut === "accepte" ? `Signé${v.accepte_le ? ` le ${dateFr(v.accepte_le)}` : ""}` : v.statut === "envoye" ? "Envoyé, à accepter" : v.statut === "refuse" ? "Non retenu" : "Expiré"}
+              </Pastille>
+              <a href={v.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
+                PDF
+              </a>
+            </span>
+          </li>
+        ))}
+        {d.devis.length === 0 && <li className="py-2 text-[13px] text-ink-soft">{d.client.type === "militaire" ? "Pas de devis : prise en charge par l'administration." : "Aucun devis envoyé depuis le CRM."}</li>}
+      </ul>
+      <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Factures et règlements</p>
+      <ul className="divide-y divide-line/70">
+        {d.factures.map((f) => (
+          <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
+            <span>
+              <span className="font-semibold">{f.numero}</span> · {f.crm_paiement_id != null ? "Règlement" : TYPE_FACTURE[f.type]} · {f.libelle} · {euro(f.montant_ttc)}
+              <span className="text-ink-soft"> · {f.statut === "payee" ? `réglée le ${dateFr(f.payee_le!)}` : `émise le ${dateFr(f.emise_le)}`}</span>
+            </span>
+            <span className="flex items-center gap-2">
+              {f.statut === "payee" ? <Pastille ton="ok">Payée</Pastille> : <Pastille ton="attente">À régler</Pastille>}
+              {f.statut !== "payee" && f.crm_facture_id != null && (
+                <button className="text-[12px] text-ink-soft hover:text-ink" onClick={() => confirm("Marquer cette facture comme réglée hors ligne (virement, chèque) ? Elle le sera aussi dans le CRM.") && action.lancer(() => marquerFacturePayee(f.id))}>
+                  Réglée hors ligne
+                </button>
+              )}
+              <a href={f.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
+                PDF
+              </a>
+            </span>
+          </li>
+        ))}
+        {d.factures.length === 0 && <li className="py-2 text-[13px] text-ink-soft">Aucune facture ni aucun règlement au CRM.</li>}
+      </ul>
+      <div className="mt-3">
+        <Retour r={action.resultat} />
+      </div>
+    </Carte>
+  );
+}
+
+/** Ce que le segment change : les règles du cahier des charges, sous les yeux de l'équipe. */
+function ReglesSegment({ d }: { d: Donnees }) {
+  return (
+    <section className="rounded-[18px] bg-nuit p-5 text-white">
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Segment · {d.segment.libelle}</p>
+      <ul className="mt-3 list-disc space-y-2 pl-4 text-[13px] leading-snug text-white/85">
+        {d.segment.regles.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function Engagements({ d }: { d: Donnees }) {
   const c = d.conditions;
   return (
@@ -489,18 +586,17 @@ function ReglagesClient({ d, recharger }: { d: Donnees; recharger: () => void })
             ))}
           </select>
         </Champ>
-        <Champ label="Type de client" className="sm:col-span-2">
+        <Champ label="Segment" className="sm:col-span-2">
           <div className="grid grid-cols-2 gap-2">
-            {[
-              ["particulier", "Particulier"],
-              ["grand_compte", "Grand compte"],
-            ].map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setV({ ...v, type: k })} className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${v.type === k ? "border-ink bg-ink text-white" : "border-line-strong hover:border-ink"}`}>
-                {l}
+            {LISTE_SEGMENTS.map((s) => (
+              <button key={s.cle} type="button" onClick={() => setV({ ...v, type: s.cle })} className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${v.type === s.cle ? "border-ink bg-ink text-white" : "border-line-strong hover:border-ink"}`}>
+                {s.libelle}
               </button>
             ))}
           </div>
         </Champ>
+        {v.type === "militaire" && <p className="text-[11.5px] text-ink-soft sm:col-span-2">Militaire : devis et factures toujours masqués, pas d&apos;arrhes en ligne (prise en charge par l&apos;administration).</p>}
+        {d.crm != null && <p className="text-[11.5px] text-ink-soft sm:col-span-2">Relié au CRM : coordonnées et segment s&apos;y enregistrent aussi.</p>}
         {v.type === "grand_compte" && (
           <>
             <Champ label="Société" className="sm:col-span-2">
@@ -602,6 +698,94 @@ function InfosDossier({ d, recharger }: { d: Donnees; recharger: () => void }) {
       </div>
       <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
         Enregistrer le dossier
+      </Bouton>
+      <div className="mt-3">
+        <Retour r={action.resultat} />
+      </div>
+    </Carte>
+  );
+}
+
+/**
+ * Le dossier d'un espace relié au CRM : le trajet, la période, le volume, la
+ * formule et le statut viennent du CRM et se lisent ici. L'espace règle ce
+ * qui lui est propre : le pays et le transport d'un déménagement
+ * international, le logement, la photo, le bailleur d'un logement social.
+ */
+function InfosDossierLie({ d, recharger }: { d: Donnees; recharger: () => void }) {
+  const action = useAction(recharger);
+  const { demo } = usePorte();
+  const x = d.dossier;
+  const [v, setV] = useState({ pays_destination: x.pays_destination, mode_transport: x.mode_transport as string, logement: x.logement ?? "", photo: x.photo, bailleur_nom: x.bailleur_nom ?? "", bailleur_email: x.bailleur_email ?? "" });
+  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const international = x.portee === "international";
+  const lus: [string, string][] = [
+    ["Départ", x.adresse_depart],
+    ["Arrivée", x.adresse_arrivee],
+    ["Période", x.periode_debut === x.periode_fin ? dateFr(x.periode_debut) : `du ${dateFr(x.periode_debut)} au ${dateFr(x.periode_fin)}`],
+    ["Volume", `${x.volume_m3} m³`],
+    ["Formule", x.formule],
+    ["Statut", STATUT_DOSSIER[x.statut]],
+    ["Portée", international ? "International" : "National"],
+  ];
+  return (
+    <Carte titre="Le dossier" action={!demo && d.crm != null && <LienBouton href={`/dossiers/${d.crm}`}>Modifier dans le CRM</LienBouton>}>
+      <dl className="divide-y divide-line/70 text-[13px]">
+        {lus.map(([k, val]) => (
+          <div key={k} className="flex justify-between gap-4 py-2">
+            <dt className="text-ink-soft">{k}</dt>
+            <dd className="text-right font-medium">{val}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-[11.5px] text-ink-soft">Ces informations viennent du CRM : elles se modifient dans la fiche du dossier, et l&apos;espace suit.</p>
+      {international && x.pays_destination === "FR" && <p className="mt-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-[12.5px] font-medium text-danger">Pays de destination à préciser : il fixe les pièces que la douane demande.</p>}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {international && (
+          <>
+            <Champ label="Pays de destination" erreur={erreurs.pays_destination}>
+              <select className={champ} value={v.pays_destination} onChange={(e) => setV({ ...v, pays_destination: e.target.value })}>
+                {Object.entries(d.pays).map(([code, nom]) => (
+                  <option key={code} value={code}>
+                    {nom}
+                  </option>
+                ))}
+              </select>
+            </Champ>
+            <Champ label="Transport">
+              <select className={champ} value={v.mode_transport} onChange={(e) => setV({ ...v, mode_transport: e.target.value })}>
+                <option value="route">Route</option>
+                <option value="maritime">Maritime</option>
+                <option value="aerien">Aérien</option>
+              </select>
+            </Champ>
+          </>
+        )}
+        <Champ label="Logement" erreur={erreurs.logement} aide="Affiché à côté du volume (« T3 · 68 m² »).">
+          <input className={champ} value={v.logement} onChange={(e) => setV({ ...v, logement: e.target.value })} />
+        </Champ>
+        <Champ label="Photo de la page de garde">
+          <select className={champ} value={v.photo} onChange={(e) => setV({ ...v, photo: e.target.value })}>
+            {d.photos.map((p) => (
+              <option key={p.chemin} value={p.chemin}>
+                {p.libelle}
+              </option>
+            ))}
+          </select>
+        </Champ>
+        {d.client.type === "logement_social" && (
+          <>
+            <Champ label="Bailleur" erreur={erreurs.bailleur_nom}>
+              <input className={champ} value={v.bailleur_nom} onChange={(e) => setV({ ...v, bailleur_nom: e.target.value })} placeholder="Nom du bailleur" />
+            </Champ>
+            <Champ label="E-mail du bailleur (SAV)" erreur={erreurs.bailleur_email} aide="Prévenu de chaque déclaration d'avarie.">
+              <input className={champ} type="email" value={v.bailleur_email} onChange={(e) => setV({ ...v, bailleur_email: e.target.value })} />
+            </Champ>
+          </>
+        )}
+      </div>
+      <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
+        Enregistrer
       </Bouton>
       <div className="mt-3">
         <Retour r={action.resultat} />
