@@ -138,3 +138,23 @@ export async function q<T = Row>(sql: string, params: unknown[] = []): Promise<T
 export async function q1<T = Row>(sql: string, params: unknown[] = []): Promise<T | undefined> {
   return (await q<T>(sql, params))[0];
 }
+
+/**
+ * Plusieurs écritures d'un seul tenant : toutes passent, ou aucune. Sert au
+ * dispatch des conteneurs (déplacer un client, appliquer une proposition),
+ * où une écriture à moitié faite laisserait un planning incohérent.
+ */
+export async function transaction<T>(fn: (db: Db) => Promise<T>): Promise<T> {
+  const c = await (await pool()).connect();
+  try {
+    await c.query("begin");
+    const r = await fn(surClient(c));
+    await c.query("commit");
+    return r;
+  } catch (e) {
+    await c.query("rollback").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}

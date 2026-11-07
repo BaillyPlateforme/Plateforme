@@ -1,5 +1,6 @@
 import type { Db, Row } from "./db";
 import { prestationsPour, formules } from "./tarif";
+import { semerDemo } from "@/crm/dispatch/demo";
 
 /**
  * Données de démonstration des modules ajoutés après la recette : import web,
@@ -108,4 +109,7 @@ export async function seedExtra(d: Db, lun: Date, now: Date, uid: (rang: number)
   const t = await d.query<{ id: number }>("select id from dossiers where statut='termine' order by id limit 2");
   if (t[0]) await d.query("insert into litiges(dossier_id,objet,statut,montant) values($1,'Meuble rayé au déchargement',$2,180)", [t[0].id, "en_cours"]);
   if (t[1]) await d.query("insert into litiges(dossier_id,objet,statut,montant) values($1,'Carton manquant à la livraison','ouvert',60)", [t[1].id]);
+
+  // dispatch des conteneurs : le plan de démonstration (exploitation : Roxane, rang 6)
+  await semerDemo(d, uid(6));
 }

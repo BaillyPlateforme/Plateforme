@@ -9,7 +9,7 @@ export default async function Conteneurs() {
   const rows = await conteneurs();
   return (
     <div className="view">
-      <Bandeau surtitre="Exploitation" titre="Conteneurs" texte="Groupage par destination : chaque conteneur regroupe plusieurs clients, avec la place restante." />
+      <Bandeau surtitre="Exploitation" titre="Conteneurs" texte="Groupage par destination : chaque conteneur regroupe plusieurs clients, avec la place restante." action={{ label: "Dispatch international", href: "/conteneurs/dispatch", icone: "dispatch" }} />
       <div className="tcgrid">
         {rows.map((c) => {
           const pct = Math.min(100, Math.round((c.utilise / c.capacite) * 100));

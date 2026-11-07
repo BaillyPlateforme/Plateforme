@@ -1,0 +1,326 @@
+/*
+ * L'import des clients : le dépôt du fichier, la correspondance des
+ * colonnes et la grille de vérification, modifiable comme un tableur.
+ */
+.etapes {
+  display: grid;
+  /* minmax(0, …) : la grille large défile dans sa carte au lieu d'élargir la page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.etape {
+  padding: 22px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid #ece9f6;
+}
+.etapeTete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.numero {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #17142b;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.etapeTete h2 {
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.etapeTete p {
+  font-size: 13px;
+  color: #77738f;
+}
+.sources {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 14px;
+}
+.depot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 190px;
+  padding: 26px;
+  border-radius: 20px;
+  border: 1.5px dashed #cfc3f3;
+  background: linear-gradient(180deg, #faf7ff, #fff);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.2s;
+}
+.depot:hover,
+.depot.survol {
+  border-color: #7c3aed;
+  background: #f6f1ff;
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+}
+.depot input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.depot b {
+  font-size: 15px;
+  font-weight: 750;
+}
+.depot small {
+  font-size: 12.5px;
+  color: #77738f;
+}
+.icone {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  background: #fff;
+  color: #7c3aed;
+  box-shadow: 0 14px 28px -16px rgba(109, 40, 217, 0.7);
+}
+.manuel {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 24px;
+  border-radius: 20px;
+  background: #f8f6fd;
+  border: 1px solid #ece9f6;
+  font-size: 13px;
+  color: #77738f;
+}
+.manuel b {
+  font-size: 15px;
+  color: #17142b;
+}
+.fichier {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f5f0ff;
+  font-size: 13px;
+}
+.fichier b {
+  font-weight: 750;
+}
+.correspondance {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.correspondance label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #77738f;
+}
+.correspondance label em {
+  font-style: normal;
+  color: #be123c;
+}
+.correspondance small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #a7a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.correspondance .manque select {
+  border-color: #fda4af;
+}
+
+.compteurs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.compteur {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.ok {
+  background: #e7f8ee;
+  color: #15803d;
+}
+.ko {
+  background: #ffe4e6;
+  color: #be123c;
+}
+.avis {
+  background: #fff4e0;
+  color: #b45309;
+}
+
+.grille {
+  overflow: auto;
+  max-height: 62vh;
+  border-radius: 16px;
+  border: 1px solid #ece9f6;
+}
+.table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 10px 8px;
+  background: #faf9fe;
+  border-bottom: 1px solid #ece9f6;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #77738f;
+  white-space: nowrap;
+}
+.table td {
+  padding: 4px;
+  border-bottom: 1px solid #f2eff9;
+  vertical-align: top;
+}
+.table tr.erreurLigne td {
+  background: #fff8f9;
+}
+.table td:first-child {
+  width: 40px;
+  padding: 12px 8px;
+  color: #a7a3b8;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.table input {
+  width: 100%;
+  padding: 8px 9px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 13px;
+}
+.table input:hover {
+  border-color: #ece9f6;
+  background: #fff;
+}
+.table input:focus {
+  border-color: #b9a1f5;
+  background: #fff;
+}
+.table input.fausse {
+  border-color: #fda4af;
+  background: #fff;
+}
+.table input.douteuse {
+  border-color: #fcd34d;
+}
+.statut {
+  min-width: 190px;
+  padding: 8px 6px !important;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.statut span {
+  display: flex;
+  gap: 5px;
+  align-items: flex-start;
+}
+.statut svg {
+  flex: none;
+  margin-top: 2px;
+}
+.statut .rouge {
+  color: #be123c;
+}
+.statut .orange {
+  color: #b45309;
+}
+.statut .vert {
+  color: #15803d;
+}
+.suppr {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  border-radius: 9px;
+  color: #a7a3b8;
+}
+.suppr:hover {
+  background: #ffe4e6;
+  color: #be123c;
+}
+.sousGrille {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.barreImport {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px 14px 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(23, 20, 43, 0.96), rgba(46, 16, 101, 0.96));
+  color: #fff;
+  box-shadow: 0 26px 50px -24px rgba(23, 20, 43, 0.8);
+}
+.barreImport p {
+  flex: 1;
+  min-width: 220px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.barreImport b {
+  color: #fff;
+}
+.barreImport button:last-child {
+  background: #fff;
+  color: #17142b;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .sources {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
