@@ -246,4 +246,41 @@ alter table crm.dispatch_imports enable row level security;
 alter table crm.dispatch_lignes enable row level security;
 alter table crm.dispatch_propositions enable row level security;
 alter table crm.dispatch_historique enable row level security;
+-- La création de dossier rapide (src/crm/creation) : qui a créé chaque
+-- dossier (pour « Mon dernier dossier ») et les modèles de dossier. Pour les
+-- dossiers d'avant, l'auteur est déduit de l'activité « Dossier créé » (ou
+-- « dupliqué ») quand elle existe ; sinon, il reste inconnu.
+alter table crm.dossiers add column if not exists cree_par_id int references crm.utilisateurs(id) on delete set null;
+update crm.dossiers d set cree_par_id = a.utilisateur_id
+  from (select distinct on (dossier_id) dossier_id, utilisateur_id from crm.activite
+        where dossier_id is not null and utilisateur_id is not null
+          and (libelle like 'Dossier créé%' or libelle like 'Dossier dupliqué depuis %')
+        order by dossier_id, cree_le, id) a
+  where a.dossier_id = d.id and d.cree_par_id is null;
+create index if not exists idx_dossiers_cree_par on crm.dossiers(cree_par_id, cree_le desc);
+create index if not exists idx_dossiers_cree on crm.dossiers(cree_le desc);
+-- Les modèles de dossier : des points de départ réutilisables (segment, type
+-- de déménagement, volume indicatif, options, observations types), jamais
+-- l'identité d'un client. Les modèles de démonstration ne sont semés qu'à la
+-- création de la table : un modèle supprimé ne revient pas au redémarrage.
+do $$ begin
+  if to_regclass('crm.modeles_dossier') is null then
+    create table crm.modeles_dossier (
+      id serial primary key, nom text not null, description text,
+      champs jsonb not null default '{}',
+      cree_par_id int references crm.utilisateurs(id) on delete set null,
+      source_dossier_id int references crm.dossiers(id) on delete set null,
+      utilisations int not null default 0, dernier_usage timestamptz,
+      demo boolean not null default false,
+      cree_le timestamptz not null default now(), maj_le timestamptz not null default now()
+    );
+    insert into crm.modeles_dossier(nom, description, champs, demo) values
+      ('Particulier Île-de-France', 'Modèle de démonstration.', '{"type":"particulier","type_demenagement":"national"}', true),
+      ('Particulier avec garde-meuble', 'Modèle de démonstration.', '{"type":"particulier","type_demenagement":"national","garde_meuble":true}', true),
+      ('Mutation militaire outre-mer', 'Modèle de démonstration.', '{"type":"militaire","type_demenagement":"international"}', true),
+      ('Transfert de bureaux', 'Modèle de démonstration.', '{"type":"compte","type_demenagement":"bureau"}', true);
+  end if;
+end $$;
+create index if not exists idx_modeles_dossier_usage on crm.modeles_dossier(utilisations desc, dernier_usage desc);
+alter table crm.modeles_dossier enable row level security;
 `;

@@ -1,10 +1,12 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { q, q1, type Row } from "@/crm/lib/db";
+import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
+import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
+import { oublierCandidats } from "@/crm/creation/donnees";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -41,23 +43,50 @@ async function numero(prefixe: string, table: string) {
 /* La connexion et la déconnexion sont celles de l'espace équipe (/login, signOut). */
 
 /* ---------- dossiers ---------- */
+/**
+ * La création d'un dossier (écran /dossiers/nouveau, src/crm/creation). Le
+ * client est soit rattaché à un client existant (`client_id`, proposé quand
+ * l'e-mail ou le téléphone est déjà connu), soit créé. Le dossier garde son
+ * auteur (`cree_par_id`) et, s'il part d'un modèle ou d'un dossier passé, la
+ * trace de ce point de départ dans son activité.
+ */
 export async function creerDossier(f: FormData) {
   const u = await currentUser();
-  const type = s(f, "type") ?? "particulier";
-  const client = await q1<{ id: number }>(
-    "insert into clients(type,civilite,prenom,nom,societe,email,telephone) values($1,$2,$3,$4,$5,$6,$7) returning id",
-    [type, s(f, "civilite"), s(f, "prenom"), s(f, "nom") ?? s(f, "societe") ?? "Sans nom", s(f, "societe"), s(f, "email"), s(f, "telephone")]);
+  const type = segmentValide(s(f, "type")) ? s(f, "type")! : "particulier";
+  const tdm = typeValide(s(f, "type_demenagement")) ? s(f, "type_demenagement")! : "national";
   const ref = await numero("BD", "dossiers");
   const com = n(f, "commercial_id") ?? (u.role === "commercial" ? u.id : null);
-  const d = await q1<{ id: number }>(
-    `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations)
-     values($1,$2,$3,$4,'prospect',$5,$6,$7,$8) returning id`,
-    [ref, client!.id, com, n(f, "traite_par_id"), s(f, "periode"), s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : null, n(f, "volume") ?? 0, s(f, "observations")]);
-  const id = d!.id;
-  await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur) values($1,0,'depart',$2,$3,$4)", [id, s(f, "depart"), s(f, "depart_etage"), f.get("depart_asc") === "on"]);
-  if (f.get("garde_meuble") === "on") await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse) values($1,1,'garde_meuble','Garde-meuble Bailly')", [id]);
-  await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur) values($1,2,'arrivee',$2,$3,$4)", [id, s(f, "arrivee"), s(f, "arrivee_etage"), f.get("arrivee_asc") === "on"]);
-  await log(id, "Dossier créé");
+  const moisCa = s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : moisDepuisPeriode(s(f, "periode"));
+  const id = await transaction(async (db) => {
+    const rattache = n(f, "client_id");
+    let clientId = rattache ? (await db.query<{ id: number }>("select id from clients where id=$1", [rattache]))[0]?.id : undefined;
+    if (!clientId) {
+      [{ id: clientId }] = await db.query<{ id: number }>(
+        "insert into clients(type,civilite,prenom,nom,societe,email,telephone) values($1,$2,$3,$4,$5,$6,$7) returning id",
+        [type, s(f, "civilite"), s(f, "prenom"), s(f, "nom") ?? s(f, "societe") ?? "Sans nom", s(f, "societe"), s(f, "email"), s(f, "telephone")]);
+    }
+    const [d] = await db.query<{ id: number }>(
+      `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,type_demenagement,vehicule,cree_par_id)
+       values($1,$2,$3,$4,'prospect',$5,$6,$7,$8,$9,$10,$11) returning id`,
+      [ref, clientId, com, n(f, "traite_par_id"), s(f, "periode"), moisCa, n(f, "volume") ?? 0, s(f, "observations"), tdm, f.get("vehicule") === "on", u.id]);
+    const etape = "insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur,acces) values($1,$2,$3,$4,$5,$6,$7)";
+    await db.query(etape, [d.id, 0, "depart", s(f, "depart"), s(f, "depart_etage"), f.get("depart_asc") === "on", s(f, "depart_acces")]);
+    if (f.get("garde_meuble") === "on") await db.query(etape, [d.id, 1, "garde_meuble", "Garde-meuble Bailly", null, false, null]);
+    await db.query(etape, [d.id, 2, "arrivee", s(f, "arrivee"), s(f, "arrivee_etage"), f.get("arrivee_asc") === "on", s(f, "arrivee_acces")]);
+    return d.id;
+  });
+  // Le point de départ choisi à l'écran : un modèle (son compteur d'usage avance) ou un dossier passé.
+  let depuis = "";
+  const sourceId = n(f, "source_id");
+  if (sourceId && s(f, "source_genre") === "modele") {
+    const m = await q1<{ nom: string }>("update modeles_dossier set utilisations=utilisations+1, dernier_usage=now() where id=$1 returning nom", [sourceId]);
+    if (m) depuis = ` à partir du modèle « ${m.nom} »`;
+  } else if (sourceId && s(f, "source_genre") === "dossier") {
+    const o = await q1<{ ref: string }>("select ref from dossiers where id=$1", [sourceId]);
+    if (o) depuis = ` à partir du dossier ${o.ref}`;
+  }
+  oublierCandidats();
+  await log(id, `Dossier créé${depuis}`);
   refresh();
   redirect(`/dossiers/${id}`);
 }
@@ -80,13 +109,13 @@ export async function majFiche(id: number, f: FormData) {
 }
 
 export async function dupliquerDossier(id: number) {
-  await exiger();
+  const u = await exiger();
   const o = await q1<Row>("select * from dossiers where id=$1", [id]);
   if (!o) return;
   const ref = await numero("BD", "dossiers");
   const nd = await q1<{ id: number }>(
-    `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations) values($1,$2,$3,$4,'visite',$5,$6,$7,$8) returning id`,
-    [ref, o.client_id, o.commercial_id, o.traite_par_id, o.periode, o.mois_ca, o.volume, o.observations]);
+    `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,cree_par_id) values($1,$2,$3,$4,'visite',$5,$6,$7,$8,$9) returning id`,
+    [ref, o.client_id, o.commercial_id, o.traite_par_id, o.periode, o.mois_ca, o.volume, o.observations, u.id]);
   await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur,acces) select $2,ordre,genre,adresse,etage,ascenseur,acces from etapes_trajet where dossier_id=$1", [id, nd!.id]);
   await q("insert into inventaire(dossier_id,piece,libelle,quantite,volume,destination,demontage) select $2,piece,libelle,quantite,volume,destination,demontage from inventaire where dossier_id=$1", [id, nd!.id]);
   await log(nd!.id, `Dossier dupliqué depuis ${o.ref} (observations conservées)`);
