@@ -50,14 +50,12 @@ export const GROUPES_REGLAGES: GroupeReglages[] = [
         texte: "Imprimées sur les factures et les avoirs dès qu'elles sont renseignées.",
         icone: "facture",
       },
-      { href: "/modeles", label: "Courriers et SMS", texte: "Tous les messages de la plateforme, une carte par type d'action.", icone: "courrier" },
-      // Pas une boîte de réception : les mêmes modèles et alertes que Courriers et SMS, mais c'est ici seulement qu'on
-      // les crée, les supprime, pose les conditions d'une alerte et teste un envoi (onglets Templates, Alertes, Simulation).
+      // L'ancienne messagerie (/dashboard/messagerie, « Modèles et règles d'alerte ») y est réunie depuis le 08/11/2026.
       {
-        href: "/dashboard/messagerie",
-        label: "Modèles et règles d'alerte",
-        texte: "Créer un modèle d'e-mail ou de SMS, conditionner une alerte, tester un envoi.",
-        icone: "cloche",
+        href: "/modeles",
+        label: "Courriers et SMS",
+        texte: "Tous les messages de la plateforme, une carte par type d'action : modèles, règles d'envoi et alertes, tests d'envoi.",
+        icone: "courrier",
       },
     ],
   },
@@ -66,7 +64,7 @@ export const GROUPES_REGLAGES: GroupeReglages[] = [
     pages: [
       // Phrases tirées des pages elles-mêmes (circuit d'une relance ; cartes « Qui reçoit quoi »).
       { href: "/relances/configuration", label: "Règles des relances", texte: "Délai, repère, nombre, canaux, jours et heures, exclusions.", icone: "horloge" },
-      { href: "/relances/alertes", label: "Alertes de l'équipe", titre: "Alertes de l’équipe", texte: "Qui reçoit quoi : les destinataires, une alerte par événement, les abonnements.", icone: "clients" },
+      { href: "/relances/alertes", label: "Alertes de l'équipe", titre: "Alertes de l’équipe", texte: "Qui reçoit quoi : les destinataires, une alerte par événement, les abonnements.", icone: "cloche" },
     ],
   },
   {
