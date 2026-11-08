@@ -39,7 +39,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     q("select id,nom,role from utilisateurs order by id"),
     ficheDossier(d),
     // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
-    q("select 1 from public.ec_dossiers where crm_dossier_id=$1 limit 1", [id]).catch(() => []),
+    q<{ id: string }>("select id from public.ec_dossiers where crm_dossier_id=$1 order by created_at desc limit 1", [id]).catch(() => []),
     q<{ telephone2: string | null }>("select telephone2 from clients where id=$1", [d.client_id]),
   ]);
   d.telephone2 = client[0]?.telephone2 ?? null;
@@ -72,16 +72,21 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
           />
         }
       >
-        {/* Une ancre ordinaire : elle ouvre Commun › Règlements (Fiche.tsx suit le changement d'ancre). */}
-        <a href="#commun-reglements" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">
+        {/* Une ancre ordinaire : elle ouvre Déménagements › Facturation (Fiche.tsx suit le changement d'ancre). */}
+        <a href="#facturation" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">
           Solde {eur(solde)}
         </a>
         <Link href={`/parcours/${id}`} data-ton="contour">Parcours</Link>
-        {/* Sans icône : avec un solde à quatre chiffres, les cinq boutons dépassaient les 560 px de la rangée et « ⋯ » passait à la ligne, rogné. */}
-        <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour">Fiche PDF</Link>
+        {/* L'espace client du dossier, vu de l'équipe ; sans espace, l'onglet de la fiche qui l'ouvre. */}
+        {espace[0] ? (
+          <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`} data-ton="contour" title="L'espace client de ce dossier, tel que l'équipe le suit">Espace client</Link>
+        ) : (
+          <a href="#commun-espace" data-ton="contour" title="Ce dossier n'a pas encore d'espace client : l'onglet de la fiche permet de l'ouvrir">Ouvrir l’espace client</a>
+        )}
         <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
         {/* Les gestes secondaires, rangés dans « ⋯ » pour que les boutons tiennent sur deux lignes. */}
         <MenuActions>
+          <Link href={`/imprimer/${id}?doc=fiche`}>Fiche PDF</Link>
           <form action={A.dupliquerDossier.bind(null, id)}><button>Dupliquer le dossier</button></form>
           {d.statut === "perdu"
             ? <form action={A.rouvrir.bind(null, id)}><button>Rouvrir le dossier</button></form>
