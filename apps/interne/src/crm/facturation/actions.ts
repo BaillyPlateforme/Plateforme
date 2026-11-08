@@ -43,6 +43,20 @@ const texte = (max = 400) => z.string().trim().max(max).optional().nullable().tr
 const fr = (n: number) => euros2(n);
 const dateFr = (j: string) => j.split("-").reverse().join("/");
 
+/**
+ * La règle de « Marquer payée » (actions.ts, facturePayee) : un déménagement planifié dont la facture de solde
+ * est réglée est terminé. Un encaissement qui solde cette facture (règlement saisi ou réaffecté) suit la même
+ * règle : sinon le dossier restait « Planifié » au Kanban et au Parcours, payé.
+ */
+async function terminerSiSoldeRegle(dossierId: number) {
+  const r = await q1<{ id: number }>(
+    `update dossiers set statut='termine', maj_le=now() where id=$1 and statut='planifie'
+       and exists (select 1 from factures where dossier_id=$1 and genre='solde' and statut='payee') returning id`,
+    [dossierId],
+  );
+  if (r) await noter(dossierId, "Facture de solde réglée · dossier terminé");
+}
+
 /* ---------- encaisser ---------- */
 
 const SaisieReglement = z.object({
@@ -100,6 +114,7 @@ export async function encaisser(saisie: SaisieReglement): Promise<Issue> {
   );
   const tete = s.nature === "arrhes" ? "Arrhes" : s.nature === "remboursement" ? "Remboursement" : "Règlement";
   await noter(s.dossierId, `${tete} de ${fr(s.montant)} enregistré${s.nature === "arrhes" ? "es" : ""} · ${MODE[s.mode].toLowerCase()}${numero ? ` · facture ${numero}` : ""}`);
+  if (s.factureId) await terminerSiSoldeRegle(s.dossierId);
   await apres(s.dossierId);
   return { ok: true, id: r?.id };
 }
@@ -184,6 +199,7 @@ export async function reaffecterReglement(id: number, cible: { factureId?: numbe
   } else {
     await noter(dossier, `Règlement de ${fr(Number(r.montant))} réaffecté ${vers}`);
   }
+  if (cible.factureId) await terminerSiSoldeRegle(dossier);
   await apres(r.dossier_id, dossier);
   return { ok: true };
 }
