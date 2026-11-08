@@ -1,0 +1,182 @@
+/*
+ * À la une : ce qui ne vient pas du cadre commun des Statistiques — le Top 5
+ * des demandes (leur araignée en petit) et la liste des rappels qui
+ * attendent. Le reste (tuiles, cartes, graphiques) est celui des
+ * Statistiques, pour un seul produit.
+ */
+
+/* ───────── Le Top 5 ───────── */
+.top {
+  display: grid;
+  gap: 2px;
+  margin: -4px -8px 0;
+  padding: 0;
+  list-style: none;
+}
+.top a {
+  display: grid;
+  grid-template-columns: 22px 56px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.top a:hover {
+  background: #faf8ff;
+}
+.top a:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.25);
+}
+.rang {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: #8a86a0;
+}
+.top li:first-child .rang {
+  color: #4b2fe0;
+}
+.qui {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.qui b,
+.qui span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qui b {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14121f;
+}
+.qui span {
+  font-size: 12px;
+  color: #6f6c80;
+}
+.etape {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #4a475c;
+}
+.etape i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.montant {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  font-size: 13.5px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.montant small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8a86a0;
+}
+.score {
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.score[data-niveau="haut"] {
+  background: #e3f8ee;
+  color: #0b7a4f;
+}
+.score[data-niveau="moyen"] {
+  background: #ece8ff;
+  color: #3a22c4;
+}
+.score[data-niveau="bas"],
+.score[data-niveau="vide"] {
+  background: #f1eff8;
+  color: #6f6c80;
+}
+
+/* ───────── Les rappels qui attendent ───────── */
+.rappels {
+  display: grid;
+  gap: 2px;
+  margin: -4px -8px 0;
+  padding: 0;
+  list-style: none;
+}
+.rappels a {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  color: inherit;
+  text-decoration: none;
+}
+.rappels a:hover {
+  background: #faf8ff;
+}
+.rappels a:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.25);
+}
+.rappels a > i {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #fff3dc;
+  color: #b45309;
+}
+.rappels a > i[data-statut="en_cours"] {
+  background: #efebff;
+  color: #4b2fe0;
+}
+.attente {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  color: #4a475c;
+}
+.attente small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8a86a0;
+}
+.calme {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 132px;
+  border-radius: 14px;
+  background: #f6fcf9;
+  color: #0b7a4f;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+}
