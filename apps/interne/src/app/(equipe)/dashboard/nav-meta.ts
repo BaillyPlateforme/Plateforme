@@ -1,3 +1,5 @@
+import { SECTIONS } from "@/crm/sections";
+
 /** Titre et sous-titre de chaque écran : la barre du haut les porte désormais. */
 export const META: Record<string, { titre: string; sous?: string }> = {
   "/dashboard": { titre: "Demandes", sous: "Tout ce qui arrive, du formulaire comme des mails" },
@@ -26,6 +28,10 @@ export const META: Record<string, { titre: string; sous?: string }> = {
 
 export function metaDe(pathname: string): { titre: string; sous?: string } {
   if (META[pathname]) return META[pathname];
+  // Les pages de l'espace client (cartons, SAV, pièces…) : le titre de leur onglet du menu, plutôt que
+  // « Espace client » partout ; la phrase reste celle de la section.
+  const onglet = SECTIONS[1].onglets.find((o) => o.href !== "/dashboard/espace-client" && pathname.startsWith(o.href));
+  if (onglet) return { titre: onglet.label, sous: META["/dashboard/espace-client"].sous };
   if (pathname.startsWith("/dashboard/clients/")) return { titre: "Client", sous: "Historique et devis" };
   if (/^\/dashboard\/[0-9a-f-]{8,}/.test(pathname)) return { titre: "Demande", sous: "Fiche complète" };
   const cle = Object.keys(META).find((k) => k !== "/dashboard" && pathname.startsWith(k));
