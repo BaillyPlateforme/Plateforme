@@ -1,50 +1,65 @@
-import { commerciaux } from "@/crm/lib/data";
-import { q } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
-import { creerRdv } from "@/crm/actions";
-import { nomClient } from "@/crm/lib/format";
-import Bandeau from "@/ui/Bandeau";
-import ChampAdresse from "@/ui/ChampAdresse";
+import { commerciaux } from "@/crm/lib/data";
+import { q1 } from "@/crm/lib/db";
+import { lundiDuJour } from "@/crm/planning/grille";
+import Planificateur from "@/crm/planning/planificateur/Planificateur";
+import { dossierPlanif, dossiersOuverts, instantPage, semaineParDefaut, semainePlanif, sourcePlanif } from "@/crm/planning/planificateur/donnees";
+import { dureeParDefaut } from "@/crm/planning/planificateur/regles";
+import { estTypeRdv, type TypeRdv } from "@/crm/planning/types-rdv";
 
 export const dynamic = "force-dynamic";
 
-/** La date proposée par défaut : demain. */
-function lendemain() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-export default async function NouveauRdv({ searchParams }: { searchParams: Promise<{ dossier?: string }> }) {
+/*
+ * Planifier une visite (?dossier=<id>) ou poser un rendez-vous au planning
+ * (sans dossier) : le planificateur de src/crm/planning/planificateur.
+ *
+ * - ?dossier=<id>   : tout ce que le dossier sait est déjà là (client, adresse,
+ *                     étage et accès, commercial du dossier) ;
+ * - &depuis=<rdv>   : une nouvelle visite à partir d'une autre (type, lieu,
+ *                     observations, durée et commercial repris) ;
+ * - &com, &semaine  : le commercial et la semaine montrés ;
+ * - &type           : phys, visio, tache ou perso.
+ *
+ * Le bloc « Prochaine étape » d'un dossier sans visite mène ici.
+ */
+export default async function NouveauRdv({
+  searchParams,
+}: {
+  searchParams: Promise<{ dossier?: string; depuis?: string; com?: string; semaine?: string; type?: string }>;
+}) {
   const sp = await searchParams;
-  const [coms, dossiers, u] = await Promise.all([
-    commerciaux(),
-    // Le dossier demandé (« Planifier une visite » depuis sa fiche) est toujours proposé, même terminé ou ancien :
-    // absent de la liste, il n'était pas présélectionné et le rendez-vous se créait sans dossier.
-    q(
-      `select d.id,d.ref,c.nom,c.prenom,c.societe from dossiers d join clients c on c.id=d.client_id
-        where d.statut not in ('termine','perdu') or d.id = $1 order by (d.id = $1) desc, d.maj_le desc limit 101`,
-      [/^\d+$/.test(sp.dossier ?? "") ? Number(sp.dossier) : 0],
-    ),
-    currentUser(),
-  ]);
-  const demain = lendemain();
+  const entier = (v?: string) => (/^\d+$/.test(v ?? "") ? Number(v) : null);
+  const [u, coms] = await Promise.all([currentUser(), commerciaux()]);
+  const dossier = entier(sp.dossier) ? await dossierPlanif(entier(sp.dossier)!) : null;
+  const source = dossier && entier(sp.depuis) ? await sourcePlanif(dossier.id, entier(sp.depuis)!) : null;
+  const type: TypeRdv = source?.type ?? (estTypeRdv(sp.type) ? sp.type : "phys");
+
+  // Le commercial : celui demandé, sinon celui de la visite reprise, celui du dossier, l'utilisateur s'il est commercial, le premier.
+  const liste = coms.map((c) => ({ id: c.id as number, nom: c.nom as string }));
+  const voulu = [entier(sp.com), source?.commercialId, dossier?.commercialId, u.role === "commercial" ? u.id : null].find((x): x is number => !!x) ?? liste[0]?.id ?? u.id;
+  if (!liste.some((c) => c.id === voulu)) {
+    const autre = await q1<{ id: number; nom: string }>("select id, nom from utilisateurs where id = $1", [voulu]);
+    if (autre) liste.push(autre);
+  }
+  const commercialId = liste.some((c) => c.id === voulu) ? voulu : (liste[0]?.id ?? u.id);
+  if (!liste.length) liste.push({ id: u.id, nom: u.nom });
+
+  const lundi = /^\d{4}-\d{2}-\d{2}$/.test(sp.semaine ?? "") ? lundiDuJour(sp.semaine!) : semaineParDefaut();
+  const duree = source?.duree ?? dureeParDefaut(type);
+  const [semaine, dossiers] = await Promise.all([semainePlanif(commercialId, lundi, dossier?.id ?? null, type, duree), dossier ? Promise.resolve([]) : dossiersOuverts()]);
+
   return (
-    <div className="view">
-      <Bandeau surtitre="Planning commercial" titre="Nouveau rendez-vous" texte="Visite physique, visio ou tâche : les couleurs du planning suivent le type." secondaire={{ label: "Retour au planning", href: "/planning" }} />
-      <form action={creerRdv} className="card"><div className="form-grid">
-        <div className="fld"><label>Type</label><select name="type" defaultValue="phys"><option value="phys">Visite physique</option><option value="visio">Visio</option><option value="tache">Tâche (livraison de cartons, RDV…)</option><option value="perso">Perso / règle (semaine des enfants…)</option></select></div>
-        <div className="fld"><label>Commercial</label><select name="commercial_id" defaultValue={u.role === "commercial" ? u.id : coms[0]?.id}>{coms.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}</select></div>
-        <div className="fld w8"><label>Titre</label><input type="text" name="titre" required placeholder="M. Dupuis" /></div>
-        <div className="fld w4"><label>Durée (min)</label><input type="number" name="duree_min" defaultValue={60} min={15} step={15} /></div>
-        <div className="fld w4"><label>Date</label><input type="date" name="date" defaultValue={demain} required /></div>
-        <div className="fld w4"><label>Heure</label><input type="time" name="heure" defaultValue="09:00" required /></div>
-        <div className="fld w4"><label htmlFor="lieu">Lieu</label><ChampAdresse id="lieu" name="lieu" placeholder="Adresse ou « Visio »" /></div>
-        <div className="fld w12"><label style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><input type="checkbox" name="journee" />Toute la journée (une « journée visio », par exemple) : posée au-dessus de la grille, sans dossier ni horaire</label></div>
-        <div className="fld w12"><label>Dossier lié (facultatif)</label>
-          <select name="dossier_id" defaultValue={sp.dossier ?? ""}><option value="">— Aucun —</option>{dossiers.map((d) => <option key={d.id} value={d.id}>{d.ref} · {nomClient(d)}</option>)}</select></div>
-        <div className="fld w12"><label>Notes</label><textarea name="notes" placeholder="Accès, particularités, ce que le client a déjà vu…" /></div>
-      </div><div className="form-actions"><button className="btn primary">Planifier</button></div></form>
-    </div>
+    <Planificateur
+      // Un autre dossier, ou une autre visite reprise : le planificateur repart de leurs données.
+      key={`${dossier?.id ?? "sans"}-${source?.id ?? "neuf"}`}
+      dossier={dossier}
+      source={source}
+      dossiers={dossiers}
+      commerciaux={liste}
+      commercialInitial={commercialId}
+      semaineInitiale={semaine}
+      maintenantInitial={instantPage()}
+      typeInitial={type}
+    />
   );
 }
