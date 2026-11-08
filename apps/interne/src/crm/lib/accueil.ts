@@ -1,5 +1,5 @@
 import "server-only";
-import { q, type Row } from "./db";
+import { q, q1, type Row } from "./db";
 import { activiteRecente, aPlanifier, relancesDevis, stats } from "./data";
 import { gmEnRetard } from "./data2";
 
@@ -10,7 +10,7 @@ import { gmEnRetard } from "./data2";
  * (repris de `stats()`, qui sert aussi la page Pilotage).
  */
 export async function journee() {
-  const [chiffres, rendezVous, chantiers, relances, planifier, activite, gardeMeuble] = await Promise.all([
+  const [chiffres, rendezVous, chantiers, relances, planifier, activite, gardeMeuble, totaux] = await Promise.all([
     stats(),
     q(`select r.id, r.type, r.titre, r.lieu, r.debut, r.duree_min, r.dossier_id, r.termine, u.nom as commercial, u.initiales
        from rendez_vous r join utilisateurs u on u.id = r.commercial_id
@@ -27,6 +27,15 @@ export async function journee() {
     aPlanifier(),
     activiteRecente(5),
     gmEnRetard(),
+    // Les vrais nombres des chiffres du haut : les listes ci-dessus sont tronquées (8 chantiers, 6 relances),
+    // les tuiles affichaient leur longueur (8 déménagements quand il y en avait 9).
+    q1<{ chantiers: number; relances: number }>(`select
+       (select count(*) from dossiers d where d.date_chargement between current_date and current_date + 6 and d.statut <> 'perdu')::int as chantiers,
+       (select count(distinct d.id) from devis v join dossiers d on d.id = v.dossier_id
+         where v.statut = 'envoye' and d.statut = 'devis' and v.envoye_le < now() - interval '2 days')::int as relances`),
   ]);
-  return { chiffres, rendezVous: rendezVous as Row[], chantiers: chantiers as Row[], relances, planifier, activite, gardeMeuble };
+  return {
+    chiffres, rendezVous: rendezVous as Row[], chantiers: chantiers as Row[], relances, planifier, activite, gardeMeuble,
+    nombreChantiers: totaux?.chantiers ?? chantiers.length, nombreRelances: totaux?.relances ?? relances.length,
+  };
 }
