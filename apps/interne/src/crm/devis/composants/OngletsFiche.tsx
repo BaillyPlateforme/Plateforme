@@ -1,5 +1,6 @@
 "use client";
 import { ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { FORMULES, nouvelId, type Contrat, type DossierDevis, type Etape, type Moyens } from "../modele";
 import { Champ, Interrupteur, Nombre, PICTOS, Pic, Section, Segment, euros } from "./champs";
 import s from "../editeur.module.css";
@@ -56,9 +57,23 @@ export function OngletAdresses({ etapes, onChange }: { etapes: Etape[]; onChange
               )}
             </header>
             <div className={s.grille}>
-              <Champ label="Adresse" large={4}><input type="text" value={e.adresse} onChange={(x) => maj(e.id, { adresse: x.target.value })} /></Champ>
+              <Champ label="Adresse" large={4}>
+                <ChampAdresse
+                  saisie="voie"
+                  value={e.adresse}
+                  onChange={(x) => maj(e.id, { adresse: x })}
+                  onChoisir={(a) => maj(e.id, { adresse: a.voie, codePostal: a.codePostal, ville: a.ville, pays: "France" })}
+                />
+              </Champ>
               <Champ label="Code postal" large={1}><input type="text" value={e.codePostal} onChange={(x) => maj(e.id, { codePostal: x.target.value })} /></Champ>
-              <Champ label="Ville" large={1}><input type="text" value={e.ville} onChange={(x) => maj(e.id, { ville: x.target.value })} /></Champ>
+              <Champ label="Ville" large={1}>
+                <ChampAdresse
+                  mode="ville"
+                  value={e.ville}
+                  onChange={(x) => maj(e.id, { ville: x })}
+                  onChoisir={(a) => maj(e.id, { ville: a.ville, codePostal: a.codePostal, pays: "France" })}
+                />
+              </Champ>
               <Champ label="Pays" large={1}><input type="text" value={e.pays} placeholder="France" onChange={(x) => maj(e.id, { pays: x.target.value })} /></Champ>
               <Champ label="Téléphone sur place" large={2}><input type="tel" value={e.telephone} onChange={(x) => maj(e.id, { telephone: x.target.value })} /></Champ>
               <Champ label="Étage" large={1}><input type="text" value={e.etage} placeholder="RDC" onChange={(x) => maj(e.id, { etage: x.target.value })} /></Champ>

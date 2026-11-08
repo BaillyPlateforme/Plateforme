@@ -9,6 +9,7 @@ import {
   SEGMENTS, SEGMENTS_SOCIETE, TYPES_DEMENAGEMENT, court, depuis, developperPeriode, libelleSegment, moisAVenir,
   type ClientConnu, type Reperes, type SourceDossier, type SourceModele,
 } from "./commun";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { Picto } from "./Picto";
 import s from "./creation.module.css";
 
@@ -303,7 +304,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   const reprisAffiches = GROUPES.filter(([, cles]) => cles.some(estRepris)).map(([l]) => l);
 
   /* ---------- rendu ---------- */
-  const champTexte = (k: "prenom" | "nom" | "societe" | "telephone" | "email" | "depart" | "arrivee" | "periode", label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  const champTexte = (k: "prenom" | "nom" | "societe" | "telephone" | "email" | "periode", label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className={s.champ}>
       <span className={s.etiquette}>
         {label}
@@ -324,6 +325,25 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
               }
             : undefined
         }
+        className={`${s.saisie} ${estRepris(k) ? s.repris : ""} ${erreur?.champ === k ? s.enErreur : ""}`}
+        aria-invalid={erreur?.champ === k || undefined}
+      />
+    </label>
+  );
+
+  /** Le départ et l'arrivée : une ville ou une adresse, avec les suggestions de la Base Adresse (le texte libre reste possible). */
+  const champAdresse = (k: "depart" | "arrivee", label: string) => (
+    <label className={s.champ}>
+      <span className={s.etiquette}>
+        {label}
+        {estRepris(k) && <em className={s.marqueRepris}>repris</em>}
+      </span>
+      <ChampAdresse
+        data-champ={k}
+        name={k}
+        value={v[k]}
+        onChange={(x) => maj(k, x)}
+        placeholder="Ville ou adresse"
         className={`${s.saisie} ${estRepris(k) ? s.repris : ""} ${erreur?.champ === k ? s.enErreur : ""}`}
         aria-invalid={erreur?.champ === k || undefined}
       />
@@ -556,12 +576,12 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
             </header>
             <div className={s.trajet}>
               <div>
-                {champTexte("depart", "Départ", { autoComplete: "off", placeholder: "Ville ou adresse" })}
+                {champAdresse("depart", "Départ")}
                 {etapeDetails("depart")}
               </div>
               <i className={s.fleche} aria-hidden><Picto nom="fleche" /></i>
               <div>
-                {champTexte("arrivee", "Arrivée", { autoComplete: "off", placeholder: "Ville ou adresse" })}
+                {champAdresse("arrivee", "Arrivée")}
                 {etapeDetails("arrivee")}
               </div>
             </div>
