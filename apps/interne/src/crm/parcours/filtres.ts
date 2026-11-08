@@ -11,7 +11,16 @@ import type { CarteDemande } from "./demandes-commun";
  * Module pur : la page le lit côté serveur, le tableau côté navigateur.
  */
 
-export type Vue = "colonnes" | "liste" | "leads";
+/**
+ * Les vues du Parcours, au menu de gauche : le tableau (« colonnes » dans
+ * l'adresse : la vue par défaut, /parcours) et la liste, puis l'analyse des
+ * demandes du site — la liste détaillée, les rappels, les statistiques et le
+ * suivi des leads.
+ */
+export type Vue = "colonnes" | "liste" | "demandes" | "rappels" | "statistiques" | "leads";
+export const VUES_ANALYSE = ["demandes", "rappels", "statistiques", "leads"] as const;
+export type VueAnalyse = (typeof VUES_ANALYSE)[number];
+export const estVueAnalyse = (v: unknown): v is VueAnalyse => VUES_ANALYSE.includes(v as VueAnalyse);
 export type Filtres = { q: string; type: string | null; commercial: number | null; etape: string | null };
 
 export const FILTRES_VIDES: Filtres = { q: "", type: null, commercial: null, etape: null };
@@ -24,7 +33,7 @@ export const RANG_ETAPE: Record<string, number> = { demande: 0, prospect: 1, vis
  * page du même nom : devis signés, avec ou sans date).
  */
 export const ETAPES_FILTRE: { cle: string; label: string; statuts: Statut[] }[] = [
-  { cle: "demandes", label: "Nouvelles demandes", statuts: [] },
+  { cle: "demandes", label: "Demandes", statuts: [] },
   { cle: "prospect", label: "Nouveau", statuts: ["prospect"] },
   { cle: "visite", label: "Visite à faire", statuts: ["visite"] },
   { cle: "devis", label: "Devis envoyé", statuts: ["devis"] },
@@ -43,7 +52,7 @@ export function statutsDe(etape: string | null): Statut[] {
   if (!etape) return [...COLONNES];
   return ETAPES_FILTRE.find((e) => e.cle === etape)?.statuts ?? [...COLONNES];
 }
-/** Les demandes du site se montrent sans filtre d'étape, ou avec « Nouvelles demandes ». */
+/** Les demandes du site se montrent sans filtre d'étape, ou avec « Demandes ». */
 export const avecDemandes = (etape: string | null) => !etape || etape === "demandes";
 
 export const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();

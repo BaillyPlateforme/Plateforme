@@ -7,9 +7,10 @@ import VueEnsemble, { type Donnees } from "./VueEnsemble";
 import type { VueDuSite } from "./vues";
 
 /*
- * Statistiques › Demandes du site : une seule lecture (/api/data/tableau-de-bord,
- * qui porte aussi toutes les demandes), puis l'analyse choisie dans le bandeau.
- * Le cache de useRessource rend le passage d'une analyse à l'autre instantané.
+ * Parcours › Analyse des demandes › Statistiques : une seule lecture
+ * (/api/data/tableau-de-bord, qui porte aussi toutes les demandes), puis
+ * l'analyse choisie au menu de gauche. Le cache de useRessource rend le
+ * passage d'une analyse à l'autre instantané.
  */
 export default function StatistiquesDuSite({ vue }: { vue: VueDuSite }) {
   const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/tableau-de-bord");

@@ -34,7 +34,7 @@ export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alert
   const alertes: Alerte[] = [
     ...rdvSms.map((a) => ({ ...a, aFaire: true })),
     ...(nouvelles > 0
-      ? [{ id: "site", aFaire: true, titre: `${nouvelles} demande${nouvelles > 1 ? "s" : ""} du site à ouvrir`, sous: "Venues des questionnaires", href: "/dashboard?statut=new" }]
+      ? [{ id: "site", aFaire: true, titre: `${nouvelles} demande${nouvelles > 1 ? "s" : ""} du site à ouvrir`, sous: "Venues des questionnaires", href: "/parcours?vue=demandes&statut=new" }]
       : []),
     ...gardeMeuble.map((g) => ({
       id: `g${g.id}`,

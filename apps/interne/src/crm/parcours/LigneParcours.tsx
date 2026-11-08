@@ -17,6 +17,13 @@ import s from "./ligne.module.css";
  * site), et la chronologie complète, dépliable.
  *
  * Lecture seule : on agit depuis la fiche, juste dessous.
+ *
+ * La même carte ouvre la page d'une demande du site (unification du
+ * 08/11/2026) : la demande est la première étape du même parcours. Elle y
+ * reçoit son propre pied — la décision, accepter ou refuser (`pied`), à la
+ * place des faits — et pas de chronologie (son historique est un onglet de
+ * sa page). Elle s'affiche aussi bien sous un bandeau du CRM que dans les
+ * pages écrites avec Tailwind (.vue-equipe) : tout son dessin est ici.
  */
 
 const ICONES: NomIcone[] = ["questionnaires", "oeil", "devis", "commande", "calendrier", "camion", "facture", "etoile"];
@@ -40,13 +47,23 @@ export default function LigneParcours({
   perdu,
   faits,
   evenements,
-  aujourdhui,
+  aujourdhui = "",
+  titre = "Parcours du dossier",
+  perduTexte = "Dossier perdu",
+  pied,
 }: {
   etapes: Etape[];
   perdu: boolean;
-  faits: FaitsDossier;
-  evenements: Evenement[];
-  aujourdhui: string;
+  /** Les faits du dossier, sous les étapes ; remplacés par `pied` quand il est donné. */
+  faits?: FaitsDossier;
+  /** La chronologie, dépliable ; sans elle, pas de bouton. */
+  evenements?: Evenement[];
+  aujourdhui?: string;
+  titre?: string;
+  /** Ce que dit l'en-tête quand le parcours s'est arrêté. */
+  perduTexte?: string;
+  /** Le bas de la carte, à la place des faits : la décision sur une demande du site. */
+  pied?: React.ReactNode;
 }) {
   const [chronologie, setChronologie] = useState(false);
   // La chronologie dépliée ou non, gardée dans ce navigateur (lue après le premier rendu).
@@ -74,18 +91,18 @@ export default function LigneParcours({
   const faites = etapes.filter((e) => e.etat === "fait").length;
   const r = resume(etapes);
   const enCours = etapes.some((e) => e.etat === "encours");
-  const part = faits.signe ? Math.min(100, Math.round((faits.paye / faits.signe.montant) * 100)) : null;
+  const part = faits?.signe ? Math.min(100, Math.round((faits.paye / faits.signe.montant) * 100)) : null;
 
   return (
     <>
-      <section className={`chevauche ${s.carte}`} aria-label="Parcours du dossier, de la demande à l'avis">
+      <section className={`chevauche ${s.carte}`} aria-label={`${titre}, de la demande à l'avis`}>
         <header className={s.tete}>
           <span className={s.teteIcone}>
             <Icone nom="parcours" taille={17} />
           </span>
           <div className={s.titres}>
-            <h2>Parcours du dossier</h2>
-            <p>{perdu ? "Dossier perdu" : enCours ? <>En cours : <b>{r.etape}</b></> : <b>Parcours complet</b>}</p>
+            <h2>{titre}</h2>
+            <p>{perdu ? perduTexte : enCours ? <>En cours : <b>{r.etape}</b></> : <b>Parcours complet</b>}</p>
           </div>
           <div className={s.jauge} role="img" aria-label={`${faites} étapes faites sur ${etapes.length}`}>
             <span className={s.barres} aria-hidden>
@@ -97,12 +114,14 @@ export default function LigneParcours({
               <b>{faites}</b> sur {etapes.length}
             </span>
           </div>
-          <button type="button" className={s.bascule} aria-expanded={chronologie} aria-controls="chronologie-dossier" onClick={basculer}>
-            <Icone nom="horloge" taille={15} />
-            Chronologie
-            <em>{evenements.length}</em>
-            <Icone nom="chevron" taille={14} className={s.chevron} />
-          </button>
+          {evenements && (
+            <button type="button" className={s.bascule} aria-expanded={chronologie} aria-controls="chronologie-dossier" onClick={basculer}>
+              <Icone nom="horloge" taille={15} />
+              Chronologie
+              <em>{evenements.length}</em>
+              <Icone nom="chevron" taille={14} className={s.chevron} />
+            </button>
+          )}
         </header>
 
         <ol className={s.stations}>
@@ -142,66 +161,72 @@ export default function LigneParcours({
           })}
         </ol>
 
-        <dl className={s.faits}>
-          <div>
-            <dt>Montant signé</dt>
-            <dd>
-              {faits.signe ? <b>{eur(faits.signe.montant)}</b> : <span className={s.vide}>Pas de devis signé</span>}
-              {faits.signe && (
-                <small>
-                  {faits.signe.numero} · {faits.signe.formule}
-                </small>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>Payé</dt>
-            <dd>
-              <b className={faits.paye > 0 ? s.vert : undefined}>{eur(faits.paye)}</b>
-              {part != null ? (
-                <span className={s.barre} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={part} aria-label="Part du montant signé déjà payée">
-                  <i style={{ width: `${part}%` }} />
-                </span>
-              ) : (
-                <small>Facturé : {eur(faits.facture)}</small>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>Prochain rendez-vous</dt>
-            <dd>
-              {faits.prochainRdv ? (
-                <>
-                  <b>
-                    {new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(
-                      new Date(faits.prochainRdv.debut),
-                    )}
-                  </b>
-                  <small>avec {faits.prochainRdv.commercial}</small>
-                </>
-              ) : (
-                <span className={s.vide}>—</span>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>Demande du site</dt>
-            <dd>
-              {faits.demande ? (
-                <Link href={`/dashboard/${faits.demande.id}`} className={s.lien}>
-                  {faits.demande.source === "email" ? "E-mail" : "Formulaire"} du {quand(faits.demande.le, false)}
-                  <Icone nom="fleche" taille={13} />
-                </Link>
-              ) : (
-                <span className={s.vide}>Saisi au CRM</span>
-              )}
-              {faits.demande && <small>{faits.demande.statut}</small>}
-            </dd>
-          </div>
-        </dl>
+        {pied ? (
+          <div className={s.pied}>{pied}</div>
+        ) : (
+          faits && (
+            <dl className={s.faits}>
+            <div>
+              <dt>Montant signé</dt>
+              <dd>
+                {faits.signe ? <b>{eur(faits.signe.montant)}</b> : <span className={s.vide}>Pas de devis signé</span>}
+                {faits.signe && (
+                  <small>
+                    {faits.signe.numero} · {faits.signe.formule}
+                  </small>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Payé</dt>
+              <dd>
+                <b className={faits.paye > 0 ? s.vert : undefined}>{eur(faits.paye)}</b>
+                {part != null ? (
+                  <span className={s.barre} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={part} aria-label="Part du montant signé déjà payée">
+                    <i style={{ width: `${part}%` }} />
+                  </span>
+                ) : (
+                  <small>Facturé : {eur(faits.facture)}</small>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Prochain rendez-vous</dt>
+              <dd>
+                {faits.prochainRdv ? (
+                  <>
+                    <b>
+                      {new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(
+                        new Date(faits.prochainRdv.debut),
+                      )}
+                    </b>
+                    <small>avec {faits.prochainRdv.commercial}</small>
+                  </>
+                ) : (
+                  <span className={s.vide}>—</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Demande du site</dt>
+              <dd>
+                {faits.demande ? (
+                  <Link href={`/dashboard/${faits.demande.id}`} className={s.lien}>
+                    {faits.demande.source === "email" ? "E-mail" : "Formulaire"} du {quand(faits.demande.le, false)}
+                    <Icone nom="fleche" taille={13} />
+                  </Link>
+                ) : (
+                  <span className={s.vide}>Saisi au CRM</span>
+                )}
+                {/* Pas le statut de la demande : acceptée, elle n'a plus d'autre étape que celle du dossier (unification du 08/11/2026). */}
+              </dd>
+            </div>
+          </dl>
+          )
+        )}
       </section>
 
-      {chronologie && (
+      {chronologie && evenements && (
         <div id="chronologie-dossier" className={s.chronologie}>
           <Frise evenements={evenements} aujourdhui={aujourdhui} />
         </div>

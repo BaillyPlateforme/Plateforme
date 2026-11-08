@@ -27,6 +27,8 @@ export type ItemMenu = {
    * un nouvel onglet. Seulement depuis un composant client.
    */
   choisir?: () => void;
+  /** Une sous-vue, en retrait sous sa vue (les analyses des Statistiques du Parcours). */
+  sous?: boolean;
 };
 export type GroupeMenu = { titre?: string; items: ItemMenu[] };
 
@@ -52,7 +54,7 @@ export default function MenuVertical({ titre, groupes, dense = false }: { titre:
             <Link
               key={it.href}
               href={it.href}
-              className={s.item}
+              className={it.sous ? `${s.item} ${s.sousItem}` : s.item}
               scroll={false}
               aria-current={(vise ? vise === it.href : it.actif) ? "page" : undefined}
               onClick={(e) => {

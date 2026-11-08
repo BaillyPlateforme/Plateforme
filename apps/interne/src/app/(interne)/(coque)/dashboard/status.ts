@@ -93,9 +93,6 @@ export function missingFields(r: TraceParcours & {
   return out;
 }
 
-// Étapes principales du parcours (l'avancée d'une demande).
-export const PIPELINE: RequestStatus[] = ["new", "analyzing", "qualified", "quoted", "won"];
-
 /** Le parcours d'une demande complète, lu dans ce que le formulaire a envoyé. */
 export function traceDeLaDemande(r: { raw_payload?: Record<string, unknown> | null }, espaceNom?: string | null): TraceParcours & { express?: string | null } {
   const raw = (r.raw_payload ?? {}) as { mutation_pro?: unknown; details?: Record<string, unknown> };

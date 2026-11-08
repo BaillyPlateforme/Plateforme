@@ -8,7 +8,8 @@ import { Fenetre, Toast, type Message } from "@/crm/dispatch/composants/elements
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { useGlisser } from "@/crm/dispatch/composants/useGlisser";
 import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
-import { STATUT_DEMANDE, type CarteDemande } from "@/crm/parcours/demandes-commun";
+import { libelleDemande, sousStatut, type CarteDemande } from "@/crm/parcours/demandes-commun";
+import { FenetreAccepter, FenetreRefuser, type DemandeADecider } from "@/crm/parcours/DecisionDemande";
 import { deplacerDossier, type Choix } from "./actions";
 import type { Carte, Commercial } from "./donnees";
 import { INTITULE, NOM, RELANCE_JOURS, verdict, ville, type Geste, type Statut } from "./regles";
@@ -29,8 +30,10 @@ import s from "./kanban.module.css";
  * date ?). La carte bouge tout de suite (état optimiste) ; si le serveur
  * refuse, elle revient, avec la raison.
  *
- * Les demandes du site ne se glissent pas : une demande entre au CRM par le
- * bouton « Créer le dossier » de sa fiche, qui s'ouvre d'un clic.
+ * Les demandes du site (colonne « Demandes ») ne se glissent pas : chaque
+ * carte porte la décision — « Accepter » crée le dossier et l'espace client,
+ * « Refuser » la marque perdue (parcours/DecisionDemande) —, et s'ouvre d'un
+ * clic sur sa page, où la même décision attend.
  */
 
 type Depot = { carte: Carte; vers: Statut; geste: Geste };
@@ -62,6 +65,7 @@ export default function TableauKanban({
   const [depot, setDepot] = useState<Depot | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
   const [arrivee, setArrivee] = useState<number | null>(null);
+  const [decision, setDecision] = useState<{ genre: "accepter" | "refuser"; demande: DemandeADecider } | null>(null);
   const [, demarrer] = useTransition();
   const [affichees, deplacerOptimiste] = useOptimistic(cartes, (etat: Carte[], m: { id: number; statut: Statut }) =>
     etat.map((c) => (c.id === m.id ? { ...c, statut: m.statut, majLe: new Date().toISOString() } : c)),
@@ -146,12 +150,12 @@ export default function TableauKanban({
         className={`${s.colonne} ${s.colonneDemandes}`}
         data-statut="demandes"
         data-etat={carteGlissee ? "interdit" : undefined}
-        aria-label={`Nouvelles demandes, ${liste.length} demandes du site`}
+        aria-label={`Demandes, ${liste.length} demandes du site à accepter ou refuser`}
       >
         <header className={s.tete}>
           <div className={s.teteHaut}>
             <i className={s.pastille} aria-hidden />
-            <h2>Nouvelles demandes</h2>
+            <h2>Demandes</h2>
             <span className={s.nombre}>{liste.length}</span>
           </div>
           <p className={s.somme}>
@@ -167,7 +171,7 @@ export default function TableauKanban({
         </header>
         <div className={s.corps}>
           {liste.map((d) => (
-            <CarteDeDemande key={d.id} demande={d} />
+            <CarteDeDemande key={d.id} demande={d} decider={(genre) => setDecision({ genre, demande: { id: d.id, client: d.client } })} />
           ))}
           {liste.length === 0 && (
             <div className={s.vide}>
@@ -310,6 +314,8 @@ export default function TableauKanban({
           }}
         />
       )}
+      {decision?.genre === "accepter" && <FenetreAccepter demande={decision.demande} onFermer={() => setDecision(null)} />}
+      {decision?.genre === "refuser" && <FenetreRefuser demande={decision.demande} onFermer={() => setDecision(null)} onRefusee={setMessage} />}
       <Toast message={message} onFermer={fermerMessage} />
     </div>
   );
@@ -317,23 +323,29 @@ export default function TableauKanban({
 
 /* ───────── Une demande du site ───────── */
 
-/** Une demande du site : un lien vers sa fiche, d'où elle entre au CRM. Elle ne se glisse pas. */
-function CarteDeDemande({ demande: d }: { demande: CarteDemande }) {
+/**
+ * Une demande du site : un clic l'ouvre (le nom du client est un lien qui
+ * couvre la carte), et ses deux boutons décident sans l'ouvrir. Elle ne se
+ * glisse pas.
+ */
+function CarteDeDemande({ demande: d, decider }: { demande: CarteDemande; decider: (genre: "accepter" | "refuser") => void }) {
   const date = d.dateSouhaitee ? dateFr(`${d.dateSouhaitee}T12:00:00Z`, { day: "numeric", month: "short", year: "numeric" }) : null;
   return (
-    <Link href={`/dashboard/${d.id}`} className={`${s.carte} ${s.carteDemande}`} aria-label={`${d.client}, demande du site. Ouvrir la demande`}>
+    <article className={`${s.carte} ${s.carteDemande}`}>
       <div className={s.carteHaut}>
         <span className={s.source} title={d.source === "email" ? "Reçue par e-mail" : "Formulaire du site"}>
           <Icone nom={d.source === "email" ? "courrier" : "globe"} taille={14} />
         </span>
-        <span className={s.client}>{d.client}</span>
-        <span className={s.statutDemande} data-statut={d.statut}>
-          {STATUT_DEMANDE[d.statut] ?? d.statut}
+        <Link href={`/dashboard/${d.id}`} className={`${s.client} ${s.lienCarte}`} aria-label={`${d.client}, demande du site. Ouvrir la demande`}>
+          {d.client}
+        </Link>
+        <span className={s.statutDemande} data-statut={sousStatut(d.statut)}>
+          {libelleDemande(d.statut)}
         </span>
       </div>
       <div className={s.ligneRef}>
         <span className={s.ref}>Reçue le {dateFr(d.recueLe, { day: "numeric", month: "short" })}</span>
-        <span className={s.segment} data-segment={d.parcours === "particulier" ? "particulier" : "compte"}>
+        <span className={s.segment} data-segment={d.parcours === "particulier" ? "particulier" : "compte"} title={d.parcoursLabel}>
           {d.parcoursLabel}
         </span>
       </div>
@@ -355,7 +367,21 @@ function CarteDeDemande({ demande: d }: { demande: CarteDemande }) {
           </span>
         )}
       </div>
-    </Link>
+      <div className={s.decision}>
+        {d.incomplete && (
+          <span className={s.incomplete} title="Il manque le volume ou une adresse, ou le client n'a pas fini de compléter sa demande">
+            Incomplète
+          </span>
+        )}
+        <button type="button" className={s.refuser} onClick={() => decider("refuser")} title="Refuser : la demande passe en « Perdue »">
+          Refuser
+        </button>
+        <button type="button" className={s.accepter} onClick={() => decider("accepter")} title="Accepter : créer le dossier et l'espace client">
+          <Icone nom="coche" taille={14} />
+          Accepter
+        </button>
+      </div>
+    </article>
   );
 }
 

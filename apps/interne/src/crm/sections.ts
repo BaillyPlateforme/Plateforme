@@ -1,6 +1,7 @@
 /*
- * Les sections du CRM qui viennent de l'ancien espace équipe : les
- * demandes du site, l'espace client vu de l'équipe, et les réglages. Leurs pages vivent sous /dashboard, dans la coque du CRM ; ce
+ * Les sections du CRM qui viennent de l'ancien espace équipe : les pages des
+ * demandes du site (dans le Parcours), l'espace client vu de l'équipe, et les
+ * réglages. Leurs pages vivent sous /dashboard, dans la coque du CRM ; ce
  * fichier dit, pour chacune, son nom, ses onglets, et à quelle section une
  * adresse appartient — le rail, l'en-tête et les onglets s'en servent.
  */
@@ -11,7 +12,7 @@ import { PAGES_REGLAGES } from "./reglages/pages";
 export type Onglet = { href: string; label: string; /** Actif aussi sur les sous-pages. */ prefixe?: boolean };
 
 export type Section = {
-  cle: "demandes" | "espace-client" | "reglages";
+  cle: "parcours" | "espace-client" | "reglages";
   nom: string;
   accueil: string;
   /** Le menu vertical de la section ; vide : pas de menu, la page prend toute la largeur. */
@@ -23,22 +24,22 @@ export type Section = {
 /*
  * Les vues d'une page vont dans le menu vertical à gauche, jamais dans le
  * bandeau (décision de David du 08/11/2026) ; le bandeau ne garde que les
- * filtres. Les vues des demandes sont des vues d'une même page (?vue=) : la
- * liste, le focus, le kanban et les rappels. Celles de l'espace client sont
- * trois pages : les dossiers, les cartons du samedi et le SAV. Tout ce qui
- * règle l'outil est dans Réglages, un seul menu vertical.
+ * filtres. Celles de l'espace client sont trois pages : les dossiers, les
+ * cartons du samedi et le SAV. Tout ce qui règle l'outil est dans Réglages,
+ * un seul menu vertical.
+ *
+ * Les demandes du site n'ont plus de section à elles (unification du
+ * 08/11/2026) : leur liste et ses vues sont dans le Parcours (/parcours,
+ * Analyse des demandes) ; restent sous /dashboard la page d'une demande et
+ * l'historique d'un client, pleine largeur comme la page d'un dossier — sans
+ * menu de gauche.
  */
 export const SECTIONS: Section[] = [
   {
-    cle: "demandes",
-    nom: "Demandes",
-    accueil: "/dashboard",
-    onglets: [
-      { href: "/dashboard", label: "Liste" },
-      { href: "/dashboard?vue=focus", label: "Focus" },
-      { href: "/dashboard?vue=kanban", label: "Kanban" },
-      { href: "/dashboard?vue=rappels", label: "Rappels" },
-    ],
+    cle: "parcours",
+    nom: "Parcours",
+    accueil: "/parcours",
+    onglets: [],
   },
   {
     cle: "espace-client",
@@ -88,8 +89,6 @@ export function sectionDe(chemin: string): Section | null {
 export function ongletActif(o: Onglet, chemin: string): boolean {
   if (chemin === o.href) return true;
   if (o.prefixe && chemin.startsWith(`${o.href}/`)) return true;
-  // La fiche d'une demande (/dashboard/<uuid>) et l'historique d'un client, ouvert depuis elle, relèvent de la liste.
-  if (o.href === "/dashboard") return /^\/dashboard\/([0-9a-f-]{8,}|clients)(\/|$)/.test(chemin);
   // La fiche d'un dossier client relève des Dossiers.
   if (o.href === "/dashboard/espace-client") return chemin.startsWith("/dashboard/espace-client/dossiers/");
   return false;
@@ -97,9 +96,8 @@ export function ongletActif(o: Onglet, chemin: string): boolean {
 
 /**
  * L'onglet actif d'une section, compte tenu de la vue demandée : un onglet
- * qui nomme une vue de sa page (« /dashboard?vue=focus ») l'emporte quand
- * l'adresse est la sienne ; sinon, l'onglet de l'adresse, s'il y en a un
- * (« /dashboard » pour la liste, vue par défaut).
+ * qui nomme une vue de sa page (« /page?vue=… ») l'emporte quand l'adresse
+ * est la sienne ; sinon, l'onglet de l'adresse, s'il y en a un.
  */
 export function ongletActifDe(section: Section, chemin: string, vue: string | null): Onglet | undefined {
   const onglets = [...section.onglets, ...(section.plus ?? [])];

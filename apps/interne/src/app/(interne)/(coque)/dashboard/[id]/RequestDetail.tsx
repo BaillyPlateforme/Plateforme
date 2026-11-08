@@ -5,47 +5,87 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
-import type { DevisStatus, RequestStatus } from "@/lib/types";
-import { DEVIS_ORDER, DEVIS_STATUS, STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, isIncomplete, missingFields, PIPELINE, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
+import type { DevisStatus } from "@/lib/types";
+import { DEVIS_ORDER, DEVIS_STATUS, scoreColor, sourceLabel, isIncomplete, missingFields, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
 import { deleteDevis, updateDevisStatus } from "@/lib/actions/devis";
 import TrajetMap from "@/components/TrajetMap";
-import VersLeCrm from "./VersLeCrm";
+import LigneParcours from "@/crm/parcours/LigneParcours";
+import DecisionDemande from "@/crm/parcours/DecisionDemande";
+import type { Etape } from "@/crm/parcours/etapes";
+import MenuActions from "@/ui/MenuActions";
+import { Icone, type NomIcone } from "@/ui/icones";
 import EnTeteSection from "../EnTeteSection";
+import s from "./demande.module.css";
 
 const TABS = ["Infos", "Analyse", "Trajet", "Volume & photos", "Devis", "Messages", "Historique"] as const;
 type Tab = (typeof TABS)[number];
+const ICONES: Record<Tab, NomIcone> = {
+  Infos: "questionnaires",
+  Analyse: "stats",
+  Trajet: "camion",
+  "Volume & photos": "caisse",
+  Devis: "devis",
+  Messages: "courrier",
+  Historique: "horloge",
+};
 
+const recueLe = (iso: string) =>
+  `${new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" })} à ${new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`;
+
+/*
+ * La page d'une demande du site, première étape du Parcours (unification du
+ * 08/11/2026) : la même forme que la page d'un dossier.
+ *
+ *  - Le bandeau : le nom du client, « Demande du site · reçue le … », ses
+ *    coordonnées et ses repères ; l'historique du client, et « ⋯ » (archiver).
+ *    Une demande acceptée y mène à son dossier.
+ *  - À cheval sur la bande, la carte du parcours de A à Z, la même que sur
+ *    la page d'un dossier (crm/parcours/LigneParcours) : « Demande » en cours,
+ *    son détail dit où en est la demande (nouvelle, en analyse, qualifiée),
+ *    les étapes du dossier à venir. À son pied, la décision : accepter (le
+ *    dossier et l'espace client) ou refuser (perdue). Acceptée, la carte
+ *    montre le parcours de son dossier.
+ *  - Dessous, le détail de la demande en onglets : infos et évaluation,
+ *    analyse, trajet, volume et photos, devis, messages, historique.
+ *
+ * Plus de frise de statuts propre à la demande (Nouvelle → Gagnée) : « Devis
+ * envoyé » et « Gagnée » sont des étapes du dossier.
+ */
 export default function RequestDetail({
   detail,
   photoUrls,
   espaceClient,
   dossierCrm,
+  parcours,
 }: {
   detail: Detail;
   photoUrls: Record<string, string>;
   /** Le dossier de l'espace client déjà ouvert pour cette demande, s'il y en a un. */
   espaceClient: { id: string; reference: string } | null;
   /** Le dossier du CRM créé depuis cette demande, s'il y en a un. */
-  dossierCrm: { id: number; ref: string } | null;
+  dossierCrm: { id: number; ref: string; statut: string } | null;
+  /** Les étapes du parcours : celles du dossier si la demande est acceptée, sinon la demande en première étape. */
+  parcours: { etapes: Etape[]; perdu: boolean; dossier: boolean };
 }) {
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
-  const [pending, start] = useTransition();
   const espace = espaceDeLaDemande(r);
   const trace = { ...r, ...traceDeLaDemande(r, espace?.nom) };
   const missing = missingFields(trace);
   const badge = parcoursBadge(trace);
+  const analysee = detail.events.some((e) => e.type === "analysis") || r.score_potentiel != null;
+  const client = r.client_nom ?? r.client_email ?? "Demande";
 
   return (
-    <div>
-      {/* L'en-tête de la section, au nom du client : bandeau puis onglets. */}
+    <div className={s.page}>
+      {/* L'en-tête, au nom du client : le bandeau commun, comme la page d'un dossier. */}
       <EnTeteSection
         propre
-        surtitre={`Demandes · Reçue le ${new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à ${new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`}
-        titre={r.client_nom ?? "Demande"}
-        texte={[r.client_email, r.client_tel].filter(Boolean).join(" · ")}
+        surtitre={`Demande du site · reçue le ${recueLe(r.created_at)}`}
+        titre={client}
+        texte={[r.client_tel, r.client_email].filter(Boolean).join(" · ")}
         etiquettes={[
           sourceLabel(r.source),
           espace && espaceLabel(espace.nom),
@@ -54,6 +94,7 @@ export default function RequestDetail({
           r.volume_m3 != null && `${r.volume_m3} m³`,
           isIncomplete(trace) ? "Incomplète" : "Complète",
         ]}
+        action={dossierCrm ? { label: `Dossier ${dossierCrm.ref}`, href: `/dossiers/${dossierCrm.id}`, icone: "fleche" } : undefined}
       >
         {/* L'historique de l'adresse e-mail (toutes ses demandes, ses devis, sa fiche) : l'ancienne liste « Clients du site » y menait. */}
         {r.client_email && (
@@ -61,46 +102,47 @@ export default function RequestDetail({
             Historique du client
           </Link>
         )}
-        <StatusPicker value={r.status} onChange={(s) => start(() => updateStatus(r.id, s))} disabled={pending} />
+        {/* Archiver : sortir une demande du parcours sans la dire perdue (doublon, essai…) ; elle se rouvre depuis la carte. */}
+        {!dossierCrm && r.status !== "archived" && (
+          <MenuActions>
+            <form action={updateStatus.bind(null, r.id, "archived")}>
+              <button>Archiver la demande</button>
+            </form>
+          </MenuActions>
+        )}
       </EnTeteSection>
 
-      <VersLeCrm requestId={r.id} dossierCrm={dossierCrm} espaceClient={espaceClient} />
-
-      {/* Avancée */}
-      <ProgressStepper status={r.status} />
+      <LigneParcours
+        etapes={parcours.etapes}
+        perdu={parcours.perdu}
+        perduTexte={parcours.dossier ? "Dossier perdu" : r.status === "archived" ? "Demande archivée" : "Demande perdue"}
+        pied={<DecisionDemande demande={{ id: r.id, client }} statut={r.status} analysee={analysee} dossier={dossierCrm} espace={espaceClient} />}
+      />
 
       {/* Ce qui manque */}
       {missing.length > 0 && <MissingBanner missing={missing} token={r.completion_token} />}
 
-      {/* Onglets */}
-      <div className="mt-6 flex gap-1 border-b border-line">
+      {/* Le détail de la demande, en onglets : la barre de la fiche d'un dossier. */}
+      <nav className={s.barre} role="tablist" aria-label="Détail de la demande">
         {TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`relative px-4 py-2.5 text-sm transition ${
-              tab === t ? "font-medium text-ink" : "text-ink-soft hover:text-ink"
-            }`}
-          >
+          <button key={t} type="button" role="tab" aria-selected={tab === t} className={s.onglet} onClick={() => setTab(t)}>
+            <Icone nom={ICONES[t]} taille={16} />
             {t}
-            {tab === t && (
-              <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />
-            )}
           </button>
         ))}
-      </div>
+      </nav>
 
-      <div className="py-6">
+      <div className={s.panneau} role="tabpanel" aria-label={tab}>
         {tab === "Infos" && <InfosTab detail={detail} />}
         {tab === "Analyse" && <AnalyseTab detail={detail} />}
         {tab === "Trajet" && (
-          <div>
-            <div className="mb-4">
-              <h3 className="font-serif text-xl">Trajet</h3>
-              <p className="text-sm text-ink-soft">{r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}{r.distance_km != null ? ` · ${r.distance_km} km` : ""}</p>
-            </div>
+          <Card title="Trajet">
+            <p className="-mt-2 mb-4 text-sm text-ink-soft">
+              {r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}
+              {r.distance_km != null ? ` · ${r.distance_km} km` : ""}
+            </p>
             <TrajetMap departVille={r.depart_ville} arriveeVille={r.arrivee_ville} distanceKm={r.distance_km} height={480} />
-          </div>
+          </Card>
         )}
         {tab === "Volume & photos" && <VolumeTab detail={detail} photoUrls={photoUrls} />}
         {tab === "Devis" && <DevisTab detail={detail} />}
@@ -402,55 +444,7 @@ function DevisTab({ detail }: { detail: Detail }) {
   );
 }
 
-/* ---------- Avancée & informations manquantes ---------- */
-
-function ProgressStepper({ status }: { status: RequestStatus }) {
-  const lost = status === "lost";
-  const archived = status === "archived";
-  const idx = PIPELINE.indexOf(status);
-  return (
-    <div className="mt-6">
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Avancée</div>
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {PIPELINE.map((s, i) => {
-          const done = !lost && !archived && idx > i;
-          const current = !lost && !archived && idx === i;
-          return (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  current
-                    ? "border-accent bg-accent text-white"
-                    : done
-                      ? "border-accent/40 bg-accent-soft/60 text-accent-dark"
-                      : "border-line bg-card text-ink-soft/50"
-                }`}
-              >
-                <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${current ? "bg-white/25" : done ? "bg-accent/20" : "bg-subtle"}`}>
-                  {done ? "✓" : i + 1}
-                </span>
-                {STATUS_META[s].label}
-              </div>
-              {i < PIPELINE.length - 1 && <span className="text-ink-soft/30">—</span>}
-            </div>
-          );
-        })}
-        {lost && (
-          <>
-            <span className="text-ink-soft/30">—</span>
-            <div className="whitespace-nowrap rounded-full border border-line-strong bg-subtle px-3 py-1.5 text-xs font-medium text-ink-soft">✕ Perdue</div>
-          </>
-        )}
-        {archived && (
-          <>
-            <span className="text-ink-soft/30">—</span>
-            <div className="whitespace-nowrap rounded-full border border-line bg-subtle px-3 py-1.5 text-xs font-medium text-ink-soft">Archivée</div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+/* ---------- Informations manquantes ---------- */
 
 type MsgPayload = { channel?: string; template?: string; rule?: string; to?: string; status?: string; erreur?: string | null };
 
@@ -571,26 +565,16 @@ function MessagesTab({ detail }: { detail: Detail }) {
 
 function MissingBanner({ missing, token }: { missing: string[]; token: string | null }) {
   return (
-    <div className="mt-5 rounded-xl border border-warn/45 bg-warn-soft/70/70 px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="text-sm font-medium text-warn">Informations manquantes :</span>
-        {missing.map((m) => (
-          <span key={m} className="inline-flex items-center gap-1.5 rounded-full border border-warn/45 bg-white/70 px-2.5 py-0.5 text-xs font-medium text-warn">
-            <span className="h-1.5 w-1.5 rounded-full bg-warn-soft/700" />
-            {m}
-          </span>
-        ))}
-        {token && (
-          <a
-            href={`/completer/${token}`}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto rounded-xl border border-warn/60 px-3 py-1.5 text-xs font-medium text-warn transition hover:bg-warn-soft"
-          >
-            Ouvrir le lien de complétion ↗
-          </a>
-        )}
-      </div>
+    <div className={s.manque}>
+      <b>Informations manquantes :</b>
+      {missing.map((m) => (
+        <span key={m}>{m}</span>
+      ))}
+      {token && (
+        <a href={`/completer/${token}`} target="_blank" rel="noreferrer">
+          Ouvrir le lien de complétion ↗
+        </a>
+      )}
     </div>
   );
 }
@@ -662,10 +646,11 @@ function eventLabel(type: string): string {
 
 /* ---------- Primitives ---------- */
 
+/** Une carte du détail, au dessin des sections de la fiche d'un dossier. */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-card p-5">
-      <h3 className="mb-4 text-xs font-medium uppercase tracking-wide text-ink-soft">{title}</h3>
+    <section className={s.carte}>
+      <h3 className={s.carteTitre}>{title}</h3>
       {children}
     </section>
   );
@@ -709,30 +694,5 @@ function AddressBlock({
         </span>
       </div>
     </div>
-  );
-}
-
-function StatusPicker({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: RequestStatus;
-  onChange: (s: RequestStatus) => void;
-  disabled: boolean;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as RequestStatus)}
-      disabled={disabled}
-      aria-label="Statut de la demande"
-    >
-      {STATUS_ORDER.map((s) => (
-        <option key={s} value={s}>
-          {STATUS_META[s].label}
-        </option>
-      ))}
-    </select>
   );
 }

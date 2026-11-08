@@ -1,7 +1,8 @@
 /*
- * Les analyses de Statistiques › Demandes du site : les huit onglets de
- * l'ancienne page /dashboard/statistiques, devenus le second groupe du menu
- * de gauche des Statistiques (?vue=…). La première, « Vue d'ensemble », est l'ancienne
+ * Les analyses des demandes du site : les huit onglets de l'ancienne page
+ * /dashboard/statistiques, rangées sous « Statistiques » dans le menu de
+ * gauche de Parcours › Analyse des demandes (?vue=statistiques&analyse=…,
+ * unification du 08/11/2026). La première, « Vue d'ensemble », est l'ancienne
  * page /dashboard/tableau-de-bord, qui doublait l'ancien onglet du même nom.
  */
 export const VUES_DU_SITE = [
