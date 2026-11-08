@@ -219,3 +219,48 @@
     display: none;
   }
 }
+
+/*
+ * Deux ou trois vues (MenuVertical, MAX_COMPACT) : un sélecteur compact posé
+ * au-dessus du contenu, qui prend alors toute la largeur. Même dessin que les
+ * vues actives du menu : l'aplat indigo pour la vue courante.
+ */
+.grille:has(> .colonne .compact) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.colonne:has(.compact) {
+  position: static;
+}
+.menu.compact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px;
+  border-radius: 999px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.compact .groupe {
+  display: flex;
+  gap: 4px;
+}
+.compact .groupe + .groupe {
+  margin: 0;
+  padding: 0 0 0 4px;
+  border: 0;
+  border-left: 1px solid #f0eef6;
+}
+.compact .item {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.compact .item svg {
+  width: 16px;
+  height: 16px;
+}

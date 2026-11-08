@@ -13,7 +13,14 @@ import s from "./menu-vertical.module.css";
  * Changer de vue ne doit pas « changer de page » (David) : la page ne remonte
  * pas en haut (scroll={false}) et la vue cliquée s'allume tout de suite, sans
  * attendre la réponse du serveur ; le bandeau, lui, reste celui de la page.
+ *
+ * Deux ou trois vues seulement (David, 08/11/2026 : « quand il n'y a que 2 ou
+ * 3 choix, ça prend juste de la place pour rien ») : plus de colonne, un
+ * sélecteur compact au-dessus du contenu, qui reprend toute la largeur.
  */
+
+/** Au-delà, le menu garde sa colonne à gauche. */
+export const MAX_COMPACT = 3;
 
 export type ItemMenu = {
   href: string;
@@ -44,12 +51,13 @@ export default function MenuVertical({ titre, groupes, dense = false }: { titre:
     setVu(actifHref);
     setVise(null);
   }
+  const compact = !dense && groupes.flatMap((g) => g.items).length <= MAX_COMPACT;
   return (
-    <nav className={dense ? `${s.menu} ${s.dense}` : s.menu} aria-label={titre}>
-      <p className={s.titre}>{titre}</p>
+    <nav className={compact ? `${s.menu} ${s.compact}` : dense ? `${s.menu} ${s.dense}` : s.menu} aria-label={titre}>
+      {!compact && <p className={s.titre}>{titre}</p>}
       {groupes.map((g, i) => (
         <div key={g.titre ?? i} className={s.groupe}>
-          {g.titre && <p className={s.sousTitre}>{g.titre}</p>}
+          {g.titre && !compact && <p className={s.sousTitre}>{g.titre}</p>}
           {g.items.map((it) => (
             <Link
               key={it.href}
