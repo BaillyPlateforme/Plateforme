@@ -5,9 +5,11 @@
  */
 
 /* ───────── Liste ───────── */
+/* La largeur du groupe, pas celle de l'écran, décide du dessin des cartes : le menu de gauche en prend sa part. */
 .groupe {
   display: grid;
   gap: 12px;
+  container-type: inline-size;
 }
 .groupeTitre {
   display: flex;
@@ -42,7 +44,18 @@
   border-color: #d9cfff;
   box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 28px 54px -34px rgba(75, 47, 224, 0.55);
 }
-@media (max-width: 1250px) {
+/*
+ * Les cinq colonnes demandent 1 104 px (minimums, écarts et marges) ; à côté
+ * du menu de gauche, sur un écran de 1 280 px, elles se resserrent (948 px) ;
+ * en deçà, deux colonnes.
+ */
+@container (max-width: 1103px) {
+  .tc {
+    grid-template-columns: minmax(170px, 1.1fr) minmax(220px, 1.6fr) minmax(150px, 1fr) minmax(190px, 1.2fr) 110px;
+    gap: 16px;
+  }
+}
+@container (max-width: 947px) {
   .tc {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }

@@ -1,17 +1,22 @@
-import { Pilules } from "@/ui/Bandeau";
+import MenuVertical from "@/ui/MenuVertical";
 
 /*
- * Les deux vues des conteneurs, dans la rangée basse du bandeau
- * (simplification du 08/11/2026) : la liste des conteneurs, et le dispatch
- * international — ses plans de groupage — qui n'est plus une entrée du menu.
+ * Les deux vues des conteneurs, dans le menu de gauche (décision de David du
+ * 08/11/2026 : les vues vont dans le menu, jamais dans le bandeau) : la liste
+ * des conteneurs, et le dispatch international — ses plans de groupage —,
+ * qui n'est plus une entrée de la navigation.
  */
 export default function VuesConteneurs({ vue, conteneurs, plans }: { vue: "conteneurs" | "dispatch"; conteneurs: number; plans: number }) {
   return (
-    <Pilules
-      label="Vues des conteneurs"
-      items={[
-        { href: "/conteneurs", label: "Conteneurs", actif: vue === "conteneurs", nombre: conteneurs },
-        { href: "/conteneurs/dispatch", label: "Dispatch", actif: vue === "dispatch", nombre: plans },
+    <MenuVertical
+      titre="Conteneurs"
+      groupes={[
+        {
+          items: [
+            { href: "/conteneurs", label: "Conteneurs", icone: "bateau", actif: vue === "conteneurs", nombre: conteneurs },
+            { href: "/conteneurs/dispatch", label: "Dispatch", icone: "dispatch", actif: vue === "dispatch", nombre: plans },
+          ],
+        },
       ]}
     />
   );
