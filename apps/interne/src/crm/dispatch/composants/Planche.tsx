@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import Bandeau from "@/ui/Bandeau";
 import b from "@/ui/bandeau.module.css";
+import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
 import { deplacerColonne, deplacerLigne, supprimerColonne, verrouiller } from "../actions";
 import { cleDestination, couleursDestinations, dateCourte, dateLongue, jauge, lignesDe, m3, nomsDestinations, somme } from "../outils";
 import { GENRES, type Colonne, type ConteneurCrm, type DossierOption, type Genre, type Ligne, type Plan, type Resultat } from "../types";
@@ -27,10 +28,12 @@ import s from "./dispatch.module.css";
  * refuser (colonne verrouillée entre-temps) : la bulle revient alors à sa
  * place, avec la raison.
  *
- * Simplification du 08/11/2026 : deux vues, Planning et Historique, en
- * pilules dans la rangée basse du bandeau (plus de barre d'onglets dessous).
- * L'ancien écran « Récapitulatif » redisait le planning colonne par colonne :
- * il reste imprimable depuis « Exporter › Récapitulatif par conteneur ».
+ * Simplification du 08/11/2026 : deux vues, Planning et Historique, dans le
+ * menu de gauche, sous le nom du plan (les vues vont dans le menu, jamais
+ * dans le bandeau : décision de David). L'adresse porte la vue (?vue=
+ * historique) ; le menu la change sans recharger le plan. L'ancien écran
+ * « Récapitulatif » redisait le planning colonne par colonne : il reste
+ * imprimable depuis « Exporter › Récapitulatif par conteneur ».
  */
 
 type Vue = "planning" | "historique";
@@ -56,7 +59,7 @@ export default function Planche({
 }) {
   const router = useRouter();
   const chemin = usePathname();
-  const [vue, setVue] = useState<Vue>("planning");
+  const vue: Vue = useSearchParams().get("vue") === "historique" ? "historique" : "planning";
   const [lignes, deplacerOptimiste] = useOptimistic(plan.lignes, (etat: Ligne[], m: Mouvement) =>
     etat.map((l) => (l.id === m.id ? { ...l, colonneId: m.colonneId, rang: m.rang } : l)),
   );
@@ -76,6 +79,18 @@ export default function Planche({
   useEffect(() => {
     if (importe) router.replace(chemin, { scroll: false });
   }, [importe, router, chemin]);
+
+  /* ── Les vues du plan, dans le menu de gauche ── */
+  const adresseDe = (v: Vue) => `/conteneurs/dispatch/${plan.id}${v === "historique" ? "?vue=historique" : ""}`;
+  /** Un clic simple sur une vue change l'adresse sans recharger le plan (Next suit l'adresse, useSearchParams avec lui). */
+  function changerDeVue(e: React.MouseEvent) {
+    const a = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const url = new URL(a.href, window.location.href);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }
 
   const couleurs = useMemo(() => couleursDestinations(plan.lignes), [plan.lignes]);
   const noms = useMemo(() => nomsDestinations(plan.lignes), [plan.lignes]);
@@ -324,21 +339,6 @@ export default function Planche({
             {plan.demo ? " · plan de démonstration, données fictives" : ""}
           </>
         }
-        bas={
-          <nav className={b.pilules} aria-label="Vues du plan">
-            {(
-              [
-                ["planning", "Planning"],
-                ["historique", "Historique"],
-              ] as const
-            ).map(([v, nom]) => (
-              <button key={v} type="button" className={`${b.pilule} ${s.piluleBouton}`} aria-current={vue === v ? "page" : undefined} onClick={() => setVue(v)}>
-                {nom}
-                {v === "historique" && <i className={b.nombre}>{plan.historique.length}</i>}
-              </button>
-            ))}
-          </nav>
-        }
       >
         <button type="button" onClick={() => setProposition(true)} disabled={lignes.length === 0}>
           <Picto nom="etincelle" taille={18} />
@@ -352,71 +352,90 @@ export default function Planche({
         </Link>
       </Bandeau>
 
-      <div className={s.outils}>
-        {vue === "planning" && destinations.length > 0 ? (
-          <div className={s.legende} aria-label="Destinations">
-            {destinations.map((d) => {
-              const ls = lignes.filter((l) => cleDestination(l) === d);
-              return (
-                <span key={d} className={s.destination} style={{ ["--c" as string]: couleurs.get(d) }}>
-                  <i />
-                  <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
-                </span>
-              );
-            })}
+      <AvecMenu
+        menu={
+          // Changer de vue ne recharge pas le plan : l'adresse change, la page la lit (useSearchParams).
+          <div onClickCapture={changerDeVue}>
+            <MenuVertical
+              titre={plan.nom}
+              groupes={[
+                {
+                  items: [
+                    { href: adresseDe("planning"), label: "Planning", icone: "dispatch", actif: vue === "planning" },
+                    { href: adresseDe("historique"), label: "Historique", icone: "horloge", actif: vue === "historique", nombre: plan.historique.length },
+                  ],
+                },
+              ]}
+            />
           </div>
-        ) : (
-          <span />
-        )}
-        <div className={s.actions}>
-          <button type="button" className={s.bouton} onClick={() => setEdition("nouvelle")}>
-            <Picto nom="plus" taille={16} /> Colonne
-          </button>
-          <Menu
-            className={s.bouton}
-            label="Exporter le planning"
-            bouton={
-              <>
-                <Picto nom="exporter" taille={16} /> Exporter
-              </>
-            }
-          >
-            {(fermer) => (
-              <>
-                <small>PDF imprimable</small>
-                <a role="menuitem" href={`/imprimer/dispatch/${plan.id}?doc=feuilles`} target="_blank" rel="noopener" onClick={fermer}>
-                  <Picto nom="imprimer" taille={16} /> Une feuille par colonne
-                </a>
-                <a role="menuitem" href={`/imprimer/dispatch/${plan.id}?doc=recap`} target="_blank" rel="noopener" onClick={fermer}>
-                  <Picto nom="conteneur" taille={16} /> Récapitulatif par conteneur
-                </a>
-                <small>Excel</small>
-                <a role="menuitem" href={`/api/dispatch/${plan.id}/excel`} onClick={fermer}>
-                  <Picto nom="tableur" taille={16} /> Planning : une feuille par colonne
-                </a>
-              </>
-            )}
-          </Menu>
-          <button type="button" className={s.bouton} onClick={() => setReglages(true)} aria-label="Réglages du plan">
-            <Picto nom="reglages" taille={16} /> Réglages
-          </button>
+        }
+      >
+        <div className={s.outils}>
+          {vue === "planning" && destinations.length > 0 ? (
+            <div className={s.legende} aria-label="Destinations">
+              {destinations.map((d) => {
+                const ls = lignes.filter((l) => cleDestination(l) === d);
+                return (
+                  <span key={d} className={s.destination} style={{ ["--c" as string]: couleurs.get(d) }}>
+                    <i />
+                    <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (
+            <span />
+          )}
+          <div className={s.actions}>
+            <button type="button" className={s.bouton} onClick={() => setEdition("nouvelle")}>
+              <Picto nom="plus" taille={16} /> Colonne
+            </button>
+            <Menu
+              className={s.bouton}
+              label="Exporter le planning"
+              bouton={
+                <>
+                  <Picto nom="exporter" taille={16} /> Exporter
+                </>
+              }
+            >
+              {(fermer) => (
+                <>
+                  <small>PDF imprimable</small>
+                  <a role="menuitem" href={`/imprimer/dispatch/${plan.id}?doc=feuilles`} target="_blank" rel="noopener" onClick={fermer}>
+                    <Picto nom="imprimer" taille={16} /> Une feuille par colonne
+                  </a>
+                  <a role="menuitem" href={`/imprimer/dispatch/${plan.id}?doc=recap`} target="_blank" rel="noopener" onClick={fermer}>
+                    <Picto nom="conteneur" taille={16} /> Récapitulatif par conteneur
+                  </a>
+                  <small>Excel</small>
+                  <a role="menuitem" href={`/api/dispatch/${plan.id}/excel`} onClick={fermer}>
+                    <Picto nom="tableur" taille={16} /> Planning : une feuille par colonne
+                  </a>
+                </>
+              )}
+            </Menu>
+            <button type="button" className={s.bouton} onClick={() => setReglages(true)} aria-label="Réglages du plan">
+              <Picto nom="reglages" taille={16} /> Réglages
+            </button>
+          </div>
         </div>
-      </div>
 
-      {vue === "planning" && (
-        <div ref={planche} className={`${s.planche} ${glisse ? s.glissement : ""}`}>
-          {colonne(null)}
-          {plan.colonnes.map(colonne)}
-          <button type="button" className={s.ajoutColonne} onClick={() => setEdition("nouvelle")}>
-            <span>
-              <Picto nom="plus" taille={20} />
-            </span>
-            Ajouter une colonne
-            <small style={{ fontWeight: 500, color: "#77738f", maxWidth: 170, textAlign: "center" }}>Conteneur, tournée, date ou zone</small>
-          </button>
-        </div>
-      )}
-      {vue === "historique" && <Historique evenements={plan.historique} />}
+        {vue === "planning" && (
+          <div ref={planche} className={`${s.planche} ${glisse ? s.glissement : ""}`}>
+            {colonne(null)}
+            {plan.colonnes.map(colonne)}
+            <button type="button" className={s.ajoutColonne} onClick={() => setEdition("nouvelle")}>
+              <span>
+                <Picto nom="plus" taille={20} />
+              </span>
+              Ajouter une colonne
+              <small style={{ fontWeight: 500, color: "#77738f", maxWidth: 170, textAlign: "center" }}>Conteneur, tournée, date ou zone</small>
+            </button>
+          </div>
+        )}
+        {vue === "historique" && <Historique evenements={plan.historique} />}
+      </AvecMenu>
 
       {glisse && ligneGlissee && glisse.cible !== undefined && (
         <Bulle ligne={ligneGlissee} couleur={couleur(ligneGlissee)} flottante style={{ left: glisse.x - glisse.dx, top: glisse.y - glisse.dy, width: glisse.largeur }} />
