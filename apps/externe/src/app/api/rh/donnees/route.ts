@@ -1,40 +1,33 @@
 import { NextResponse } from "next/server";
-import { listEspaces, lireRegles } from "@/lib/espaces-pro";
-import { cheminEspace, espaceEffectif, nomEnseigne, urlLogo } from "@/lib/espaces";
-import { demandesRh } from "@/lib/rh";
+import { cheminEspace, nomEnseigne, urlLogo } from "@/lib/espaces";
+import { lireEspaceRh } from "@/lib/rh";
 import type { DonneesRh } from "@/lib/rh-modele";
+import { espaceDeLaSession } from "@/lib/rh-session";
 import { getSettings } from "@/lib/settings";
-import { getAcces } from "@/lib/supabase/auth";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/rh/donnees — tout ce que montre l'espace RH.
-// Un compte RH reçoit les demandes de SON entreprise : l'espace vient de son
-// compte, jamais de l'adresse appelée. L'équipe Bailly, elle, peut regarder
+// L'espace vient du compte (rh-session.ts) : un compte RH ne reçoit que SON
+// entreprise, quel que soit le paramètre passé. L'équipe Bailly peut regarder
 // l'espace de n'importe quel client (?apercu=<identifiant>) ; sans ce
 // paramètre, elle reçoit la liste des espaces à ouvrir.
 export async function GET(req: Request) {
-  const acces = await getAcces();
-  if (!acces) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-
   try {
-    const [espaces, regles, settings] = await Promise.all([listEspaces(), lireRegles(), getSettings()]);
-    const voulu = acces.role === "rh" ? acces.espaceId : new URL(req.url).searchParams.get("apercu");
-
-    if (!voulu) {
-      // L'équipe, sans espace choisi.
-      return NextResponse.json({
-        choix: espaces.filter((e) => e.slug !== "standard").map((e) => ({ id: e.id, nom: e.nom, couleur: e.couleur, logo: urlLogo(e) })),
-      });
+    const s = await espaceDeLaSession(req);
+    if (!s.ok) return NextResponse.json({ error: s.erreur }, { status: s.statut });
+    if (!s.espace) {
+      return NextResponse.json({ choix: s.espaces.map((e) => ({ id: e.id, nom: e.nom, couleur: e.couleur, logo: urlLogo(e) })) });
     }
 
-    const brut = espaces.find((e) => e.id === voulu);
-    if (!brut) return NextResponse.json({ error: "Cet espace n'existe plus. Contactez Bailly Déménagement." }, { status: 404 });
-    const espace = espaceEffectif(brut, regles);
+    const { espace, acces } = s;
+    const settings = await getSettings();
     const base = (settings.base_url || "").replace(/\/$/, "");
+    const lu = await lireEspaceRh(espace, settings);
 
     const donnees: DonneesRh = {
       espace: {
+        id: espace.id,
         nom: nomEnseigne(espace),
         couleur: espace.couleur,
         logo: urlLogo(espace),
@@ -45,9 +38,9 @@ export async function GET(req: Request) {
       compte: acces.role === "rh" ? { email: acces.email, nom: acces.nom } : null,
       apercu: acces.role !== "rh",
       maintenant: Date.now(),
-      demandes: await demandesRh(espace),
+      ...lu,
     };
-    return NextResponse.json(donnees);
+    return NextResponse.json(donnees, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Lecture impossible" }, { status: 500 });
   }
