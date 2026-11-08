@@ -4,6 +4,7 @@ import Fenetre, { Champ } from "./Fenetre";
 import { chercherPayeurs, choisirPayeur, creerPayeur, majAdresseFacturation } from "./actions";
 import type { Payeur } from "./donnees";
 import { initiales } from "@/crm/lib/format";
+import ChampAdresse from "@/ui/ChampAdresse";
 import s from "./facturation.module.css";
 
 type Adresse = { adresse: string; codePostal: string; ville: string; pays: string; siren: string; tvaIntracom: string };
@@ -88,13 +89,26 @@ export default function FenetrePayeur({
   const formAdresse = (a: Adresse, set: (f: (x: Adresse) => Adresse) => void, cible: "client" | "payeur", pro: boolean) => (
     <div className={s.grille}>
       <Champ label="Adresse de facturation" l={12} id={`${id}-${cible}-adr`}>
-        <input id={`${id}-${cible}-adr`} type="text" value={a.adresse} onChange={(e) => set((x) => ({ ...x, adresse: e.target.value }))} placeholder="N°, rue, bâtiment" />
+        <ChampAdresse
+          id={`${id}-${cible}-adr`}
+          saisie="voie"
+          value={a.adresse}
+          onChange={(v) => set((x) => ({ ...x, adresse: v }))}
+          onChoisir={(r) => set((x) => ({ ...x, adresse: r.voie, codePostal: r.codePostal, ville: r.ville, pays: "France" }))}
+          placeholder="N°, rue, bâtiment"
+        />
       </Champ>
       <Champ label="Code postal" l={3} id={`${id}-${cible}-cp`}>
         <input id={`${id}-${cible}-cp`} type="text" value={a.codePostal} onChange={(e) => set((x) => ({ ...x, codePostal: e.target.value }))} />
       </Champ>
       <Champ label="Ville" l={6} id={`${id}-${cible}-ville`}>
-        <input id={`${id}-${cible}-ville`} type="text" value={a.ville} onChange={(e) => set((x) => ({ ...x, ville: e.target.value }))} />
+        <ChampAdresse
+          id={`${id}-${cible}-ville`}
+          mode="ville"
+          value={a.ville}
+          onChange={(v) => set((x) => ({ ...x, ville: v }))}
+          onChoisir={(r) => set((x) => ({ ...x, ville: r.ville, codePostal: r.codePostal, pays: "France" }))}
+        />
       </Champ>
       <Champ label="Pays" l={3} id={`${id}-${cible}-pays`}>
         <input id={`${id}-${cible}-pays`} type="text" value={a.pays} onChange={(e) => set((x) => ({ ...x, pays: e.target.value }))} placeholder="France" />

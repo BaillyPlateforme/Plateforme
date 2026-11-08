@@ -1,0 +1,134 @@
+/*
+ * La liste des suggestions d'adresses (ChampAdresse). Elle s'affiche dans la
+ * couche supérieure du navigateur, mais reste dans le DOM du formulaire : ses
+ * règles sont assez précises pour ne rien hériter des styles d'un champ
+ * (libellés en petites capitales, « span » d'une grille…).
+ */
+.liste {
+  position: fixed;
+  inset: auto;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  color: #1d1b2c;
+  border: 1px solid rgba(20, 18, 31, 0.08);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 6px -2px rgba(46, 31, 158, 0.12),
+    0 26px 52px -24px rgba(46, 31, 158, 0.45);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13.5px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  white-space: normal;
+  cursor: default;
+  animation: ouverture 0.14s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.liste[data-sens="haut"] {
+  animation-name: ouvertureHaut;
+}
+@keyframes ouverture {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes ouvertureHaut {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.liste .option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+  color: #1d1b2c;
+}
+.liste .option[aria-selected="true"] {
+  background: #f1eeff;
+  box-shadow: inset 3px 0 0 #4b2fe0;
+}
+
+.liste .picto {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #9a97ae;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.liste .option[aria-selected="true"] .picto {
+  stroke: #4b2fe0;
+}
+
+.liste .texte {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.liste .titre {
+  overflow: hidden;
+  color: #1d1b2c;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.liste .option[aria-selected="true"] .titre {
+  color: #2e1f9e;
+}
+.liste .sous {
+  overflow: hidden;
+  color: #6f6c80;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.liste .genre {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f4f2fb;
+  color: #6f6c80;
+  font-size: 11px;
+  font-weight: 600;
+}
+.liste .option[aria-selected="true"] .genre {
+  background: #fff;
+  color: #4b2fe0;
+}
+
+.liste .pied {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 2px 0;
+  padding: 7px 8px 2px;
+  border-top: 1px solid #f0eef6;
+  color: #9a97ae;
+  font-size: 11px;
+  font-weight: 500;
+}

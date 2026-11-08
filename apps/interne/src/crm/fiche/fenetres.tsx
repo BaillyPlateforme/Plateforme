@@ -5,6 +5,7 @@ import { emballages } from "@/crm/lib/tarif";
 import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
 import { commencerVisite } from "@/crm/visites/actions";
 import ChampPrestataire from "@/crm/partenaires/ChampPrestataire";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
@@ -155,13 +156,18 @@ export function FenetreAdresses({ d }: { d: Row }) {
           </legend>
           <div className={s.grille}>
             <Champ l={6} titre="Adresse">
-              <input type="text" name={`adresse_${e.id}`} defaultValue={e.adresse ?? ""} placeholder="Numéro et rue" />
+              <ChampAdresse
+                name={`adresse_${e.id}`}
+                defaultValue={e.adresse ?? ""}
+                placeholder="Numéro et rue"
+                remplir={{ codePostal: `code_postal_${e.id}`, ville: `ville_${e.id}`, pays: `pays_${e.id}` }}
+              />
             </Champ>
             <Champ l={2} titre="Code postal">
               <input type="text" name={`code_postal_${e.id}`} defaultValue={e.code_postal ?? ""} inputMode="numeric" />
             </Champ>
             <Champ l={4} titre="Ville">
-              <input type="text" name={`ville_${e.id}`} defaultValue={e.ville ?? ""} />
+              <ChampAdresse mode="ville" name={`ville_${e.id}`} defaultValue={e.ville ?? ""} remplir={{ codePostal: `code_postal_${e.id}`, pays: `pays_${e.id}` }} />
             </Champ>
             <Champ l={3} titre="Pays">
               <input type="text" name={`pays_${e.id}`} defaultValue={e.pays ?? ""} placeholder="France" />

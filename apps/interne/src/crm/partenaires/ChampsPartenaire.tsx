@@ -1,4 +1,5 @@
 import u from "@/crm/exploitation/ui/ui.module.css";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { CATEGORIES } from "./categories";
 import type { Partenaire } from "./donnees";
 
@@ -46,7 +47,7 @@ export default function ChampsPartenaire({ p, prefixe = "" }: { p?: Partial<Part
           </div>
           <div className={`${u.champ} ${u.w12}`}>
             <label htmlFor={idc("adresse")}>Adresse</label>
-            <input id={idc("adresse")} type="text" name="adresse" defaultValue={p?.adresse ?? ""} />
+            <ChampAdresse id={idc("adresse")} name="adresse" defaultValue={p?.adresse ?? ""} remplir={{ codePostal: "code_postal", ville: "ville", pays: "pays" }} />
           </div>
           <div className={`${u.champ} ${u.w3}`}>
             <label htmlFor={idc("code_postal")}>Code postal</label>
@@ -54,7 +55,7 @@ export default function ChampsPartenaire({ p, prefixe = "" }: { p?: Partial<Part
           </div>
           <div className={`${u.champ} ${u.w5}`}>
             <label htmlFor={idc("ville")}>Ville</label>
-            <input id={idc("ville")} type="text" name="ville" defaultValue={p?.ville ?? ""} />
+            <ChampAdresse mode="ville" id={idc("ville")} name="ville" defaultValue={p?.ville ?? ""} remplir={{ codePostal: "code_postal", pays: "pays" }} />
           </div>
           <div className={`${u.champ} ${u.w4}`}>
             <label htmlFor={idc("pays")}>Pays</label>

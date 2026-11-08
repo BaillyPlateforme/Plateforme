@@ -14,6 +14,7 @@ import { TYPES_DOCUMENTS, verifierFichier } from "@/lib/espace-client/schemas";
 import type { StatutDevis } from "@/lib/espace-client/types";
 import { LISTE_SEGMENTS } from "@/lib/espace-client/segments";
 import type { vueDossier } from "@/lib/espace-client/vues-equipe";
+import ChampAdresse from "@/ui/ChampAdresse";
 import MenuActions from "@/ui/MenuActions";
 import EnTeteSection from "../../EnTeteSection";
 import { BandeauMode, Bouton, Carte, Champ, LienBouton, Pastille, Retour, champ, dateFr, dateHeureFr, euro, useAction, usePorte, zoneTexte } from "./socle";
@@ -666,7 +667,19 @@ function InfosDossier({ d, recharger }: { d: Donnees; recharger: () => void }) {
       <div className="grid gap-3 sm:grid-cols-2">
         {champs.map(([k, l, type]) => (
           <Champ key={k} label={l} erreur={erreurs[k]}>
-            <input className={champ} type={type ?? "text"} value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} />
+            {k === "ville_depart" || k === "ville_arrivee" ? (
+              <ChampAdresse mode="ville" className={champ} value={v[k]} onChange={(x) => setV((y) => ({ ...y, [k]: x }))} />
+            ) : k === "adresse_depart" || k === "adresse_arrivee" ? (
+              // Une adresse choisie dans la liste donne aussi sa ville.
+              <ChampAdresse
+                className={champ}
+                value={v[k]}
+                onChange={(x) => setV((y) => ({ ...y, [k]: x }))}
+                onChoisir={(a) => setV((y) => ({ ...y, [k === "adresse_depart" ? "ville_depart" : "ville_arrivee"]: a.ville }))}
+              />
+            ) : (
+              <input className={champ} type={type ?? "text"} value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} />
+            )}
           </Champ>
         ))}
         <Champ label="Statut">

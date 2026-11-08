@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { SettingsRow } from "@/lib/types";
 import { saveSettings } from "@/lib/actions/settings";
 import { testBrevo, sendTest } from "@/lib/actions/alerts";
+import ChampAdresse from "@/ui/ChampAdresse";
 
 export default function ParametresClient({
   settings,
@@ -105,7 +106,11 @@ export default function ParametresClient({
           <F label="Nom" value={f.entreprise_nom} onChange={(v) => set("entreprise_nom", v)} />
           <F label="Email (expéditeur des mails)" value={f.entreprise_email} onChange={(v) => set("entreprise_email", v)} />
           <F label="Téléphone" value={f.entreprise_tel} onChange={(v) => set("entreprise_tel", v)} />
-          <F label="Adresse" value={f.entreprise_adresse} onChange={(v) => set("entreprise_adresse", v)} />
+          <div>
+            <label htmlFor="entreprise-adresse" className="mb-1 block text-sm text-ink-soft">Adresse</label>
+            <ChampAdresse id="entreprise-adresse" value={f.entreprise_adresse} onChange={(v) => set("entreprise_adresse", v)}
+              className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
+          </div>
           <F label="SIRET" value={f.siret} onChange={(v) => set("siret", v)} />
         </Card>
 
