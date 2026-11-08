@@ -2,90 +2,179 @@
 
 import { useState, useTransition } from "react";
 import type { TeamMemberRow } from "@/lib/types";
-import { addMember, updateMember, removeMember } from "@/lib/actions/team";
+import { addMember, updateMember, removeMember, type IssueEquipe } from "@/lib/actions/team";
+import { LIBELLES_ROLES, peutGererSuperAdmin, porteSuperAdmin, ROLES_EQUIPE } from "@/lib/roles-equipe";
 
-export default function EquipeClient({ members }: { members: TeamMemberRow[] }) {
+type Etat = { role: string; actif: boolean } | null;
+
+/*
+ * Les règles du droit de super admin, montrées à l'écran (boutons grisés,
+ * explication) ; les actions serveur les appliquent de toute façon
+ * (lib/actions/team.ts). Textes provisoires, à valider.
+ */
+const REFUS_DROIT = "Seul un super admin peut donner ou retirer le droit de super admin.";
+const REFUS_DERNIER = "Dernier super admin actif : nommez-en un autre avant de le retirer.";
+
+export default function EquipeClient({
+  members,
+  moi,
+  superAdminsActifs,
+  recharger,
+}: {
+  members: TeamMemberRow[];
+  moi: { id: string; role: string } | null;
+  superAdminsActifs: number;
+  recharger: () => void;
+}) {
   const [pending, start] = useTransition();
   const [email, setEmail] = useState("");
   const [nom, setNom] = useState("");
   const [role, setRole] = useState("agent");
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ ton: "ok" | "ko"; texte: string } | null>(null);
+
+  const moiEtat = moi ? { role: moi.role, actif: true } : null;
+  const peutGerer = peutGererSuperAdmin(moiEtat, superAdminsActifs);
+  const jeSuisSuperAdmin = porteSuperAdmin(moiEtat);
+
+  /** Le même contrôle que le serveur : le refus, ou null. */
+  function refus(avant: Etat, apres: Etat): string | null {
+    const roleAvant = avant?.role === "super_admin", roleApres = apres?.role === "super_admin";
+    const actifAvant = porteSuperAdmin(avant), actifApres = porteSuperAdmin(apres);
+    if (roleAvant === roleApres && actifAvant === actifApres) return null;
+    if (!peutGerer || (!jeSuisSuperAdmin && actifAvant)) return REFUS_DROIT;
+    if (actifAvant && !actifApres && superAdminsActifs <= 1) return REFUS_DERNIER;
+    return null;
+  }
+
+  function lancer(action: () => Promise<IssueEquipe>, ok?: string) {
+    setFlash(null);
+    start(async () => {
+      const r = await action();
+      if (r.erreur) setFlash({ ton: "ko", texte: r.erreur });
+      else if (ok) setFlash({ ton: "ok", texte: ok });
+      recharger();
+    });
+  }
 
   function add() {
     if (!email.trim()) return;
+    setFlash(null);
     start(async () => {
       const res = await addMember({ email, nom, role });
-      setFlash(
-        res.tempPassword
-          ? `Accès créé — mot de passe temporaire : ${res.tempPassword}`
-          : "Membre ajouté (compte déjà existant).",
-      );
+      if (res.erreur) {
+        setFlash({ ton: "ko", texte: res.erreur });
+        return;
+      }
+      setFlash({
+        ton: "ok",
+        texte: res.tempPassword ? `Accès créé — mot de passe temporaire : ${res.tempPassword}` : "Membre ajouté (compte déjà existant).",
+      });
       setEmail(""); setNom(""); setRole("agent");
+      recharger();
     });
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-      {/* Liste */}
-      <div className="rounded-[18px] bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b border-line text-left text-ink-soft">
-            <tr>
-              <th className="px-4 py-3 font-medium">Membre</th>
-              <th className="px-4 py-3 font-medium">Rôle</th>
-              <th className="px-4 py-3 font-medium">Statut</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line/70">
-            {members.length === 0 && (
+      <div className="space-y-4">
+        {/* Le droit de super admin, dit en clair. */}
+        <div className="rounded-[18px] bg-card px-5 py-4 text-sm" data-droit-super-admin>
+          <p className="font-medium">Super admin</p>
+          <p className="mt-1 text-ink-soft">
+            Le super admin peut ouvrir l&apos;espace d&apos;un client en édition, pour le modifier en son nom. Il est aussi admin. Seul un super admin peut
+            donner ou retirer ce droit, et le dernier super admin actif ne peut pas être retiré.
+          </p>
+          {superAdminsActifs === 0 && (
+            <p className="mt-2 rounded-xl bg-accent-soft/60 px-3 py-2 text-accent-dark">
+              Aucun super admin pour l&apos;instant : un admin peut nommer le premier.
+              {moi?.role === "admin" ? " Vous êtes admin : vous pouvez le faire." : " Demandez-le à un admin."}
+            </p>
+          )}
+        </div>
+
+        {flash && (
+          <div role={flash.ton === "ko" ? "alert" : "status"} className={`rounded-xl px-4 py-2 text-sm ${flash.ton === "ko" ? "bg-red-50 text-red-700" : "bg-accent-soft/60 text-accent-dark"}`}>
+            {flash.texte}
+          </div>
+        )}
+
+        {/* Liste */}
+        <div className="rounded-[18px] bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b border-line text-left text-ink-soft">
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
-                  Aucun membre. Ajoutez le premier à droite.
-                </td>
+                <th className="px-4 py-3 font-medium">Membre</th>
+                <th className="px-4 py-3 font-medium">Rôle</th>
+                <th className="px-4 py-3 font-medium">Statut</th>
+                <th className="px-4 py-3"></th>
               </tr>
-            )}
-            {members.map((m) => (
-              <tr key={m.id} className="hover:bg-accent-soft/20">
-                <td className="px-4 py-3">
-                  <div className="font-medium">{m.nom ?? "—"}</div>
-                  <div className="text-xs text-ink-soft">{m.email}</div>
-                </td>
-                <td className="px-4 py-3">
-                  <select
-                    value={m.role}
-                    disabled={pending}
-                    onChange={(e) => start(() => updateMember(m.id, { role: e.target.value }))}
-                    className="rounded-xl border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-accent"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="agent">Agent</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    onClick={() => start(() => updateMember(m.id, { actif: !m.actif }))}
-                    disabled={pending}
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      m.actif ? "bg-accent-soft text-accent-dark" : "bg-subtle text-ink-soft"
-                    }`}
-                  >
-                    {m.actif ? "Actif" : "Inactif"}
-                  </button>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => start(() => removeMember(m.id, m.email))}
-                    disabled={pending}
-                    className="text-xs text-ink-soft transition hover:text-accent"
-                  >
-                    Retirer
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-line/70">
+              {members.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-ink-soft">
+                    Aucun membre. Ajoutez le premier à droite.
+                  </td>
+                </tr>
+              )}
+              {members.map((m) => {
+                // Ce que chaque geste ferait au droit de super admin : grisé s'il serait refusé.
+                const refusRole = m.role === "super_admin" ? refus(m, { role: "admin", actif: m.actif }) : null;
+                const refusActif = refus(m, { role: m.role, actif: !m.actif });
+                const refusRetrait = refus(m, null);
+                return (
+                  <tr key={m.id} className="hover:bg-accent-soft/20" data-membre={m.email}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">
+                        {m.nom ?? "—"}
+                        {m.id === moi?.id && <span className="ml-2 text-xs text-ink-soft">(vous)</span>}
+                      </div>
+                      <div className="text-xs text-ink-soft">{m.email}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={m.role}
+                        disabled={pending || !!refusRole}
+                        title={refusRole ?? undefined}
+                        onChange={(e) => lancer(() => updateMember(m.id, { role: e.target.value }), `Rôle de ${m.nom ?? m.email} : ${LIBELLES_ROLES[e.target.value as keyof typeof LIBELLES_ROLES] ?? e.target.value}.`)}
+                        className="rounded-xl border border-line bg-paper px-2 py-1 text-sm outline-none focus:border-accent disabled:opacity-60"
+                      >
+                        {ROLES_EQUIPE.map((r) => (
+                          <option key={r} value={r} disabled={r === "super_admin" && m.role !== "super_admin" && !!refus(m, { role: r, actif: m.actif })}>
+                            {LIBELLES_ROLES[r]}
+                          </option>
+                        ))}
+                        {!ROLES_EQUIPE.some((r) => r === m.role) && <option value={m.role}>{m.role}</option>}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => lancer(() => updateMember(m.id, { actif: !m.actif }))}
+                        disabled={pending || !!refusActif}
+                        title={refusActif ?? undefined}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60 ${
+                          m.actif ? "bg-accent-soft text-accent-dark" : "bg-subtle text-ink-soft"
+                        }`}
+                      >
+                        {m.actif ? "Actif" : "Inactif"}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => lancer(() => removeMember(m.id, m.email))}
+                        disabled={pending || !!refusRetrait}
+                        title={refusRetrait ?? undefined}
+                        className="text-xs text-ink-soft transition hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Retirer
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Ajout */}
@@ -100,6 +189,7 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
             className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent">
             <option value="agent">Agent</option>
             <option value="admin">Admin</option>
+            {peutGerer && <option value="super_admin">Super admin</option>}
           </select>
           <button
             onClick={add}
@@ -108,9 +198,6 @@ export default function EquipeClient({ members }: { members: TeamMemberRow[] }) 
           >
             {pending ? "…" : "Créer l'accès"}
           </button>
-          {flash && (
-            <div className="rounded-xl bg-accent-soft/60 px-3 py-2 text-xs text-accent-dark">{flash}</div>
-          )}
           <p className="text-xs text-ink-soft">
             Un compte de connexion est créé avec un mot de passe temporaire à transmettre au membre.
           </p>
