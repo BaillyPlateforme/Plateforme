@@ -127,6 +127,19 @@
   background: #fff6e6;
   color: #8a5300;
 }
+.accent_ok::after,
+.accent_attente::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vert);
+  box-shadow: 0 0 0 3px rgba(20, 194, 125, 0.18);
+}
+.accent_attente::after {
+  background: var(--ambre);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
 .accent_attente svg {
   color: var(--ambre);
 }
@@ -299,8 +312,10 @@
   transition: opacity 0.2s;
 }
 .section[data-ouverte="true"] .apercu {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
+}
+.section[data-ouverte="true"] .chevron {
+  margin-left: auto;
 }
 .apercu em {
   display: inline-flex;
@@ -345,9 +360,6 @@
 }
 .section[data-ouverte="true"] .chevron {
   transform: rotate(180deg);
-}
-.section[data-ouverte="true"] .apercu + .chevron {
-  margin-left: 0;
 }
 
 .repli {
@@ -685,14 +697,22 @@
 .detail > h4 svg {
   color: var(--indigo);
 }
-/* Un composant de l'ancienne fiche posé dans un onglet (visite technique, espace client, photos) : sans double carte. */
+/* Un composant de l'ancienne fiche posé dans un onglet (visite technique, espace client, photos) : un volet, sans double carte. */
+.imbrique {
+  padding: 16px 18px;
+  border: 1px solid var(--filet);
+  border-radius: 16px;
+  background: #fff;
+}
 .imbrique > :global(.card) {
   padding: 0;
   border: 0;
+  border-radius: 0;
   box-shadow: none;
   background: none;
+  overflow: visible;
 }
-.imbrique > :global(.card.ec::before) {
+.imbrique > :global(.card)::before {
   display: none;
 }
 .emplacement {

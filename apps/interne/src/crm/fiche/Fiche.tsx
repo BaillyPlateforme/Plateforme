@@ -178,7 +178,7 @@ export default function Fiche({
       <div className={s.fiche}>
         <div className={s.barre} role="toolbar" aria-label="Fiche du dossier">
           <div className={s.barreGauche}>
-            {identite}
+            <Fragment key="identite">{identite}</Fragment>
             {barre.map((b) => (
               <BoutonGeste key={b.cle} geste={b.geste} libelle={b.libelle} picto={b.picto} titre={b.titre} classe={`${s.pilule} ${b.accent ? s[`accent_${b.accent}`] : ""}`} />
             ))}

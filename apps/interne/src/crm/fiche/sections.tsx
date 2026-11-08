@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactNode } from "react";
 import type { Row } from "@/crm/lib/db";
 import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
@@ -117,6 +117,19 @@ export function construireFiche(c: Contexte) {
   fenetres.suivi = { surtitre: `Dossier ${d.ref}`, titre: "Suivi et observations", contenu: <FenetreSuivi d={d} utilisateurs={c.utilisateurs} /> };
 
   const sections = [demenagements(c, fenetres), gardeMeubles(c), services(c, fenetres), commun(c, fenetres)];
+  // Vers le client, les cellules voyagent en tableau, et un fragment sans clé devient un tableau lui aussi :
+  // chaque cellule reçoit sa clé (sa colonne), chaque fragment la sienne.
+  const cle = (v: ReactNode, k: string | number): ReactNode => (isValidElement(v) && v.key == null ? cloneElement(v, { key: k }) : v);
+  for (const x of sections)
+    for (const o of x.onglets) {
+      o.vide = cle(o.vide, "vide");
+      o.avant = cle(o.avant, "avant");
+      o.apres = cle(o.apres, "apres");
+      for (const l of o.lignes) {
+        l.cellules = l.cellules.map(cle);
+        l.detail = cle(l.detail, "detail");
+      }
+    }
 
   const barre: BoutonBarre[] = [
     { cle: "fiche", libelle: "Fiche", picto: "fiche", geste: { fenetre: "fiche" }, titre: "L'identité du client" },
@@ -125,15 +138,17 @@ export function construireFiche(c: Contexte) {
     { cle: "suivi", libelle: "Suivi", picto: "suivi", geste: { fenetre: "suivi" }, titre: "Commercial, observations, options du dossier" },
     {
       cle: "espace",
-      libelle: c.espaceOuvert ? "Espace client ouvert" : "Espace client inactif",
+      // L'état se lit à la couleur (vert : ouvert, ambre : inactif) : le libellé reste court pour tenir sur une ligne.
+      libelle: "Espace client",
       picto: "espace",
+      titre: c.espaceOuvert ? "Espace client ouvert" : "Espace client inactif",
       geste: { aller: { section: "commun", onglet: "espace" } },
       accent: c.espaceOuvert ? "ok" : "attente",
     },
     { cle: "agenda", libelle: "Agenda", picto: "agenda", geste: { lien: `/planning/nouveau?dossier=${d.id}` }, titre: "Planifier un rendez-vous" },
   ];
 
-  const drapeaux = [d.passer_en_dernier && "Passer en dernier", d.vehicule && "Véhicule à transporter"].filter(Boolean) as string[];
+  const drapeaux = [d.passer_en_dernier && "Passer en dernier", d.vehicule && "Carte grise + assurance à fournir"].filter(Boolean) as string[];
   const memo: Memo | null = d.observations || drapeaux.length ? { texte: d.observations ?? null, drapeaux, fenetre: "suivi" } : null;
 
   const identite = (
@@ -475,7 +490,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     fenetres[`lettre-${l.id}`] = { surtitre: `Lettre de voiture · ${LV_ST[l.statut]?.[0] ?? l.statut}`, titre: l.numero, contenu: <FenetreLettre d={d} l={l} />, large: true };
     return {
       id: `l${l.id}`,
-      tri: ms(l.date_chargement) || l.id,
+      tri: ms(l.date_chargement ?? l.date_livraison) || l.id,
       cellules: [
         <Ref key="n">{l.numero}</Ref>,
         signe?.numero ?? "—",
@@ -711,7 +726,8 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     cle: "demenagements",
     titre: "Déménagements",
     picto: "camion",
-    resume: `${TYPE_D[d.type_demenagement] ?? "National"} · ${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`,
+    // Le trajet est dans le bandeau : ici, ce que le bandeau ne montre plus (type, commercial, qui traite le dossier).
+    resume: [TYPE_D[d.type_demenagement] ?? "National", `Commercial : ${d.commercial ?? "—"}`, `Traité par : ${d.traite_par ?? "—"}`].join(" · "),
     outils: [O.nouveau, O.modifier, O.copier, O.confirmer, O.imprimer, O.transfert, O.signer],
     onglets: [visitesOnglet, devisOnglet, lvOnglet, arrhesOnglet, facturesOnglet, litigesOnglet],
     ongletParDefaut: parStatut[d.statut] ?? "visites",
@@ -1152,8 +1168,8 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
     { id: "fiche", libelle: "Fiche de visite", pour: "Dossier", date: d.maj_le, lien: `/imprimer/${id}?doc=fiche` },
     ...(d.devis.length ? [{ id: "devis", libelle: `Devis (${d.devis.length} formule${d.devis.length > 1 ? "s" : ""})`, pour: "Client", date: d.devis[0] && data.devisCreeLe.get(d.devis[0].id), lien: `/imprimer/${id}?doc=devis` }] : []),
     ...d.lettres.flatMap((l: Row) => [
-      { id: `lv${l.id}`, libelle: `Lettre de voiture ${l.numero}`, pour: "Équipe", date: l.date_chargement, lien: `/imprimer/${id}?doc=lettre&lv=${l.id}` },
-      { id: `st${l.id}`, libelle: `Proposition de sous-traitance ${l.numero}`, pour: l.prestataire, date: l.date_chargement, lien: `/imprimer/${id}?doc=soustraitance&lv=${l.id}` },
+      { id: `lv${l.id}`, libelle: `Lettre de voiture ${l.numero}`, pour: "Équipe", date: l.date_chargement ?? l.date_livraison, lien: `/imprimer/${id}?doc=lettre&lv=${l.id}` },
+      { id: `st${l.id}`, libelle: `Proposition de sous-traitance ${l.numero}`, pour: l.prestataire, date: l.date_chargement ?? l.date_livraison, lien: `/imprimer/${id}?doc=soustraitance&lv=${l.id}` },
     ]),
     ...d.factures.map((f: Row) => ({ id: `fa${f.id}`, libelle: `Facture ${f.numero}`, pour: "Client", date: f.emise_le, lien: `/imprimer/${id}?doc=facture&f=${f.id}` })),
     ...data.rdvs

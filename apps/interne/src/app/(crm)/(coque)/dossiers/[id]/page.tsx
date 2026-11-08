@@ -4,8 +4,7 @@ import MenuActions from "@/ui/MenuActions";
 import { notFound } from "next/navigation";
 import { getDossier } from "@/crm/lib/data";
 import { q, type Row } from "@/crm/lib/db";
-import { Ic } from "@/crm/lib/icons";
-import { eur, m3, nomClient, STATUTS, TYPES } from "@/crm/lib/format";
+import { eur, m3, nomClient, STATUTS } from "@/crm/lib/format";
 import * as A from "@/crm/actions";
 import { litiges as getLitiges } from "@/crm/lib/data2";
 import { etatsRdv } from "@/crm/rdv/sms";
@@ -25,7 +24,6 @@ export const dynamic = "force-dynamic";
  * onglets.
  */
 
-const TYPE_D: Record<string, string> = { national: "National", international: "International", maritime: "Maritime", aerien: "Aérien", gm: "Garde-meuble", bureau: "Bureau" };
 const STEPS = ["Fiche client", "Visite technique", "Devis", "Commande", "Lettres de voiture", "Facture"];
 const STEP_OF: Record<string, number> = { prospect: 0, visite: 1, devis: 2, commande: 3, planifie: 4, termine: 5, perdu: 2 };
 
@@ -61,14 +59,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         surtitre={`Dossier ${d.ref}`}
         titre={nomClient(d)}
         texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
-        etiquettes={[
-          STATUTS[d.statut].label,
-          TYPES[d.type],
-          `Commercial · ${d.commercial ?? "—"}`,
-          `Traité par · ${d.traite_par ?? "—"}`,
-          TYPE_D[d.type_demenagement] ?? "National",
-          d.vehicule && "Carte grise + assurance à fournir",
-        ]}
+        // Le statut seul : sur une ligne, les pastilles ne rétrécissent pas et effaçaient le téléphone et le trajet.
+        // Le segment est sur le repère du client, le type, le commercial et « traité par » en tête de la section
+        // Déménagements, le véhicule dans la bande des observations.
+        etiquettes={[STATUTS[d.statut].label]}
         bas={
           <Etapes
             label="Étapes du dossier"
@@ -81,10 +75,11 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       >
         {/* Une ancre ordinaire : elle ouvre Commun › Règlements (Fiche.tsx suit le changement d'ancre). */}
         <a href="#commun-reglements" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">
-          Solde · {eur(solde)}
+          Solde {eur(solde)}
         </a>
         <Link href={`/parcours/${id}`} data-ton="contour">Parcours</Link>
-        <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour"><Ic n="pdf" />&nbsp;Fiche PDF</Link>
+        {/* Sans icône : avec un solde à quatre chiffres, les cinq boutons dépassaient les 560 px de la rangée et « ⋯ » passait à la ligne, rogné. */}
+        <Link href={`/imprimer/${id}?doc=fiche`} data-ton="contour">Fiche PDF</Link>
         <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
         {/* Les gestes secondaires, rangés dans « ⋯ » pour que les boutons tiennent sur deux lignes. */}
         <MenuActions>
