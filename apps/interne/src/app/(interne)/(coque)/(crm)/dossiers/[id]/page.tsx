@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 /*
  * La page d'un dossier, une seule (simplification du 08/11/2026, choix de
  * David) : le bandeau commun en tête — nom, référence, téléphone, trajet,
- * statut, Solde, Espace client, Créer un modèle, « ⋯ » —, puis, à cheval sur
+ * statut, Solde, Voir son espace, Créer un modèle, « ⋯ » —, puis, à cheval sur
  * la bande, son parcours de A à Z (src/crm/parcours/LigneParcours : les
  * étapes de la demande à l'avis, quelques faits, la chronologie), et dessous
  * la fiche façon Créagidem (src/crm/fiche) : sa barre et ses sections
@@ -78,17 +78,20 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         <a href="#facturation" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">
           Solde {eur(solde)}
         </a>
-        {/* L'espace client du dossier, vu de l'équipe ; sans espace, l'onglet de la fiche qui l'ouvre. */}
+        {/* L'espace du client tel qu'il le voit, en lecture seule, dans un nouvel onglet (route /espace-client-apercu :
+            elle note l'ouverture au fil d'activité). Un <a> et non un <Link> : jamais de préchargement. Le suivi de
+            l'espace par l'équipe est dans « ⋯ ». Sans espace, l'onglet de la fiche qui l'ouvre. */}
         {espace[0] ? (
-          <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`} data-ton="contour" title={`L'espace client de ce dossier, tel que l'équipe le suit · ${vuLe}`}>
-            Espace client
-          </Link>
+          <a href={`/espace-client-apercu/${espace[0].id}`} target="_blank" rel="noopener" data-ton="contour" title={`L'espace client tel que le client le voit, en lecture seule (nouvel onglet) · ${vuLe}`}>
+            Voir son espace
+          </a>
         ) : (
           <a href="#commun-espace" data-ton="contour" title="Ce dossier n'a pas encore d'espace client : l'onglet de la fiche permet de l'ouvrir">Ouvrir l’espace client</a>
         )}
         <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
         {/* Les gestes secondaires, rangés dans « ⋯ » pour que les boutons tiennent sur deux lignes. */}
         <MenuActions>
+          {espace[0] && <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`}>Suivi de l’espace (équipe)</Link>}
           <Link href={`/imprimer/${id}?doc=fiche`}>Fiche PDF</Link>
           <form action={A.dupliquerDossier.bind(null, id)}><button>Dupliquer le dossier</button></form>
           {d.statut === "perdu"
