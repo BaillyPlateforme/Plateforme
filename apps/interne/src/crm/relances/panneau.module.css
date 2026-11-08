@@ -1,0 +1,499 @@
+/*
+ * L'écran d'envoi d'une relance : un volet à droite, dans le design Quantum
+ * de la section (cartes blanches à grands rayons, filets #e8e6ef, indigo
+ * #4b2fe0, surtitres violets). La couleur du type de relance (--c) marque le
+ * surtitre et les cases cochées.
+ */
+
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(20, 18, 31, 0.42);
+  backdrop-filter: blur(3px);
+  animation: fondu 0.18s ease-out;
+}
+@keyframes fondu {
+  from { opacity: 0; }
+}
+@keyframes entree {
+  from { transform: translateX(36px); opacity: 0; }
+}
+
+.volet {
+  --c: #4b2fe0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(780px, calc(100vw - 32px));
+  height: 100%;
+  background: #f6f6f9;
+  border-radius: 26px 0 0 26px;
+  box-shadow: -30px 0 80px -30px rgba(14, 6, 70, 0.55);
+  overflow: hidden;
+  animation: entree 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .voile, .volet { animation: none; }
+}
+
+/* ── L'en-tête ─────────────────────────────────────────────────────────── */
+.tete {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 24px 28px 20px;
+  background: #fff;
+  border-bottom: 1px solid #ebe9f2;
+}
+.teteTexte {
+  flex: 1;
+  min-width: 0;
+}
+.surtitre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6f6c80;
+}
+.surtitre i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent);
+}
+.tete h2 {
+  margin: 8px 0 0;
+  font-size: 23px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 750;
+  color: #14121f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.puce {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f4f3f9;
+  border: 1px solid #ebe9f2;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4760;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.puce:hover {
+  border-color: #cfc8f5;
+  color: #2e1f9e;
+}
+.puce[data-ton="retard"] { background: #fdeef3; border-color: #f8d3e0; color: #b0164d; }
+.puce[data-ton="aujourdhui"] { background: #f1edff; border-color: #ddd4ff; color: #4b2fe0; }
+.puce[data-ton="desactivee"] { background: #f2f2f4; color: #6f6c80; }
+.fermer {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid #ebe9f2;
+  border-radius: 12px;
+  background: #fff;
+  color: #4a4760;
+  cursor: pointer;
+}
+.fermer:hover { background: #f4f3f9; }
+.fermer:focus-visible, .principal:focus-visible, .secondaire:focus-visible, .interrupteur:focus-visible, .onglets button:focus-visible {
+  outline: 2px solid #4b2fe0;
+  outline-offset: 2px;
+}
+
+/* ── Le corps, qui défile ─────────────────────────────────────────────── */
+.defile {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 28px 28px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+.section {
+  min-width: 0;
+  padding: 20px 22px 22px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #efedf5;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 50px -36px rgba(46, 31, 158, 0.38);
+}
+.sectionTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.sectionTete h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #14121f;
+}
+.sectionTete p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: #6f6c80;
+  font-variant-numeric: tabular-nums;
+}
+
+/* « Tout inclure » : l'interrupteur de la section. */
+.interrupteur {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 6px 0 14px;
+  border: 1px solid #ebe9f2;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  color: #2b2840;
+  cursor: pointer;
+}
+.interrupteur span {
+  position: relative;
+  width: 36px;
+  height: 22px;
+  border-radius: 999px;
+  background: #d9d6e4;
+  transition: background 0.15s;
+}
+.interrupteur span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 18, 31, 0.3);
+  transition: transform 0.15s;
+}
+.interrupteur[aria-checked="true"] span { background: #14c27d; }
+.interrupteur[aria-checked="true"] span::after { transform: translateX(14px); }
+
+/* La liste à cocher. */
+.liste {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.liste li > label,
+.liste li > div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 13px 14px;
+  border-radius: 15px;
+  border: 1px solid #ebe9f2;
+  background: #fbfbfd;
+  transition: border-color 0.12s, background 0.12s, opacity 0.12s;
+}
+.liste li > label {
+  position: relative;
+  cursor: pointer;
+}
+.liste li > label:hover {
+  border-color: #d6d0f2;
+}
+.liste li[data-coche="true"] > label {
+  border-color: color-mix(in srgb, var(--c) 38%, #ebe9f2);
+  background: color-mix(in srgb, var(--c) 5%, #fff);
+}
+.liste li[data-coche="false"] > label .elementTexte,
+.liste li[data-coche="false"] > label .valeur {
+  opacity: 0.55;
+}
+.liste input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.case {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border-radius: 7px;
+  border: 2px solid #c9c5d8;
+  background: #fff;
+  color: #fff;
+}
+.liste li[data-coche="true"] .case {
+  border-color: var(--c);
+  background: var(--c);
+}
+/* En aperçu, la case de l'e-mail : rien à cocher, c'est ce que le client verra. */
+.liste[data-mode="apercu"] li .case {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 6px;
+  border: 2px solid #1b1a18;
+  background: #fdf6d6;
+}
+.liste input:focus-visible + .case {
+  outline: 2px solid #4b2fe0;
+  outline-offset: 2px;
+}
+.elementTexte {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.elementTexte b {
+  font-size: 14px;
+  font-weight: 700;
+  color: #14121f;
+}
+.elementTexte small {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6f6c80;
+}
+.valeur {
+  padding-top: 1px;
+  font-size: 14px;
+  font-weight: 750;
+  color: #14121f;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.vide {
+  margin: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f6f6f9;
+  font-size: 13px;
+  color: #6f6c80;
+}
+
+/* Les canaux du message. */
+.onglets {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border-radius: 12px;
+  background: #f1f0f6;
+}
+.onglets button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #6f6c80;
+  cursor: pointer;
+}
+.onglets button[aria-selected="true"] {
+  background: #fff;
+  color: #14121f;
+  box-shadow: 0 1px 3px rgba(20, 18, 31, 0.12);
+}
+.onglets i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+}
+.onglets i[data-pret="true"] { background: #14c27d; }
+
+.bandeau {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.bandeau svg { flex-shrink: 0; margin-top: 1px; }
+.bandeau[data-ton="propose"] { background: #fff7e6; border: 1px solid #fbe3b0; color: #7a4d00; }
+.bandeau[data-ton="retenu"] { background: #fdeef3; border: 1px solid #f8d3e0; color: #8f1240; }
+.bandeau a { color: inherit; font-weight: 700; }
+
+/* L'e-mail : son enveloppe (à qui, quel objet), puis le message lui-même. */
+.enveloppe {
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid #e4e1ec;
+  background: #eceae4;
+  transition: opacity 0.15s;
+}
+.enveloppe[data-vide="true"] { opacity: 0.5; }
+.enveloppe dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e4e1ec;
+  font-size: 12.5px;
+}
+.enveloppe dl div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+.enveloppe dt {
+  color: #8b889c;
+  font-weight: 600;
+}
+.enveloppe dd {
+  margin: 0;
+  min-width: 0;
+  color: #2b2840;
+  overflow-wrap: anywhere;
+}
+.cadre {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #eceae4;
+}
+.sms {
+  display: grid;
+  justify-items: center;
+  padding: 18px 0 6px;
+  border-radius: 18px;
+  background: #f4f3f9;
+}
+.smsA {
+  margin: 0;
+  font-size: 12px;
+  color: #8b889c;
+}
+
+/* ── Le pied ──────────────────────────────────────────────────────────── */
+.pied {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 28px 18px;
+  background: #fff;
+  border-top: 1px solid #ebe9f2;
+}
+.mode {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #4a4760;
+}
+.mode i {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+.mode[data-mode="actif"] i { background: #14c27d; box-shadow: 0 0 0 3px rgba(20, 194, 125, 0.18); }
+.mode[data-mode="apercu"] i { background: #7a52ff; box-shadow: 0 0 0 3px rgba(122, 82, 255, 0.18); }
+.gestes {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.secondaire,
+.principal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.secondaire {
+  border: 1px solid #e4e1ec;
+  background: #fff;
+  color: #2b2840;
+}
+.secondaire:hover { background: #f6f6f9; }
+.principal {
+  border: 0;
+  background: linear-gradient(135deg, #4b2fe0, #6a43f2);
+  color: #fff;
+  box-shadow: 0 10px 22px -12px rgba(75, 47, 224, 0.9);
+}
+.principal:hover:not(:disabled) { filter: brightness(1.06); }
+.principal:disabled {
+  background: #cfcbe0;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.erreur {
+  margin: 0;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fdeef3;
+  color: #8f1240;
+  font-size: 13.5px;
+}
+.chargement {
+  display: grid;
+  gap: 14px;
+}
+.chargement span {
+  height: 120px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, #eeedf3, #f7f6fa, #eeedf3);
+  background-size: 200% 100%;
+  animation: lueur 1.2s linear infinite;
+}
+.chargement span:last-child { height: 420px; }
+@keyframes lueur {
+  to { background-position: -200% 0; }
+}

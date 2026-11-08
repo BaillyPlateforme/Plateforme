@@ -6,6 +6,7 @@ import { listTemplates } from "@/lib/templates";
 import { q } from "@/crm/lib/db";
 import { defRelance, reglesRelances } from "@/crm/relances/moteur";
 import { delaiEnClair } from "@/crm/relances/regles";
+import { TEXTES_PROPOSES } from "@/crm/relances/courrier";
 import { CATALOGUE, ETAPES, lignesCatalogue, type Etape } from "./catalogue";
 
 /*
@@ -70,6 +71,8 @@ export interface CarteVue {
   corps: string;
   /** Les jetons insérables : {client} pour le CRM, {{client_nom}} pour les questionnaires. */
   variables: { jeton: string; libelle: string }[];
+  /** Un texte proposé par la plateforme, à valider, pour une carte encore vide (cartes des relances). */
+  propose?: { objet: string | null; corps: string } | null;
   envois: number;
   /** Les messages passés par la carte sans partir (journalisés, bloqués, fictifs…). */
   retenus: number;
@@ -82,6 +85,7 @@ const LIBELLES_VARIABLES: Record<string, string> = {
   adresse: "Adresse", contact: "Personne présente", telephone: "Téléphone du conseiller", prenom: "Prénom", libelle: "Objet du paiement",
   reference: "Référence de la transaction", numero: "Numéro de déclaration", objets: "Objets abîmés", trajet: "Trajet", pieces: "Pièces manquantes",
   conseiller: "Qui a répondu (prénom et nom)", dossier: "Référence du dossier",
+  elements: "Ce que la relance demande, tel que coché à l'envoi : seule sur son paragraphe, la liste mise en page (sinon posée avant la signature) ; dans une phrase ou un SMS, la liste courte",
 };
 
 function etapeQuestionnaire(event: string): Etape {
@@ -152,6 +156,7 @@ export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: ty
       aBrancher: !!e.aBrancher, texteCode: !!e.texteCode,
       modele: l?.nom ?? e.titre, objet: l?.objet ?? null, corps: l?.corps ?? "",
       variables: e.variables.map((v) => ({ jeton: `{${v}}`, libelle: LIBELLES_VARIABLES[v] ?? v })),
+      propose: l?.corps.trim() ? null : (TEXTES_PROPOSES[e.cle] ?? null),
       ...compter(noms, e.canal),
       majLe: l?.maj_le ?? null,
     };

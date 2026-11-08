@@ -147,6 +147,14 @@ export const CATALOGUE: EntreeCatalogue[] = [
   })),
 ];
 
+/*
+ * Les cartes des relances ont une variable de plus, {elements} : ce que la
+ * relance demande au client (devis, pièces, factures…), tel que l'équipe l'a
+ * coché à l'envoi. Seule sur son paragraphe d'un e-mail, elle y pose la liste
+ * mise en page ; dans une phrase ou un SMS, elle se lit en liste courte.
+ */
+for (const e of CATALOGUE) if (e.regle && !e.variables.includes("elements")) e.variables = [...e.variables, "elements"];
+
 export const entree = (cle: string) => CATALOGUE.find((e) => e.cle === cle) ?? null;
 
 export interface LigneModele {
@@ -223,8 +231,7 @@ export function raisonDeNePasEnvoyer(m: LigneModele | null): string | null {
   return null;
 }
 
-/** Remplit {client} {commercial} {date} {heure} {ref}… — les variables du CRM. */
-export const remplir = (texte: string, vars: Record<string, string | number | null | undefined>) =>
-  texte.replace(/\{([a-z_]+)\}/gi, (m, k: string) => (vars[k] == null ? "" : String(vars[k])));
+/** Remplit {client} {commercial} {date} {heure} {ref}… — les variables du CRM (dans rendu.ts, sans rien du serveur). */
+export { remplir } from "./rendu";
 
 export type { Row };

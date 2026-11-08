@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { envoyerAcces, type Resultat } from "@/lib/actions/espace-client-equipe";
-import { envoyerMaintenant } from "@/crm/relances/actions";
+import PanneauEnvoi from "@/crm/relances/PanneauEnvoi";
 import { Icone } from "@/ui/icones";
 import { Retour, usePorte } from "../socle";
 import { nomAffiche, type DonneesFiche } from "./outils";
 import { relancesProposees, type RelanceProposee } from "./relances";
 import s from "./suivi.module.css";
 
-type Option = { cle: string; court: string; envoi: string; faire: () => Promise<Resultat> };
+/** Une relance du moteur s'envoie par son écran d'envoi (ce qu'elle demande, à cocher, et le message) ; le lien d'accès, sur confirmation. */
+type Option = { cle: string; court: string; envoi: string; relance: boolean; faire?: () => Promise<Resultat> };
 
 const CANAUX = (c: ("email" | "sms")[]) => (c.length > 1 ? "e-mail et SMS" : c[0] === "sms" ? "SMS" : "e-mail");
 
@@ -51,19 +52,20 @@ export function Relancer({ d, recharger }: { d: DonneesFiche; recharger: () => v
       cle: r.cle,
       court: r.libelle,
       envoi: `${CANAUX(r.canaux)[0].toUpperCase()}${CANAUX(r.canaux).slice(1)} « ${r.libelle} » (relance ${r.rang} sur ${r.sur}) à ${destinataires(r.canaux)}`,
-      faire: async (): Promise<Resultat> => {
-        const x = await envoyerMaintenant(r.cle);
-        return x.ok ? { ok: true, message: x.message } : { ok: false, erreur: x.erreur };
-      },
+      relance: true,
     })),
-    { cle: "acces", court: "Lien d'accès", envoi: `E-mail avec un nouveau lien d'accès à son espace, à ${a}`, faire: () => envoyerAcces(d.dossier.id) },
+    { cle: "acces", court: "Lien d'accès", envoi: `E-mail avec un nouveau lien d'accès à son espace, à ${a}`, relance: false, faire: () => envoyerAcces(d.dossier.id) },
   ];
   const o = options[Math.min(choix, options.length - 1)];
+  const [panneau, setPanneau] = useState<string | null>(null);
+  const fermerPanneau = useCallback(() => setPanneau(null), []);
 
   const lancer = () => {
-    if (!confirm(`Relancer ${nomAffiche(d.client)} ?\n\n${o.envoi}.\n\n${phraseEnvoi(d.mode.envois.mode)}`)) return;
+    if (o.relance) return setPanneau(o.cle);
+    if (!o.faire || !confirm(`Relancer ${nomAffiche(d.client)} ?\n\n${o.envoi}.\n\n${phraseEnvoi(d.mode.envois.mode)}`)) return;
+    const faire = o.faire;
     demarrer(async () => {
-      const r = await o.faire();
+      const r = await faire();
       setResultat(r);
       if (r.ok) recharger();
     });
@@ -92,6 +94,17 @@ export function Relancer({ d, recharger }: { d: DonneesFiche; recharger: () => v
         </div>
       )}
       <Retour r={resultat} />
+      {panneau && (
+        <PanneauEnvoi
+          cle={panneau}
+          mode="envoi"
+          fermer={fermerPanneau}
+          envoye={(x) => {
+            setResultat(x.ok ? { ok: true, message: x.message } : { ok: false, erreur: x.erreur });
+            recharger();
+          }}
+        />
+      )}
     </div>
   );
 }

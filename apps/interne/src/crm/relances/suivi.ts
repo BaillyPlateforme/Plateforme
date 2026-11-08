@@ -32,6 +32,8 @@ export interface LigneHistorique {
   famille: "reussi" | "garde_fou" | "echec" | "en_cours";
   /** Inscrite comme envoyée dans crm.relances (un échec partout ne l'est pas). */
   envoyee: boolean;
+  /** Ce qu'elle a demandé, quand l'équipe n'en a retenu qu'une partie : les éléments retenus, sur combien. */
+  partielle?: { titres: string[]; sur: number } | null;
 }
 
 const ORDRE_FAMILLE = ["reussi", "garde_fou", "en_cours", "echec"] as const;
@@ -48,8 +50,11 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
       console.error("Relances : journal des envois illisible", e instanceof Error ? e.message : e);
       return [];
     }),
-    q<Client & { cle: string; type: TypeRelance; rang: number; dossier_id: number; envoyee_le: string; envoi_statut: string | null; envoi_motif: string | null; par: string | null; canaux: Canal[] | null; ref: string | null }>(
-      `select r.cle, r.type, r.rang, r.dossier_id, r.envoyee_le::text, r.envoi_statut, r.envoi_motif, r.par, r.canaux, d.ref, c.nom, c.prenom, c.societe
+    q<Client & {
+      cle: string; type: TypeRelance; rang: number; dossier_id: number; envoyee_le: string; envoi_statut: string | null; envoi_motif: string | null; par: string | null;
+      canaux: Canal[] | null; ref: string | null; elements: { inclus?: { titre: string }[]; total?: number; tout?: boolean } | null;
+    }>(
+      `select r.cle, r.type, r.rang, r.dossier_id, r.envoyee_le::text, r.envoi_statut, r.envoi_motif, r.par, r.canaux, r.elements, d.ref, c.nom, c.prenom, c.societe
          from relances r left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id
         where r.statut = 'envoyee' ${depuis ? "and r.envoyee_le >= $1::date" : ""}`,
       depuis ? [depuis] : [],
@@ -62,6 +67,7 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
     lignes.set(d.cle, {
       cle: d.cle, type: d.type, rang: d.rang, dossierId: d.dossier_id, ref: d.ref ?? "", client: nom(d), date: d.envoyee_le, par: d.par,
       origine: d.par === "tâche planifiée" ? "veille" : "equipe", canaux: [], famille: "echec", envoyee: true,
+      partielle: d.elements && d.elements.tout === false ? { titres: (d.elements.inclus ?? []).map((x) => x.titre), sur: d.elements.total ?? 0 } : null,
     });
   }
   // Les envois du journal, rattachés à leur relance par la clé : « relance:<type>:<objet>:<rang>[:sms] ».
