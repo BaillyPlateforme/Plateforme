@@ -10,6 +10,8 @@ import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import type { EtatAffiche } from "@/crm/rdv/sms";
 import { commencerVisite } from "@/crm/visites/actions";
 import SectionVisite from "@/crm/visites/composants/SectionVisite";
+import VisitePlanifiee from "@/crm/planning/planificateur/VisitePlanifiee";
+import { estTypeRdv, TYPES_RDV } from "@/crm/planning/types-rdv";
 import { estVisite, etatVisite, ETATS_VISITE } from "@/crm/visites/cycle";
 import { libelleStatut, type StatutEnvoi } from "@/lib/envois";
 import { hhmmParis, jourParis, plageVisite } from "@/lib/visite/regles";
@@ -99,7 +101,8 @@ export type Contexte = {
   litiges: Row[];
   etatsSms: Map<number, EtatAffiche>;
   espaceOuvert: boolean;
-  sp: { espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string };
+  /** `planifie` : le rendez-vous que le planificateur vient de poser (retour de /planning/nouveau). */
+  sp: { espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string; vt?: string; planifie?: string };
   solde: number;
   /** L'instant de la page (ms) : une visite passée ne se confirme plus par SMS. */
   maintenant: number;
@@ -170,7 +173,7 @@ export function construireFiche(c: Contexte) {
   );
 
   // Une page revenue avec un message (visite, espace client) : l'onglet concerné d'abord.
-  const depart = c.sp.visite || c.sp.vc || c.sp.vd ? { section: "demenagements", onglet: "visites" } : c.sp.espace ? { section: "commun", onglet: "espace" } : null;
+  const depart = c.sp.visite || c.sp.vc || c.sp.vd || c.sp.planifie ? { section: "demenagements", onglet: "visites" } : c.sp.espace ? { section: "commun", onglet: "espace" } : null;
 
   return { sections, fenetres, barre, identite, memo, depart };
 }
@@ -189,6 +192,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
   const facturesDem = d.factures.filter((f: Row) => !data.idsGmFactures.has(f.id));
 
   // --- Visites : les rendez-vous du dossier, et les visites sur la tablette sans rendez-vous.
+  const planifie = /^\d+$/.test(c.sp.planifie ?? "") ? data.rdvs.find((r) => r.id === Number(c.sp.planifie)) : undefined;
   const transfertDevis: Geste =
     d.type === "militaire"
       ? off("Dossier militaire : pas de devis.")
@@ -224,7 +228,10 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         e ? <Etat v={[ETATS_VISITE[e].libelle, ETATS_VISITE[e].ton]} /> : <Etat v={[r.termine ? "Faite" : "Prévue", "i"]} />,
         <b key="d">{maj(dateFr(r.debut, { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Paris" }))}</b>,
         r.journee ? "Journée" : plageVisite(r.debut, r.duree_min),
-        RDV_TYPES[r.type] ?? r.type,
+        // Le type dans la couleur du planning (src/crm/planning/types-rdv.ts).
+        <span key="ty" className={`type-rdv t-${r.type}`}>
+          {estTypeRdv(r.type) ? TYPES_RDV[r.type].court : (RDV_TYPES[r.type] ?? r.type)}
+        </span>,
         <span key="c" title={r.commercial}>
           <b>{r.initiales}</b>
           <small>{r.commercial}</small>
@@ -299,7 +306,14 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
                 <button className="btn ghost sm">Reprendre</button>
               </form>
             )}
-            <Link className="btn ghost sm" href={`/planning?semaine=${jourParis(r.debut)}`}>
+            {/* Une deuxième visite (le client a retiré du volume, une visio puis une visite sur place) : le planificateur
+                repart de celle-ci, type, lieu et observations compris (réunion du 23/09). */}
+            {visite && (
+              <Link className="btn ghost sm" href={`/planning/nouveau?dossier=${id}&depuis=${r.id}`}>
+                Nouvelle visite à partir de celle-ci
+              </Link>
+            )}
+            <Link className="btn ghost sm" href={`/planning?semaine=${jourParis(r.debut)}&com=${r.commercial_id}`}>
               Voir au planning
             </Link>
           </div>
@@ -342,6 +356,10 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         <b>Aucun rendez-vous</b>« Nouveau » pose une visite au planning ; on peut aussi proposer des créneaux au client ci-dessous.
       </>
     ),
+    // Au retour du planificateur : la visite posée, et la suite (prévenir le client).
+    avant: planifie ? (
+      <VisitePlanifiee dossierId={id} rdvId={planifie.id} sms={c.etatsSms.get(planifie.id)} maintenant={c.maintenant} />
+    ) : undefined,
     gestes: {
       nouveau: { lien: `/planning/nouveau?dossier=${id}` },
       imprimer: { lien: `/imprimer/${id}?doc=fiche` },

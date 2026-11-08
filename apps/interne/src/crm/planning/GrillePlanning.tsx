@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { Ic } from "@/crm/lib/icons";
-import { RDV_TYPES } from "@/crm/lib/format";
-import { ETATS_VISITE } from "@/crm/visites/cycle";
+import { ETATS_VISITE, estVisite } from "@/crm/visites/cycle";
 import { terminerRdv } from "@/crm/actions";
 import { confirmerParSms, deplacerRdv } from "./actions";
 import type { CreneauPlanning, EvenementPlanning } from "./donnees";
+import { couloirs, H0, H1, heure, hhmm, position as placer, type Bloc } from "./grille";
+import { TYPES_RDV } from "./types-rdv";
 import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import type { EtatAffiche } from "@/crm/rdv/sms";
 import s from "./planning.module.css";
@@ -28,47 +29,12 @@ import s from "./planning.module.css";
  * s'élargit au survol (ou au focus) pour se lire en entier.
  */
 
-export const H0 = 7;
-export const H1 = 20;
 const HAUT = 52;
 const PAS = 15;
 
 type Jour = { cle: string; nom: string; numero: number; aujourdhui: boolean; visites: number };
-type Bloc = { id: number; debut: number; fin: number };
 
-const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-const heure = (min: number) => `${Math.floor(min / 60)}h${min % 60 ? String(min % 60).padStart(2, "0") : ""}`;
-
-/** Les couloirs d'une journée : un bloc prend le premier couloir libre, et chaque grappe de blocs qui se chevauchent partage la largeur. */
-function couloirs(blocs: Bloc[]) {
-  const out = new Map<number, [number, number]>();
-  const tries = [...blocs].sort((a, b) => a.debut - b.debut || b.fin - a.fin);
-  let grappe: Bloc[] = [];
-  let fin = -1;
-  const fermer = () => {
-    const n = Math.max(1, ...grappe.map((b) => out.get(b.id)![0] + 1));
-    for (const b of grappe) out.set(b.id, [out.get(b.id)![0], n]);
-    grappe = [];
-  };
-  for (const b of tries) {
-    if (grappe.length && b.debut >= fin) fermer();
-    const pris = new Set(grappe.filter((x) => x.fin > b.debut).map((x) => out.get(x.id)![0]));
-    let l = 0;
-    while (pris.has(l)) l++;
-    out.set(b.id, [l, 1]);
-    grappe.push(b);
-    fin = Math.max(fin, b.fin);
-  }
-  if (grappe.length) fermer();
-  return out;
-}
-
-/** La position verticale d'un bloc, ramenée dans la grille (un rendez-vous de 6 h ou de 22 h reste visible). */
-function position(debutMin: number, duree: number) {
-  const haut = Math.min(Math.max(debutMin - H0 * 60, 0), (H1 - H0) * 60 - 30);
-  const bas = Math.min(Math.max(debutMin + Math.max(duree, 30) - H0 * 60, haut + 30), (H1 - H0) * 60);
-  return { top: (haut / 60) * HAUT, height: Math.max(((bas - haut) / 60) * HAUT - 2, 22) };
-}
+const position = (debutMin: number, duree: number) => placer(debutMin, duree, HAUT);
 
 type Glisse = { id: number; jour: string; debutMin: number; duree: number; prise: number; depart: { x: number; y: number }; actif: boolean };
 type Message = { ton: "ok" | "ko"; texte: string; sms?: number };
@@ -265,17 +231,26 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                 const pos = position(deplace?.debutMin ?? e.debutMin, e.duree);
                 const compact = n > 1;
                 const etat = e.etat ? ETATS_VISITE[e.etat] : null;
+                // Les couleurs du planning (réunion du 23/09) : une visite faite change d'habit, un devis établi pose un
+                // petit ticket vert dans le coin, une visite sans suite est barrée (crm.css ; légende : Legende.tsx).
+                const devis = e.devisEtabli && estVisite(e.type);
+                const type = TYPES_RDV[e.type];
                 return (
                   <article
                     key={e.id}
-                    className={`ev t-${e.type} ${e.termine ? "done" : ""} ${s.bloc} ${compact ? s.compact : ""} ${deplace ? s.glisse : ""}`}
+                    className={`ev t-${e.type} ${e.fait ? "fait" : ""} ${devis ? "devis" : ""} ${e.etat === "sans_suite" ? "sans-suite" : ""} ${s.bloc} ${compact ? s.compact : ""} ${deplace ? s.glisse : ""}`}
                     data-cote={l >= n / 2 || ij === jours.length - 1 ? "droite" : "gauche"}
                     tabIndex={0}
-                    title={`${e.titre}${e.lieu ? ` · ${e.lieu}` : ""} · ${e.commercial}${etat ? ` · ${etat.libelle}` : ""}`}
+                    title={`${type.long} · ${e.titre}${e.lieu ? ` · ${e.lieu}` : ""} · ${e.commercial}${etat ? ` · ${etat.libelle}` : ""}`}
                     style={{ ...pos, left: `calc(${(l / n) * 100}% + 3px)`, right: "auto", width: `calc(${100 / n}% - 6px)` }}
                     onPointerDown={(ev) => demarrer(ev, e)}
                     onKeyDown={(ev) => ev.key === "Enter" && router.push(`/planning/${e.id}`)}
                   >
+                    {devis && (
+                      <i className="ticket-devis" role="img" aria-label="Devis établi" title="Devis établi">
+                        <Ic n="check" />
+                      </i>
+                    )}
                     {/* Couloir étroit, au repos : le nom d'abord, puis l'heure et un point de couleur pour l'état. */}
                     {compact && (
                       <span className={s.resume}>
@@ -293,7 +268,10 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                           {heure(deplace?.debutMin ?? e.debutMin)}–{heure((deplace?.debutMin ?? e.debutMin) + e.duree)}
                           <EtatSmsRdv etat={etatsSms[e.id]} compact />
                         </span>
-                        <span className="ev-ty">{RDV_TYPES[e.type]}</span>
+                        <span className="ev-ty" title={e.fait ? `${type.long} faite` : type.long}>
+                          <Ic n={e.fait ? "check" : type.icone} />
+                          <span className={s.typeTexte}>{e.fait ? "Faite" : type.court}</span>
+                        </span>
                       </span>
                       {e.dossierId ? (
                         <Link href={`/dossiers/${e.dossierId}`} className="ev-n" draggable={false}>
@@ -307,7 +285,8 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                         {!filtre && ` · ${e.initiales}`}
                       </span>
                       <span className="ev-tags">
-                        {etat && <i className={`st ${etat.ton} ${s.etat}`}>{etat.libelle}</i>}
+                        {/* L'état se lit à l'habit du bloc ; seule la visite sans suite garde sa pastille. */}
+                        {e.etat === "sans_suite" && etat && <i className={`st ${etat.ton} ${s.etat}`}>{etat.libelle}</i>}
                         {e.dernier && <i className="tag fl">Passer en dernier</i>}
                         {e.rappel && e.rappel.length > 0 && <i className={`tag ${s.rappel}`} title={`Rappel la veille : ${e.rappel.map((x) => (x === "sms" ? "SMS" : "e-mail")).join(" + ")}`}>Rappel J−1</i>}
                       </span>

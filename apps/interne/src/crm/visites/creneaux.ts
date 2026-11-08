@@ -35,7 +35,7 @@ export async function occupation(commercialId: number, de: Date, a: Date, sauf?:
   const lire = <T,>(sql: string, p: unknown[]) => (db ? db.query<T>(sql, p) : q<T>(sql, p));
   const lignes = await lire<{ debut: Date; duree_min: number; libelle: string }>(
     `select r.debut, r.duree_min, r.titre as libelle from rendez_vous r
-      where r.commercial_id = $1 and r.debut < $3 and r.debut + make_interval(mins => r.duree_min) > $2 and r.id <> coalesce($5::int, -1)
+      where r.commercial_id = $1 and not r.journee and r.debut < $3 and r.debut + make_interval(mins => r.duree_min) > $2 and r.id <> coalesce($5::int, -1)
      union all
      select c.debut, p.duree_min, 'Créneau proposé à un autre client' from creneaux_visite c join propositions_visite p on p.id = c.proposition_id
       where p.commercial_id = $1 and p.statut = 'ouverte' and c.statut = 'propose' and p.dossier_id <> coalesce($4::int, -1)

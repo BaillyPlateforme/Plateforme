@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Row } from "@/crm/lib/db";
 import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
@@ -457,6 +458,15 @@ export function FenetreCopieRdv({ d, r, jour, heure }: { d: Row; r: Row; jour: s
         <p className={s.aide} style={{ gridColumn: "span 12" }}>
           Même type, même commercial, même durée ({r.duree_min} min), même lieu et même commentaire. Aucun SMS ne part : « Confirmer » l’envoie.
         </p>
+        {!r.journee && (r.type === "phys" || r.type === "visio") && (
+          <p className={s.aide} style={{ gridColumn: "span 12" }}>
+            Changer de type (une visio puis une visite sur place) ou de commercial, en voyant sa semaine :{" "}
+            <Link href={`/planning/nouveau?dossier=${d.id}&depuis=${r.id}`} style={{ color: "var(--accent)", fontWeight: 700 }}>
+              ouvrir le planificateur
+            </Link>
+            .
+          </p>
+        )}
       </div>
       <div className={s.pied}>
         <Valider>Copier la visite</Valider>

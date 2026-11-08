@@ -132,16 +132,11 @@ export async function envoyerDevisParEmail(dossierId: number, devis: { id: numbe
 }
 
 /**
- * Le SMS d'un rendez-vous : la carte « Visite confirmée » (rdv_confirmation)
- * ou « Rappel de la veille » (rdv_rappel_veille). Une fois par rendez-vous,
- * par horaire et par carte : déplacé, le rendez-vous peut être confirmé de
- * nouveau.
+ * Le texte du SMS d'un rendez-vous, tel qu'il partirait : le modèle de la
+ * carte, rempli avec le client, le commercial, la date et l'heure. Sert à
+ * l'envoi et à l'aperçu du dossier (« Envoyer la confirmation au client »).
  */
-export async function envoyerSmsRendezVous(
-  dossierId: number,
-  rdvId: number,
-  carte: "rdv_confirmation" | "rdv_rappel_veille" = "rdv_confirmation",
-): Promise<{ texte: string; resultat: ResultatEnvoi | null; libelle: string; numero: string | null } | null> {
+export async function smsRendezVous(dossierId: number, rdvId: number, carte: "rdv_confirmation" | "rdv_rappel_veille" = "rdv_confirmation") {
   const m = await modeleDe(carte);
   const r = await q1<{ debut: string; commercial: string | null; commercial_email: string | null }>(
     "select r.debut, u.nom as commercial, u.email as commercial_email from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.id=$1 and r.dossier_id=$2",
@@ -156,6 +151,23 @@ export async function envoyerSmsRendezVous(
     date: d.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }),
     heure: d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }),
   });
+  return { m, r, c, d, texte, retenu: raisonDeNePasEnvoyer(m) };
+}
+
+/**
+ * Le SMS d'un rendez-vous : la carte « Visite confirmée » (rdv_confirmation)
+ * ou « Rappel de la veille » (rdv_rappel_veille). Une fois par rendez-vous,
+ * par horaire et par carte : déplacé, le rendez-vous peut être confirmé de
+ * nouveau.
+ */
+export async function envoyerSmsRendezVous(
+  dossierId: number,
+  rdvId: number,
+  carte: "rdv_confirmation" | "rdv_rappel_veille" = "rdv_confirmation",
+): Promise<{ texte: string; resultat: ResultatEnvoi | null; libelle: string; numero: string | null } | null> {
+  const sms = await smsRendezVous(dossierId, rdvId, carte);
+  if (!sms) return null;
+  const { m, r, c, d, texte } = sms;
   if (!c.telephone) return { texte, resultat: null, libelle: "pas de numéro de téléphone sur la fiche client : rien n'est parti", numero: null };
   const resultat = await envoyerSms({
     cle: `crm:rdv:${rdvId}:${carte === "rdv_confirmation" ? "confirmation" : "rappel"}:${d.toISOString()}`,

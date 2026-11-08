@@ -27,6 +27,8 @@ export interface EvenementPlanning {
   dossierId: number | null;
   ref: string | null;
   termine: boolean;
+  /** Fait : terminé au planning, ou une visite dont le compte-rendu est signé. Le bloc change d'habit dans la grille. */
+  fait: boolean;
   devisEtabli: boolean;
   etat: Exclude<EtatVisite, "a_planifier"> | null;
   dernier: boolean;
@@ -75,7 +77,7 @@ export async function planningSemaine(lundi: Date, commercialId: number | null) 
       return {
         id: r.id, type: r.type, titre: r.titre, lieu: r.lieu, jour: jourParis(r.debut), debutMin: minutesParis(r.debut), duree: r.duree_min,
         journee: r.journee, commercial: r.commercial, initiales: r.initiales, dossierId: r.dossier_id, ref: r.ref, termine: r.termine,
-        devisEtabli: r.devis_etabli, etat: visite ? etatVisite(r as Parameters<typeof etatVisite>[0]) : null, dernier: !!r.dernier,
+        fait: !!(r.termine || r.compte_rendu_signe), devisEtabli: r.devis_etabli, etat: visite ? etatVisite(r as Parameters<typeof etatVisite>[0]) : null, dernier: !!r.dernier,
         rappel: rappel ? rappel.canaux : null,
       };
     })
