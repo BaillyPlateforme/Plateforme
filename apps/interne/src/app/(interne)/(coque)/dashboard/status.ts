@@ -1,4 +1,4 @@
-import type { RequestStatus } from "@/lib/types";
+import type { DevisStatus, RequestStatus } from "@/lib/types";
 import { SANS_PRIX, libelleParcours, parcoursDeLaDemande, type TraceParcours } from "@/lib/parcours";
 
 export const STATUS_META: Record<RequestStatus, { label: string; className: string }> = {
@@ -20,6 +20,21 @@ export const STATUS_ORDER: RequestStatus[] = [
   "lost",
   "archived",
 ];
+
+/**
+ * Les statuts du devis d'une demande (public.devis), changés sur la fiche de
+ * la demande : passer à « Envoyé », « Accepté » ou « Refusé » déclenche les
+ * règles de messages du même nom. Ils venaient de l'ancienne liste « Devis du
+ * site » (/dashboard/devis).
+ */
+export const DEVIS_STATUS: Record<DevisStatus, { label: string; className: string }> = {
+  brouillon: { label: "Brouillon", className: "bg-subtle text-ink-soft" },
+  envoye: { label: "Envoyé", className: "bg-accent-soft text-accent" },
+  accepte: { label: "Accepté", className: "bg-accent-soft text-accent-dark" },
+  refuse: { label: "Refusé", className: "bg-subtle text-ink-soft" },
+  expire: { label: "Expiré", className: "bg-warn-soft text-warn" },
+};
+export const DEVIS_ORDER: DevisStatus[] = ["brouillon", "envoye", "accepte", "refuse", "expire"];
 
 export function scoreColor(v: number | null): string {
   if (v == null) return "text-ink-soft/40";

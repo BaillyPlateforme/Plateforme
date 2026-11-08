@@ -1,12 +1,15 @@
 "use client";
 
 import ApercuDevis from "@/components/ApercuDevis";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { RequestDetail as Detail } from "@/lib/requests";
-import type { RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, isIncomplete, missingFields, PIPELINE, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
+import type { DevisStatus, RequestStatus } from "@/lib/types";
+import { DEVIS_ORDER, DEVIS_STATUS, STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, isIncomplete, missingFields, PIPELINE, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
+import { deleteDevis, updateDevisStatus } from "@/lib/actions/devis";
 import TrajetMap from "@/components/TrajetMap";
 import VersLeCrm from "./VersLeCrm";
 import EnTeteSection from "../EnTeteSection";
@@ -40,7 +43,7 @@ export default function RequestDetail({
       {/* L'en-tête de la section, au nom du client : bandeau puis onglets. */}
       <EnTeteSection
         propre
-        surtitre={`Questionnaires · Demande reçue le ${new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à ${new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`}
+        surtitre={`Demandes · Reçue le ${new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })} à ${new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`}
         titre={r.client_nom ?? "Demande"}
         texte={[r.client_email, r.client_tel].filter(Boolean).join(" · ")}
         etiquettes={[
@@ -52,6 +55,12 @@ export default function RequestDetail({
           isIncomplete(trace) ? "Incomplète" : "Complète",
         ]}
       >
+        {/* L'historique de l'adresse e-mail (toutes ses demandes, ses devis, sa fiche) : l'ancienne liste « Clients du site » y menait. */}
+        {r.client_email && (
+          <Link href={`/dashboard/clients/${encodeURIComponent(r.client_email)}`} data-ton="contour">
+            Historique du client
+          </Link>
+        )}
         <StatusPicker value={r.status} onChange={(s) => start(() => updateStatus(r.id, s))} disabled={pending} />
       </EnTeteSection>
 
@@ -297,6 +306,8 @@ function VolumeTab({ detail, photoUrls }: { detail: Detail; photoUrls: Record<st
 function DevisTab({ detail }: { detail: Detail }) {
   const r = detail.request;
   const devis = detail.devis;
+  const router = useRouter();
+  const [pending, start] = useTransition();
   const complete = r.volume_m3 != null && !!r.depart_ville && !!r.arrivee_ville;
 
   if (!devis) {
@@ -310,7 +321,19 @@ function DevisTab({ detail }: { detail: Detail }) {
   }
 
   const lignes = Array.isArray(devis.lignes) ? devis.lignes : [];
-  const statusLabel: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", accepte: "Accepté", refuse: "Refusé" };
+  // Le statut et la suppression du devis : ce que faisait l'ancienne liste « Devis du site ».
+  const changerStatut = (s: DevisStatus) =>
+    start(async () => {
+      await updateDevisStatus(devis.id, s);
+      router.refresh();
+    });
+  const supprimer = () => {
+    if (!window.confirm(`Supprimer le devis ${devis.reference} ?`)) return;
+    start(async () => {
+      await deleteDevis(devis.id);
+      router.refresh();
+    });
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -348,9 +371,26 @@ function DevisTab({ detail }: { detail: Detail }) {
           <div className="font-serif text-3xl text-accent">
             {Math.round(devis.montant_ttc).toLocaleString("fr-FR")} €<span className="ml-1 text-sm text-ink-soft">TTC</span>
           </div>
-          <div className="mt-1 text-xs text-ink-soft">
-            {statusLabel[devis.status] ?? devis.status}
-            {devis.valid_until ? ` · valable jusqu'au ${new Date(devis.valid_until).toLocaleDateString("fr-FR")}` : ""}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={devis.status}
+              disabled={pending}
+              onChange={(e) => changerStatut(e.target.value as DevisStatus)}
+              aria-label="Statut du devis"
+              className={`rounded-full border-0 px-2.5 py-1 text-xs font-medium outline-none ${DEVIS_STATUS[devis.status]?.className ?? ""}`}
+            >
+              {DEVIS_ORDER.map((s) => (
+                <option key={s} value={s}>
+                  {DEVIS_STATUS[s].label}
+                </option>
+              ))}
+            </select>
+            {devis.valid_until && (
+              <span className="text-xs text-ink-soft">valable jusqu&apos;au {new Date(devis.valid_until).toLocaleDateString("fr-FR")}</span>
+            )}
+            <button onClick={supprimer} disabled={pending} className="ml-auto text-xs text-ink-soft transition hover:text-accent disabled:opacity-50">
+              Supprimer
+            </button>
           </div>
           <div className="mt-4">
             <ApercuDevis devisId={devis.id} reference={devis.reference} ouvert hauteur={560} />

@@ -6,24 +6,30 @@ import type { RequestRow, RequestStatus } from "@/lib/types";
 import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE } from "./status";
 
 type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
+/** D'où vient la demande : le formulaire du site, ou un mail reçu (l'ancienne « Messagerie » de la section). */
+export type Origine = "all" | "form" | "email";
 
 export default function RequestsTable({
   requests,
   initialQ = "",
   initialStatut = "all",
+  initialOrigine = "all",
 }: {
   requests: RequestRow[];
   initialQ?: string;
   initialStatut?: RequestStatus | "all";
+  initialOrigine?: Origine;
 }) {
   const router = useRouter();
   const [q, setQ] = useState(initialQ);
   const [status, setStatus] = useState<RequestStatus | "all">(initialStatut);
+  const [origine, setOrigine] = useState<Origine>(initialOrigine);
   const [sort, setSort] = useState<SortKey>("date");
 
   const rows = useMemo(() => {
     let out = requests;
     if (status !== "all") out = out.filter((r) => r.status === status);
+    if (origine !== "all") out = out.filter((r) => r.source === origine);
     if (q.trim()) {
       const needle = q.toLowerCase();
       out = out.filter((r) =>
@@ -43,7 +49,7 @@ export default function RequestsTable({
               ? r.volume_m3 ?? -1
               : r.estimation_prix ?? -1;
     return [...out].sort((a, b) => val(b) - val(a));
-  }, [requests, q, status, sort]);
+  }, [requests, q, status, origine, sort]);
 
   return (
     <div>
@@ -66,6 +72,16 @@ export default function RequestsTable({
               {STATUS_META[s].label}
             </option>
           ))}
+        </select>
+        <select
+          value={origine}
+          onChange={(e) => setOrigine(e.target.value as Origine)}
+          aria-label="Origine de la demande"
+          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
+        >
+          <option value="all">Toutes les origines</option>
+          <option value="form">{sourceLabel("form")}</option>
+          <option value="email">{sourceLabel("email")}</option>
         </select>
         <select
           value={sort}

@@ -1,22 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRessource } from "@/lib/donnees";
-import { Echec, Squelette } from "@/components/Squelette";
-import type { CarteRappel } from "@/lib/rappels";
-import RappelsBoard from "./RappelsBoard";
-
-export default function RappelsPage() {
-  const { donnees, erreur, recharger } = useRessource<{ rappels: CarteRappel[] }>("/api/data/rappels");
-
-  return (
-    <div>
-      {erreur ? (
-        <Echec message={erreur} onRetry={recharger} />
-      ) : !donnees ? (
-        <Squelette titre={false} lignes={6} />
-      ) : (
-        <RappelsBoard rappels={donnees.rappels} />
-      )}
-    </div>
-  );
+/* Les rappels sont une vue des Demandes (simplification du 08/11/2026). */
+export default function AnciensRappels() {
+  redirect("/dashboard?vue=rappels");
 }

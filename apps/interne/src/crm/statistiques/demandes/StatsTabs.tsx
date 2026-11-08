@@ -1,12 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { RequestRow } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER } from "../status";
-import { KpiCard, Donut, MultiAreaTrend, CategoryBars, BarList, Heatmap, Funnel, type Slice } from "./charts";
+import { STATUS_META, STATUS_ORDER } from "@/app/(interne)/(coque)/dashboard/status";
+import { KpiCard, Donut, MultiAreaTrend, BarList, CategoryBars, Heatmap, Funnel, type Slice } from "./graphiques";
+import type { VueDuSite } from "./vues";
 
-const TABS = ["Vue d'ensemble", "Mails", "Formulaire", "Heatmap", "Analyse", "Formules", "Géographie", "Conversion"] as const;
-type Tab = (typeof TABS)[number];
+/*
+ * Les analyses des demandes du site (l'ancienne page /dashboard/statistiques).
+ * L'analyse affichée vient de l'adresse (?vue=…, pilules du bandeau) : plus de
+ * rangée d'onglets dans la page. L'ancien onglet « Vue d'ensemble » doublait
+ * la vue d'ensemble de l'accueil des demandes : c'est elle qui le remplace
+ * (VueEnsemble.tsx).
+ */
 
 const CATC: Record<string, string> = {
   new: "var(--chart-5)", analyzing: "var(--color-brand-mid)", qualified: "var(--color-nuit)", quoted: "var(--color-brand)", won: "var(--color-brand)", lost: "#c6362c", archived: "#dad8d1",
@@ -56,28 +62,16 @@ function topMap(requests: RequestRow[], key: (r: RequestRow) => string | null, n
   return [...m.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, n);
 }
 
-export default function StatsTabs({ requests }: { requests: RequestRow[] }) {
-  const [tab, setTab] = useState<Tab>("Vue d'ensemble");
+export default function StatsTabs({ requests, vue }: { requests: RequestRow[]; vue: Exclude<VueDuSite, "ensemble"> }) {
   return (
     <div>
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`relative whitespace-nowrap px-4 py-2.5 text-sm transition ${tab === t ? "font-medium text-ink" : "text-ink-soft hover:text-ink"}`}>
-            {t}
-            {tab === t && <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />}
-          </button>
-        ))}
-      </div>
-
-      {tab === "Vue d'ensemble" && <Overview requests={requests} />}
-      {tab === "Mails" && <SourceTab requests={requests} source="email" />}
-      {tab === "Formulaire" && <SourceTab requests={requests} source="form" />}
-      {tab === "Heatmap" && <HeatmapTab requests={requests} />}
-      {tab === "Analyse" && <AnalyseTab requests={requests} />}
-      {tab === "Formules" && <FormulesTab requests={requests} />}
-      {tab === "Géographie" && <GeoTab requests={requests} />}
-      {tab === "Conversion" && <ConversionTab requests={requests} />}
+      {vue === "mails" && <SourceTab requests={requests} source="email" />}
+      {vue === "formulaire" && <SourceTab requests={requests} source="form" />}
+      {vue === "heatmap" && <HeatmapTab requests={requests} />}
+      {vue === "analyse" && <AnalyseTab requests={requests} />}
+      {vue === "formules" && <FormulesTab requests={requests} />}
+      {vue === "geographie" && <GeoTab requests={requests} />}
+      {vue === "conversion" && <ConversionTab requests={requests} />}
     </div>
   );
 }
@@ -91,49 +85,6 @@ function Panel({ title, hint, children, wide }: { title: string; hint?: string; 
       {!hint && <div className="mb-4" />}
       {children}
     </section>
-  );
-}
-
-/* ================= Vue d'ensemble ================= */
-function Overview({ requests }: { requests: RequestRow[] }) {
-  const total = requests.length;
-  const completes = requests.filter(isComplete).length;
-  const scored = requests.filter((r) => r.score_potentiel != null);
-  const scoreMoyen = round1(avg(scored.map((r) => r.score_potentiel!)));
-  const caPot = Math.round(requests.reduce((s, r) => s + (r.estimation_prix ?? 0), 0));
-  const devis = requests.filter((r) => ["quoted", "won"].includes(r.status)).length;
-  const gagnes = requests.filter((r) => r.status === "won").length;
-
-  const recues = dailyCounts(requests, 30);
-  const qualifiees = dailyCounts(requests, 30, (r) => ["qualified", "quoted", "won", "lost"].includes(r.status));
-  const labels = labelsFor(30);
-
-  const statutBars = STATUS_ORDER.map((s) => ({ label: STATUS_META[s].label, value: requests.filter((r) => r.status === s).length, color: CATC[s] })).filter((b) => b.value > 0).sort((a, b) => b.value - a.value);
-  const statutSlices: Slice[] = statutBars.map((b) => ({ label: b.label, value: b.value, color: b.color }));
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
-        <KpiCard label="Demandes" value={total} sub="Total reçues" color="var(--color-brand)" />
-        <KpiCard label="Complètes" value={completes} sub={`${total - completes} incomplètes`} color="var(--color-nuit)" />
-        <KpiCard label="Taux complétude" value={total ? round1((completes / total) * 100) : 0} suffix=" %" decimals={1} sub="Complètes ÷ reçues" color="var(--color-brand-mid)" />
-        <KpiCard label="Score moyen" value={scoreMoyen} suffix=" /100" decimals={1} sub="Qualité" color="var(--color-brand)" />
-        <KpiCard label="CA potentiel" value={caPot} suffix=" €" sub="Estimations cumulées" color="var(--color-ink-mid)" />
-        <KpiCard label="Gagnés" value={gagnes} sub={`sur ${devis} devis`} color="var(--color-brand)" />
-      </div>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Panel title="Demandes & qualification" hint="Reçues vs qualifiées · 30 j" wide>
-          <MultiAreaTrend labels={labels} series={[{ name: "Reçues", color: "var(--color-brand)", data: recues }, { name: "Qualifiées", color: "var(--color-nuit)", data: qualifiees }]} />
-        </Panel>
-        <Panel title="Répartition par statut" hint="Part de chaque étape">
-          <Donut data={statutSlices} centerLabel="demandes" size={190} />
-        </Panel>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Statuts — volume"><CategoryBars data={statutBars} /></Panel>
-        <Panel title="Top villes de départ"><BarList data={topMap(requests, (r) => r.depart_ville, 7)} /></Panel>
-      </div>
-    </div>
   );
 }
 

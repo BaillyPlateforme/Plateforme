@@ -552,3 +552,28 @@
   background: #fbfaff;
   font-weight: 750;
 }
+
+/* ───────── Rangée du bas du bandeau : les vues, un filet, puis les filtres ───────── */
+/* Sur un écran étroit, la rangée défile plutôt que de déborder de la bande. */
+.bas {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bas::-webkit-scrollbar {
+  display: none;
+}
+.bas > nav {
+  flex-shrink: 0;
+}
+.separateurBas {
+  flex: none;
+  width: 1px;
+  height: 26px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.28);
+}

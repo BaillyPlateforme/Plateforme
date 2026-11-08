@@ -1,83 +1,92 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
-import RequestsTable from "./RequestsTable";
+import type { CarteRappel } from "@/lib/rappels";
+import type { RequestRow, RequestStatus } from "@/lib/types";
+import { Pilules } from "@/ui/Bandeau";
+import EnTeteSection from "./EnTeteSection";
+import RequestsTable, { type Origine } from "./RequestsTable";
 import KanbanBoard from "./KanbanBoard";
 import FocusVue, { SEUIL } from "./FocusVue";
-import type { RequestRow, RequestStatus } from "@/lib/types";
+import RappelsBoard from "./RappelsBoard";
+import { META } from "./nav-meta";
 
-type Vue = "liste" | "focus" | "kanban";
-const VUES: { cle: Vue; label: string; sous: string }[] = [
-  { cle: "liste", label: "Liste", sous: "toutes les demandes" },
-  { cle: "focus", label: "Focus", sous: "à ne pas rater" },
-  { cle: "kanban", label: "Kanban", sous: "par étape" },
+/*
+ * Les demandes du site : une seule boîte (simplification du 08/11/2026).
+ * Ses façons de regarder les demandes sont des pilules dans la rangée du bas
+ * du bandeau : la liste (filtrable par statut et par origine, formulaire ou
+ * mail), le focus, le kanban, et les rappels — les clients qui ont demandé à
+ * être rappelés, qui avaient leur page (/dashboard/rappels).
+ */
+type Vue = "liste" | "focus" | "kanban" | "rappels";
+const VUES: { cle: Vue; label: string }[] = [
+  { cle: "liste", label: "Liste" },
+  { cle: "focus", label: "Focus" },
+  { cle: "kanban", label: "Kanban" },
+  { cle: "rappels", label: "Rappels" },
 ];
+const OUVERTS = ["a_rappeler", "en_cours"];
 
 export default function DemandesPage() {
   const params = useSearchParams();
   const demande = params.get("vue");
   const vue: Vue = VUES.some((v) => v.cle === demande) ? (demande as Vue) : "liste";
 
-  const { donnees, erreur, recharger } = useRessource<{ requests: RequestRow[] }>(
-    "/api/data/demandes",
-  );
+  const { donnees, erreur, recharger } = useRessource<{ requests: RequestRow[] }>("/api/data/demandes");
+  const rappels = useRessource<{ rappels: CarteRappel[] }>("/api/data/rappels");
   const requests = donnees?.requests ?? [];
 
-  const aFocus = requests.filter(
-    (r) => (r.score_potentiel ?? 0) >= SEUIL && !["lost", "archived"].includes(r.status),
-  ).length;
-
-  const compteur: Record<Vue, number> = {
-    liste: requests.length,
-    focus: aFocus,
-    kanban: requests.filter((r) => r.status !== "archived").length,
+  const compteur: Record<Vue, number | undefined> = {
+    liste: donnees ? requests.length : undefined,
+    focus: donnees ? requests.filter((r) => (r.score_potentiel ?? 0) >= SEUIL && !["lost", "archived"].includes(r.status)).length : undefined,
+    kanban: donnees ? requests.filter((r) => r.status !== "archived").length : undefined,
+    rappels: rappels.donnees ? rappels.donnees.rappels.filter((r) => OUVERTS.includes(r.statut)).length : undefined,
   };
 
+  const origine = params.get("source");
   return (
     <div>
-      {/* Les trois façons de regarder les mêmes demandes. */}
-      <div className="mb-4 flex w-fit gap-1 rounded-xl bg-subtle p-1">
-        {VUES.map((v) => {
-          const on = v.cle === vue;
-          return (
-            <Link
-              key={v.cle}
-              href={v.cle === "liste" ? "/dashboard" : `/dashboard?vue=${v.cle}`}
-              aria-current={on ? "page" : undefined}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 transition ${
-                on ? "bg-card shadow-[0_2px_8px_-2px_rgba(28,28,34,0.10)]" : "hover:bg-card/60"
-              }`}
-            >
-              <span className={`text-[14px] ${on ? "font-semibold text-ink" : "text-ink-soft"}`}>
-                {v.label}
-              </span>
-              {donnees && (
-                <span
-                  className={`rounded-xl px-1.5 py-0.5 text-[11px] font-semibold tnum ${
-                    on ? "bg-accent-soft text-accent-dark" : "bg-card text-ink-soft"
-                  }`}
-                >
-                  {compteur[v.cle]}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </div>
+      <EnTeteSection
+        propre
+        surtitre="Dossiers · Demandes du site"
+        titre="Demandes"
+        texte={vue === "rappels" ? META["/dashboard/rappels"].sous : META["/dashboard"].sous}
+        bas={
+          <Pilules
+            label="Vues des demandes"
+            items={VUES.map((v) => ({
+              href: v.cle === "liste" ? "/dashboard" : `/dashboard?vue=${v.cle}`,
+              label: v.label,
+              actif: v.cle === vue,
+              nombre: compteur[v.cle],
+            }))}
+          />
+        }
+      />
 
-      {erreur ? (
+      {vue === "rappels" ? (
+        rappels.erreur ? (
+          <Echec message={rappels.erreur} onRetry={rappels.recharger} />
+        ) : !rappels.donnees ? (
+          <Squelette titre={false} lignes={6} />
+        ) : (
+          <RappelsBoard rappels={rappels.donnees.rappels} />
+        )
+      ) : erreur ? (
         <Echec message={erreur} onRetry={recharger} />
       ) : !donnees ? (
         <Squelette lignes={8} />
       ) : vue === "liste" ? (
         <RequestsTable
-            requests={requests}
-            initialQ={params.get("q") ?? ""}
-            initialStatut={(params.get("statut") as RequestStatus) ?? "all"}
-          />
+          // Une nouvelle adresse (?statut=, ?source=, ?q=) repart de ses filtres.
+          key={params.toString()}
+          requests={requests}
+          initialQ={params.get("q") ?? ""}
+          initialStatut={(params.get("statut") as RequestStatus) ?? "all"}
+          initialOrigine={origine === "email" || origine === "form" ? (origine as Origine) : "all"}
+        />
       ) : vue === "focus" ? (
         <FocusVue requests={requests} />
       ) : (
@@ -86,4 +95,3 @@ export default function DemandesPage() {
     </div>
   );
 }
-

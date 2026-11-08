@@ -49,7 +49,7 @@ export type LigneCommercial = {
 
 export async function statsCommerciales(p: Periode, rattachement: Rattachement) {
   const { mois, debut: s0, fin: s1 } = douzeMois();
-  const [lignes, serie, sansDate] = await Promise.all([
+  const [lignes, serie, sansDate, arrhes, clients] = await Promise.all([
     q<LigneCommercial>(
       `with vis as (
          select r.commercial_id as cid, count(*)::int as visites,
@@ -97,10 +97,25 @@ export async function statsCommerciales(p: Periode, rattachement: Rattachement) 
            where v.statut = 'signe' and d.date_chargement is null and d.mois_ca is null`,
         )
       : Promise.resolve(undefined),
+    // Repris du Pilotage (l'ancienne page d'accueil) : les arrhes reçues et la répartition des nouveaux
+    // dossiers par type de client, sur la période choisie (le Pilotage les donnait au mois et à 90 jours).
+    q1<{ n: number; total: number }>(
+      `select count(*)::int as n, coalesce(sum(montant), 0)::float8 as total from paiements
+       where nature = 'arrhes' and recu_le >= $1::date and recu_le < $2::date`,
+      [p.debut, p.fin],
+    ),
+    q<{ type: string; n: number }>(
+      `select coalesce(c.type, 'particulier') as type, count(*)::int as n from dossiers d join clients c on c.id = d.client_id
+       where ${JOUR_PARIS("d.cree_le")} >= $1::date and ${JOUR_PARIS("d.cree_le")} < $2::date group by 1 order by 2 desc`,
+      [p.debut, p.fin],
+    ),
   ]);
   // « Sans commercial » n'apparaît que s'il porte quelque chose.
   const visibles = lignes.filter((l) => l.id != null || l.visites + l.devises + l.signes > 0 || serie.some((x) => x.cid == null));
-  return { lignes: visibles, mois, serie, sansDate: sansDate && sansDate.n > 0 ? sansDate : null };
+  return {
+    lignes: visibles, mois, serie, sansDate: sansDate && sansDate.n > 0 ? sansDate : null,
+    arrhes: { n: arrhes?.n ?? 0, total: arrhes?.total ?? 0 }, clients,
+  };
 }
 
 /* ───────────────────────── Exploitation ───────────────────────── */
