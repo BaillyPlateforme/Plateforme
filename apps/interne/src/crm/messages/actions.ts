@@ -15,6 +15,8 @@ import { listTemplates } from "@/lib/templates";
 import { currentUser } from "@/crm/lib/auth";
 import { q, q1 } from "@/crm/lib/db";
 import { rendreEmailCrm } from "@/crm/envois";
+import { blocRelance, EXEMPLES, surtitreRelance, varsRelance } from "@/crm/relances/courrier";
+import { defRelance } from "@/crm/relances/regles";
 import { entree, modeleDe, remplir } from "./catalogue";
 
 /*
@@ -84,6 +86,16 @@ export async function apercuCarte(cle: string, objet: string | null, corps: stri
   const e = entree(cle);
   if (!e) return null;
   const espace = TEXTES_ESPACE.find((t) => t.cle === cle);
+  // Une carte de relance : sa liste d'exemple ({elements}), mise en page comme à l'envoi.
+  const relance = e.regle ? defRelance(e.regle) : null;
+  if (relance) {
+    const demande = EXEMPLES[relance.type];
+    const vars = varsRelance(relance.type, { ...EXEMPLE_CRM }, demande.elements);
+    if (e.canal === "sms") return { canal: "sms", sujet: null, html: null, texte: remplir(corps, vars) };
+    const liens = { parElement: Object.fromEntries(demande.elements.map((x) => [x.id, "#"])), principal: "#" };
+    const r = await rendreEmailCrm({ objet, corps }, vars, "", undefined, { bloc: blocRelance(relance.type, demande, demande.elements, liens), surtitre: surtitreRelance(EXEMPLE_CRM.ref) });
+    return { canal: "email", sujet: r.sujet, html: r.html, texte: r.texte };
+  }
   if (e.canal === "sms") return { canal: "sms", sujet: null, html: null, texte: espace ? remplirTexte(corps, EXEMPLE_ESPACE) : remplir(corps, EXEMPLE_CRM) };
   if (espace || e.texteCode) {
     const base = (process.env.ESPACE_CLIENT_URL || process.env.NEXT_PUBLIC_URL_EXTERNE || "").replace(/\/$/, "");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Icone } from "@/ui/icones";
 import CarteKanban, { Action, Note, type Signal } from "@/crm/kanban/Carte";
@@ -9,7 +9,8 @@ import CarteDossier from "@/crm/kanban/CarteDossier";
 import TeteColonne, { Sens, styleEtape } from "@/crm/kanban/Colonne";
 import type { Carte } from "@/crm/kanban/donnees";
 import { ETATS_RELANCE } from "@/crm/kanban/etapes";
-import { annuler, envoyerMaintenant, exclureDossier, reactiver, repousser, retirerExclusion, type Retour } from "./actions";
+import { annuler, exclureDossier, reactiver, repousser, retirerExclusion, type Retour } from "./actions";
+import PanneauEnvoi from "./PanneauEnvoi";
 import { defRelance, ecart, libelleCanal, STATUT_ENVOI, type Relance } from "./regles";
 import { IconeCanal, lienRelances } from "./Section";
 import k from "@/crm/kanban/kanban.module.css";
@@ -17,8 +18,10 @@ import s from "./relances.module.css";
 
 /*
  * Le Kanban des relances : à venir, aujourd'hui, en retard, envoyées,
- * désactivées. Chaque carte se repousse, s'annule ou part tout de suite. Les
- * règles se règlent dans Réglages › Règles des relances.
+ * désactivées. Chaque carte se repousse, s'annule ou part tout de suite :
+ * « Envoyer » ouvre l'écran d'envoi (PanneauEnvoi : ce que la relance
+ * demande, à cocher, et le message dessous), l'œil son aperçu. Les règles se
+ * règlent dans Réglages › Règles des relances.
  *
  * Les colonnes et les cartes sont celles de tous les tableaux du CRM
  * (src/crm/kanban : Colonne, Carte) : une relance est la carte de son
@@ -90,6 +93,9 @@ export default function Kanban({
 }) {
   const { retour, setRetour, enCours, agir } = useGestes();
   const [deplie, setDeplie] = useState<Record<string, boolean>>({});
+  const [panneau, setPanneau] = useState<{ cle: string; mode: "envoi" | "apercu" } | null>(null);
+  const router = useRouter();
+  const fermerPanneau = useCallback(() => setPanneau(null), []);
 
   const carte = (r: Relance, col: Relance["colonne"]) => {
     const def = defRelance(r.type)!;
@@ -130,11 +136,19 @@ export default function Kanban({
               ? [{ texte: "À décider", teinte: "ambre" as const, titre: "En retard de plus de trois jours : la veille ne l'enverra pas d'elle-même. Envoyer, repousser ou annuler." }]
               : []),
           ];
+    // L'aperçu du message, sans rien envoyer : pour regarder avant de décider.
+    const apercu = (
+      <Action seul disabled={enCours} onClick={() => setPanneau({ cle: r.cle, mode: "apercu" })} title="Aperçu du message" aria-label="Aperçu du message">
+        <Icone nom="oeil" taille={14} />
+      </Action>
+    );
     const actions = ouverte ? (
       <>
-        <Action ton="principal" disabled={enCours} onClick={() => agir(() => envoyerMaintenant(r.cle), `Envoyer maintenant la relance à ${r.client || r.ref} ?`)}>
+        {/* « Envoyer » ouvre l'écran d'envoi : ce qu'on demande, à cocher, et le message dessous. */}
+        <Action ton="principal" disabled={enCours} onClick={() => setPanneau({ cle: r.cle, mode: "envoi" })}>
           Envoyer
         </Action>
+        {apercu}
         <Action disabled={enCours} onClick={() => agir(() => repousser(r.cle, 3))} title="Repousser de 3 jours">
           +3 j
         </Action>
@@ -152,10 +166,15 @@ export default function Kanban({
           <Icone nom="sortie" taille={14} />
         </Action>
       </>
-    ) : col === "desactivee" && r.motif === "Annulée par l'équipe." ? (
-      <Action disabled={enCours} onClick={() => agir(() => reactiver(r.cle))}>
-        Réactiver
-      </Action>
+    ) : col === "desactivee" ? (
+      <>
+        {r.motif === "Annulée par l'équipe." && (
+          <Action disabled={enCours} onClick={() => agir(() => reactiver(r.cle))}>
+            Réactiver
+          </Action>
+        )}
+        {apercu}
+      </>
     ) : undefined;
     const c = dossiers[r.dossierId];
     if (c) return <CarteDossier key={r.cle} carte={c} extra={{ id: r.cle, contenu, signaux, actions }} />;
@@ -168,6 +187,18 @@ export default function Kanban({
   return (
     <div className={k.racine}>
       <Toast retour={retour} fermer={() => setRetour(null)} />
+      {panneau && (
+        <PanneauEnvoi
+          key={`${panneau.cle}:${panneau.mode}`}
+          cle={panneau.cle}
+          mode={panneau.mode}
+          fermer={fermerPanneau}
+          envoye={(x) => {
+            setRetour(x);
+            router.refresh();
+          }}
+        />
+      )}
       <div className={k.planche}>
         {ETATS_RELANCE.map((col) => {
           const toutes = relances.filter((r) => r.colonne === col.cle);

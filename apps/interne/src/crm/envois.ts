@@ -1,6 +1,6 @@
 import "server-only";
 import { versInterne } from "@/lib/adresses";
-import { bouton as boutonHtml, echapper, mention, mettreEnPage, paragraphe, salutation, tableau } from "@/lib/email-layout";
+import { bouton as boutonHtml, echapper, mention, tableau } from "@/lib/email-layout";
 import { envoyerEmail, envoyerSms, libelleStatut, type ResultatEnvoi } from "@/lib/envois";
 import { estAdresseFictive } from "@/lib/envois/garde-fous";
 import { TEL_AGENCE } from "@/lib/messaging";
@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import { q1 } from "@/crm/lib/db";
 import { eur } from "@/crm/lib/format";
 import { modeleDe, raisonDeNePasEnvoyer, remplir } from "@/crm/messages/catalogue";
+import { composerEmailCrm, type BlocEmail, type ContexteEmail } from "@/crm/messages/rendu";
 
 /*
  * Les messages que le CRM envoie au client — le devis à signer, le SMS de
@@ -85,19 +86,30 @@ export function variablesDossier(c: Destinataire, extra: Record<string, string |
  * paragraphe par paragraphe (le « Bonjour … » en tête, plus fort), puis ce
  * que le message ajoute (le devis, un bouton). Sert à l'envoi et à l'aperçu.
  */
-export async function rendreEmailCrm(m: { objet: string | null; corps: string }, vars: Record<string, string | number | null | undefined>, ajout = "", apercu?: string) {
-  const sujet = remplir(m.objet?.trim() || "Bailly Déménagement", vars);
-  const texte = remplir(m.corps, vars);
-  const blocs = texte.split(/\n\s*\n/).map((b) => b.split("\n").map((l) => echapper(l.trim())).join("<br>"));
+export async function rendreEmailCrm(
+  m: { objet: string | null; corps: string },
+  vars: Record<string, string | number | null | undefined>,
+  ajout = "",
+  apercu?: string,
+  o: { bloc?: BlocEmail; surtitre?: string } = {},
+) {
   const settings = await getSettings();
-  const html = mettreEnPage({
-    titre: sujet,
-    corps: [...blocs.map((b, i) => (i === 0 && /^bonjour\b/i.test(b) ? salutation(b) : paragraphe(b))), ajout].join("\n"),
-    apercu: apercu ?? texte.split("\n").find((l) => l.trim() && !/^bonjour\b/i.test(l.trim()))?.slice(0, 140),
+  // La composition elle-même est dans messages/rendu.ts, sans rien du serveur : l'écran d'envoi d'une relance la refait à l'identique.
+  const r = composerEmailCrm(m, vars, contexteDe(settings), { ajout, apercu, ...o });
+  return { ...r, expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email }, smsExpediteur: settings.sms_sender };
+}
+
+/** L'adresse du site et les coordonnées du pied, d'après les réglages. */
+function contexteDe(settings: Awaited<ReturnType<typeof getSettings>>): ContexteEmail {
+  return {
     base: (settings.base_url || "").replace(/\/$/, ""),
     entreprise: { nom: settings.entreprise_nom ?? undefined, email: settings.entreprise_email ?? undefined, tel: settings.entreprise_tel || TEL_AGENCE },
-  });
-  return { sujet, texte, html, expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email }, smsExpediteur: settings.sms_sender };
+  };
+}
+
+/** Ce qu'il faut pour composer un e-mail du CRM ailleurs (le navigateur), à l'identique. */
+export async function contexteEmail(): Promise<ContexteEmail> {
+  return contexteDe(await getSettings());
 }
 
 /**
@@ -190,7 +202,14 @@ export async function envoyerSmsRendezVous(
 export async function envoyerCarte(
   carte: string,
   dossierId: number,
-  o: { cle: string; origine?: "crm" | "veille"; vars?: Record<string, string | number | null | undefined> },
+  o: {
+    cle: string;
+    origine?: "crm" | "veille";
+    vars?: Record<string, string | number | null | undefined>;
+    /** Le bloc composé par la plateforme (la liste d'une relance), posé au jeton {elements}. */
+    bloc?: BlocEmail;
+    surtitre?: string;
+  },
 ): Promise<{ resultat: ResultatEnvoi | null; libelle: string }> {
   const m = await modeleDe(carte);
   const c = await destinataire(dossierId);
@@ -204,7 +223,7 @@ export async function envoyerCarte(
     return { resultat, libelle: libelleStatut(resultat) };
   }
   if (!c.email) return { resultat: null, libelle: "pas d'adresse e-mail : rien n'est parti" };
-  const r = await rendreEmailCrm(m ?? { objet: null, corps: "" }, vars);
+  const r = await rendreEmailCrm(m ?? { objet: null, corps: "" }, vars, "", undefined, { bloc: o.bloc, surtitre: o.surtitre });
   const resultat = await envoyerEmail({ ...commun, a: c.email, sujet: r.sujet, html: r.html, texte: r.texte, expediteur: r.expediteur, repondreA: c.commercial_email && !estAdresseFictive(c.commercial_email) ? c.commercial_email : null });
   return { resultat, libelle: libelleStatut(resultat) };
 }

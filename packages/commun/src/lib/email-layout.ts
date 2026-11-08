@@ -442,6 +442,131 @@ export function encadre(contenu: string): string {
 </table>`;
 }
 
+/** Ce que le message demande au client : la liste à cocher de listeDemandes. */
+export interface Demandes {
+  /** Les petites capitales, en jaune sur le noir : « Vos devis ». */
+  surtitre: string;
+  /** « Vos 2 devis attendent votre réponse ». */
+  titre: string;
+  /** Le chiffre de la pastille et son mot : 2 · « à signer ». */
+  compte?: { n: number; mot: string } | null;
+  /** La date limite, en clair : « À nous transmettre avant le 14 novembre ». */
+  echeance?: string | null;
+  /** Ce qui est déjà fait, en jauge : 1 sur 3, « 1 pièce sur 3 déjà reçue ». */
+  progression?: { n: number; sur: number; texte: string } | null;
+  /** La phrase qui ouvre la liste. */
+  intro?: string | null;
+  elements: { titre: string; detail?: string | null; valeur?: string | null; lien?: { url: string; libelle: string } | null }[];
+  /** Le total, sous la liste : [« Total à régler », « 2 340,00 € »]. */
+  total?: [string, string] | null;
+  /** L'appel à l'action : le bouton jaune. */
+  action?: { libelle: string; url: string } | null;
+  /** La ligne sous le bouton. */
+  note?: string | null;
+}
+
+/**
+ * La liste de ce que le message demande — les devis à signer, les pièces à
+ * déposer, les factures à régler —, en carte : un en-tête noir (ce qu'on
+ * attend, le compte, l'échéance, la jauge de ce qui est déjà fait), puis un
+ * élément par ligne, chacun avec sa case à cocher, son explication, son
+ * montant et son lien, enfin le bouton. Sert aux relances ; ne change rien
+ * aux autres messages.
+ *
+ * Rien n'y dépend d'une requête média : le montant se pose en pastille sous
+ * le titre plutôt qu'en colonne, pour tenir dans une boîte de téléphone.
+ */
+export function listeDemandes(d: Demandes): string {
+  if (!d.elements.length) return "";
+  // La pastille reste à droite du titre, même dans une boîte de téléphone : le titre passe à la ligne.
+  const pastille = d.compte
+    ? `<td width="72" valign="top" align="right" style="width:72px;vertical-align:top;text-align:right;">
+        <table ${TABLE} align="right"><tr><td width="66" align="center" valign="middle" bgcolor="${T.accent}" style="width:66px;background:${T.accent};border-radius:16px;padding:11px 4px 10px;font-family:${POLICE};">
+          <div style="font-size:28px;line-height:1;letter-spacing:-0.8px;font-weight:900;color:${T.dessus};">${d.compte.n}</div>
+          <div style="margin-top:4px;font-size:9.5px;line-height:1.2;letter-spacing:1.1px;text-transform:uppercase;font-weight:700;color:${T.dessus};">${echapper(d.compte.mot)}</div>
+        </td></tr></table>
+      </td>`
+    : "";
+
+  // La jauge : un segment par élément attendu, plein pour ce qui est déjà là. Chaque segment a sa
+  // largeur : sans elle, le premier (sans filet de séparation) s'écrase à rien.
+  const jauge = d.progression && d.progression.sur > 0
+    ? `<table ${TABLE} width="100%" style="margin-top:20px;table-layout:fixed;"><tr>${Array.from({ length: d.progression.sur }, (_, i) => {
+        const fond = i < d.progression!.n ? T.accent : "#45433e";
+        const largeur = `${Math.floor(1000 / d.progression!.sur) / 10}%`;
+        return `<td width="${largeur}" style="width:${largeur};padding:0 ${i < d.progression!.sur - 1 ? "5px" : "0"} 0 0;"><div style="height:6px;line-height:6px;font-size:0;background:${fond};border-radius:3px;">&nbsp;</div></td>`;
+      }).join("")}</tr></table>
+      <div style="margin-top:9px;font-size:12.5px;line-height:1.4;color:#b9b6b0;">${echapper(d.progression.texte)}</div>`
+    : "";
+
+  const entete = `<tr><td bgcolor="${COULEURS.noir}" style="background:${COULEURS.noir};border-radius:20px 20px 0 0;padding:24px 26px 24px;font-family:${POLICE};">
+    <table ${TABLE} width="100%"><tr>
+      <td valign="top" style="vertical-align:top;padding-right:${d.compte ? "14px" : "0"};">
+        <div style="${SURTITRE}color:${T.surNoir};">${echapper(d.surtitre)}</div>
+        <div style="margin-top:9px;font-size:21px;line-height:1.25;letter-spacing:-0.4px;font-weight:700;color:${COULEURS.blanc};">${echapper(d.titre)}</div>
+        ${d.echeance ? `<div style="margin-top:9px;font-size:13px;line-height:1.45;color:#b9b6b0;"><span style="color:${T.surNoir};">&#9679;</span>&nbsp; ${echapper(d.echeance)}</div>` : ""}
+      </td>
+      ${pastille}
+    </tr></table>
+    ${jauge}
+  </td></tr>
+  <tr><td bgcolor="${T.accent}" style="height:4px;line-height:4px;font-size:0;background-color:${T.accent};background-image:linear-gradient(90deg,${T.soutenu},${T.accent} 40%,${T.accent});">&nbsp;</td></tr>`;
+
+  const derniere = d.elements.length - 1;
+  const lignes = d.elements
+    .map((e, i) => {
+      const filet = i < derniere ? `border-bottom:1px solid ${COULEURS.trait};` : "";
+      const meta = [
+        e.valeur ? `<span style="display:inline-block;margin:10px 12px 0 0;padding:5px 11px;border-radius:999px;background:${COULEURS.noir};font-size:13px;line-height:1.3;font-weight:700;color:${T.surNoir};white-space:nowrap;">${echapper(e.valeur)}</span>` : "",
+        e.lien ? `<a href="${e.lien.url}" style="display:inline-block;margin-top:10px;font-size:13.5px;line-height:1.3;font-weight:700;color:${COULEURS.noir};text-decoration:none;border-bottom:2px solid ${T.accent};padding-bottom:1px;white-space:nowrap;">${echapper(e.lien.libelle)}&nbsp;&rarr;</a>` : "",
+      ].join("");
+      return `<tr>
+        <td width="40" valign="top" style="width:40px;vertical-align:top;padding:18px 0 18px;${filet}">
+          <table ${TABLE}><tr><td width="18" height="18" bgcolor="${T.pale}" style="width:18px;height:18px;border:2px solid ${COULEURS.noir};border-radius:6px;background:${T.pale};font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+        </td>
+        <td valign="top" style="vertical-align:top;padding:17px 0 18px;${filet}font-family:${POLICE};">
+          <div style="font-size:15.5px;line-height:1.4;font-weight:700;color:${COULEURS.noir};">${echapper(e.titre)}</div>
+          ${e.detail ? `<div style="margin-top:4px;font-size:13.5px;line-height:1.55;color:${COULEURS.gris};">${echapper(e.detail)}</div>` : ""}
+          ${meta ? `<div style="font-size:0;line-height:0;">${meta}</div>` : ""}
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  const total = d.total
+    ? `<table ${TABLE} width="100%" style="margin:2px 0 18px;"><tr><td bgcolor="${T.pale}" style="background:${T.pale};border-radius:14px;padding:14px 18px;font-family:${POLICE};">
+        <table ${TABLE} width="100%"><tr>
+          <td valign="middle" style="vertical-align:middle;font-size:14px;line-height:1.3;font-weight:700;color:${COULEURS.noir};">${echapper(d.total[0])}</td>
+          <td valign="middle" align="right" style="vertical-align:middle;text-align:right;font-size:20px;line-height:1.2;letter-spacing:-0.4px;font-weight:700;color:${COULEURS.noir};white-space:nowrap;">${echapper(d.total[1])}</td>
+        </tr></table>
+      </td></tr></table>`
+    : "";
+
+  // Sans bouton, la carte se ferme sur la liste ; la note s'y pose, sous un filet.
+  const noteSeule = !d.action && d.note
+    ? `<div style="margin:0 0 18px;padding-top:14px;border-top:1px solid ${COULEURS.trait};font-size:12.5px;line-height:1.55;color:${COULEURS.gris};">${echapper(d.note)}</div>`
+    : "";
+  const corps = `<tr><td bgcolor="${COULEURS.blanc}" style="background:${COULEURS.blanc};border-left:1px solid ${COULEURS.trait};border-right:1px solid ${COULEURS.trait};${d.action ? "" : `border-bottom:1px solid ${COULEURS.trait};border-radius:0 0 20px 20px;`}padding:${d.intro ? "18px" : "4px"} 26px ${d.total || noteSeule ? "4px" : "6px"};font-family:${POLICE};">
+    ${d.intro ? `<p style="margin:0;font-size:14.5px;line-height:1.6;color:${COULEURS.texte};">${echapper(d.intro)}</p>` : ""}
+    <table ${TABLE} width="100%">${lignes}</table>
+    ${total}
+    ${noteSeule}
+  </td></tr>`;
+
+  const pied = d.action
+    ? `<tr><td bgcolor="${COULEURS.papier}" align="center" style="background:${COULEURS.papier};border:1px solid ${COULEURS.trait};border-radius:0 0 20px 20px;padding:24px 26px ${d.note ? "20px" : "24px"};text-align:center;font-family:${POLICE};">
+        ${d.action ? `<table ${TABLE} align="center" style="margin:0 auto;"><tr>
+          <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
+            <a href="${d.action.url}" style="display:inline-block;padding:16px 32px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(d.action.libelle)}&nbsp;&nbsp;&rarr;</a>
+          </td>
+        </tr></table>` : ""}
+        ${d.note ? `<div style="margin-top:${d.action ? "13px" : "0"};font-size:12.5px;line-height:1.55;color:${COULEURS.gris};">${echapper(d.note)}</div>` : ""}
+      </td></tr>`
+    : "";
+
+  return `<table ${TABLE} width="100%" style="margin:8px 0 26px;border-collapse:separate;border-spacing:0;">${entete}${corps}${pied}</table>`;
+}
+
 /** Échappe ce qui vient des données : un nom de client n'est pas du HTML. */
 export function echapper(v: string): string {
   return String(v)

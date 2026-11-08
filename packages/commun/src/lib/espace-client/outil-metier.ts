@@ -19,7 +19,7 @@ export interface OutilMetier {
 }
 
 /** Le lien de dépôt d'avis réglé dans l'environnement, s'il est une adresse https. */
-function lienRegle(): string | null {
+export function lienRegle(): string | null {
   const v = process.env.ESPACE_CLIENT_LIEN_AVIS?.trim();
   if (!v) return null;
   try {

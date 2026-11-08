@@ -243,6 +243,39 @@ export function heureParis(d = new Date()) {
   return Number(h?.value ?? 0);
 }
 
+/**
+ * Un élément de ce qu'une relance demande au client : un devis à signer, une
+ * pièce à déposer, une facture à régler… L'équipe peut n'en garder que
+ * certains à l'envoi ; la veille les envoie tous.
+ */
+export interface ElementRelance {
+  /** Stable dans la relance : « devis:12 », « piece:<id> », « facture:34 », « conditions », « avis ». */
+  id: string;
+  /** Ce que lit le client, en titre : « Devis DV-2026-0001 · Formule Standard ». */
+  titre: string;
+  /** Sa forme courte, pour un SMS ou une phrase : « DV-2026-0001 ». */
+  court: string;
+  /** Sa courte explication, telle que le client la lit. */
+  detail: string;
+  /** Le montant, à droite. */
+  valeur: string | null;
+  /** Le montant en euros (le reste à payer d'une facture), pour {montant}. */
+  montant?: number | null;
+  /** Le jeton de signature d'un devis : son lien propre. */
+  jeton?: string | null;
+}
+
+/** Ce qu'une relance demande, et de quoi composer ses liens. */
+export interface DemandeRelance {
+  elements: ElementRelance[];
+  /** La référence de l'espace client du dossier, s'il en a un : ses liens y mènent. */
+  espace: string | null;
+  /** AAAA-MM-JJ : la date avant laquelle il faut répondre (le déménagement), s'il y en a une. */
+  avant: string | null;
+  /** Ce qui est déjà fait, quand cela se compte (pièces reçues sur demandées). */
+  faits: { n: number; sur: number } | null;
+}
+
 /** Une relance du Kanban, telle que le moteur la range. */
 export interface Relance {
   cle: string;
@@ -268,6 +301,8 @@ export interface Relance {
   reportee: boolean;
   /** Les variables propres à la relance (le montant d'un solde…). */
   vars: Record<string, string>;
+  /** Ce que la relance demande au client, élément par élément. */
+  demande: DemandeRelance;
 }
 
 /** Les statuts du journal des envois, en clair, et leur famille sur les graphiques. */

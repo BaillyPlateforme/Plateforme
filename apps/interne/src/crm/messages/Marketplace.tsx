@@ -279,6 +279,14 @@ function Editeur({ carte, tester, bloquee, fermer }: { carte: CarteVue; tester: 
           ) : (
             <>
               {carte.aValider && <p className={s.aide}><b>Texte à valider.</b> Ce type de message n&apos;a pas encore de texte validé par Bailly : rédigez-le, enregistrez-le, puis activez la carte.</p>}
+              {carte.propose && !corps.trim() && (
+                <p className={s.aide}>
+                  La plateforme propose un texte de départ, à relire et à valider : il ne part pas tant qu&apos;il n&apos;est pas enregistré.{" "}
+                  <button type="button" className="btn ghost" onClick={() => { setObjet(carte.propose!.objet ?? ""); setCorps(carte.propose!.corps); }}>
+                    Partir du texte proposé
+                  </button>
+                </p>
+              )}
               {carte.canal === "email" && (
                 <div>
                   <label htmlFor="objet">Objet</label>

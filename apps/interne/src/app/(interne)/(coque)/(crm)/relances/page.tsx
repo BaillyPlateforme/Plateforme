@@ -423,9 +423,10 @@ function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof
                       <i />
                       {def.libelle}
                     </span>
-                    <small>
+                    <small title={l.partielle ? `Retenus : ${l.partielle.titres.join(", ")}` : undefined}>
                       relance {l.rang}
                       {l.envoyee ? "" : " · non inscrite comme partie"}
+                      {l.partielle ? ` · ${l.partielle.titres.length} élément${l.partielle.titres.length > 1 ? "s" : ""} sur ${l.partielle.sur}` : ""}
                     </small>
                   </td>
                   <td>

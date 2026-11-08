@@ -7,8 +7,8 @@ import { listerRelances, type TypeRelance } from "@/crm/relances/moteur";
  * « Relancer le client », sur la fiche d'un espace client : les relances du
  * moteur (crm/relances) qui peuvent partir maintenant pour ce dossier du CRM
  * — conditions de livraison, pièces, devis, solde —, dans cet ordre. Rien ne
- * part ici : l'envoi est le geste « Envoyer maintenant » du Kanban des
- * relances (envoyerMaintenant), que l'écran appelle sur un clic confirmé.
+ * part ici : l'envoi passe par l'écran d'envoi des relances (PanneauEnvoi,
+ * le même que le Kanban), où l'équipe coche ce qu'elle demande.
  */
 
 export type RelanceProposee = { cle: string; type: TypeRelance; libelle: string; objet: string; canaux: ("email" | "sms")[]; rang: number; sur: number };

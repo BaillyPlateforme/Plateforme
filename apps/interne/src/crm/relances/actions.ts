@@ -1,16 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { etatEnvois } from "@/lib/envois";
 import { currentUser } from "@/crm/lib/auth";
 import { q, q1 } from "@/crm/lib/db";
 import { journaliser } from "@/crm/lib/journal";
-import { jourParis } from "@/crm/envois";
-import { modeleDe, raisonDeNePasEnvoyer } from "@/crm/messages/catalogue";
+import { contexteEmail, destinataire, dossierFictif, jourParis, variablesDossier } from "@/crm/envois";
+import { lignesCatalogue, modeleDe, raisonDeNePasEnvoyer } from "@/crm/messages/catalogue";
 import { apercuCarte, type Apercu } from "@/crm/messages/actions";
-import { decider, duesPourLaVeille, envoyerRelance, listerRelances, reglesRelances, simulerRegle } from "./moteur";
+import type { ContexteEmail } from "@/crm/messages/rendu";
+import { decider, duesPourLaVeille, envoyerRelance, liensRelance, listerRelances, reglesRelances, relancesEtRegles, simulerRegle } from "./moteur";
+import { surtitreRelance, TEXTES_PROPOSES, type LiensRelance } from "./courrier";
 import {
   CANAUX, creneauEnClair, defRelance, HEURE_VEILLE_UTC, JOURS, libelleCanal, plus, repereDe, SEGMENTS, validerRegle,
-  type Canal, type Colonne, type ReglageRegle, type Regle, type TypeRelance,
+  type Canal, type Colonne, type ReglageRegle, type Regle, type Relance, type TypeRelance,
 } from "./regles";
 
 /*
@@ -28,14 +31,111 @@ const rafraichir = () => {
   revalidatePath("/modeles");
 };
 
-export async function envoyerMaintenant(cle: string): Promise<Retour> {
+/**
+ * Envoie une relance tout de suite. `choix` : les éléments cochés dans
+ * l'écran d'envoi (leurs id) ; sans choix, tout ce que la relance demande.
+ * Ce qui a été retenu entre au fil du dossier, à la relance
+ * (crm.relances.elements) et au journal des gestes.
+ */
+export async function envoyerMaintenant(cle: string, choix?: string[] | null): Promise<Retour> {
   const u = await currentUser();
+  if (choix != null && (!Array.isArray(choix) || choix.some((c) => typeof c !== "string"))) return { ok: false, erreur: "Choix invalide." };
+  if (choix && !choix.length) return { ok: false, erreur: "Cochez au moins un élément à demander." };
   const r = (await listerRelances()).find((x) => x.cle === cle);
   if (!r) return { ok: false, erreur: "Relance introuvable." };
   if (!["avenir", "aujourdhui", "retard"].includes(r.colonne)) return { ok: false, erreur: r.motif ?? "Cette relance ne peut pas partir." };
-  const e = await envoyerRelance(r, u.nom);
+  // Tout coché : la relance telle que la veille l'enverrait.
+  const retenus = choix && !r.demande.elements.every((e) => choix.includes(e.id)) ? choix : null;
+  const e = await envoyerRelance(r, u.nom, retenus);
   rafraichir();
-  return e.ok ? { ok: true, message: `${r.libelle} : ${e.libelle}.` } : { ok: false, erreur: `${r.libelle} : ${e.libelle}.` };
+  if (e.ok && e.elements) {
+    await journaliser({
+      action: "relance.envoyee",
+      libelle: e.activite ?? `${r.libelle} (${r.rang}/${r.sur}) : ${e.libelle}`,
+      objet: { type: "relance", id: r.cle },
+      dossierId: r.dossierId,
+      details: { relance: r.cle, tout: e.elements.tout, inclus: e.elements.inclus.map((x) => x.titre), sur: e.elements.total, canaux: r.canaux },
+      activite: e.activite ?? null,
+    });
+  }
+  const quoi = e.elements && !e.elements.tout ? ` (${e.elements.inclus.length} élément${e.elements.inclus.length > 1 ? "s" : ""} sur ${e.elements.total})` : "";
+  return e.ok ? { ok: true, message: `${r.libelle}${quoi} : ${e.libelle}.` } : { ok: false, erreur: `${r.libelle} : ${e.libelle}.` };
+}
+
+/** Un canal de la relance, tel que l'écran d'envoi le montre : son texte, et s'il partira. */
+export interface CanalEnvoi {
+  canal: Canal;
+  /** Prêt dans « Courriers et SMS » : il partira. */
+  pret: boolean;
+  /** Pourquoi il ne partira pas. */
+  raison: string | null;
+  objet: string | null;
+  corps: string;
+  /** La carte est vide : le texte montré est celui proposé par la plateforme, à valider — il ne part pas. */
+  propose: boolean;
+}
+
+/** Tout ce que l'écran d'envoi d'une relance doit savoir pour composer le message dans le navigateur, à l'identique de l'envoi. */
+export interface PreparationEnvoi {
+  relance: Relance;
+  /** Elle peut partir maintenant : à faire (à venir, aujourd'hui, en retard) et un canal au moins prêt. */
+  envoyable: boolean;
+  motif: string | null;
+  canaux: CanalEnvoi[];
+  /** Les variables du dossier et de la relance ({client}, {ref}, {montant}…), avant les éléments cochés. */
+  vars: Record<string, string>;
+  contexte: ContexteEmail;
+  liens: LiensRelance;
+  surtitre: string;
+  destinataire: { email: string | null; telephone: string | null; fictif: boolean };
+  /** Ce que deviendra le message, d'après ENVOI_MODE. */
+  envoi: { mode: string; phrase: string };
+}
+
+/** Prépare l'écran d'envoi d'une relance (ou son aperçu) : rien n'est envoyé ni écrit. */
+export async function preparerEnvoi(cle: string): Promise<{ ok: true; preparation: PreparationEnvoi } | { ok: false; erreur: string }> {
+  await currentUser();
+  const { relances, regles } = await relancesEtRegles();
+  const r = relances.find((x) => x.cle === cle);
+  if (!r) return { ok: false, erreur: "Relance introuvable : elle a peut-être été réglée entre-temps." };
+  const def = defRelance(r.type)!;
+  const regle = regles.get(r.type)!;
+  const [cartes, c, contexte, liens] = await Promise.all([lignesCatalogue(), destinataire(r.dossierId), contexteEmail(), liensRelance(r.type, r.demande)]);
+  if (!c) return { ok: false, erreur: "Dossier introuvable." };
+  const fictif = await dossierFictif(r.dossierId, c);
+  const ouverte = ["avenir", "aujourdhui", "retard"].includes(r.colonne);
+  // Les canaux de la règle (ceux par où la relance partirait), dans l'ordre : e-mail, puis SMS.
+  const canaux: CanalEnvoi[] = (ouverte || r.colonne === "desactivee" ? regle.canaux : r.canaux).map((k) => {
+    const m = cartes.get(def.cartes[k]) ?? null;
+    const raison = raisonDeNePasEnvoyer(m);
+    const vide = !m?.corps.trim();
+    const propose = vide ? (TEXTES_PROPOSES[def.cartes[k]] ?? null) : null;
+    return {
+      canal: k, pret: !raison, raison,
+      objet: propose ? propose.objet : (m?.objet ?? null),
+      corps: propose ? propose.corps : (m?.corps ?? ""),
+      propose: !!propose,
+    };
+  });
+  const envoyable = ouverte && r.canaux.length > 0;
+  const mode = etatEnvois().mode;
+  const phrase = fictif
+    ? "Destinataire fictif (jeu de démonstration) : rien ne lui sera envoyé, la relance sera journalisée."
+    : mode === "actif"
+      ? "Envoi réel : le client recevra ce message."
+      : mode === "recette"
+        ? "Recette : le message ne part que si l'adresse est sur la liste blanche ; sinon il est journalisé."
+        : "Envoi désactivé : la relance sera journalisée, rien ne partira.";
+  const vars = Object.fromEntries(Object.entries(variablesDossier(c, r.vars)).map(([k, v]) => [k, v == null ? "" : String(v)]));
+  return {
+    ok: true,
+    preparation: {
+      relance: r, envoyable, motif: envoyable ? null : (r.motif ?? (ouverte ? "Aucun canal prêt dans « Courriers et SMS »." : "Cette relance ne peut pas partir.")),
+      canaux, vars, contexte, liens, surtitre: surtitreRelance(r.ref),
+      destinataire: { email: c.email, telephone: c.telephone, fictif },
+      envoi: { mode, phrase },
+    },
+  };
 }
 
 export async function repousser(cle: string, jours: number): Promise<Retour> {

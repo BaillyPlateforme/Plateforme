@@ -1,7 +1,11 @@
 import "server-only";
+import { versInterne } from "@/lib/adresses";
 import { alerterEquipe } from "@/lib/alertes-equipe";
+import { adressePublique } from "@/lib/espace-client/config";
 import { lireDonnees } from "@/lib/espace-client/depot";
+import { lienRegle } from "@/lib/espace-client/outil-metier";
 import { snapshotDe } from "@/lib/espace-client/lectures";
+import { euros } from "@/lib/espace-client/format";
 import { calculerFrise, piecesManquantes } from "@/lib/espace-client/progression";
 import { q, q1 } from "@/crm/lib/db";
 import { eur, nomClient, TYPES } from "@/crm/lib/format";
@@ -9,8 +13,9 @@ import { envoyerCarte, jourParis } from "@/crm/envois";
 import { lignesCatalogue, raisonDeNePasEnvoyer, type LigneModele } from "@/crm/messages/catalogue";
 import {
   CANAUX, creneauOuvert, defRelance, heureParis, jourPermis, libelleCanal, plus, RELANCES, repereDe,
-  type Canal, type Colonne, type Regle, type Relance, type TypeRelance,
+  type Canal, type Colonne, type DemandeRelance, type ElementRelance, type Regle, type Relance, type TypeRelance,
 } from "./regles";
+import { blocRelance, elementsChoisis, surtitreRelance, varsRelance, type LiensRelance } from "./courrier";
 
 export { RELANCES, defRelance };
 export type { Colonne, Regle, Relance, TypeRelance };
@@ -35,6 +40,13 @@ export type { Colonne, Regle, Relance, TypeRelance };
  * La tâche de la veille envoie celles du jour et celles en retard de trois
  * jours au plus, aux jours et heures permis ; l'équipe peut en envoyer une
  * tout de suite depuis le Kanban.
+ *
+ * Chaque relance porte aussi ce qu'elle demande, élément par élément
+ * (`demande` : les devis envoyés sans réponse, les pièces obligatoires qui
+ * manquent, les factures du dossier qui restent à régler, le questionnaire
+ * des conditions, l'avis), lu dans les mêmes requêtes que son objet.
+ * L'e-mail en pose la liste (courrier.ts) ; l'équipe peut n'en cocher que
+ * certains à l'envoi (PanneauEnvoi), la veille les envoie tous.
  */
 
 export async function reglesRelances(): Promise<Map<TypeRelance, Regle>> {
@@ -79,10 +91,16 @@ type Candidat = {
   /** Déjà réglé (devis signé…) : la suite s'arrête, avec cette raison. */
   regle?: string | null;
   vars?: Record<string, string>;
+  /** Ce que la relance demande, élément par élément (l'espace client est rattaché à la fin). */
+  demande: Omit<DemandeRelance, "espace">;
+  espace?: string | null;
 };
 
 const jourFr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+/** « 3 novembre » : la date telle que le client la lit. */
+const jourClient = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 const iso = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 10) : v ? String(v).slice(0, 10) : null);
+const sansDemande = (avant: string | null = null): Omit<DemandeRelance, "espace"> => ({ elements: [], avant, faits: null });
 
 /** Les objets qui appellent une relance, type par type, avec leurs dates de repère. */
 async function candidats(): Promise<Candidat[]> {
@@ -91,10 +109,14 @@ async function candidats(): Promise<Candidat[]> {
   type Client = { segment: string; nom: string; prenom: string | null; societe: string | null };
 
   // Devis : un dossier dont un devis est envoyé et qu'aucun devis signé ne clôt. Une suite par dossier.
+  type DevisEnAttente = { id: number; numero: string; formule: string; montant: number; envoye_le: string; validite: string | null; token: string | null };
   const [devis, dejaRelances] = await Promise.all([
-    q<Client & { id: number; ref: string; statut: string; date_chargement: Date | null; envoye: string; numero: string; signe: boolean }>(
+    q<Client & { id: number; ref: string; statut: string; date_chargement: Date | null; envoye: string; numero: string; signe: boolean; attente: DevisEnAttente[] | null }>(
       `select d.id, d.ref, d.statut, d.date_chargement, c.type as segment, c.nom, c.prenom, c.societe, max(v.envoye_le)::text as envoye,
-              string_agg(v.numero, ', ' order by v.numero) as numero, bool_or(v.statut = 'signe') as signe
+              string_agg(v.numero, ', ' order by v.numero) as numero, bool_or(v.statut = 'signe') as signe,
+              -- Les devis envoyés sans réponse : ce que la relance demande, un par un.
+              json_agg(json_build_object('id', v.id, 'numero', v.numero, 'formule', v.formule, 'montant', v.montant::float8,
+                       'envoye_le', v.envoye_le, 'validite', v.validite, 'token', v.token) order by v.numero) filter (where v.statut = 'envoye') as attente
          from dossiers d join clients c on c.id = d.client_id join devis v on v.dossier_id = d.id
         where v.envoye_le is not null and v.statut in ('envoye','signe')
         group by d.id, c.type, c.nom, c.prenom, c.societe`,
@@ -111,19 +133,45 @@ async function candidats(): Promise<Candidat[]> {
       dates: { envoi_devis: envoi, demenagement: iso(d.date_chargement) },
       objet: `Devis ${d.numero} envoyé le ${jourFr(envoi)}`,
       regle: d.signe ? "Devis signé : relances arrêtées." : ["perdu", "termine"].includes(d.statut) ? `Dossier ${d.statut === "perdu" ? "perdu" : "terminé"}.` : null,
+      demande: {
+        ...sansDemande(),
+        elements: (d.attente ?? []).map((v) => {
+          const validite = iso(v.validite);
+          return {
+            id: `devis:${v.id}`,
+            titre: `Devis ${v.numero} · Formule ${v.formule.charAt(0).toUpperCase()}${v.formule.slice(1)}`,
+            court: v.numero,
+            detail: `Envoyé le ${jourClient(iso(new Date(v.envoye_le))!)}${validite ? `, valable jusqu'au ${jourClient(validite)}` : ""}.`,
+            valeur: `${euros(v.montant)} TTC`,
+            montant: v.montant,
+            jeton: v.token,
+          };
+        }),
+      },
     });
   }
 
   // Solde : une facture du CRM qui n'est pas réglée (les arrhes passent par les paiements).
-  const factures = await q<Client & { id: number; dossier_id: number; ref: string; dstatut: string; numero: string; montant: number; emise_le: Date; date_livraison: Date | null; statut: string; dreste: number | null }>(
+  const factures = await q<Client & { id: number; dossier_id: number; ref: string; dstatut: string; numero: string; objet_facture: string | null; total: number; montant: number; emise_le: Date; date_livraison: Date | null; statut: string; dreste: number | null }>(
     // Le montant relancé est le reste à payer réel de la facture (paiements partiels déduits) ; ni avoir ni facture annulée.
-    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, s.reste::float8 as montant, f.emise_le, ds.reste::float8 as dreste,
+    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, f.objet as objet_facture, f.montant::float8 as total,
+            s.reste::float8 as montant, f.emise_le, ds.reste::float8 as dreste,
             case when f.statut = 'annulee' then 'payee' else f.statut end as statut,
             c.type as segment, c.nom, c.prenom, c.societe
        from factures f join factures_soldes s on s.id = f.id join dossiers d on d.id = f.dossier_id join clients c on c.id = d.client_id
        left join dossiers_soldes ds on ds.dossier_id = d.id
       where f.genre <> 'avoir' and (s.reste > 0 or f.id::text in (select split_part(cle, ':', 2) from relances where type='solde'))`,
   );
+  // Ce qu'une relance de solde demande : les factures du dossier qui restent à régler, la sienne d'abord.
+  const aRegler = (f: (typeof factures)[number]): ElementRelance => ({
+    id: `facture:${f.id}`,
+    titre: `Facture ${f.numero}${f.objet_facture ? ` · ${f.objet_facture}` : ""}`,
+    court: `${f.numero} (${euros(f.montant)})`,
+    detail: `Émise le ${jourClient(iso(f.emise_le)!)}${f.montant < f.total - 0.004 ? `, sur un total de ${euros(f.total)}` : ""}.`,
+    valeur: euros(f.montant),
+    montant: f.montant,
+  });
+  const ouvertes = factures.filter((f) => f.statut !== "payee" && f.montant > 0.004).sort((a, b) => String(iso(a.emise_le)).localeCompare(String(iso(b.emise_le))) || a.id - b.id);
   for (const f of factures) {
     out.push({
       type: "solde", objetId: String(f.id), dossierId: f.dossier_id, ref: f.ref, client: nom(f), segment: f.segment,
@@ -131,10 +179,18 @@ async function candidats(): Promise<Candidat[]> {
       objet: `Facture ${f.numero} · ${eur(f.montant)}`, vars: { montant: eur(f.montant) },
       // Un dossier déjà soldé (règlement saisi sans être affecté à la facture) : le client a payé, on ne le relance pas.
       regle: f.statut === "payee" ? "Facture réglée : relances arrêtées." : f.dstatut === "perdu" ? "Dossier perdu." : f.dreste != null && f.dreste <= 0.004 ? "Dossier soldé : règlement à affecter à la facture, relances arrêtées." : null,
+      demande: {
+        ...sansDemande(),
+        elements: [f, ...ouvertes.filter((x) => x.dossier_id === f.dossier_id && x.id !== f.id)]
+          .filter((x) => x.statut !== "payee" && x.montant > 0.004)
+          .map(aRegler),
+      },
     });
   }
 
   // Pièces, conditions et avis : l'espace client des dossiers du CRM.
+  // L'espace de chaque dossier du CRM, pour les liens des relances (devis et solde compris).
+  const espaces = new Map<number, string>();
   try {
     const ec = await lireDonnees();
     const crm = new Map(
@@ -143,39 +199,64 @@ async function candidats(): Promise<Candidat[]> {
       )).map((d) => [d.id, d]),
     );
     for (const dossier of ec.dossiers) {
+      if (typeof dossier.crm_dossier_id === "number" && dossier.reference && !espaces.has(dossier.crm_dossier_id)) espaces.set(dossier.crm_dossier_id, dossier.reference);
       const d = typeof dossier.crm_dossier_id === "number" ? crm.get(dossier.crm_dossier_id) : undefined;
       const s = d && snapshotDe(ec, dossier.id);
       if (!d || !s) continue;
       const fini = ["perdu", "termine"].includes(d.statut) || dossier.statut === "termine" ? `Dossier ${d.statut === "perdu" ? "perdu" : "terminé"}.` : null;
       const dates = { demenagement: dossier.periode_debut || null, commande: iso(dossier.commande_le), ouverture_espace: iso(dossier.created_at) };
       const commun = { objetId: dossier.id, dossierId: d.id, ref: d.ref, client: nom(d), segment: d.segment, dates };
+      const avant = dossier.periode_debut ? iso(dossier.periode_debut) : null;
       const manquantes = piecesManquantes(s);
-      if (s.requirements.some((r) => r.obligatoire)) {
+      const obligatoires = s.requirements.filter((r) => r.obligatoire).length;
+      if (obligatoires) {
         out.push({
           ...commun, type: "pieces",
           objet: manquantes.length ? `${manquantes.length} pièce${manquantes.length > 1 ? "s" : ""} à fournir : ${manquantes.slice(0, 3).map((r) => r.libelle).join(", ")}${manquantes.length > 3 ? "…" : ""}` : "Toutes les pièces sont reçues",
           regle: !manquantes.length ? "Pièces reçues : relances arrêtées." : fini, vars: { pieces: manquantes.map((r) => r.libelle).join(", ") },
+          // Chaque pièce obligatoire qui manque, avec la description que voit le client dans son espace.
+          demande: {
+            elements: manquantes.map((r) => ({
+              id: `piece:${r.id}`, titre: r.libelle, court: r.libelle, valeur: null,
+              detail: r.description?.trim() || "",
+            })),
+            avant,
+            faits: { n: obligatoires - manquantes.length, sur: obligatoires },
+          },
         });
       }
       const conditions = calculerFrise(s).find((e) => e.cle === "conditions");
       if (conditions) {
+        // Le questionnaire se certifie d'un bloc : un seul élément, qui dit où il en est.
+        const commence = !!s.conditions && !s.conditions.valide_at;
         out.push({
           ...commun, type: "conditions",
           objet: conditions.statut === "fait" ? "Conditions de livraison validées" : "Conditions de livraison à valider",
           regle: conditions.statut === "fait" ? "Conditions validées : relances arrêtées." : fini,
+          demande: {
+            ...sansDemande(avant),
+            elements: [{
+              id: "conditions", titre: "Questionnaire des conditions de livraison", court: "vos conditions de livraison", valeur: null,
+              detail: commence ? "Vous l'avez commencé : il reste à le vérifier et à le certifier." : "Étage, ascenseur, stationnement, accès du camion.",
+            }],
+          },
         });
       }
       if (dossier.avis_demande_le) {
         out.push({
           ...commun, type: "avis", dates: { demande_avis: iso(dossier.avis_demande_le), fin_chantier: iso(dossier.termine_le) },
           objet: `Avis demandé le ${jourFr(iso(dossier.avis_demande_le)!)}`, regle: null,
+          demande: {
+            ...sansDemande(),
+            elements: [{ id: "avis", titre: "Votre avis sur votre déménagement", court: "votre avis", valeur: null, detail: "Il ne vous prendra qu'une minute." }],
+          },
         });
       }
     }
   } catch (e) {
     console.error("Relances : espace client illisible, pièces et conditions ignorées", e instanceof Error ? e.message : e);
   }
-  return out;
+  return out.map((c) => ({ ...c, espace: espaces.get(c.dossierId) ?? null }));
 }
 
 interface Decision {
@@ -247,7 +328,10 @@ function ranger(e: Entrees, aujourdhui: string, regles = e.regles): Calcul {
     const base = c.dates[repere.cle] ?? null;
     const sens = repere.sens === "apres" ? 1 : -1;
     const calculee = (rang: number) => (base ? jourPermis(plus(base, sens * regle.premier_delai_jours + (rang - 1) * regle.intervalle_jours), regle.jours_envoi) : null);
-    const commun = { type: c.type, libelle: def.libelle, dossierId: c.dossierId, ref: c.ref, client: c.client, segment: c.segment, objet: c.objet, sur: regle.nombre_max, vars: c.vars ?? {} };
+    const commun = {
+      type: c.type, libelle: def.libelle, dossierId: c.dossierId, ref: c.ref, client: c.client, segment: c.segment, objet: c.objet, sur: regle.nombre_max, vars: c.vars ?? {},
+      demande: { ...c.demande, espace: c.espace ?? null },
+    };
 
     // Les relances déjà parties restent visibles, quelle que soit la règle d'aujourd'hui.
     for (const dec of envoyeesParObjet.get(`${c.type}:${c.objetId}`) ?? []) {
@@ -325,18 +409,51 @@ export async function simulerRegle(type: TypeRelance, brouillon: Regle, aujourdh
 const RANG_STATUT = ["envoye", "bac_a_sable", "journalise", "bloque", "fictif", "incertain", "echec"];
 
 /**
+ * Les liens d'une relance : la page de signature de chaque devis, et pour le
+ * bouton, la rubrique de l'espace client (pièces, conditions, factures) ou le
+ * lien de dépôt d'avis. Sans espace client ni lien, pas de bouton.
+ */
+export async function liensRelance(type: TypeRelance, demande: DemandeRelance): Promise<LiensRelance> {
+  const parElement: Record<string, string> = {};
+  for (const e of demande.elements) if (e.jeton) parElement[e.id] = versInterne(`/signature/${e.jeton}`);
+  const espace = demande.espace ? `${await adressePublique()}/espace-client/${encodeURIComponent(demande.espace)}` : null;
+  const principal =
+    type === "avis"
+      ? lienRegle()
+      : espace && ({ pieces: "/documents#pieces", conditions: "/documents#conditions", solde: "/devis#factures" } as Partial<Record<TypeRelance, string>>)[type];
+  return { parElement, principal: principal ? (type === "avis" ? principal : `${espace}${principal}`) : null };
+}
+
+/** Ce que la relance a demandé, gardé avec elle (crm.relances.elements) : les éléments retenus, sur combien. */
+export interface ElementsInclus {
+  inclus: { id: string; titre: string }[];
+  total: number;
+  tout: boolean;
+}
+
+/**
  * Envoie une relance par chacun de ses canaux prêts, chaque fois avec sa clé
  * (« relance:<cle> », « relance:<cle>:sms ») : elle ne part jamais deux fois.
+ *
+ * `choix` : les éléments cochés par l'équipe (leurs id) ; sans choix, tous —
+ * c'est ce que fait la veille. L'e-mail porte la liste de ce qui est retenu,
+ * et la relance garde, avec sa décision, ce qu'elle a demandé.
  */
-export async function envoyerRelance(r: Relance, par: string): Promise<{ ok: boolean; libelle: string }> {
+export async function envoyerRelance(r: Relance, par: string, choix?: readonly string[] | null): Promise<{ ok: boolean; libelle: string; activite?: string; elements?: ElementsInclus }> {
   const def = defRelance(r.type)!;
   if (!r.canaux.length) return { ok: false, libelle: "aucun canal prêt dans « Courriers et SMS »" };
+  const choisis = elementsChoisis(r.demande, choix);
+  if (choix && !choisis.length) return { ok: false, libelle: "aucun élément coché n'est encore à demander" };
+  const inclus: ElementsInclus = { inclus: choisis.map((e) => ({ id: e.id, titre: e.titre })), total: r.demande.elements.length, tout: choisis.length === r.demande.elements.length };
+  const bloc = choisis.length ? blocRelance(r.type, r.demande, choisis, await liensRelance(r.type, r.demande)) : undefined;
+  const vars = choisis.length ? varsRelance(r.type, r.vars, choisis) : r.vars;
   const issues: { canal: Canal; statut: string; motif: string | null; libelle: string; parti: boolean }[] = [];
   for (const canal of r.canaux) {
     const e = await envoyerCarte(def.cartes[canal], r.dossierId, {
       cle: canal === "email" ? `relance:${r.cle}` : `relance:${r.cle}:${canal}`,
       origine: par === "tâche planifiée" ? "veille" : "crm",
-      vars: r.vars,
+      vars,
+      ...(canal === "email" ? { bloc, surtitre: surtitreRelance(r.ref) } : {}),
     });
     const statut = e.resultat?.statut ?? "echec";
     issues.push({ canal, statut, motif: e.resultat?.motif ?? null, libelle: e.libelle, parti: !!e.resultat && !["echec", "incertain"].includes(statut) });
@@ -345,15 +462,19 @@ export async function envoyerRelance(r: Relance, par: string): Promise<{ ok: boo
   const libelle = issues.map((i) => (r.canaux.length > 1 ? `${libelleCanal(i.canal)} : ${i.libelle}` : i.libelle)).join(" · ");
   // Une relance « partie » pour l'équipe : envoyée, ou traitée par les garde-fous (journalisée, recette…),
   // par un canal au moins. Un échec partout ne la marque pas : elle reste à envoyer.
+  let activite: string | undefined;
   if (parties.length) {
     const statut = RANG_STATUT.find((s) => parties.some((i) => i.statut === s)) ?? parties[0].statut;
     const motif = parties.map((i) => i.motif).filter(Boolean).join(" · ") || null;
     await q(
-      `insert into relances(cle, type, dossier_id, rang, statut, envoyee_le, envoi_statut, envoi_motif, par, canaux) values($1,$2,$3,$4,'envoyee',now(),$5,$6,$7,$8)
-       on conflict (cle) do update set statut='envoyee', envoyee_le=now(), envoi_statut=$5, envoi_motif=$6, par=$7, canaux=$8, report_au=null, maj_le=now()`,
-      [r.cle, r.type, r.dossierId, r.rang, statut, motif, par, parties.map((i) => i.canal)],
+      `insert into relances(cle, type, dossier_id, rang, statut, envoyee_le, envoi_statut, envoi_motif, par, canaux, elements) values($1,$2,$3,$4,'envoyee',now(),$5,$6,$7,$8,$9)
+       on conflict (cle) do update set statut='envoyee', envoyee_le=now(), envoi_statut=$5, envoi_motif=$6, par=$7, canaux=$8, elements=$9, report_au=null, maj_le=now()`,
+      [r.cle, r.type, r.dossierId, r.rang, statut, motif, par, parties.map((i) => i.canal), inclus.total ? JSON.stringify(inclus) : null],
     );
-    await q("insert into activite(dossier_id, libelle) values($1,$2)", [r.dossierId, `${r.libelle} (${r.rang}/${r.sur}) : ${libelle}`]).catch(() => undefined);
+    // Une partie seulement des éléments : le fil du dossier dit lesquels.
+    const quoi = inclus.tout ? "" : ` · ${inclus.inclus.length} élément${inclus.inclus.length > 1 ? "s" : ""} sur ${inclus.total} : ${choisis.map((e) => e.court).join(", ")}`;
+    activite = `${r.libelle} (${r.rang}/${r.sur}) : ${libelle}${quoi}`;
+    await q("insert into activite(dossier_id, libelle) values($1,$2)", [r.dossierId, activite]).catch(() => undefined);
   } else {
     // Aucun canal n'est parti : l'alerte de l'équipe « Relance en échec », à ses abonnés.
     const commercial = await q1<{ email: string | null }>("select u.email from dossiers d left join utilisateurs u on u.id = d.commercial_id where d.id = $1", [r.dossierId]).catch(() => undefined);
@@ -363,7 +484,7 @@ export async function envoyerRelance(r: Relance, par: string): Promise<{ ok: boo
       lien: { chemin: `/relances?dossier=${r.dossierId}`, libelle: "Ouvrir ses relances" },
     });
   }
-  return { ok: parties.length > 0, libelle };
+  return { ok: parties.length > 0, libelle, activite, elements: inclus };
 }
 
 export async function decider(cle: string, decision: { statut: "reportee"; au: string } | { statut: "annulee" } | { statut: "reactivee" }, par: string) {
