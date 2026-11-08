@@ -92,6 +92,29 @@ export function lienFichier(type: TypeFichier, id: string, { porte = PORTE_FICHI
   return `${porte}/${type}/${encodeURIComponent(id)}?exp=${exp}&sig=${sig}${telecharger ? "&dl=1" : ""}`;
 }
 
+/**
+ * Le lien de l'archive d'un dossier (toutes ses pièces en un ZIP) : cinq
+ * minutes aussi, et seulement sur la porte de l'équipe (archive.ts).
+ */
+export function lienArchive(dossierId: string, porte: string) {
+  const exp = Math.floor(Date.now() / 1000) + DUREE_S;
+  return `${porte}/${encodeURIComponent(dossierId)}?exp=${exp}&sig=${signer(`archive:${dossierId}:${exp}`, "fichier")}`;
+}
+
+/** Les octets d'un fichier déposé : du seau, ou de la mémoire en démonstration. Null s'il n'y est pas (ou plus). */
+export async function lireOctets(chemin: string): Promise<{ donnees: Buffer; type: string } | null> {
+  if (estDemo()) {
+    const f = memoire().get(chemin);
+    return f ? { donnees: f.donnees, type: f.type } : null;
+  }
+  const { data, error } = await avecDelai(createServiceClient().storage.from(SEAU).download(chemin), 30_000, "Le stockage ne répond pas.").catch(() => ({
+    data: null,
+    error: new Error("Le stockage ne répond pas."),
+  }));
+  if (error || !data) return null;
+  return { donnees: Buffer.from(await data.arrayBuffer()), type: data.type };
+}
+
 export function lienValide(type: string, id: string, exp: string | null, sig: string | null) {
   if (!exp || !sig || !/^\d+$/.test(exp)) return false;
   if (Number(exp) < Date.now() / 1000) return false;

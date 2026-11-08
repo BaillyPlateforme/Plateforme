@@ -4,14 +4,16 @@ import { etatEnvois } from "@/lib/envois";
 import { envoisDesNotifications } from "@/lib/envois/journal";
 import { demoEquipeActive, estDemo, modeDonnees } from "./config";
 import { cleCatalogue, textesEspace } from "./catalogue-textes";
-import { lireDonnees } from "./depot";
+import { createServiceClient } from "@/lib/supabase/server";
+import { avecDelai, lireDonnees } from "./depot";
 import { devisDeLaDemande, lireDemande, listerDemandes } from "./demandes";
 import { rendreEmail, texteSms } from "./emails";
-import { lienFichier } from "./fichiers";
+import { lienArchive, lienFichier } from "./fichiers";
 import { aujourdhui, heure, joursRestants, nomClient, PAYS } from "./format";
 import { conseillerDe, snapshotDe } from "./lectures";
 import { PHOTOS } from "./photos";
-import { avancement, calculerFrise, estInternationalSuivi, prochaineEtape } from "./progression";
+import { fichiersDuDossier, GROUPES_FICHIERS } from "./pieces-jointes";
+import { avancement, calculerFrise, estInternationalSuivi, piecesManquantes, prochaineEtape, suiviEquipe } from "./progression";
 import { LISTE_SEGMENTS, segmentDe } from "./segments";
 import { distanceKm, PARAMS_TOURNEE } from "./tournee";
 import type { Donnees } from "./types";
@@ -47,6 +49,7 @@ export function vueApercu(d: Donnees) {
       const s = snapshotDe(d, dossier.id);
       if (!s) return null;
       const frise = calculerFrise(s);
+      const suivi = suiviEquipe(s, frise);
       const suivante = prochaineEtape(frise);
       const bloquante = frise.find((e) => e.bloquante && e.statut !== "fait");
       const j = joursRestants(dossier.periode_debut);
@@ -66,7 +69,10 @@ export function vueApercu(d: Donnees) {
         debut: dossier.periode_debut,
         fin: dossier.periode_fin,
         joursAvant: j,
-        pourcent: avancement(frise).pourcent,
+        /** La part des points du dossier faits (suiviEquipe) : le même pourcentage que sur la fiche. */
+        pourcent: suivi.pourcent,
+        piecesManquantes: piecesManquantes(s).length,
+        piecesDemandees: suivi.pieces.demandees,
         prochaine: suivante?.titre ?? null,
         prochaineCle: suivante?.cle ?? null,
         bloque: !termine && !!bloquante,
@@ -93,11 +99,20 @@ export function vueApercu(d: Donnees) {
   };
 }
 
+/**
+ * La fiche d'un dossier, vue de l'équipe. `porte` : la porte des fichiers
+ * (…/fichier) ; l'archive ZIP est à côté (…/archive), sur la porte de
+ * l'équipe seulement.
+ */
 export function vueDossier(d: Donnees, id: string, porte: string) {
   const lien = (type: Parameters<typeof lienFichier>[0], x: string) => lienFichier(type, x, { porte });
+  const telecharger = (type: Parameters<typeof lienFichier>[0], x: string) => lienFichier(type, x, { porte, telecharger: true });
   const s = snapshotDe(d, id);
   if (!s) return null;
   const frise = calculerFrise(s);
+  // Toutes les pièces jointes, sans leur chemin dans le seau (il ne sort pas du serveur).
+  const fichiers = fichiersDuDossier(s, d.conseillers).map((f) => ({ ...f, chemin: undefined, lien: lien(f.type, f.id), telecharger: telecharger(f.type, f.id) }));
+  const porteEquipe = porte === PORTE_FICHIERS_EQUIPE;
   return {
     mode: mode(),
     client: s.client,
@@ -109,23 +124,70 @@ export function vueDossier(d: Donnees, id: string, porte: string) {
     conseillers: d.conseillers,
     frise,
     avancement: avancement(frise),
+    /** Ce que le client a à faire, point par point, et la part faite : le haut de la fiche de l'équipe. */
+    suivi: suiviEquipe(s, frise),
     suiviConteneur: estInternationalSuivi(s.dossier),
     pieces: s.requirements.map((r) => {
       const depot = s.documents.find((x) => x.requirement_id === r.id);
-      return { ...r, depot: depot ? { id: depot.id, nom: depot.nom_fichier, le: depot.created_at, lien: lien("doc", depot.id) } : null };
+      return {
+        ...r,
+        depot: depot ? { id: depot.id, nom: depot.nom_fichier, le: depot.created_at, lien: lien("doc", depot.id), telecharger: telecharger("doc", depot.id), mime: depot.mime, taille: depot.taille_octets } : null,
+      };
     }),
     documents: s.documents.filter((x) => !x.requirement_id).map((x) => ({ ...x, lien: lien("doc", x.id) })),
-    devis: s.devis.map((x) => ({ ...x, lien: lien("devis", x.id) })),
-    factures: s.factures.map((x) => ({ ...x, lien: lien("facture", x.id) })),
+    fichiers,
+    groupes: GROUPES_FICHIERS.map(({ cle, libelle }) => ({ cle, libelle })),
+    /** « Tout télécharger » : sur la porte de l'équipe seulement, jamais en démonstration sans connexion. */
+    archive: fichiers.length && porteEquipe ? lienArchive(s.dossier.id, PORTE_ARCHIVE_EQUIPE) : null,
+    devis: s.devis.map((x) => ({ ...x, lien: lien("devis", x.id), telecharger: telecharger("devis", x.id) })),
+    factures: s.factures.map((x) => ({ ...x, lien: lien("facture", x.id), telecharger: telecharger("facture", x.id) })),
     declaration: s.declaration,
-    conditions: s.conditions ? { ...s.conditions, photos: s.conditions.photos.map((p) => ({ ...p, lien: lien("photo", p.id) })) } : null,
+    conditions: s.conditions ? { ...s.conditions, photos: s.conditions.photos.map((p) => ({ ...p, lien: lien("photo", p.id), telecharger: telecharger("photo", p.id) })) } : null,
     acceptations: [...s.acceptations].sort((a, b) => b.accepted_at.localeCompare(a.accepted_at)),
     livraisons: s.livraisons,
-    sav: s.sav.map((x) => ({ ...x, photos: x.photos.map((p) => ({ ...p, lien: lien("photo", p.id) })) })),
-    notifications: d.notifications.filter((n) => n.dossier_id === id).slice(0, 40),
+    sav: s.sav.map((x) => ({ ...x, photos: x.photos.map((p) => ({ ...p, lien: lien("photo", p.id), telecharger: telecharger("photo", p.id) })) })),
+    notifications: d.notifications.filter((n) => n.dossier_id === id).slice(0, 60),
     photos: PHOTOS,
     pays: PAYS,
   };
+}
+
+/** Les portes des fichiers et de l'archive, pour l'équipe connectée (routes-equipe.ts). */
+const PORTE_FICHIERS_EQUIPE = "/api/data/espace-client/fichier";
+const PORTE_ARCHIVE_EQUIPE = "/api/data/espace-client/archive";
+
+/** Une connexion du client à son espace : une session ouverte par un lien d'accès (ec_sessions). */
+export type Connexion = { le: string; ip: string | null; appareil: string | null; etat: "ouverte" | "fermee" | "expiree" };
+
+/**
+ * Les dernières connexions du client — toutes ses sessions : une session
+ * ouvre tous ses dossiers. Rien en démonstration ; une lecture qui échoue
+ * rend une liste vide, sans bloquer la fiche.
+ */
+async function connexionsDu(clientId: string): Promise<Connexion[]> {
+  if (estDemo()) return [];
+  try {
+    const { data } = await avecDelai(
+      createServiceClient().from("ec_sessions").select("ouverte_le, ip, user_agent, fermee_le, expire_le").eq("client_id", clientId).order("ouverte_le", { ascending: false }).limit(12),
+      5000,
+    );
+    const maintenant = Date.now();
+    return (data ?? []).map((x) => ({
+      le: x.ouverte_le as string,
+      ip: (x.ip as string | null) ?? null,
+      appareil: (x.user_agent as string | null) ?? null,
+      etat: x.fermee_le ? ("fermee" as const) : Date.parse(x.expire_le as string) < maintenant ? ("expiree" as const) : ("ouverte" as const),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** La fiche d'un dossier, et les connexions de son client. */
+export async function vueDossierComplete(d: Donnees, id: string, porte: string) {
+  const v = vueDossier(d, id, porte);
+  if (!v) return null;
+  return { ...v, connexions: await connexionsDu(v.client.id) };
 }
 
 export function vueCartons(d: Donnees, samediDemande: string | null) {
@@ -269,7 +331,7 @@ export async function lireVue(chemin: string[], params: URLSearchParams, base: s
     case "apercu":
       return vueApercu(d);
     case "dossier":
-      return id ? vueDossier(d, id, porteFichiers) : null;
+      return id ? await vueDossierComplete(d, id, porteFichiers) : null;
     case "cartons":
       return vueCartons(d, params.get("samedi"));
     case "sav":
