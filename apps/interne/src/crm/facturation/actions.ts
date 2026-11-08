@@ -64,9 +64,8 @@ function libelleReglement(s: z.output<typeof SaisieReglement>, facture?: string 
 }
 
 /** La facture à laquelle on affecte un montant : du même dossier, ni avoir, ni annulée, ni soldée, et assez de reste. */
-async function factureAffectable(db: Db | null, factureId: number, dossierId: number, montant: number, sauf?: number) {
-  const run = db ? db.query.bind(db) : q;
-  const [f] = await run<Row>(`select f.id, f.numero, f.genre, f.statut, f.dossier_id, f.montant::float8 as ttc,
+async function factureAffectable(factureId: number, dossierId: number, montant: number, sauf?: number) {
+  const [f] = await q<Row>(`select f.id, f.numero, f.genre, f.statut, f.dossier_id, f.montant::float8 as ttc,
       coalesce((select sum(montant) from paiements where facture_id = f.id and id <> coalesce($2, 0)), 0)::float8 as affecte
       from factures f where f.id = $1`, [factureId, sauf ?? null]);
   if (!f || f.dossier_id !== dossierId) return { erreur: "Cette facture n'appartient pas au dossier." };
@@ -88,7 +87,7 @@ export async function encaisser(saisie: SaisieReglement): Promise<Issue> {
   let numero: string | null = null;
   if (s.factureId) {
     if (s.nature === "remboursement") return refus("Un remboursement ne s'affecte pas à une facture.");
-    const a = await factureAffectable(null, s.factureId, s.dossierId, s.montant);
+    const a = await factureAffectable(s.factureId, s.dossierId, s.montant);
     if (a.erreur) return refus(a.erreur);
     numero = a.facture!.numero;
   }
@@ -125,7 +124,7 @@ export async function modifierReglement(id: number, saisie: SaisieReglement): Pr
   if (s.recuLe > aujourdhuiParis()) return refus("La date du règlement est dans le futur : indiquez-la en « date prévue d'encaissement ».");
   let numero: string | null = null;
   if (s.factureId) {
-    const a = await factureAffectable(null, s.factureId, s.dossierId, s.montant, id);
+    const a = await factureAffectable(s.factureId, s.dossierId, s.montant, id);
     if (a.erreur) return refus(a.erreur);
     numero = a.facture!.numero;
   }
@@ -154,29 +153,33 @@ export async function supprimerReglement(id: number): Promise<Issue> {
  * dossier — des arrhes versées pour une commande annulée, reprises sur la
  * suivante. Un règlement qui solde une facture reste où il est.
  */
-export async function reaffecterReglement(id: number, cible: { factureId?: number | null; dossierId?: number | null }): Promise<Issue> {
+export async function reaffecterReglement(id: number, cible: { factureId?: number | null; dossierRef?: string | null }): Promise<Issue> {
   await exiger();
   const r = await q1(`select p.*, p.montant::float8 as montant, f.numero as facture_numero, f.statut as facture_statut from paiements p
       left join factures f on f.id = p.facture_id where p.id = $1`, [id]);
   if (!r) return refus("Règlement introuvable.");
   if (r.facture_statut === "payee") return refus(`Ce règlement solde la facture ${r.facture_numero} : une facture soldée ne se modifie plus.`);
-  const dossier = cible.dossierId ?? r.dossier_id;
-  if (dossier !== r.dossier_id) {
-    if (!Number.isSafeInteger(dossier) || !(await q1("select 1 from dossiers where id=$1", [dossier]))) return refus("Dossier de destination introuvable.");
+  let dossier: number = r.dossier_id;
+  const ref = cible.dossierRef?.trim().toUpperCase();
+  if (ref) {
+    const autre = await q1<{ id: number }>("select id from dossiers where upper(ref) = $1", [ref]);
+    if (!autre) return refus(`Aucun dossier ${ref}.`);
+    dossier = autre.id;
+    if (cible.factureId) return refus("Vers un autre dossier, le règlement va au crédit de ce dossier : affectez-le ensuite à sa facture.");
   }
   let numero: string | null = null;
   if (cible.factureId) {
-    const a = await factureAffectable(null, cible.factureId, dossier, Number(r.montant), id);
+    const a = await factureAffectable(cible.factureId, dossier, Number(r.montant), id);
     if (a.erreur) return refus(a.erreur);
     numero = a.facture!.numero;
   }
   await q("update paiements set dossier_id=$2, facture_id=$3 where id=$1", [id, dossier, cible.factureId ?? null]);
   const refs = await q<{ id: number; ref: string }>("select id, ref from dossiers where id = any($1)", [[r.dossier_id, dossier]]);
-  const ref = (x: number) => refs.find((d) => d.id === x)?.ref ?? String(x);
+  const refDe = (x: number) => refs.find((d) => d.id === x)?.ref ?? String(x);
   const vers = numero ? `à la facture ${numero}` : "au crédit du dossier";
   if (dossier !== r.dossier_id) {
-    await noter(r.dossier_id, `Règlement de ${fr(Number(r.montant))} réaffecté au dossier ${ref(dossier)}`);
-    await noter(dossier, `Règlement de ${fr(Number(r.montant))} repris du dossier ${ref(r.dossier_id)} · ${vers}`);
+    await noter(r.dossier_id, `Règlement de ${fr(Number(r.montant))} réaffecté au dossier ${refDe(dossier)}`);
+    await noter(dossier, `Règlement de ${fr(Number(r.montant))} repris du dossier ${refDe(r.dossier_id)} · ${vers}`);
   } else {
     await noter(dossier, `Règlement de ${fr(Number(r.montant))} réaffecté ${vers}`);
   }

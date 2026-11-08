@@ -16,6 +16,8 @@ import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 import SectionVisite from "@/crm/visites/composants/SectionVisite";
+import CarteFacturation from "@/crm/facturation/CarteFacturation";
+import { soldeDossier } from "@/crm/facturation/donnees";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +49,8 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
     d.devis.map((v: Row) => `• ${v.formule[0].toUpperCase() + v.formule.slice(1)} : ${eur(v.montant)}`).join("\n") +
     `\n\nLes arrhes s'élèvent à 30 % de la formule retenue. Je reste à votre disposition.\n\nCordialement,\n${d.commercial ?? "Bailly Déménagement"}`)}`;
   const apresCommande = ["commande", "planifie", "termine"].includes(d.statut);
-  // Le solde : ce que le client doit encore. Le plus grand du montant signé et du total facturé, moins les règlements.
-  const montantSigne = d.devis.filter((v: Row) => v.statut === "signe").reduce((a: number, v: Row) => a + Number(v.montant ?? 0), 0);
-  const facture = d.factures.reduce((a: number, f: Row) => a + Number(f.montant ?? 0), 0);
-  const regle = d.paiements.reduce((a: number, x: Row) => a + Number(x.montant ?? 0), 0);
-  const solde = Math.max(0, Math.max(montantSigne, facture) - regle);
+  // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
+  const solde = Math.max(0, (await soldeDossier(id)).reste);
   // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
   const espaceOuvert = !!(await q("select 1 from public.ec_dossiers where crm_dossier_id=$1 limit 1", [id]).catch(() => [])).length;
 
@@ -212,7 +211,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
               </div>
               {signe && (
                 <div className="arr"><Ic n="spark" />Arrhes 30 % : <b>{eur(Math.round(signe.montant * 0.3))}</b>{arrhes > 0 ? ` · reçues : ${eur(arrhes)}` : ""}
-                  {arrhes === 0 && <form action={A.enregistrerArrhes.bind(null, id)} style={{ marginLeft: 8 }}><button className="btn ghost sm">Enregistrer l’encaissement</button></form>}</div>
+                  {arrhes === 0 && apresCommande && <Link href="?encaisser=arrhes#facturation" className="btn ghost sm" style={{ marginLeft: 8 }}>Encaisser les arrhes</Link>}</div>
               )}
             </>
           )}
@@ -271,24 +270,8 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
           </section>
         )}
 
-        {apresCommande && (
-          <section className="card route">
-            <h3>Facturation</h3>
-            <table className="tbl mini"><tbody>
-              {d.paiements.map((p: Row) => <tr key={`p${p.id}`}><td>{p.libelle}</td><td>{dateFr(p.recu_le)}</td><td className="num"><b>{eur(p.montant)}</b></td><td><i className="st g">Reçu</i></td></tr>)}
-              {d.factures.map((f: Row) => <tr key={f.id}><td>{f.numero} · {f.objet} <Link className="sub" href={`/imprimer/${id}?doc=facture&f=${f.id}`}>PDF</Link></td><td>{dateFr(f.emise_le)}</td><td className="num"><b>{eur(f.montant)}</b></td>
-                <td>{f.statut === "payee" ? <i className="st g">Payée</i> : <form action={A.facturePayee.bind(null, id, f.id)}><button className="btn ghost sm">Marquer payée</button></form>}</td></tr>)}
-              {d.paiements.length + d.factures.length === 0 && <tr><td className="empty" colSpan={4}>Rien d’encaissé ni de facturé.</td></tr>}
-            </tbody></table>
-            {d.type !== "compte" ? (
-              <form action={A.emettreFacture.bind(null, id)} className="rowform" style={{ marginTop: 14 }}>
-                <div className="fld"><label>Objet</label><input type="text" name="objet" defaultValue="Solde du déménagement" /></div>
-                <div className="fld"><label>Montant (vide = solde automatique)</label><input type="number" step="1" name="montant" /></div>
-                <button className="btn primary sm">Émettre la facture</button>
-              </form>
-            ) : <p className="sub" style={{ marginTop: 12 }}>Client « compte » : pas de facture ni de paiement en ligne côté client (parcours dédié).</p>}
-          </section>
-        )}
+        {/* L'encaissement et la facturation (src/crm/facturation) : règlements, factures, avoirs, client payeur. */}
+        {apresCommande && <CarteFacturation dossierId={id} />}
 
         <section className="card route" style={{ gridColumn: apresCommande ? "span 7" : "span 12" }}>
           <div className="card-h"><h3><Ic n="alert" />Litiges</h3></div>
