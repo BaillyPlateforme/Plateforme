@@ -1,11 +1,4 @@
 /* La liste des devis et les paramètres : cartes blanches, tableau aéré, actions en ligne. */
-/* La rangée du bas du bandeau : les états, puis la vue des signatures. */
-.filtresBas {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
 .page {
   display: grid;
   gap: 18px;
@@ -168,6 +161,28 @@
 }
 .actions button[data-danger]:hover {
   background: #fff0f0;
+}
+
+/*
+ * À côté du menu de gauche (232 px), le tableau peut défiler en largeur sur
+ * un écran de 1280 px : la colonne des actions reste collée à droite, à
+ * portée de clic, et la catégorie passe plus tôt à la ligne.
+ */
+.table th:last-child,
+.table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: #fff;
+}
+.table tbody tr:hover td:last-child {
+  background: #fbfaff;
+}
+.table .categorie {
+  min-width: 96px;
+}
+.table .type {
+  white-space: nowrap;
 }
 
 /* Paramètres */

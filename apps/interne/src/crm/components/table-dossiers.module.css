@@ -6,9 +6,9 @@
 .entete {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 6px;
   border: 0;
   border-radius: 9px;
   background: none;
@@ -69,4 +69,28 @@
 
 .date {
   color: #3b3753;
+}
+
+/*
+ * À côté du menu de gauche (232 px), la liste tient dans la largeur : des
+ * cellules plus serrées, et le client, le type, le trajet, le commercial et
+ * la date passent à la ligne plutôt que d'élargir le tableau (la classe
+ * répétée l'emporte sur les règles .tbl de crm.css).
+ */
+.table.table td {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.table.table td:first-child {
+  white-space: normal;
+}
+.table.table td:first-child :global(a.name) > span {
+  min-width: 120px;
+}
+.table.table td:global(.trajet) {
+  min-width: 136px;
+}
+.table.table td.texte,
+.table.table td.date {
+  white-space: normal;
 }

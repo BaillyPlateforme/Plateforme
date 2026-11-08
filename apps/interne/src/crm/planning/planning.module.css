@@ -74,11 +74,12 @@
   border-radius: var(--r, 14px);
   overflow: auto;
 }
+/* 920 px au moins : la semaine tient à côté du menu de gauche (232 px) dès 1280 px de large. */
 .tete,
 .journee,
 .corps {
   display: grid;
-  min-width: 980px;
+  min-width: 920px;
 }
 .tete {
   position: sticky;
@@ -373,7 +374,7 @@
   background: var(--line, #e4e2ee);
 }
 
-/* La rangée du bas du bandeau : les vues, un filet, puis les commerciaux ; elle défile sur un écran étroit. */
+/* La rangée du bas du bandeau : les commerciaux (les vues sont au menu de gauche) ; elle défile sur un écran étroit. */
 .bas {
   display: flex;
   align-items: center;
@@ -388,13 +389,6 @@
 }
 .bas > nav {
   flex-shrink: 0;
-}
-.separateurBas {
-  flex: none;
-  width: 1px;
-  height: 26px;
-  margin: 0 2px;
-  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Le petit calendrier */

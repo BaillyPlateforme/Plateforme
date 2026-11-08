@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import Bandeau from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { currentUser } from "@/crm/lib/auth";
 import { TYPES } from "@/crm/lib/format";
 import { cartesKanban, commerciauxKanban } from "@/crm/kanban/donnees";
 import { archivesTrouves, demandesSansDossier } from "@/crm/parcours/demandes";
-import { FILTRES_VIDES, lireFiltres } from "@/crm/parcours/filtres";
+import { lireFiltres } from "@/crm/parcours/filtres";
 import Hub from "@/crm/parcours/Hub";
-import Vues from "@/crm/parcours/Vues";
+import MenuParcours from "@/crm/parcours/MenuParcours";
 import SuiviLeads from "@/crm/parcours/SuiviLeads";
 import { listLeads } from "@/lib/suivi";
-import k from "@/crm/kanban/kanban.module.css";
 import h from "@/crm/parcours/hub.module.css";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +25,9 @@ type Params = { vue?: string; q?: string; type?: string; commercial?: string; et
  * leads, le workflow et le Kanban des demandes.
  *
  * ?vue=leads : le suivi des leads (le tableau des demandes du site, ses
- * statuts et chiffres d'affaires saisis à la main), troisième vue du Parcours.
+ * statuts et chiffres d'affaires saisis à la main), troisième vue du Parcours,
+ * au menu de gauche comme les deux autres ; il a ses propres filtres, la
+ * rangée du bas de la bande reste vide.
  */
 export default async function Parcours({ searchParams }: { searchParams: Promise<Params> }) {
   await currentUser();
@@ -43,19 +44,12 @@ export default async function Parcours({ searchParams }: { searchParams: Promise
           titre="Parcours des dossiers"
           texte="Chaque demande du site, du premier contact au chiffre d'affaires."
           action={{ label: "Nouveau dossier", href: "/dossiers/nouveau", icone: "plus" }}
-          bas={
-            <div className={k.filtres}>
-              <Vues vue="leads" filtres={FILTRES_VIDES} />
-            </div>
-          }
-        >
-          <Link href="/parcours/automatismes" data-ton="contour" title="Les actions automatiques à chaque étape d'une demande du site">
-            Workflow
-          </Link>
-        </Bandeau>
-        <div className={`vue-equipe ${h.equipe}`}>
-          {leads ? <SuiviLeads leads={leads} /> : <div className="card empty">Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant.</div>}
-        </div>
+        />
+        <AvecMenu menu={<MenuParcours vue="leads" />}>
+          <div className={`vue-equipe ${h.equipe}`}>
+            {leads ? <SuiviLeads leads={leads} /> : <div className="card empty">Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant.</div>}
+          </div>
+        </AvecMenu>
       </div>
     );
   }

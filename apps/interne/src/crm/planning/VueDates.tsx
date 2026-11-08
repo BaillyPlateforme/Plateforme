@@ -1,6 +1,7 @@
 import { listRequests } from "@/lib/requests";
 import Bandeau from "@/ui/Bandeau";
-import VuesPlanning from "./Vues";
+import { AvecMenu } from "@/ui/MenuVertical";
+import MenuPlanning from "./Vues";
 import DatesSouhaitees, { type Ev } from "./DatesSouhaitees";
 
 /*
@@ -27,11 +28,12 @@ export default async function VueDates() {
         surtitre="Dossiers · Planning"
         titre="Dates souhaitées"
         texte="Les dates de déménagement demandées sur le site, au mois"
-        bas={<VuesPlanning actif="dates" />}
       />
-      <div className="vue-equipe">
-        <DatesSouhaitees events={events} />
-      </div>
+      <AvecMenu menu={<MenuPlanning actif="dates" />}>
+        <div className="vue-equipe">
+          <DatesSouhaitees events={events} />
+        </div>
+      </AvecMenu>
     </div>
   );
 }

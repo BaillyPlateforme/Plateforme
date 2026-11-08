@@ -11,7 +11,7 @@
   gap: 18px;
   min-width: 0;
 }
-/* La rangée du bas du bandeau : les vues, puis les filtres. */
+/* La rangée du bas du bandeau : les filtres (les vues sont au menu de gauche). */
 .basBandeau {
   display: flex;
   align-items: center;
@@ -546,10 +546,11 @@
 }
 
 /* ── Le Kanban ───────────────────────────────────────────────────────── */
+/* Cinq colonnes à côté du menu de gauche (232 px) : elles tiennent dans la largeur à 1280 px. */
 .kanban {
   display: grid;
-  grid-template-columns: repeat(5, minmax(186px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(5, minmax(172px, 1fr));
+  gap: 12px;
   align-items: start;
   overflow-x: auto;
   padding-bottom: 6px;
@@ -612,6 +613,8 @@
 }
 .relance {
   display: grid;
+  /* La carte suit la largeur de sa colonne : le type s'abrège, les gestes passent à la ligne. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
   padding: 13px 14px;
   border-radius: 15px;
@@ -629,6 +632,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 .typeBadge {
   display: inline-flex;
@@ -650,6 +654,7 @@
   background: var(--c);
 }
 .rang {
+  flex-shrink: 0;
   margin-left: auto;
   padding: 1px 7px;
   border-radius: 999px;
@@ -660,6 +665,7 @@
   font-variant-numeric: tabular-nums;
 }
 .icCanaux {
+  flex-shrink: 0;
   display: inline-flex;
   gap: 3px;
   color: #9b97b0;

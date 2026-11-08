@@ -2,7 +2,8 @@ import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { statsCommerciales, type Rattachement } from "@/crm/statistiques/donnees";
 import { PERIODES, PERIODE_PAR_DEFAUT, periodeDe, moisDansPeriode } from "@/crm/statistiques/periodes";
 import { couleursPar } from "@/crm/statistiques/palette";
-import VuesStatistiques, { BasStatistiques } from "@/crm/statistiques/Vues";
+import MenuStatistiques, { BasStatistiques } from "@/crm/statistiques/Vues";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { TYPES_PLURIEL } from "@/crm/lib/format";
 import { BarresClassees, Courbes, Entonnoirs, euros, eurosCourts, nombre, pourcent, Tuile, Tuiles } from "@/crm/statistiques/Graphiques";
 import u from "@/crm/exploitation/ui/ui.module.css";
@@ -55,7 +56,6 @@ export default async function StatistiquesCommerciales({ searchParams }: { searc
         texte={`Par commercial · ${periode.phrase} · CA rattaché ${rattachement === "signature" ? "à la signature" : "au déménagement"}`}
         bas={
           <BasStatistiques>
-            <VuesStatistiques actif="commerciales" periode={periode} />
             <Pilules label="Période" items={PERIODES.map((p) => ({ href: lien({ periode: p.cle }), label: p.libelle, actif: periode.cle === p.cle }))} />
             <Pilules
               label="Rattachement du chiffre d'affaires"
@@ -67,153 +67,155 @@ export default async function StatistiquesCommerciales({ searchParams }: { searc
           </BasStatistiques>
         }
       />
-      <div className={u.ecran}>
-        <Tuiles>
-          <Tuile heros label="CA signé (TTC)" valeur={euros(t.ca)} detail={`${nombre(t.signes)} dossier${t.signes > 1 ? "s" : ""} signé${t.signes > 1 ? "s" : ""}`} />
-          <Tuile label="Visites" valeur={nombre(t.visites)} detail={`${nombre(t.vd)} dossier${t.vd > 1 ? "s" : ""} visité${t.vd > 1 ? "s" : ""}`} />
-          <Tuile label="Dossiers devisés" valeur={nombre(t.devises)} detail={`${pourcent(part(t.vdv, t.vd))} des visités ont un devis`} />
-          <Tuile label="Taux de transformation" valeur={pourcent(part(t.ds, t.devises))} detail="devisés sur la période, signés à ce jour" ton="vert" />
-          <Tuile label="Panier moyen" valeur={t.signes ? euros(t.ca / t.signes) : "—"} detail="CA signé ÷ dossiers signés" />
-          {/* Repris du Pilotage, l'ancienne page d'accueil. */}
-          <Tuile label="Arrhes encaissées" valeur={euros(arrhes.total)} detail={`${nombre(arrhes.n)} règlement${arrhes.n > 1 ? "s" : ""} d’arrhes reçu${arrhes.n > 1 ? "s" : ""}`} />
-        </Tuiles>
+      <AvecMenu menu={<MenuStatistiques actif="commerciales" periode={periode} />}>
+        <div className={u.ecran}>
+          <Tuiles>
+            <Tuile heros label="CA signé (TTC)" valeur={euros(t.ca)} detail={`${nombre(t.signes)} dossier${t.signes > 1 ? "s" : ""} signé${t.signes > 1 ? "s" : ""}`} />
+            <Tuile label="Visites" valeur={nombre(t.visites)} detail={`${nombre(t.vd)} dossier${t.vd > 1 ? "s" : ""} visité${t.vd > 1 ? "s" : ""}`} />
+            <Tuile label="Dossiers devisés" valeur={nombre(t.devises)} detail={`${pourcent(part(t.vdv, t.vd))} des visités ont un devis`} />
+            <Tuile label="Taux de transformation" valeur={pourcent(part(t.ds, t.devises))} detail="devisés sur la période, signés à ce jour" ton="vert" />
+            <Tuile label="Panier moyen" valeur={t.signes ? euros(t.ca / t.signes) : "—"} detail="CA signé ÷ dossiers signés" />
+            {/* Repris du Pilotage, l'ancienne page d'accueil. */}
+            <Tuile label="Arrhes encaissées" valeur={euros(arrhes.total)} detail={`${nombre(arrhes.n)} règlement${arrhes.n > 1 ? "s" : ""} d’arrhes reçu${arrhes.n > 1 ? "s" : ""}`} />
+          </Tuiles>
 
-        <div className={s.duoEgal}>
-          <section className={u.carte}>
-            <div className={u.carteTete}>
-              <div>
-                <h3>Chiffre d&apos;affaires signé par commercial</h3>
-                <p className={u.sousTitre}>{periode.phrase}, montants TTC des devis signés</p>
+          <div className={s.duoEgal}>
+            <section className={u.carte}>
+              <div className={u.carteTete}>
+                <div>
+                  <h3>Chiffre d&apos;affaires signé par commercial</h3>
+                  <p className={u.sousTitre}>{periode.phrase}, montants TTC des devis signés</p>
+                </div>
               </div>
-            </div>
-            <BarresClassees
-              format={euros}
-              vide="Aucun devis signé sur la période."
-              barres={[...actifs]
-                .sort((a, b) => b.ca - a.ca)
-                .map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, valeur: l.ca, couleur: couleurs.get(l.id), detail: `${nombre(l.signes)} signé${l.signes > 1 ? "s" : ""} · panier ${l.signes ? euros(l.ca / l.signes) : "—"}` }))}
-            />
-          </section>
-          <section className={u.carte}>
-            <div className={u.carteTete}>
-              <div>
-                <h3>Taux de transformation</h3>
-                <p className={u.sousTitre}>Dossiers devisés sur la période et signés à ce jour</p>
+              <BarresClassees
+                format={euros}
+                vide="Aucun devis signé sur la période."
+                barres={[...actifs]
+                  .sort((a, b) => b.ca - a.ca)
+                  .map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, valeur: l.ca, couleur: couleurs.get(l.id), detail: `${nombre(l.signes)} signé${l.signes > 1 ? "s" : ""} · panier ${l.signes ? euros(l.ca / l.signes) : "—"}` }))}
+              />
+            </section>
+            <section className={u.carte}>
+              <div className={u.carteTete}>
+                <div>
+                  <h3>Taux de transformation</h3>
+                  <p className={u.sousTitre}>Dossiers devisés sur la période et signés à ce jour</p>
+                </div>
               </div>
-            </div>
-            <BarresClassees
-              format={(n) => pourcent(n)}
-              vide="Aucun dossier devisé sur la période."
-              barres={[...actifs]
-                .filter((l) => l.devises > 0)
-                .sort((a, b) => (part(b.devisesSignes, b.devises) ?? 0) - (part(a.devisesSignes, a.devises) ?? 0))
-                .map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, valeur: part(l.devisesSignes, l.devises) ?? 0, couleur: couleurs.get(l.id), detail: `${nombre(l.devisesSignes)} signé${l.devisesSignes > 1 ? "s" : ""} sur ${nombre(l.devises)} devisé${l.devises > 1 ? "s" : ""}` }))}
-            />
-          </section>
-        </div>
-
-        <div className={s.duo}>
-          <section className={u.carte}>
-            <div className={u.carteTete}>
-              <div>
-                <h3>De la visite à la signature</h3>
-                <p className={u.sousTitre}>Visites, dossiers devisés et signés, par commercial, sur la période</p>
-              </div>
-            </div>
-            {actifs.length ? (
-              <Entonnoirs entonnoirs={actifs.map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, couleur: couleurs.get(l.id) ?? "#a7a3b8", etapes: [l.visites, l.devises, l.signes] }))} />
-            ) : (
-              <p className={u.aide}>Aucune activité commerciale sur la période.</p>
-            )}
-          </section>
-          {/* Repris du Pilotage (« Répartition clients ») : les dossiers ouverts sur la période, par type de client. */}
-          <section className={u.carte}>
-            <div className={u.carteTete}>
-              <div>
-                <h3>Répartition clients</h3>
-                <p className={u.sousTitre}>Dossiers ouverts sur la période, par type de client</p>
-              </div>
-            </div>
-            <BarresClassees
-              format={nombre}
-              vide="Aucun dossier ouvert sur la période."
-              barres={clients.map((c) => ({
-                cle: c.type,
-                libelle: TYPES_PLURIEL[c.type] ?? c.type,
-                valeur: c.n,
-                detail: pourcent(part(c.n, totalClients)),
-              }))}
-            />
-          </section>
-        </div>
-
-        <section className={u.carte}>
-          <div className={u.carteTete}>
-            <div>
-              <h3>CA signé mois par mois</h3>
-              <p className={u.sousTitre}>Les douze derniers mois, par commercial ; les mois de la période choisie sont teintés.</p>
-            </div>
+              <BarresClassees
+                format={(n) => pourcent(n)}
+                vide="Aucun dossier devisé sur la période."
+                barres={[...actifs]
+                  .filter((l) => l.devises > 0)
+                  .sort((a, b) => (part(b.devisesSignes, b.devises) ?? 0) - (part(a.devisesSignes, a.devises) ?? 0))
+                  .map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, valeur: part(l.devisesSignes, l.devises) ?? 0, couleur: couleurs.get(l.id), detail: `${nombre(l.devisesSignes)} signé${l.devisesSignes > 1 ? "s" : ""} sur ${nombre(l.devises)} devisé${l.devises > 1 ? "s" : ""}` }))}
+              />
+            </section>
           </div>
-          <Courbes mois={mois} series={series} format={euros} formatAxe={eurosCourts} retenus={retenus} />
-        </section>
 
-        <section className={`${u.carte} ${u.carteSerree}`}>
-          <div className={u.carteTete}>
-            <h3>Récapitulatif par commercial</h3>
+          <div className={s.duo}>
+            <section className={u.carte}>
+              <div className={u.carteTete}>
+                <div>
+                  <h3>De la visite à la signature</h3>
+                  <p className={u.sousTitre}>Visites, dossiers devisés et signés, par commercial, sur la période</p>
+                </div>
+              </div>
+              {actifs.length ? (
+                <Entonnoirs entonnoirs={actifs.map((l) => ({ cle: String(l.id ?? "aucun"), libelle: l.nom, couleur: couleurs.get(l.id) ?? "#a7a3b8", etapes: [l.visites, l.devises, l.signes] }))} />
+              ) : (
+                <p className={u.aide}>Aucune activité commerciale sur la période.</p>
+              )}
+            </section>
+            {/* Repris du Pilotage (« Répartition clients ») : les dossiers ouverts sur la période, par type de client. */}
+            <section className={u.carte}>
+              <div className={u.carteTete}>
+                <div>
+                  <h3>Répartition clients</h3>
+                  <p className={u.sousTitre}>Dossiers ouverts sur la période, par type de client</p>
+                </div>
+              </div>
+              <BarresClassees
+                format={nombre}
+                vide="Aucun dossier ouvert sur la période."
+                barres={clients.map((c) => ({
+                  cle: c.type,
+                  libelle: TYPES_PLURIEL[c.type] ?? c.type,
+                  valeur: c.n,
+                  detail: pourcent(part(c.n, totalClients)),
+                }))}
+              />
+            </section>
           </div>
-          <div className={u.defile}>
-            <table className={u.tableau}>
-              <thead>
-                <tr>
-                  <th>Commercial</th>
-                  <th className={u.droite}>Visites</th>
-                  <th className={u.droite}>Devisés</th>
-                  <th className={u.droite}>Signés</th>
-                  <th className={u.droite}>CA signé</th>
-                  <th className={u.droite}>Transformation</th>
-                  <th className={u.droite}>Visites → devis</th>
-                  <th className={u.droite}>Panier moyen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lignes.map((l) => (
-                  <tr key={String(l.id)}>
-                    <td>
-                      <i className={s.pastilleSerie} style={{ background: couleurs.get(l.id) }} />
-                      <b>{l.nom}</b>
-                    </td>
-                    <td className={u.droite}>{nombre(l.visites)}</td>
-                    <td className={u.droite}>{nombre(l.devises)}</td>
-                    <td className={u.droite}>{nombre(l.signes)}</td>
-                    <td className={u.droite}>
-                      <b>{euros(l.ca)}</b>
-                    </td>
-                    <td className={u.droite}>{pourcent(part(l.devisesSignes, l.devises))}</td>
-                    <td className={u.droite}>{pourcent(part(l.visitesDevisees, l.visitesDossiers))}</td>
-                    <td className={u.droite}>{l.signes ? euros(l.ca / l.signes) : "—"}</td>
+
+          <section className={u.carte}>
+            <div className={u.carteTete}>
+              <div>
+                <h3>CA signé mois par mois</h3>
+                <p className={u.sousTitre}>Les douze derniers mois, par commercial ; les mois de la période choisie sont teintés.</p>
+              </div>
+            </div>
+            <Courbes mois={mois} series={series} format={euros} formatAxe={eurosCourts} retenus={retenus} />
+          </section>
+
+          <section className={`${u.carte} ${u.carteSerree}`}>
+            <div className={u.carteTete}>
+              <h3>Récapitulatif par commercial</h3>
+            </div>
+            <div className={u.defile}>
+              <table className={u.tableau}>
+                <thead>
+                  <tr>
+                    <th>Commercial</th>
+                    <th className={u.droite}>Visites</th>
+                    <th className={u.droite}>Devisés</th>
+                    <th className={u.droite}>Signés</th>
+                    <th className={u.droite}>CA signé</th>
+                    <th className={u.droite}>Transformation</th>
+                    <th className={u.droite}>Visites → devis</th>
+                    <th className={u.droite}>Panier moyen</th>
                   </tr>
-                ))}
-                <tr className={s.total}>
-                  <td>Total</td>
-                  <td className={u.droite}>{nombre(t.visites)}</td>
-                  <td className={u.droite}>{nombre(t.devises)}</td>
-                  <td className={u.droite}>{nombre(t.signes)}</td>
-                  <td className={u.droite}>{euros(t.ca)}</td>
-                  <td className={u.droite}>{pourcent(part(t.ds, t.devises))}</td>
-                  <td className={u.droite}>{pourcent(part(t.vdv, t.vd))}</td>
-                  <td className={u.droite}>{t.signes ? euros(t.ca / t.signes) : "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <p className={s.note}>
-          <b>Comment lire ces chiffres.</b> Une visite est un rendez-vous de visite (sur place ou en visio) du commercial, daté de son début. Un dossier « devisé » a reçu au moins un devis
-          envoyé (Bailly en envoie trois formules par dossier : on compte le dossier, pas les formules), daté du premier envoi. Le CA est la somme des devis signés, TTC comme sur les
-          devis ; le commercial est celui du dossier. Transformation : parmi les dossiers devisés sur la période, ceux qui sont signés aujourd&apos;hui.
-          {sansDate && ` ${nombre(sansDate.n)} devis signé${sansDate.n > 1 ? "s" : ""} (${euros(sansDate.ca)}) n'ont ni date de chargement ni mois prévu : ils n'entrent pas dans le CA rattaché au déménagement.`}
-        </p>
-      </div>
+                </thead>
+                <tbody>
+                  {lignes.map((l) => (
+                    <tr key={String(l.id)}>
+                      <td>
+                        <i className={s.pastilleSerie} style={{ background: couleurs.get(l.id) }} />
+                        <b>{l.nom}</b>
+                      </td>
+                      <td className={u.droite}>{nombre(l.visites)}</td>
+                      <td className={u.droite}>{nombre(l.devises)}</td>
+                      <td className={u.droite}>{nombre(l.signes)}</td>
+                      <td className={u.droite}>
+                        <b>{euros(l.ca)}</b>
+                      </td>
+                      <td className={u.droite}>{pourcent(part(l.devisesSignes, l.devises))}</td>
+                      <td className={u.droite}>{pourcent(part(l.visitesDevisees, l.visitesDossiers))}</td>
+                      <td className={u.droite}>{l.signes ? euros(l.ca / l.signes) : "—"}</td>
+                    </tr>
+                  ))}
+                  <tr className={s.total}>
+                    <td>Total</td>
+                    <td className={u.droite}>{nombre(t.visites)}</td>
+                    <td className={u.droite}>{nombre(t.devises)}</td>
+                    <td className={u.droite}>{nombre(t.signes)}</td>
+                    <td className={u.droite}>{euros(t.ca)}</td>
+                    <td className={u.droite}>{pourcent(part(t.ds, t.devises))}</td>
+                    <td className={u.droite}>{pourcent(part(t.vdv, t.vd))}</td>
+                    <td className={u.droite}>{t.signes ? euros(t.ca / t.signes) : "—"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <p className={s.note}>
+            <b>Comment lire ces chiffres.</b> Une visite est un rendez-vous de visite (sur place ou en visio) du commercial, daté de son début. Un dossier « devisé » a reçu au moins un devis
+            envoyé (Bailly en envoie trois formules par dossier : on compte le dossier, pas les formules), daté du premier envoi. Le CA est la somme des devis signés, TTC comme sur les
+            devis ; le commercial est celui du dossier. Transformation : parmi les dossiers devisés sur la période, ceux qui sont signés aujourd&apos;hui.
+            {sansDate && ` ${nombre(sansDate.n)} devis signé${sansDate.n > 1 ? "s" : ""} (${euros(sansDate.ca)}) n'ont ni date de chargement ni mois prévu : ils n'entrent pas dans le CA rattaché au déménagement.`}
+          </p>
+        </div>
+      </AvecMenu>
     </div>
   );
 }

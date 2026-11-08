@@ -1,7 +1,7 @@
 /*
  * Les analyses de Statistiques › Demandes du site : les huit onglets de
- * l'ancienne page /dashboard/statistiques, devenus des pilules de la rangée du
- * bas du bandeau (?vue=…). La première, « Vue d'ensemble », est l'ancienne
+ * l'ancienne page /dashboard/statistiques, devenus le second groupe du menu
+ * de gauche des Statistiques (?vue=…). La première, « Vue d'ensemble », est l'ancienne
  * page /dashboard/tableau-de-bord, qui doublait l'ancien onglet du même nom.
  */
 export const VUES_DU_SITE = [

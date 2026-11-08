@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Bandeau from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
+import { AvecMenu } from "@/ui/MenuVertical";
 import TableauKanban from "@/crm/kanban/Tableau";
 import type { Carte, Commercial } from "@/crm/kanban/donnees";
 import { DossierTable, type LigneDossier } from "@/crm/components/DossierTable";
@@ -11,7 +12,7 @@ import { dateFr, photoPour, STATUTS, TYPES, TYPES_PLURIEL } from "@/crm/lib/form
 import { NOM_PARCOURS } from "@/lib/parcours";
 import { STATUT_DEMANDE, type CarteDemande } from "./demandes-commun";
 import { adresse, avecDemandes, ETAPES_FILTRE, FILTRES_VIDES, garderDemande, garderDossier, RANG_ETAPE, statutsDe, type Filtres } from "./filtres";
-import Vues from "./Vues";
+import MenuParcours from "./MenuParcours";
 import k from "@/crm/kanban/kanban.module.css";
 import h from "./hub.module.css";
 
@@ -25,10 +26,11 @@ import h from "./hub.module.css";
  *    au CRM) à « Perdu » ; le glisser-déposer déclenche l'action du métier.
  *  - Liste : les mêmes, en tableau triable.
  *
- * Les filtres (recherche, type de client, commercial, étape) valent pour les
- * deux vues et vivent dans l'adresse ; passer d'une vue à l'autre ne
- * recharge rien. Le suivi des leads, troisième vue, est une page à part
- * (mêmes pilules), avec ses propres filtres.
+ * Les vues sont dans le menu de gauche (choix de David, 08/11/2026), les
+ * filtres (recherche, type de client, commercial, étape) dans la rangée du
+ * bas de la bande : ils valent pour les deux vues et vivent dans l'adresse ;
+ * passer d'une vue à l'autre ne recharge rien. Le suivi des leads, troisième
+ * vue, est une page à part (même menu), avec ses propres filtres.
  */
 
 const prenom = (nom: string) => nom.split(/\s+/)[0] ?? nom;
@@ -124,9 +126,7 @@ export default function Hub({
         action={{ label: "Nouveau dossier", href: "/dossiers/nouveau", icone: "plus" }}
         bas={
           <div className={k.filtres}>
-            <Vues vue={vue} filtres={filtres} choisir={setVue} />
-            <i className={h.filet} aria-hidden />
-            <label className={`${k.recherche} ${h.recherche}`}>
+            <label className={k.recherche}>
               <Icone nom="recherche" taille={16} />
               <input type="search" value={filtres.q} onChange={(e) => poser({ q: e.target.value })} placeholder="Client, référence, ville…" aria-label="Rechercher un dossier ou une demande" />
             </label>
@@ -134,7 +134,7 @@ export default function Hub({
               <button type="button" aria-pressed={!filtres.commercial} onClick={() => poser({ commercial: null })}>
                 Tous
               </button>
-              {/* Les initiales seules, le nom au survol : la rangée tient avec les vues et les choix. */}
+              {/* Les initiales seules, le nom au survol : la rangée tient avec la recherche et les choix. */}
               {commerciaux.map((c) => (
                 <button
                   key={c.id}
@@ -175,30 +175,28 @@ export default function Hub({
             )}
           </div>
         }
-      >
-        <Link href="/parcours/automatismes" data-ton="contour" title="Les actions automatiques à chaque étape d'une demande du site">
-          Workflow
-        </Link>
-      </Bandeau>
+      />
 
-      {archives > 0 && filtres.q.trim() === initiaux.q.trim() && (
-        <p className={h.archives}>
-          <Icone nom="archive" taille={16} />
-          <span>
-            {archives} dossier{archives > 1 ? "s" : ""} archivé{archives > 1 ? "s" : ""} répond{archives > 1 ? "ent" : ""} aussi à « {initiaux.q.trim()} ».
-          </span>
-          <Link href={`/archives?${new URLSearchParams({ vue: "archives", q: initiaux.q.trim() })}`}>
-            Voir dans l&apos;archivage
-            <Icone nom="fleche" taille={14} />
-          </Link>
-        </p>
-      )}
+      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} />}>
+        {archives > 0 && filtres.q.trim() === initiaux.q.trim() && (
+          <p className={h.archives}>
+            <Icone nom="archive" taille={16} />
+            <span>
+              {archives} dossier{archives > 1 ? "s" : ""} archivé{archives > 1 ? "s" : ""} répond{archives > 1 ? "ent" : ""} aussi à « {initiaux.q.trim()} ».
+            </span>
+            <Link href={`/archives?${new URLSearchParams({ vue: "archives", q: initiaux.q.trim() })}`}>
+              Voir dans l&apos;archivage
+              <Icone nom="fleche" taille={14} />
+            </Link>
+          </p>
+        )}
 
-      {vue === "colonnes" ? (
-        <TableauKanban cartes={cartes} commerciaux={commerciaux} garder={garder} statuts={statuts} demandes={avecDemandes(filtres.etape) ? demandesVisibles : null} filtresActifs={filtresActifs} />
-      ) : (
-        <DossierTable lignes={lignes} vide={filtresActifs ? "Aucun dossier ni demande pour ces filtres." : "Aucun dossier."} />
-      )}
+        {vue === "colonnes" ? (
+          <TableauKanban cartes={cartes} commerciaux={commerciaux} garder={garder} statuts={statuts} demandes={avecDemandes(filtres.etape) ? demandesVisibles : null} filtresActifs={filtresActifs} />
+        ) : (
+          <DossierTable lignes={lignes} vide={filtresActifs ? "Aucun dossier ni demande pour ces filtres." : "Aucun dossier."} />
+        )}
+      </AvecMenu>
     </div>
   );
 }
