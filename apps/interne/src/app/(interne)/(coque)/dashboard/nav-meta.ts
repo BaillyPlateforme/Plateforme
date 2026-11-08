@@ -19,7 +19,6 @@ export const META: Record<string, { titre: string; sous?: string }> = {
     titre: "Campagne de test",
     sous: "Tirer des devis au hasard et vérifier ce que la grille produit",
   },
-  "/dashboard/messagerie": { titre: "Messagerie", sous: "Modèles d'e-mails et de SMS, alertes et essais d'envoi" },
   "/dashboard/playground": { titre: "Playground & Lab", sous: "Analyse d'image et chaîne complète, en test" },
   "/dashboard/equipe": { titre: "Équipe", sous: "Profils et accès" },
   "/dashboard/configuration": { titre: "Configuration", sous: "Grille, photos, analyse d'image, qualification" },

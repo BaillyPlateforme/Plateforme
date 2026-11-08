@@ -104,7 +104,6 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/rappels": "horloge",
   "/dashboard/statistiques": "tendance",
   "/dashboard/espaces-pro": "equipe",
-  "/dashboard/messagerie": "courrier",
   "/dashboard/devis": "devis",
   "/dashboard/clients": "clients",
   "/dashboard/agenda": "calendrier",

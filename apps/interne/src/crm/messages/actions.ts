@@ -1,15 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { saveAlert } from "@/lib/actions/alerts";
-import { saveTemplate } from "@/lib/actions/templates";
+import { deleteAlert, saveAlert, type AlertInput } from "@/lib/actions/alerts";
+import { deleteTemplate, saveTemplate } from "@/lib/actions/templates";
 import { listAlerts } from "@/lib/alerts";
 import { bouton, mention, tableau } from "@/lib/email-layout";
 import { rendreEmail as rendreEmailQuestionnaire } from "@/lib/email-render";
 import { oublierTextesEspace } from "@/lib/espace-client/catalogue-textes";
 import { rendreEmail as rendreEmailEspace } from "@/lib/espace-client/emails";
 import { remplirTexte, TEXTES_ESPACE } from "@/lib/espace-client/textes-messages";
-import { TEL_AGENCE, renderTemplate } from "@/lib/messaging";
+import { MESSAGE_EVENTS, TEL_AGENCE, renderTemplate, type Channel } from "@/lib/messaging";
 import { getSettings } from "@/lib/settings";
 import { listTemplates } from "@/lib/templates";
 import { currentUser } from "@/crm/lib/auth";
@@ -110,20 +110,128 @@ export async function basculerQuestionnaire(alerteId: string, actif: boolean): P
   return { ok: true, message: `« ${a.name} » ${actif ? "activé" : "désactivé"}.` };
 }
 
-export async function enregistrerQuestionnaire(modeleId: string, sujet: string | null, contenu: string): Promise<Retour> {
+/*
+ * Les modèles et les règles des questionnaires, gérés ici depuis que
+ * l'ancienne messagerie (/dashboard/messagerie) a rejoint Courriers et SMS
+ * (08/11/2026) : créer, modifier, activer, supprimer un modèle ; poser,
+ * modifier ou retirer la règle qui l'envoie (événement, conditions,
+ * destinataire). Les écritures passent par saveTemplate / saveAlert /
+ * deleteTemplate / deleteAlert, celles de l'ancienne page.
+ */
+
+/** Ce que l'éditeur envoie pour un modèle. */
+export type SaisieModele = { name: string; channel: Channel; event: string; sujet: string; contenu: string; pieceJointe: "" | "estimation"; active: boolean };
+/** Ce que l'éditeur envoie pour la règle qui envoie le modèle (vide : pas de règle). */
+export type SaisieRegle = {
+  id: string | null;
+  name: string;
+  event: string;
+  montant_min: string;
+  condition_champ: string;
+  condition_source: string;
+  destinataire: "client" | "custom";
+  destinataire_custom: string;
+  active: boolean;
+};
+
+const CHAMPS_MANQUANTS = ["volume", "depart", "arrivee"];
+
+/** Enregistre un modèle (créé s'il n'existe pas) et, s'il y en a une, la règle qui l'envoie. */
+export async function enregistrerMessage(modeleId: string | null, m: SaisieModele, r: SaisieRegle | null): Promise<Retour & { modeleId?: string }> {
+  await currentUser();
+  const nom = m.name.trim();
+  const contenu = m.contenu.replace(/\r\n/g, "\n");
+  if (!nom) return { ok: false, erreur: "Donnez un nom au modèle." };
+  if (m.channel !== "email" && m.channel !== "sms") return { ok: false, erreur: "Canal inconnu." };
+  if (!MESSAGE_EVENTS.some((e) => e.key === m.event)) return { ok: false, erreur: "Déclencheur inconnu." };
+  if (!contenu.trim()) return { ok: false, erreur: "Le texte ne peut pas être vide." };
+  if (contenu.length > 8000) return { ok: false, erreur: "Texte trop long." };
+  if (modeleId && !(await listTemplates()).some((t) => t.id === modeleId)) return { ok: false, erreur: "Modèle introuvable." };
+
+  let regle: AlertInput | null = null;
+  if (r) {
+    const montant = r.montant_min.trim() ? Number(r.montant_min.replace(",", ".")) : null;
+    if (!r.name.trim()) return { ok: false, erreur: "Donnez un nom à la règle." };
+    if (r.event === "manual" || !MESSAGE_EVENTS.some((e) => e.key === r.event)) return { ok: false, erreur: "Choisissez l'événement qui déclenche la règle." };
+    if (montant != null && (!Number.isFinite(montant) || montant < 0)) return { ok: false, erreur: "Le montant minimal doit être un nombre positif." };
+    if (r.destinataire === "custom" && !r.destinataire_custom.trim()) return { ok: false, erreur: "Indiquez l'adresse ou le numéro de l'équipe." };
+    const existante = r.id ? (await listAlerts()).find((a) => a.id === r.id) : undefined;
+    if (r.id && !existante) return { ok: false, erreur: "Règle introuvable." };
+    regle = {
+      name: r.name.trim(),
+      // Une règle créée ici est une alerte, comme dans l'ancien onglet « Alertes » ; une règle existante garde son genre.
+      kind: existante?.kind ?? "alerte",
+      event: r.event,
+      montant_min: montant,
+      channel: m.channel,
+      destinataire: r.destinataire === "custom" ? "custom" : "client",
+      destinataire_custom: r.destinataire === "custom" ? r.destinataire_custom.trim() : null,
+      template_id: null,
+      condition_champ: r.event === "demande_incomplete" && CHAMPS_MANQUANTS.includes(r.condition_champ) ? r.condition_champ : null,
+      condition_source: r.condition_source === "form" || r.condition_source === "email" ? r.condition_source : null,
+      active: r.active,
+    };
+  }
+
+  const id = await saveTemplate(modeleId, {
+    name: nom,
+    channel: m.channel,
+    event: m.event,
+    sujet: m.channel === "email" ? m.sujet.trim() || null : null,
+    contenu,
+    options: { piece_jointe: m.channel === "email" && m.pieceJointe ? m.pieceJointe : null },
+    active: m.active,
+  });
+  if (regle) await saveAlert(r!.id, { ...regle, template_id: id });
+  rafraichir();
+  return { ok: true, message: modeleId ? "Enregistré." : "Modèle créé.", modeleId: id };
+}
+
+/** Active ou désactive un modèle qu'aucune règle n'envoie. */
+export async function basculerModele(modeleId: string, actif: boolean): Promise<Retour> {
   await currentUser();
   const t = (await listTemplates()).find((x) => x.id === modeleId);
   if (!t) return { ok: false, erreur: "Modèle introuvable." };
-  if (!contenu.trim()) return { ok: false, erreur: "Le texte ne peut pas être vide." };
-  await saveTemplate(t.id, { name: t.name, channel: t.channel, event: t.event, sujet: t.channel === "email" ? sujet?.trim() || null : null, contenu: contenu.replace(/\r\n/g, "\n"), options: t.options ?? {}, active: t.active });
+  await saveTemplate(t.id, { name: t.name, channel: t.channel, event: t.event, sujet: t.sujet, contenu: t.contenu, options: t.options ?? {}, active: actif });
   rafraichir();
-  return { ok: true, message: "Texte enregistré." };
+  return { ok: true, message: `« ${t.name} » ${actif ? "activé" : "désactivé"}.` };
 }
 
-export async function apercuQuestionnaire(modeleId: string, sujet: string | null, contenu: string): Promise<Apercu | null> {
+/** Retire une règle : le modèle qu'elle envoyait reste, sans règle. */
+export async function supprimerRegle(alerteId: string): Promise<Retour> {
+  await currentUser();
+  const a = (await listAlerts()).find((x) => x.id === alerteId);
+  if (!a) return { ok: false, erreur: "Règle introuvable." };
+  await deleteAlert(a.id);
+  rafraichir();
+  return { ok: true, message: `Règle « ${a.name} » supprimée.` };
+}
+
+/**
+ * Supprime un modèle. Un modèle qu'une règle envoie encore ne se supprime
+ * pas : la règle resterait sans texte (la base la garde, sans modèle).
+ */
+export async function supprimerModele(modeleId: string): Promise<Retour> {
   await currentUser();
   const t = (await listTemplates()).find((x) => x.id === modeleId);
-  if (!t) return null;
+  if (!t) return { ok: false, erreur: "Modèle introuvable." };
+  const regles = (await listAlerts()).filter((a) => a.template_id === t.id);
+  if (regles.length) return { ok: false, erreur: `Ce modèle est envoyé par ${regles.length > 1 ? "les règles" : "la règle"} ${regles.map((a) => `« ${a.name} »`).join(", ")} : supprimez d'abord ${regles.length > 1 ? "ces règles" : "la règle"}.` };
+  await deleteTemplate(t.id);
+  rafraichir();
+  return { ok: true, message: `Modèle « ${t.name} » supprimé.` };
+}
+
+/** L'estimation d'exemple de l'aperçu (celle de l'ancienne messagerie), pour le bloc de détail. */
+const LIGNES_EXEMPLE = [
+  { label: "Transport et manutention", amount: 1500 },
+  { label: "Portage charges lourdes", amount: 240 },
+  { label: "Garantie dommages standard", amount: 60 },
+];
+
+/** L'aperçu d'un modèle des questionnaires en cours de saisie (même non enregistré), rendu comme à l'envoi. */
+export async function apercuModele(m: { canal: Channel; nom: string; sujet: string | null; contenu: string; pieceJointe?: "" | "estimation" }): Promise<Apercu | null> {
+  await currentUser();
   const settings = await getSettings();
   const vars = {
     client_nom: "Camille Exemple", client_email: "client@exemple.fr", client_tel: "06 00 00 00 00", ville_depart: "Paris", ville_arrivee: "Lyon", volume: 25, distance: 465,
@@ -131,9 +239,18 @@ export async function apercuQuestionnaire(modeleId: string, sujet: string | null
     entreprise_nom: settings.entreprise_nom, entreprise_tel: settings.entreprise_tel || TEL_AGENCE, entreprise_email: settings.entreprise_email,
     lien_completion: "#", lien_estimation: "#", lien_rappel: "#",
   };
-  if (t.channel === "sms") return { canal: "sms", sujet: null, html: null, texte: renderTemplate(contenu, vars) };
-  const r = rendreEmailQuestionnaire({ name: t.name, sujet, contenu }, { vars, base: (settings.base_url || "").replace(/\/$/, ""), entreprise: { nom: settings.entreprise_nom ?? undefined, email: settings.entreprise_email ?? undefined, tel: settings.entreprise_tel || TEL_AGENCE } });
-  return { canal: "email", sujet: r.sujet, html: r.html, texte: renderTemplate(contenu, vars) };
+  if (m.canal === "sms") return { canal: "sms", sujet: null, html: null, texte: renderTemplate(m.contenu, vars) };
+  const r = rendreEmailQuestionnaire(
+    { name: m.nom || "Nouveau modèle", sujet: m.sujet, contenu: m.contenu },
+    {
+      vars,
+      lignes: LIGNES_EXEMPLE,
+      base: (settings.base_url || "").replace(/\/$/, ""),
+      entreprise: { nom: settings.entreprise_nom ?? undefined, email: settings.entreprise_email ?? undefined, tel: settings.entreprise_tel || TEL_AGENCE },
+      pieceJointe: m.pieceJointe === "estimation",
+    },
+  );
+  return { canal: "email", sujet: r.sujet, html: r.html, texte: renderTemplate(m.contenu, vars) };
 }
 
 /** Le nombre de cartes à valider, pour la phrase du bandeau. */

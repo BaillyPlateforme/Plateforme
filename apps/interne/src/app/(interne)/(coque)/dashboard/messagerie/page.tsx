@@ -1,28 +1,11 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRessource } from "@/lib/donnees";
-import { Echec, Squelette } from "@/components/Squelette";
-import MessagerieTabs from "./MessagerieTabs";
-
-type Donnees = {
-  templates: Parameters<typeof MessagerieTabs>[0]["templates"];
-  rules: Parameters<typeof MessagerieTabs>[0]["rules"];
-  base?: string;
-  entreprise?: Parameters<typeof MessagerieTabs>[0]["entreprise"];
-};
-
-export default function MessageriePage() {
-  const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/messagerie");
-
-  return (
-    <div>
-      {erreur ? (
-        <Echec message={erreur} onRetry={recharger} />
-      ) : !donnees ? (
-        <Squelette titre={false} lignes={6} />
-      ) : (
-        <MessagerieTabs templates={donnees.templates} rules={donnees.rules} base={donnees.base} entreprise={donnees.entreprise} />
-      )}
-    </div>
-  );
+/*
+ * L'ancienne messagerie (onglets Templates, Alertes, Simulation) a rejoint
+ * Réglages › Courriers et SMS le 08/11/2026 : chaque modèle y a sa carte, s'y
+ * crée et s'y supprime, y porte sa règle et ses conditions, et tout message
+ * s'y teste. L'adresse reste, et y mène.
+ */
+export default function AncienneMessagerie() {
+  redirect("/modeles");
 }
