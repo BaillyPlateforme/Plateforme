@@ -31,6 +31,7 @@ const ERREURS: Record<string, string> = {
   ferme: "Ce devis n'est plus ouvert à la signature (retiré ou non retenu).",
   inconnu: "Le devis est introuvable.",
 };
+const jourFr = (d: unknown) => (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : d);
 const dateHeure = (d: string) => new Date(d).toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
 export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, titulaire, emailClient, autreSigne, modifie, modes, comptes, historique, retour }: Props) {
@@ -122,14 +123,14 @@ export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, t
       {v && (
         <Section surtitre="Validation" titre="Règlement enregistré à la commande">
           <dl className={s.fiche}>
-            {([["Date du règlement", v.date], ["Montant", typeof v.montant === "number" ? euros(v.montant) : null], ["Mode", v.mode], ["Banque", v.banque], ["N° du chèque", v.cheque], ["Titulaire", v.titulaire], ["Compte d'encaissement", v.compte], ["Encaissement prévu", v.encaissement_prevu], ["Commentaire", v.commentaire], ["Par", v.par]] as [string, unknown][])
+            {([["Date du règlement", jourFr(v.date)], ["Montant", typeof v.montant === "number" ? euros(v.montant) : null], ["Mode", v.mode], ["Banque", v.banque], ["N° du chèque", v.cheque], ["Titulaire", v.titulaire], ["Compte d'encaissement", v.compte], ["Encaissement prévu", jourFr(v.encaissement_prevu)], ["Commentaire", v.commentaire], ["Par", v.par]] as [string, unknown][])
               .filter(([, x]) => x != null && x !== "")
               .map(([k, x]) => <div key={k}><dt>{k}</dt><dd>{String(x)}</dd></div>)}
           </dl>
         </Section>
       )}
 
-      <Section surtitre="Proposition" titre={devis.retire_le ? "Remettre ce devis" : "Retirer ce devis"} texte={devis.retire_le ? "Le devis revient dans la proposition, à son état d'avant." : devis.statut === "brouillon" ? "Un brouillon retiré est supprimé." : signe ? "Un devis signé ne se retire pas." : "Un devis envoyé reste au dossier, marqué retiré : il quitte la proposition et ne se signe plus."}>
+      {!signe && <Section surtitre="Proposition" titre={devis.retire_le ? "Remettre ce devis" : "Retirer ce devis"} texte={devis.retire_le ? "Le devis revient dans la proposition, à son état d'avant." : devis.statut === "brouillon" ? "Un brouillon retiré est supprimé." : signe ? "Un devis signé ne se retire pas." : "Un devis envoyé reste au dossier, marqué retiré : il quitte la proposition et ne se signe plus."}>
         {devis.retire_le ? (
           <form action={remettreDevis.bind(null, devis.id)}><button className={s.boutonDoux} disabled={autreSigne}>Remettre dans la proposition</button></form>
         ) : !signe && (
@@ -137,7 +138,7 @@ export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, t
             <button className={s.boutonDanger}>{devis.statut === "brouillon" ? "Supprimer ce brouillon" : "Retirer de la proposition"}</button>
           </form>
         )}
-      </Section>
+      </Section>}
 
       <Section surtitre="Histo." titre="Historique du devis">
         {historique.length === 0 ? <p className={s.vide}>Rien encore.</p> : (
