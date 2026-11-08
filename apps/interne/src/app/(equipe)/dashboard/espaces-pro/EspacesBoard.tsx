@@ -33,6 +33,13 @@ import { ajouterCompteRh, comptesRh, nouveauMotDePasseRh, retirerCompteRh } from
 import type { CompteRh } from "@/lib/rh";
 import { rendreEmail } from "@/lib/email-render";
 import { TEL_AGENCE } from "@/lib/messaging";
+import { URL_EXTERNE } from "@/lib/adresses";
+
+/*
+ * Les logos sont servis par l'app externe (/api/espaces/<code>/logo) : l'app
+ * interne n'a pas cette route, une adresse relative y répondait 404.
+ */
+const logoDe = (e: Parameters<typeof urlLogo>[0]) => urlLogo(e, URL_EXTERNE);
 
 type Entreprise = { nom: string | null; email: string | null; tel: string | null };
 
@@ -461,7 +468,7 @@ export default function EspacesBoard({
                     <div className="flex h-[72px] w-[168px] items-center justify-center rounded-xl border border-line bg-white p-3">
                       {brouillon.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API
-                        <img src={urlLogo(brouillon) ?? ""} alt={brouillon.nom} className="max-h-full max-w-full object-contain" />
+                        <img src={logoDe(brouillon) ?? ""} alt={brouillon.nom} className="max-h-full max-w-full object-contain" />
                       ) : (
                         <span className="text-xs text-ink-soft">Aucun logo</span>
                       )}
@@ -1140,7 +1147,7 @@ function Vignette({ espace, taille }: { espace: EspacePro; taille: number }) {
     return (
       <span className="flex shrink-0 items-center justify-center rounded-xl border border-line bg-white p-1.5" style={style}>
         {/* eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API */}
-        <img src={urlLogo(espace) ?? ""} alt="" className="max-h-full max-w-full object-contain" />
+        <img src={logoDe(espace) ?? ""} alt="" className="max-h-full max-w-full object-contain" />
       </span>
     );
   return (
@@ -1222,7 +1229,7 @@ function ApercuAccueil({ espace }: { espace: EspacePro }) {
       <div className="flex items-center gap-2.5">
         {espace.logo ? (
           // eslint-disable-next-line @next/next/no-img-element -- logo téléversé, servi par notre API
-          <img src={urlLogo(espace) ?? ""} alt={espace.nom} className="h-7 max-w-[90px] object-contain" />
+          <img src={logoDe(espace) ?? ""} alt={espace.nom} className="h-7 max-w-[90px] object-contain" />
         ) : (
           <span className="max-w-[130px] truncate rounded-lg bg-brand px-2 py-1 text-[11.5px] font-bold text-sur-brand">{nomEnseigne(espace)}</span>
         )}
@@ -1284,9 +1291,9 @@ function ApercuMail({
       espace: {
         nom: nomEnseigne(espace),
         couleur: espace.couleur,
-        // Dans l'aperçu, le logo vient de la page ouverte : l'adresse publique
-        // du site peut pointer vers une version qui ne l'a pas encore.
-        logo: espace.logo ? urlLogo(espace, typeof window === "undefined" ? base : window.location.origin) : null,
+        // Dans l'aperçu, le logo vient de l'app externe de ce déploiement : l'adresse
+        // publique du site peut pointer vers une version qui ne l'a pas encore.
+        logo: espace.logo ? logoDe(espace) : null,
         objet: espace.mail_objet,
         message: espace.mail_message,
       },
