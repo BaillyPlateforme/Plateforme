@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { aEnTetePropre, ongletActif, sectionDe, type Onglet } from "@/crm/sections";
+import { createContext, useContext, useEffect, useState } from "react";
+import { ongletActif, sectionDe, type Onglet } from "@/crm/sections";
 import Bandeau from "@/ui/Bandeau";
 import type { NomIcone } from "@/ui/icones";
+import MenuVertical from "@/ui/MenuVertical";
 import { metaDe } from "./nav-meta";
-import s from "./section.module.css";
 
 type Contenu = {
   surtitre?: string;
@@ -19,86 +18,112 @@ type Contenu = {
   children?: React.ReactNode;
 };
 
-/**
+/*
  * L'en-tête des sections venues de l'espace équipe (questionnaires, espace
- * client, réglages) : TOUJOURS le bandeau du CRM (la bande indigo), avec les
- * onglets de la section en verre sous le titre — même forme sur chaque page.
+ * client, réglages) : TOUJOURS le bandeau du CRM, en haut et pleine largeur,
+ * puis à gauche le menu vertical des sous-onglets de la section (demande de
+ * David : plus de sous-onglets dans le bandeau).
  *
- * Posé sans réglage par la mise en page des sections, il prend le nom de la
- * section et le titre de la page (nav-meta.ts). Les pages qui ont mieux à dire
- * (la vue d'ensemble et ses chiffres, la fiche d'une demande, celle d'un
- * dossier client) le posent elles-mêmes, en tête, avec leur contenu : la mise
- * en page s'efface alors pour elles (voir `aEnTetePropre`), si bien qu'il n'y
- * a jamais deux en-têtes l'un sous l'autre.
+ * La mise en page pose le bandeau avec le nom de la section et le titre de la
+ * page (nav-meta.ts). Une page qui a mieux à dire (la vue d'ensemble, la fiche
+ * d'une demande, celle d'un dossier client) écrit `<EnTeteSection propre …>` :
+ * elle ne dessine rien elle-même, elle confie son contenu au bandeau de la
+ * mise en page. Il n'y a ainsi jamais deux en-têtes, et le menu reste dessous.
  */
-export default function EnTeteSection({ propre = false, ...contenu }: Contenu & { propre?: boolean }) {
-  const chemin = usePathname();
-  const section = sectionDe(chemin);
-  if (!propre && (!section || aEnTetePropre(chemin))) return null;
-  const meta = metaDe(chemin);
 
+type Perso = { chemin: string; contenu: Contenu } | null;
+const Valeur = createContext<Perso>(null);
+const Poser = createContext<((p: Perso) => void) | null>(null);
+
+/** Le fournisseur, posé par la mise en page des sections autour de l'en-tête et des pages. */
+export function FournisseurEnTete({ children }: { children: React.ReactNode }) {
+  const [perso, setPerso] = useState<Perso>(null);
+  return (
+    <Poser.Provider value={setPerso}>
+      <Valeur.Provider value={perso}>{children}</Valeur.Provider>
+    </Poser.Provider>
+  );
+}
+
+export default function EnTeteSection({ propre = false, ...contenu }: Contenu & { propre?: boolean }) {
+  return propre ? <Confier contenu={contenu} /> : <Bande />;
+}
+
+/** Le bandeau de la section : le contenu confié par la page, sinon le nom de la section et le titre de la page. */
+function Bande() {
+  const chemin = usePathname();
+  const perso = useContext(Valeur);
+  const section = sectionDe(chemin);
+  if (!section) return null;
+  const meta = metaDe(chemin);
+  const c = perso && perso.chemin === chemin ? perso.contenu : null;
   return (
     <Bandeau
-      surtitre={contenu.surtitre ?? section?.nom ?? ""}
-      titre={contenu.titre ?? meta.titre}
-      texte={propre ? contenu.texte : meta.sous}
-      action={contenu.action}
-      etiquettes={contenu.etiquettes}
-      bas={section && <Onglets chemin={chemin} section={section} />}
+      surtitre={c?.surtitre ?? section.nom}
+      titre={c?.titre ?? meta.titre}
+      texte={c ? c.texte : meta.sous}
+      action={c?.action}
+      etiquettes={c?.etiquettes}
     >
+      {c?.children}
+    </Bandeau>
+  );
+}
+
+/** Une page confie son contenu au bandeau ; hors d'une section (démonstration), elle le dessine elle-même. */
+function Confier({ contenu }: { contenu: Contenu }) {
+  const poser = useContext(Poser);
+  const chemin = usePathname();
+  useEffect(() => {
+    poser?.({ chemin, contenu });
+  });
+  useEffect(() => () => poser?.(null), [poser]);
+  if (poser) return null;
+  return (
+    <Bandeau surtitre={contenu.surtitre ?? ""} titre={contenu.titre ?? ""} texte={contenu.texte} action={contenu.action} etiquettes={contenu.etiquettes}>
       {contenu.children}
     </Bandeau>
   );
 }
 
-function Onglets({ chemin, section }: { chemin: string; section: NonNullable<ReturnType<typeof sectionDe>> }) {
-  const actifDansPlus = section.plus?.find((o) => ongletActif(o, chemin));
-  return (
-    <nav className={s.onglets} aria-label={section.nom}>
-      {section.onglets.map((o) => (
-        <Link key={o.href} href={o.href} className={s.onglet} aria-current={ongletActif(o, chemin) ? "page" : undefined}>
-          {o.label}
-        </Link>
-      ))}
-      {section.plus && <Plus onglets={section.plus} actif={actifDansPlus?.label} chemin={chemin} />}
-    </nav>
-  );
-}
+const ICONES: Record<string, NomIcone> = {
+  "/dashboard/tableau-de-bord": "bord",
+  "/dashboard/leads": "tendance",
+  "/dashboard": "boite",
+  "/dashboard/rappels": "horloge",
+  "/dashboard/statistiques": "tendance",
+  "/dashboard/espaces-pro": "equipe",
+  "/dashboard/messagerie": "courrier",
+  "/dashboard/devis": "devis",
+  "/dashboard/clients": "clients",
+  "/dashboard/agenda": "calendrier",
+  "/dashboard/workflow": "grille",
+  "/dashboard/simulateur": "euro",
+  "/dashboard/campagne": "etoile",
+  "/dashboard/playground": "copilote",
+  "/dashboard/espace-client": "dossierClient",
+  "/dashboard/espace-client/nouveau": "plus",
+  "/dashboard/espace-client/cartons": "boite",
+  "/dashboard/espace-client/sav": "cloche",
+  "/dashboard/espace-client/destinations": "grille",
+  "/dashboard/espace-client/journal": "courrier",
+  "/dashboard/espace-client/reglages": "reglages",
+  "/dashboard/parametres": "reglages",
+  "/dashboard/configuration": "grille",
+  "/dashboard/equipe": "equipe",
+  "/dashboard/envois": "courrier",
+};
 
-/** Le menu « Plus » : les pages utiles mais moins fréquentes de la section. */
-function Plus({ onglets, actif, chemin }: { onglets: Onglet[]; actif?: string; chemin: string }) {
-  const [ouvert, setOuvert] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ouvert) return;
-    const dehors = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOuvert(false);
-    };
-    const echap = (e: KeyboardEvent) => e.key === "Escape" && setOuvert(false);
-    document.addEventListener("mousedown", dehors);
-    document.addEventListener("keydown", echap);
-    return () => {
-      document.removeEventListener("mousedown", dehors);
-      document.removeEventListener("keydown", echap);
-    };
-  }, [ouvert]);
+/** Le menu vertical de la section courante : ses onglets, puis « Plus ». */
+export function MenuDeSection() {
+  const chemin = usePathname();
+  const section = sectionDe(chemin);
+  if (!section) return null;
+  const item = (o: Onglet) => ({ href: o.href, label: o.label, icone: ICONES[o.href], actif: ongletActif(o, chemin) });
   return (
-    <div className={s.plus} ref={ref}>
-      <button type="button" className={`${s.onglet} ${actif ? s.actif : ""}`} aria-expanded={ouvert} onClick={() => setOuvert((o) => !o)}>
-        {actif ?? "Plus"}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {ouvert && (
-        <div className={s.menu} role="menu">
-          {onglets.map((o) => (
-            <Link key={o.href} href={o.href} role="menuitem" aria-current={ongletActif(o, chemin) ? "page" : undefined} onClick={() => setOuvert(false)}>
-              {o.label}
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+    <MenuVertical
+      titre={section.nom}
+      groupes={[{ items: section.onglets.map(item) }, ...(section.plus?.length ? [{ titre: "Plus", items: section.plus.map(item) }] : [])]}
+    />
   );
 }

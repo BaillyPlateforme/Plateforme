@@ -1,0 +1,127 @@
+/* Le menu vertical d'une section : à gauche, collant sous la barre du haut. */
+.grille {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.colonne {
+  position: sticky;
+  top: 172px;
+}
+.contenu {
+  min-width: 0;
+}
+.menu {
+  display: grid;
+  gap: 4px;
+  padding: 14px 10px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.04), 0 20px 46px -30px rgba(46, 31, 158, 0.4);
+}
+.titre {
+  margin: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.groupe {
+  display: grid;
+  gap: 2px;
+}
+.groupe + .groupe {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0eef6;
+}
+.sousTitre {
+  margin: 2px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a7a3b8;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #4a475c;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.item svg {
+  flex-shrink: 0;
+  color: #9b97b0;
+}
+.item span {
+  flex: 1;
+  min-width: 0;
+}
+.item em {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ece8ff;
+  color: #4b2fe0;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+}
+.item:hover {
+  background: #f6f4fd;
+  color: #14121f;
+}
+.item[aria-current="page"] {
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 10px 22px -12px rgba(75, 47, 224, 0.85);
+}
+.item[aria-current="page"] svg {
+  color: #fff;
+}
+.item[aria-current="page"] em {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Écran étroit : le menu passe au-dessus du contenu, en ruban défilant. */
+@media (max-width: 980px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .colonne {
+    position: static;
+  }
+  .menu {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 8px;
+  }
+  .titre,
+  .sousTitre {
+    display: none;
+  }
+  .groupe {
+    display: flex;
+    gap: 4px;
+  }
+  .groupe + .groupe {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .item {
+    white-space: nowrap;
+  }
+}
