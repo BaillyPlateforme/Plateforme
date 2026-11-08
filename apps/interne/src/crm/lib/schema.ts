@@ -13,6 +13,7 @@
  * concerné.
  */
 import { SCHEMA_VISITES } from "@/crm/visites/schema";
+import { SCHEMA_DEVIS } from "@/crm/devis/schema";
 
 export const SCHEMA = `
 create schema if not exists crm;
@@ -322,4 +323,5 @@ do $$ begin
 end $$;
 create index if not exists idx_modeles_dossier_usage on crm.modeles_dossier(utilisations desc, dernier_usage desc);
 alter table crm.modeles_dossier enable row level security;
-${SCHEMA_VISITES}`;
+${SCHEMA_VISITES}
+${SCHEMA_DEVIS}`;
