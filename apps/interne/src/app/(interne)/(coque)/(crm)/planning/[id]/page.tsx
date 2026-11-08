@@ -9,6 +9,7 @@ import { etapesDossier, rendezVous } from "@/crm/planning/donnees";
 import { commencerVisite } from "@/crm/visites/actions";
 import { estVisite, etatVisite, ETATS_VISITE } from "@/crm/visites/cycle";
 import { canauxDeRappel } from "@/crm/visites/rappels";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT, GENRE_ETAPE, hhmmParis, jourParis, momentVisite } from "@/lib/visite/regles";
 import s from "@/crm/planning/fenetre.module.css";
 
@@ -99,7 +100,7 @@ export default async function RendezVous({ params, searchParams }: { params: Pro
             </div>
             <div className="fld w12">
               <label htmlFor="lieu">Lieu</label>
-              <input id="lieu" type="text" name="lieu" defaultValue={r.lieu ?? ""} placeholder="Adresse ou « Visio »" />
+              <ChampAdresse id="lieu" name="lieu" defaultValue={r.lieu ?? ""} placeholder="Adresse ou « Visio »" />
             </div>
             <div className="fld w12">
               <label htmlFor="notes">Commentaire</label>
@@ -193,7 +194,12 @@ export default async function RendezVous({ params, searchParams }: { params: Pro
               <div className={s.ligneAdresse}>
                 <label className={s.large}>
                   <span>Adresse</span>
-                  <input name={`adresse_${e.id}`} defaultValue={e.adresse ?? ""} placeholder="Numéro et rue" />
+                  <ChampAdresse
+                    name={`adresse_${e.id}`}
+                    defaultValue={e.adresse ?? ""}
+                    placeholder="Numéro et rue"
+                    remplir={{ codePostal: `code_postal_${e.id}`, ville: `ville_${e.id}`, pays: `pays_${e.id}` }}
+                  />
                 </label>
                 <label>
                   <span>Code postal</span>
@@ -201,7 +207,7 @@ export default async function RendezVous({ params, searchParams }: { params: Pro
                 </label>
                 <label>
                   <span>Ville</span>
-                  <input name={`ville_${e.id}`} defaultValue={e.ville ?? ""} />
+                  <ChampAdresse mode="ville" name={`ville_${e.id}`} defaultValue={e.ville ?? ""} remplir={{ codePostal: `code_postal_${e.id}`, pays: `pays_${e.id}` }} />
                 </label>
                 <label>
                   <span>Pays</span>

@@ -4,6 +4,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { creerRdv } from "@/crm/actions";
 import { nomClient } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
+import ChampAdresse from "@/ui/ChampAdresse";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export default async function NouveauRdv({ searchParams }: { searchParams: Promi
         <div className="fld w4"><label>Durée (min)</label><input type="number" name="duree_min" defaultValue={60} min={15} step={15} /></div>
         <div className="fld w4"><label>Date</label><input type="date" name="date" defaultValue={demain} required /></div>
         <div className="fld w4"><label>Heure</label><input type="time" name="heure" defaultValue="09:00" required /></div>
-        <div className="fld w4"><label>Lieu</label><input type="text" name="lieu" placeholder="Adresse ou « Visio »" /></div>
+        <div className="fld w4"><label htmlFor="lieu">Lieu</label><ChampAdresse id="lieu" name="lieu" placeholder="Adresse ou « Visio »" /></div>
         <div className="fld w12"><label style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><input type="checkbox" name="journee" />Toute la journée (une « journée visio », par exemple) : posée au-dessus de la grille, sans dossier ni horaire</label></div>
         <div className="fld w12"><label>Dossier lié (facultatif)</label>
           <select name="dossier_id" defaultValue={sp.dossier ?? ""}><option value="">— Aucun —</option>{dossiers.map((d) => <option key={d.id} value={d.id}>{d.ref} · {nomClient(d)}</option>)}</select></div>
