@@ -20,7 +20,7 @@ export default async function ClientPage({ params }: { params: Promise<{ email: 
 
   return (
     <div>
-      <EnTeteSection propre surtitre="Demandes · Historique du client" titre={detail.profile?.nom ?? email} texte={email}>
+      <EnTeteSection propre surtitre="Parcours · Historique du client" titre={detail.profile?.nom ?? email} texte={email}>
         {derniere && (
           <Link href={`/dashboard/${derniere.id}`} data-ton="contour">
             Dernière demande
