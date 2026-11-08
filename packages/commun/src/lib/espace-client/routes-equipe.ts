@@ -1,7 +1,10 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { ecrireJournal } from "@/lib/journal";
+import { servirArchive } from "./archive";
 import { adressePublique } from "./config";
 import { lireDonnees } from "./depot";
+import { equipeConnectee } from "./equipe";
 import { servirFichier } from "./fichiers";
 import { pdfBons, reponsePdf } from "./pdf";
 import { lireVue } from "./vues-equipe";
@@ -11,8 +14,10 @@ const PORTES = { equipe: "/api/data/espace-client", demo: "/espace-client/demo-e
 
 /**
  * La réponse commune aux deux portes du back-office : les vues en JSON, les
- * bons de livraison des cartons d'un samedi en PDF (/bons/<samedi>), et les
- * fichiers des dossiers (/fichier/<type>/<id>, lien signé de cinq minutes).
+ * bons de livraison des cartons d'un samedi en PDF (/bons/<samedi>), les
+ * fichiers des dossiers (/fichier/<type>/<id>, lien signé de cinq minutes) et,
+ * pour l'équipe seulement, l'archive ZIP d'un dossier (/archive/<id>, même
+ * lien signé, session revérifiée, noté au journal).
  *
  * La porte de l'équipe est gardée par le proxy de l'app interne (session
  * d'un compte de l'équipe, ni RH ni client). La porte de démonstration n'a
@@ -28,6 +33,24 @@ export async function repondreEquipe(req: Request, chemin: string[], { demo = fa
     if (chemin[0] === "fichier" && chemin.length === 3) {
       // L'équipe a droit à tous les dossiers, masquages compris : c'est elle qui les tient.
       return servirFichier(await lireDonnees(), chemin[1], chemin[2], new URL(req.url), () => true);
+    }
+    if (chemin[0] === "archive" && chemin.length === 2) {
+      // Toutes les pièces d'un dossier en ZIP : jamais par la porte de démonstration, et seulement pour une
+      // session de l'équipe revérifiée ici (le proxy l'a déjà fait), venue de l'app elle-même.
+      if (demo) return new Response("Introuvable.", { status: 404 });
+      const equipe = await equipeConnectee();
+      if (!equipe || equipe.demo) return new Response("Réservé à l'équipe Bailly.", { status: 403, headers: { "Cache-Control": "no-store" } });
+      const site = req.headers.get("sec-fetch-site");
+      if (site && site !== "same-origin" && site !== "none") return new Response("Téléchargez l'archive depuis la fiche du dossier.", { status: 403, headers: { "Cache-Control": "no-store" } });
+      return servirArchive(await lireDonnees(), chemin[1], new URL(req.url), async ({ reference, crm, fichiers }) => {
+        await ecrireJournal(
+          {
+            action: "documents_espace.archive", libelle: `Pièces jointes du dossier ${reference} téléchargées en ZIP (${fichiers} fichier${fichiers > 1 ? "s" : ""})`,
+            objet: { type: "dossier_espace", id: chemin[1] }, dossierId: crm, details: { reference, fichiers },
+          },
+          { type: "staff", email: equipe.nom },
+        );
+      });
     }
     if (chemin[0] === "bons") {
       const samedi = chemin[1] ?? "";

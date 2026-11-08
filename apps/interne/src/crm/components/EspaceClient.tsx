@@ -7,15 +7,17 @@ import { ouvrirEspaceClient, renvoyerLienEspace } from "@/crm/actions-espace";
 import { dateFr } from "@/crm/lib/format";
 import { Ic } from "@/crm/lib/icons";
 import type { Row } from "@/crm/lib/db";
+import SuiviEspaceCrm from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/suivi/SuiviEspaceCrm";
 
 /*
  * L'espace client sur la fiche d'un dossier du CRM : un dossier, deux faces.
  *
  * Pas encore ouvert : ce qu'il faut pour l'ouvrir (l'adresse e-mail, le
  * trajet, la période, le volume, le commercial), complété au besoin dans le
- * même formulaire, et les règles du segment du client. Ouvert : où en est le
- * client — son dernier accès, le dernier lien parti, sa frise —, et de quoi
- * renvoyer un lien ou rejoindre la fiche de l'espace dans le back-office.
+ * même formulaire, et les règles du segment du client. Ouvert : son dernier
+ * accès et le dernier lien parti, puis l'avancement de son dossier (ce qui
+ * manque, de quoi le relancer) et ses pièces jointes, à voir et à
+ * télécharger — les composants de la fiche de l'espace (SuiviEspaceCrm).
  */
 
 const MESSAGES: Record<string, { ton: "ok" | "info" | "ko"; texte: string }> = {
@@ -25,8 +27,6 @@ const MESSAGES: Record<string, { ton: "ok" | "info" | "ko"; texte: string }> = {
   "lien-envoye": { ton: "ok", texte: "Nouveau lien d'accès envoyé au client." },
   "a-completer": { ton: "info", texte: "Le dossier est créé dans le CRM depuis la demande du site. Complétez ce qui manque ci-dessous, puis ouvrez l'espace client." },
 };
-
-const ETAT_ETAPE: Record<string, string> = { fait: "ok", a_faire: "todo", en_attente: "later" };
 
 export async function EspaceClient({ d, commerciaux, espace, message }: { d: Row; commerciaux: Row[]; espace?: string; message?: string }) {
   const etat = await etatEspaceCrm(d.id).catch(() => null);
@@ -60,30 +60,14 @@ export async function EspaceClient({ d, commerciaux, espace, message }: { d: Row
           </div>
         </div>
         {bandeau}
-        <div className="ec-grid">
-          <div>
-            <div className="ec-kpis">
-              <div><small>Identifiant du client</small><b className="mail">{etat.email.split("@")[0]}<wbr />@{etat.email.split("@")[1]}</b><span>Conseiller présenté : {etat.conseiller}</span></div>
-              <div><small>Dernier accès</small><b>{etat.dernierAcces ? dateFr(etat.dernierAcces, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "Pas encore connecté"}</b><span>{etat.sessions ? `${etat.sessions} session${etat.sessions > 1 ? "s" : ""} ouverte${etat.sessions > 1 ? "s" : ""} par un lien` : "Le client entre par le lien de son e-mail"}</span></div>
-              <div><small>Dernier lien d&apos;accès</small><b>{lien ? dateFr(lien.le, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "Aucun"}</b><span>{lien ? (lien.statut === "envoyee" ? "Envoyé par e-mail" : lien.statut === "echec" ? "Échec de l'envoi : voir le journal" : "Journalisé, pas envoyé (envoi réel désactivé)") : "—"}</span></div>
-              <div><small>Dossier du client</small><b>{etat.avancement.pourcent} %</b><span className="ec-bar"><i style={{ width: `${etat.avancement.pourcent}%` }} /></span><span>{etat.avancement.faites} étape{etat.avancement.faites > 1 ? "s" : ""} sur {etat.avancement.total}</span></div>
-            </div>
-            <ol className="ec-frise">
-              {etat.frise.map((e) => (
-                <li key={e.cle} className={ETAT_ETAPE[e.statut]}>
-                  <i>{e.statut === "fait" ? <Ic n="check" /> : null}</i>
-                  <span><b>{e.titre}{e.bloquante && e.statut !== "fait" ? " · obligatoire" : ""}</b><small>{e.detail}</small></span>
-                </li>
-              ))}
-            </ol>
-            <p className="sub">
-              Le CRM tient le client, le trajet, les dates, les devis et les factures : un devis envoyé ici apparaît dans l&apos;espace, une acceptation ou des arrhes réglées
-              là-bas reviennent ici. L&apos;espace garde les documents, les conditions de livraison, les cartons et le SAV.
-              {etat.bailleur ? ` Bailleur : ${etat.bailleur}.` : ""}
-            </p>
-          </div>
-          {regles}
-        </div>
+        {/* Qui, et quand : une ligne. Puis l'avancement et les pièces jointes, les mêmes que dans la fiche de l'espace. */}
+        <p className="sub" style={{ margin: "0 0 14px" }}>
+          Identifiant <b>{etat.email}</b> · conseiller présenté : {etat.conseiller} · dernier accès :{" "}
+          {etat.dernierAcces ? dateFr(etat.dernierAcces, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : "pas encore connecté"} · dernier lien d&apos;accès :{" "}
+          {lien ? `${dateFr(lien.le, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })} (${lien.statut === "envoyee" ? "envoyé" : lien.statut === "echec" ? "échec de l'envoi" : "journalisé, pas envoyé"})` : "aucun"}
+          {etat.bailleur ? ` · bailleur : ${etat.bailleur}` : ""}
+        </p>
+        <SuiviEspaceCrm id={etat.dossierId} />
       </section>
     );
   }

@@ -59,6 +59,20 @@ const P: Record<string, string> = {
   // Les appels à passer (bouton de la barre du haut, page /appels).
   telephone: '<path d="M21 16.4v2.9a1.9 1.9 0 0 1-2.1 1.9 18.8 18.8 0 0 1-8.2-2.9 18.5 18.5 0 0 1-5.7-5.7A18.8 18.8 0 0 1 2.1 4.4 1.9 1.9 0 0 1 4 2.3h2.9a1.9 1.9 0 0 1 1.9 1.6c.1.9.4 1.8.7 2.7a1.9 1.9 0 0 1-.4 2L7.9 9.8a15.2 15.2 0 0 0 5.7 5.7l1.2-1.2a1.9 1.9 0 0 1 2-.4c.9.3 1.8.6 2.7.7a1.9 1.9 0 0 1 1.6 1.9z"/>',
   sablier: '<path d="M6 2.5h12M6 21.5h12"/><path d="M7.5 2.5v3.2a4.5 4.5 0 0 0 1.8 3.6L12 12l2.7-2.7a4.5 4.5 0 0 0 1.8-3.6V2.5M7.5 21.5v-3.2a4.5 4.5 0 0 1 1.8-3.6L12 12l2.7 2.7a4.5 4.5 0 0 1 1.8 3.6v3.2"/>',
+  // La fiche d'un espace client vue de l'équipe (08/11/2026) : pièces jointes, aperçu, envois.
+  telecharger: '<path d="M12 3.5v12"/><path d="m7 11 5 5 5-5"/><path d="M4.5 20.5h15"/>',
+  envoyer: '<path d="M21.5 2.5 10.5 13.5"/><path d="m21.5 2.5-7 19-4-8-8-4z"/>',
+  externe: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18.5 14v4.5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5V7a1.5 1.5 0 0 1 1.5-1.5H10"/>',
+  image: '<rect x="3" y="3.5" width="18" height="17" rx="2.5"/><circle cx="8.5" cy="9" r="1.8"/><path d="m21 16-5-5-9.5 9.5"/>',
+  alerte: '<path d="M10.3 3.9 2.4 17.6a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/>',
+  fichier: '<path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8z"/><path d="M14 2.5V8h5.5"/>',
+  fermer: '<path d="M18 6 6 18M6 6l12 12"/>',
+  gauche: '<path d="m15 18-6-6 6-6"/>',
+  droite: '<path d="m9 18 6-6-6-6"/>',
+  crayon: '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5z"/><path d="M14.5 5.5l3 3"/>',
+  appareil: '<rect x="5.5" y="2.5" width="13" height="19" rx="2.5"/><path d="M11 18h2"/>',
+  points: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  epingle: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
 };
 
 export type NomIcone = keyof typeof P;
