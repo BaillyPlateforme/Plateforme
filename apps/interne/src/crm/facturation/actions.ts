@@ -132,7 +132,7 @@ export async function modifierReglement(id: number, saisie: SaisieReglement): Pr
   await q(`update paiements set libelle=$2, montant=$3, recu_le=$4, mode=$5, nature=$6, banque=$7, numero_cheque=$8, titulaire=$9, compte_encaissement=$10,
       date_prevue=$11, commentaire=$12, facture_id=$13 where id=$1`,
     [id, libelleReglement(s), s.nature === "remboursement" ? -s.montant : s.montant, s.recuLe, s.mode, s.nature, s.banque, s.numeroCheque, s.titulaire, s.compte, s.datePrevue ?? null, s.commentaire, s.factureId ?? null]);
-  await noter(s.dossierId, `Règlement du ${dateFr(s.recuLe)} modifié (${fr(s.montant)})`);
+  await noter(s.dossierId, `Règlement du ${dateFr(s.recuLe)} modifié (${fr(s.montant)}${numero ? ` · facture ${numero}` : " · au crédit du dossier"})`);
   await apres(s.dossierId);
   return { ok: true };
 }
