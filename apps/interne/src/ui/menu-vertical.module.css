@@ -9,6 +9,13 @@
   position: sticky;
   top: 172px;
 }
+/* Une section sans menu (simplification du 08/11/2026) : la page prend toute la largeur. */
+.grille:has(> .colonne:empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.colonne:empty {
+  display: none;
+}
 .contenu {
   min-width: 0;
 }

@@ -184,7 +184,7 @@ function Entete({
           {montre.entrees.map((e) => (
             <Link
               key={e.href}
-              href={hrefPour(e, dossier)}
+              href={hrefPour(e, dossier, chemin)}
               className={s.page}
               aria-current={(vise ? vise === e.href : estActif(e, chemin)) ? "page" : undefined}
               onClick={viser(e.href)}

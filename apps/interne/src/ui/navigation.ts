@@ -2,8 +2,8 @@ import type { NomIcone } from "./icones";
 
 /*
  * Le menu de l'app interne : un seul pour le CRM et pour les sections venues
- * de l'espace équipe. Les rubriques du CRM vivent à la racine ; les sections
- * « Questionnaires », « Espace client » et « Réglages », sous /dashboard.
+ * de l'espace équipe (sous /dashboard : demandes, espace client, une partie
+ * des réglages).
  */
 
 export type Entree = {
@@ -19,78 +19,100 @@ export type Entree = {
 export type Groupe = { titre: string; entrees: Entree[] };
 
 const sous = (href: string) => (c: string) => c === href || c.startsWith(`${href}/`);
-/** Les adresses de la section Réglages (crm/sections.ts, ADRESSES_REGLAGES). */
-const REGLAGES_ADRESSES = ["/dashboard/parametres", "/dashboard/configuration", "/dashboard/equipe", "/dashboard/envois"];
-const questionnaires = (c: string) =>
-  c.startsWith("/dashboard") &&
-  !c.startsWith("/dashboard/espace-client") &&
-  !REGLAGES_ADRESSES.some((p) => c.startsWith(p));
+
+/*
+ * La simplification du 08/11/2026 (choix de David) : quatre rubriques et les
+ * réglages, le Parcours au centre, plus de doublons. Chaque adresse ancienne
+ * mène à sa page nouvelle (redirections dans les pages) ; les adresses
+ * ci-dessous ne servent qu'à allumer la bonne entrée.
+ */
+
+/** Tout ce qui règle l'outil, rangé dans Réglages (une page, menu à gauche), quelle que soit son adresse. */
+export const ADRESSES_REGLAGES = [
+  "/reglages",
+  "/dashboard/parametres",
+  "/dashboard/configuration",
+  "/dashboard/equipe",
+  "/dashboard/envois",
+  "/dashboard/espaces-pro",
+  "/dashboard/simulateur",
+  "/dashboard/campagne",
+  "/dashboard/playground",
+  "/dashboard/espace-client/reglages",
+  "/dashboard/espace-client/destinations",
+  "/dashboard/espace-client/journal",
+  "/modeles",
+  "/archives",
+  "/devis/parametres",
+  "/relances/configuration",
+  "/relances/alertes",
+];
+const reglage = (c: string) => ADRESSES_REGLAGES.some((p) => sous(p)(c));
+/** Les demandes du site (l'ancienne section Questionnaires), hors espace client, statistiques et réglages. */
+const demandes = (c: string) =>
+  sous("/dashboard")(c) && !sous("/dashboard/espace-client")(c) && !sous("/dashboard/statistiques")(c) && !sous("/dashboard/tableau-de-bord")(c) && !reglage(c);
 
 export const GROUPES: Groupe[] = [
   {
     titre: "Accueil",
     entrees: [
-      { href: "/", label: "Pilotage", icone: "bord", actif: (c) => c === "/" },
-      { href: "/tableau-de-bord", label: "Tableau de bord", icone: "accueil" },
+      // Pilotage, tableau du jour et vue d'ensemble des demandes : une seule page.
+      { href: "/", label: "Accueil", icone: "bord", actif: (c) => c === "/" || sous("/tableau-de-bord")(c) || sous("/dashboard/tableau-de-bord")(c) },
+      // Commerciales, exploitation et demandes du site, au choix dans la page.
+      { href: "/statistiques", label: "Statistiques", icone: "stats", actif: (c) => sous("/statistiques")(c) || sous("/dashboard/statistiques")(c) },
       { href: "/copilote", label: "Copilote", icone: "copilote" },
-      // Commerciales et d'exploitation, au menu vertical de la page.
-      { href: "/statistiques/commerciales", label: "Statistiques", icone: "stats", actif: sous("/statistiques") },
     ],
   },
   {
-    titre: "Site et leads",
+    titre: "Dossiers",
     entrees: [
-      { href: "/dashboard/tableau-de-bord", label: "Questionnaires", icone: "questionnaires", actif: questionnaires, compteur: "nouvelles" },
-      { href: "/dashboard/espace-client", label: "Espace client", icone: "dossierClient", actif: sous("/dashboard/espace-client") },
-    ],
-  },
-  {
-    titre: "Commercial",
-    entrees: [
-      { href: "/planning", label: "Planning commercial", icone: "calendrier" },
-      { href: "/visites", label: "Visites techniques", icone: "oeil" },
-      { href: "/dossiers", label: "Clients et dossiers", icone: "clients" },
-      { href: "/kanban", label: "Kanban", icone: "kanban" },
-      { href: "/parcours", label: "Parcours", icone: "parcours" },
-      { href: "/devis", label: "Devis", icone: "devis" },
+      // Le Parcours : tous les dossiers, de la demande à la facture (colonnes ou liste), et chaque dossier.
+      {
+        href: "/parcours",
+        label: "Parcours",
+        icone: "parcours",
+        actif: (c) => sous("/parcours")(c) || sous("/dossiers")(c) || sous("/kanban")(c) || sous("/commandes")(c),
+      },
+      { href: "/dashboard", label: "Demandes", icone: "questionnaires", actif: demandes, compteur: "nouvelles" },
+      // Rendez-vous commerciaux et visites techniques : un seul planning.
+      { href: "/planning", label: "Planning", icone: "calendrier", actif: (c) => sous("/planning")(c) || sous("/visites")(c) },
+      { href: "/devis", label: "Devis", icone: "devis", actif: (c) => sous("/devis")(c) && !reglage(c) },
       { href: "/factures", label: "Factures", icone: "facture" },
-      { href: "/relances", label: "Relances", icone: "horloge" },
+      { href: "/relances", label: "Relances", icone: "horloge", actif: (c) => sous("/relances")(c) && !reglage(c) },
     ],
   },
   {
     titre: "Exploitation",
     entrees: [
-      { href: "/commandes", label: "Commandes", icone: "commande" },
       { href: "/exploitation", label: "Planning", icone: "grille" },
       { href: "/lettres-de-voiture", label: "Lettres de voiture", icone: "camion" },
       { href: "/garde-meuble", label: "Garde-meuble", icone: "entrepot" },
-      { href: "/conteneurs", label: "Conteneurs", icone: "bateau", actif: (c) => sous("/conteneurs")(c) && !sous("/conteneurs/dispatch")(c) },
-      { href: "/conteneurs/dispatch", label: "Dispatch", icone: "dispatch" },
-      // Les comptes des déménageurs pour l'outil terrain (/terrain).
-      { href: "/demenageurs", label: "Déménageurs", icone: "badge" },
-      { href: "/sous-traitants", label: "Sous-traitants", icone: "partenaires" },
+      // Le dispatch international est un onglet des conteneurs.
+      { href: "/conteneurs", label: "Conteneurs", icone: "bateau" },
+      // Déménageurs (outil terrain) et sous-traitants : un seul annuaire.
+      {
+        href: "/partenaires",
+        label: "Partenaires",
+        icone: "partenaires",
+        actif: (c) => sous("/partenaires")(c) || sous("/demenageurs")(c) || sous("/sous-traitants")(c),
+      },
       { href: "/litiges", label: "Litiges", icone: "litige" },
     ],
   },
   {
-    titre: "Réglages",
+    titre: "Espace client",
     entrees: [
-      { href: "/modeles", label: "Courriers et SMS", icone: "courrier" },
-      // Les dossiers perdus ou terminés à ranger, et ceux déjà rangés.
-      { href: "/archives", label: "Archivage", icone: "archive" },
-      // Toujours en dernier : REGLAGES ci-dessous la désigne par sa place.
-      {
-        href: "/dashboard/parametres",
-        label: "Paramètres",
-        icone: "reglages",
-        actif: (c) => REGLAGES_ADRESSES.some((p) => c.startsWith(p)),
-      },
+      { href: "/dashboard/espace-client", label: "Espace client", icone: "dossierClient", actif: (c) => sous("/dashboard/espace-client")(c) && !reglage(c) },
     ],
+  },
+  {
+    titre: "Réglages",
+    entrees: [{ href: "/reglages", label: "Réglages", icone: "reglages", actif: reglage }],
   },
 ];
 
-/** Les paramètres : la dernière page de « Réglages ». */
-export const REGLAGES: Entree = GROUPES[GROUPES.length - 1].entrees[GROUPES[GROUPES.length - 1].entrees.length - 1];
+/** Les réglages : l'entrée unique de la rubrique « Réglages ». */
+export const REGLAGES: Entree = GROUPES[GROUPES.length - 1].entrees[0];
 
 /** La rubrique de la page courante (celle dont une page est active), « Accueil » à défaut. */
 export function groupeDe(chemin: string): Groupe {
@@ -113,13 +135,13 @@ export function dossierDe(chemin: string, filtre?: string | null): number | null
 
 /**
  * L'adresse d'une page du menu quand un dossier est ouvert : on reste sur ce
- * dossier (exigence de David). La fiche et le parcours s'ouvrent sur lui, les
- * listes (devis, factures, relances, Kanban) se filtrent sur lui.
+ * dossier (exigence de David). Le Parcours s'ouvre sur sa page, les listes
+ * (devis, factures, relances) se filtrent sur lui.
  */
-export function hrefPour(e: Entree, dossier: number | null): string {
+export function hrefPour(e: Entree, dossier: number | null, chemin = ""): string {
   if (!dossier) return e.href;
-  if (e.href === "/dossiers") return `/dossiers/${dossier}`;
-  if (e.href === "/parcours") return `/parcours/${dossier}`;
-  if (["/devis", "/factures", "/relances", "/kanban"].includes(e.href)) return `${e.href}?dossier=${dossier}`;
+  // Le Parcours d'un dossier, c'est sa page ; depuis cette page même, « Parcours » ramène à tous les dossiers.
+  if (e.href === "/parcours") return chemin.startsWith(`/dossiers/${dossier}`) ? "/parcours" : `/dossiers/${dossier}`;
+  if (["/devis", "/factures", "/relances"].includes(e.href)) return `${e.href}?dossier=${dossier}`;
   return e.href;
 }

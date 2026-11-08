@@ -1,4 +1,12 @@
-import { SECTIONS } from "@/crm/sections";
+/** Les pages de l'espace client vu de l'équipe, et leur titre. */
+const PAGES_ESPACE: Record<string, string> = {
+  "/dashboard/espace-client/nouveau": "Ouvrir un espace",
+  "/dashboard/espace-client/cartons": "Cartons du samedi",
+  "/dashboard/espace-client/sav": "SAV",
+  "/dashboard/espace-client/destinations": "Pièces à fournir",
+  "/dashboard/espace-client/journal": "Journal des messages",
+  "/dashboard/espace-client/reglages": "Réglages de l'espace client",
+};
 
 /** Titre et sous-titre de chaque écran : la barre du haut les porte désormais. */
 export const META: Record<string, { titre: string; sous?: string }> = {
@@ -28,10 +36,10 @@ export const META: Record<string, { titre: string; sous?: string }> = {
 
 export function metaDe(pathname: string): { titre: string; sous?: string } {
   if (META[pathname]) return META[pathname];
-  // Les pages de l'espace client (cartons, SAV, pièces…) : le titre de leur onglet du menu, plutôt que
-  // « Espace client » partout ; la phrase reste celle de la section.
-  const onglet = SECTIONS[1].onglets.find((o) => o.href !== "/dashboard/espace-client" && pathname.startsWith(o.href));
-  if (onglet) return { titre: onglet.label, sous: META["/dashboard/espace-client"].sous };
+  // Les pages de l'espace client (cartons, SAV, pièces…) : leur propre titre plutôt que « Espace client »
+  // partout ; la phrase reste celle de la section.
+  const ec = Object.keys(PAGES_ESPACE).find((k) => pathname.startsWith(k));
+  if (ec) return { titre: PAGES_ESPACE[ec], sous: META["/dashboard/espace-client"].sous };
   if (pathname.startsWith("/dashboard/clients/")) return { titre: "Client", sous: "Historique et devis" };
   if (/^\/dashboard\/[0-9a-f-]{8,}/.test(pathname)) return { titre: "Demande", sous: "Fiche complète" };
   const cle = Object.keys(META).find((k) => k !== "/dashboard" && pathname.startsWith(k));
