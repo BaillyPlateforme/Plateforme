@@ -1,26 +1,49 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- les lignes SQL du CRM ne sont pas typées */
 import { TEL_AGENCE } from "@/lib/messaging";
-import { dateFr, eur, m3, nomClient, TYPES } from "@/crm/lib/format";
+import { dateFr, m3, nomClient, TYPES } from "@/crm/lib/format";
+import { ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT } from "@/lib/visite/regles";
+import { calculer, type Calcul } from "@/crm/devis/calcul";
+import { ARRHES_CODE, TVA_CODE, lireAssurance, lireLignes, lirePrestations, nomDevis, type Chiffrage } from "@/crm/devis/modele";
+import { euros, pct } from "@/crm/devis/format";
 import s from "./devis.module.css";
 
 /*
  * Le devis Bailly, tel que le client le reçoit : aux couleurs de la maison
- * (le logo, le jaune et le noir), le résumé du déménagement, l'itinéraire,
- * les formules côte à côte et le bon pour accord.
+ * (le logo, le jaune et le noir), sur une page A4 quand c'est possible.
  *
- * Seuls des faits connus y figurent : les données du dossier, le téléphone de
- * l'agence, son site et les labels affichés sur demenagements-bailly.com.
+ * - Un devis : le client, la visite, la catégorie, l'itinéraire et ses
+ *   accès, le chiffrage (lignes détaillées, ou un prix global pour un
+ *   forfait), la remise, la TVA, l'assurance si une prime est calculée, qui
+ *   fait quoi, les conditions (arrhes, solde, validité, conditions
+ *   particulières) et le bon pour accord. Les CGV, quand Bailly les a
+ *   fournies, suivent en page 2.
+ * - Plusieurs devis (proposition du dossier) : les formules côte à côte.
+ *
+ * Seuls des faits connus y figurent : les données du dossier et du devis,
+ * le téléphone de l'agence, son site et les labels de demenagements-bailly.com.
  */
 
-const GENRE: Record<string, string> = { depart: "Départ", garde_meuble: "Garde-meuble", arrivee: "Arrivée", autre: "Étape" };
-const ORDRE: Record<string, number> = { economique: 0, standard: 1, premium: 2 };
-const NOM_FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
-const nomFormule = (f: string) => NOM_FORMULE[f?.toLowerCase?.()] ?? f;
+const GENRE: Record<string, string> = { depart: "Chargement", garde_meuble: "Garde-meuble", arrivee: "Livraison", autre: "Étape" };
+const ORDRE: Record<string, number> = { economique: 0, standard: 1, premium: 2, libre: 3 };
+const date = (d: unknown) => dateFr(d as string, { day: "numeric", month: "long", year: "numeric" });
 /** « 4 », « RDC », « 0 » : l'étage tel qu'on le lit. */
 const etage = (e: unknown) => {
   const t = String(e ?? "").trim();
-  return !t || /^(rdc|0|rez)/i.test(t) ? "Rez-de-chaussée" : `Étage ${t}`;
+  return !t || /^(rdc|0|rez)/i.test(t) ? "Rez-de-chaussée" : /^\d+$/.test(t) ? `${t}${t === "1" ? "er" : "e"} étage` : t;
 };
+const acces = (e: any) =>
+  [
+    etage(e.etage),
+    e.ascenseur ? "ascenseur" : "sans ascenseur",
+    e.monte_charge ? "monte-charge" : null,
+    e.portage_m ? `portage ${e.portage_m} m` : null,
+    e.monte_meuble === "oui" ? "monte-meuble" : e.monte_meuble ? `monte-meuble : ${String((ACCES_MONTE_MEUBLE as Record<string, string>)[e.monte_meuble] ?? "").toLowerCase()}` : null,
+    e.transbordement ? "transbordement" : null,
+    e.stationnement ? (ACCES_STATIONNEMENT as Record<string, string>)[e.stationnement] : null,
+    e.acces,
+  ].filter(Boolean).join(" · ");
+
+export type ParametresDocument = { cgv: string; tvaAssurance: number; arrhesPct: number };
 
 function Coche() {
   return (
@@ -30,48 +53,290 @@ function Coche() {
   );
 }
 
-export default function DevisBailly({ d, lienSignature }: { d: any; lienSignature?: (token: string) => string }) {
-  const formules = [...(d.devis as any[])].sort((a, b) => (ORDRE[a.formule] ?? 9) - (ORDRE[b.formule] ?? 9));
-  const vedette = formules.find((f) => f.formule === "standard")?.id;
+/** Le chiffrage d'un devis, recalculé de ses lignes (devis d'avant compris). */
+function chiffrageDe(v: any, tvaAssurance: number): { ch: Chiffrage; c: Calcul } {
+  const ch: Chiffrage = {
+    mode: v.mode === "forfait" ? "forfait" : "postes",
+    saisie: v.saisie === "ht" ? "ht" : "ttc",
+    remisePct: Number(v.remise_pct ?? 0),
+    lignes: lireLignes(v.lignes),
+    assurance: lireAssurance(v.assurance),
+  };
+  return { ch, c: calculer(ch, tvaAssurance) };
+}
+
+export default function DevisBailly({
+  d, lienSignature, devisId, parametres, apercu,
+}: {
+  d: any;
+  lienSignature?: (token: string) => string;
+  /** Un seul devis du dossier (impression depuis sa fenêtre). */
+  devisId?: number;
+  parametres?: ParametresDocument;
+  /** Aperçu de l'équipe : les emplacements vides (CGV) sont signalés à l'écran, jamais imprimés. */
+  apercu?: boolean;
+}) {
+  const p: ParametresDocument = parametres ?? { cgv: "", tvaAssurance: TVA_CODE, arrhesPct: ARRHES_CODE };
+  const tous = (d.devis as any[]).filter((v) => (devisId ? v.id === devisId : !v.retire_le));
+  const liste = [...tous].sort((a, b) => (ORDRE[a.formule] ?? 9) - (ORDRE[b.formule] ?? 9) || a.id - b.id);
+  return (
+    <>
+      {liste.length === 1 ? <Detail d={d} v={liste[0]} p={p} lienSignature={lienSignature} /> : <Proposition d={d} liste={liste} p={p} lienSignature={lienSignature} />}
+      {p.cgv.trim() ? (
+        <article className={`${s.feuille} ${s.compact} ${s.cgv}`}>
+          <h2 className={s.titre}>Conditions générales de vente</h2>
+          <div className={s.cgvTexte}>{p.cgv}</div>
+        </article>
+      ) : apercu ? (
+        <aside className={s.cgvVide}>
+          <b>Emplacement des conditions générales de vente</b>
+          <span>Texte à fournir par Bailly (Devis › Paramètres du devis). Tant qu&apos;il est vide, rien n&apos;est imprimé.</span>
+        </aside>
+      ) : null}
+    </>
+  );
+}
+
+function EnTete({ d, titre, sousTitre }: { d: any; titre: string; sousTitre: React.ReactNode }) {
+  return (
+    <header className={s.entete}>
+      <div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- l'image doit s'imprimer telle quelle */}
+        <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" className={s.logo} />
+        <div className={s.agence}>
+          <b>Bailly Déménagement</b> · BD Moving Group
+          <br />
+          {TEL_AGENCE} · demenagements-bailly.com
+        </div>
+      </div>
+      <div className={s.reference}>
+        <span className={s.etiquette}>Proposition de déménagement</span>
+        <h1>{titre}</h1>
+        <p>{sousTitre}</p>
+        <p>Dossier {d.ref}</p>
+      </div>
+    </header>
+  );
+}
+
+function Itineraire({ d }: { d: any }) {
+  return (
+    <ol className={s.adresses} style={{ gridTemplateColumns: `repeat(${Math.min(Math.max((d.stops as any[]).length, 2), 3)}, minmax(0, 1fr))` }}>
+      {(d.stops as any[]).map((e, i) => (
+        <li key={e.id}>
+          <span className={s.point}>{i + 1}</span>
+          <div>
+            <small>{GENRE[e.genre] ?? "Étape"}</small>
+            <b>{[e.adresse, [e.code_postal, e.ville].filter(Boolean).join(" "), e.pays].filter(Boolean).join(", ")}</b>
+            <span>{acces(e)}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Pied() {
+  return (
+    <footer className={s.pied}>
+      <span>
+        <b>Bailly Déménagement</b> · BD Moving Group · {TEL_AGENCE} · demenagements-bailly.com
+      </span>
+      <span>Membre IAM et de la Chambre Syndicale du Déménagement · ISO 9001, 14001, 45001</span>
+    </footer>
+  );
+}
+
+function Accord({ lien, cgv }: { lien: string | null; cgv: boolean }) {
+  return (
+    <div className={s.accord}>
+      <b>Bon pour accord</b>
+      <p>Date et signature précédées de la mention « bon pour accord »{cgv ? ", valant acceptation des conditions générales jointes" : ""}.</p>
+      <div className={s.signature} />
+      {lien && <div className={s.enLigne}>Ou signez en ligne : {lien}</div>}
+    </div>
+  );
+}
+
+/* ---------- un devis ---------- */
+
+function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocument; lienSignature?: (token: string) => string }) {
+  const tvaAssurance = lireAssurance(v.assurance).tva ?? p.tvaAssurance;
+  const { ch, c } = chiffrageDe(v, tvaAssurance);
+  const ht = ch.saisie === "ht";
+  const base = ch.lignes.filter((l) => l.groupe === "base");
+  const divers = ch.lignes.filter((l) => l.groupe === "divers" && (l.libelle.trim() || c.montants[l.id]));
+  const forfait = ch.mode === "forfait" && base.length > 0;
+  const lignes = forfait ? divers : [...base, ...divers];
+  const montantForfait = base.filter((l) => l.charge !== "client").reduce((a, l) => a + (c.montants[l.id] ?? 0), 0);
+  const prestations = lirePrestations(v.prestations).filter((x) => x.libelle.trim() && x.charge !== "so");
+  const bailly = prestations.filter((x) => x.charge === "bailly"), client = prestations.filter((x) => x.charge === "client");
+  const arrhesPct = v.arrhes_pct != null ? Number(v.arrhes_pct) : p.arrhesPct;
+  const a = ch.assurance;
   const contact = [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
-  const aujourdhui = new Date();
-  // Une seule formule : le numéro de son devis. Plusieurs : la proposition porte le dossier, et les numéros suivent.
-  const numeros = formules.map((f) => f.numero).filter(Boolean);
-  const aSigner = formules.find((f) => f.token && !f.signe_le);
-  // Les prestations (Bailly ou le client), dans l'ordre du premier devis qui les porte.
-  const prestations = [...new Set(formules.flatMap((f) => ((f.prestations ?? []) as any[]).map((x) => String(x.libelle))))];
-  // Les conditions saisies dans le devis (onglet « Données contractuelles ») : seulement ce qui est renseigné.
-  const validite = formules.map((f) => f.validite).filter(Boolean).sort()[0];
-  const conditions = [...new Set(formules.map((f) => String(f.conditions ?? "").trim()).filter(Boolean))];
-  const ref = formules[0] ?? {};
+  const lien = v.token && !v.signe_le && lienSignature ? lienSignature(v.token) : null;
+  const tauxUniques = c.parTaux.length;
+  const transport = [
+    v.distance_km ? `${v.distance_km} km` : null,
+    v.deplacement === "urbain" ? "déménagement urbain" : "transport routier",
+    v.groupage ? "en groupage avec d'autres clients" : "camion dédié",
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <article className={`${s.feuille} ${s.compact}`}>
+      <EnTete
+        d={d}
+        titre={`Devis ${v.numero}`}
+        sousTitre={<>Établi le {date(v.date_devis ?? v.cree_le)}{v.validite ? ` · valable jusqu’au ${date(v.validite)}` : ""}</>}
+      />
+
+      <section className={s.resume}>
+        <div className={`${s.case} ${s.client}`}>
+          <small>Client</small>
+          <b>{nomClient(d)}</b>
+          <span>{[contact !== nomClient(d) ? contact : null, d.telephone, d.email].filter(Boolean).join(" · ") || "—"}</span>
+        </div>
+        <div className={s.case}>
+          <small>Conseiller</small>
+          <b>{v.commercial_devis ?? d.commercial ?? "Bailly Déménagement"}</b>
+          <span>{v.date_visite ? `Visite du ${dateFr(v.date_visite, { day: "numeric", month: "long" })}` : TYPES[d.type] ?? "Déménagement"}</span>
+        </div>
+        <div className={s.case}>
+          <small>Catégorie</small>
+          <b>{nomDevis(v)}</b>
+          <span>{m3(d.volume)}{v.distance_km ? ` · ${v.distance_km} km` : ""}</span>
+        </div>
+        <div className={s.case}>
+          <small>Date</small>
+          <b>{d.date_chargement ? dateFr(d.date_chargement, { day: "numeric", month: "long", year: "numeric" }) : d.periode ?? "À convenir"}</b>
+          <span>{d.date_livraison && String(d.date_livraison) !== String(d.date_chargement) ? `Livraison le ${dateFr(d.date_livraison, { day: "numeric", month: "long" })}` : "Chargement"}</span>
+        </div>
+      </section>
+
+      <h2 className={s.titre}>Itinéraire et accès</h2>
+      <Itineraire d={d} />
+
+      <h2 className={s.titre}>Votre devis</h2>
+      <div className={s.chiffrage}>
+        <table className={s.lignesDevis}>
+          <thead>
+            <tr>
+              <th>Désignation</th>
+              {!forfait && <><th className={s.n}>Qté</th><th className={s.n}>PU {ht ? "HT" : "TTC"}</th></>}
+              {tauxUniques > 1 && <th className={s.n}>TVA</th>}
+              <th className={s.n}>Montant {ht ? "HT" : "TTC"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {forfait && (
+              <tr>
+                <td>
+                  <b>{base.length === 1 && base[0].libelle.trim() ? base[0].libelle : "Forfait déménagement"}</b>
+                  <small>Prix global{base.length > 1 ? ` : ${base.filter((l) => l.charge !== "client").map((l) => l.libelle).filter(Boolean).join(", ").toLowerCase()}` : ""}</small>
+                </td>
+                {tauxUniques > 1 && <td className={s.n}>{[...new Set(base.map((l) => pct(l.tva)))].join(", ")}</td>}
+                <td className={s.n}><b>{euros(montantForfait)}</b></td>
+              </tr>
+            )}
+            {lignes.map((l) => (
+              <tr key={l.id} data-client={l.charge === "client" ? "" : undefined}>
+                <td>
+                  {l.libelle || "—"}
+                  {l.detail && <small>{l.detail}</small>}
+                </td>
+                {!forfait && <><td className={s.n}>{String(l.qte).replace(".", ",")}</td><td className={s.n}>{l.charge === "client" ? "" : euros(l.pu)}</td></>}
+                {tauxUniques > 1 && <td className={s.n}>{l.charge === "client" ? "" : pct(l.tva)}</td>}
+                <td className={s.n}>{l.charge === "client" ? <em>à votre charge</em> : euros(c.montants[l.id] ?? 0)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <dl className={s.totaux}>
+          {c.remise > 0 && (
+            <>
+              <div><dt>Total brut {ht ? "HT" : "TTC"}</dt><dd>{euros(c.brut)}</dd></div>
+              <div><dt>Remise {pct(ch.remisePct)}</dt><dd>− {euros(c.remise)}</dd></div>
+            </>
+          )}
+          <div><dt>Net HT</dt><dd>{euros(c.parTaux.reduce((x, t) => x + t.ht, 0))}</dd></div>
+          {c.parTaux.map((t) => <div key={t.taux}><dt>TVA {pct(t.taux)}</dt><dd>{euros(t.tva)}</dd></div>)}
+          {c.primeContractuelle > 0 && <div><dt>Assurance contractuelle</dt><dd>{euros(c.primeContractuelle)}</dd></div>}
+          {c.primeDommage > 0 && <div><dt>Assurance dommage</dt><dd>{euros(c.primeDommage)}</dd></div>}
+          {c.assuranceTva > 0 && <div><dt>TVA assurance {pct(tvaAssurance)}</dt><dd>{euros(c.assuranceTva)}</dd></div>}
+          <div className={s.ttc}><dt>Total TTC</dt><dd>{euros(c.ttc)}</dd></div>
+          {arrhesPct > 0 && <div className={s.arrhes}><dt>Arrhes {pct(arrhesPct)}</dt><dd>{euros(Math.round(c.ttc * arrhesPct) / 100)}</dd></div>}
+        </dl>
+      </div>
+
+      {(c.primeContractuelle > 0 || c.primeDommage > 0) && (
+        <p className={s.assuranceTexte}>
+          {c.primeContractuelle > 0 && <>Assurance contractuelle : valeur déclarée {euros(a.contractuelle.valeur)}, taux {pct(a.contractuelle.taux)}. </>}
+          {c.primeDommage > 0 && <>Assurance dommage : valeur déclarée {euros(a.dommage.valeur)}, taux {pct(a.dommage.taux)}, {a.dommage.sansFranchise ? "sans franchise" : a.dommage.franchise != null ? `franchise ${euros(a.dommage.franchise)}` : "franchise selon conditions"}.</>}
+        </p>
+      )}
+
+      {prestations.length > 0 && (
+        <>
+          <h2 className={s.titre}>Qui fait quoi</h2>
+          <div className={s.quiFait}>
+            <div>
+              <small>Réalisé par Bailly</small>
+              <ul>{bailly.map((x) => <li key={x.id}><span className={s.coche}><Coche /></span>{x.libelle}</li>)}</ul>
+            </div>
+            {client.length > 0 && (
+              <div data-client="">
+                <small>À votre charge</small>
+                <ul>{client.map((x) => <li key={x.id}><span className={s.coche}>–</span>{x.libelle}</li>)}</ul>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      <section className={s.bas}>
+        <div className={s.conditions}>
+          <b>Conditions</b>
+          <ul>
+            {arrhesPct > 0 && <li>Arrhes à la commande : {pct(arrhesPct)} du montant TTC, soit {euros(Math.round(c.ttc * arrhesPct) / 100)}.</li>}
+            {v.reglement_solde && <li>Règlement du solde : {v.reglement_solde}.</li>}
+            {v.validite && <li>Offre valable jusqu’au {date(v.validite)}.</li>}
+            <li>{transport.charAt(0).toUpperCase() + transport.slice(1)}.</li>
+            {v.poids_lourds && <li>Poids lourds : {v.poids_lourds}.</li>}
+            {v.ref_interne && <li>Votre référence : {v.ref_interne}.</li>}
+            {v.conditions && <li className={s.particulieres}>{v.conditions}</li>}
+            {p.cgv.trim() && <li>Conditions générales de vente jointes (page 2).</li>}
+          </ul>
+        </div>
+        <Accord lien={lien} cgv={!!p.cgv.trim()} />
+      </section>
+      <Pied />
+    </article>
+  );
+}
+
+/* ---------- plusieurs devis : la proposition ---------- */
+
+function Proposition({ d, liste, p, lienSignature }: { d: any; liste: any[]; p: ParametresDocument; lienSignature?: (token: string) => string }) {
+  const vedette = liste.find((f) => f.formule === "standard")?.id;
+  const numeros = liste.map((f) => f.numero).filter(Boolean);
+  const aSigner = liste.find((f) => f.token && !f.signe_le);
+  const prestationsDe = (f: any) => lirePrestations(f.prestations).filter((x) => x.libelle.trim() && x.charge !== "so");
+  const prestations = [...new Set(liste.flatMap((f) => prestationsDe(f).map((x) => x.libelle)))];
+  const validite = liste.map((f) => f.validite).filter(Boolean).sort()[0];
+  const conditions = [...new Set(liste.map((f) => String(f.conditions ?? "").trim()).filter(Boolean))];
+  const soldes = [...new Set(liste.map((f) => String(f.reglement_solde ?? "").trim()).filter(Boolean))];
+  const arrhes = [...new Set(liste.map((f) => (f.arrhes_pct != null ? Number(f.arrhes_pct) : p.arrhesPct)))];
+  const ref = liste[0] ?? {};
   const transport = [
     ref.distance_km ? `Distance : ${ref.distance_km} km` : null,
     ref.deplacement === "urbain" ? "Déménagement urbain" : ref.deplacement === "route" ? "Déménagement par la route" : null,
     ref.groupage === true ? "En groupage avec d’autres clients" : ref.groupage === false ? "Camion dédié" : null,
   ].filter(Boolean) as string[];
+  const contact = [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
 
   return (
-    <article className={s.feuille}>
-      <header className={s.entete}>
-        <div>
-          {/* eslint-disable-next-line @next/next/no-img-element -- l'image doit s'imprimer telle quelle */}
-          <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" className={s.logo} />
-          <div className={s.agence}>
-            <b>Bailly Déménagement</b> · BD Moving Group
-            <br />
-            {TEL_AGENCE} · demenagements-bailly.com
-          </div>
-        </div>
-        <div className={s.reference}>
-          <span className={s.etiquette}>Proposition de déménagement</span>
-          <h1>{numeros.length === 1 ? `Devis ${numeros[0]}` : `Proposition ${d.ref}`}</h1>
-          <p>
-            {numeros.length > 1 ? `Devis ${numeros.join(", ")}` : `Dossier ${d.ref}`} · établi le{" "}
-            {dateFr(aujourdhui, { day: "numeric", month: "long", year: "numeric" })}
-          </p>
-          {d.commercial && <p>Votre conseiller : {d.commercial}</p>}
-        </div>
-      </header>
+    <article className={`${s.feuille} ${s.compact}`}>
+      <EnTete d={d} titre={`Proposition ${d.ref}`} sousTitre={<>{numeros.length ? `Devis ${numeros.join(", ")} · ` : ""}établie le {date(new Date())}</>} />
 
       <section className={s.resume}>
         <div className={`${s.case} ${s.client}`}>
@@ -90,54 +355,43 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
           <span>Volume estimé</span>
         </div>
         <div className={s.case}>
-          <small>Prestation</small>
-          <b>{TYPES[d.type] ?? "Déménagement"}</b>
-          <span>{d.stops.length} adresse{d.stops.length > 1 ? "s" : ""}</span>
+          <small>Conseiller</small>
+          <b>{d.commercial ?? "Bailly Déménagement"}</b>
+          <span>{TYPES[d.type] ?? "Déménagement"}</span>
         </div>
       </section>
 
-      <h2 className={s.titre}>Itinéraire</h2>
-      <ol className={s.trajet}>
-        {(d.stops as any[]).map((e, i) => (
-          <li key={e.id} className={s.etape}>
-            <span className={s.point}>{i + 1}</span>
-            <span className={s.genre}>{GENRE[e.genre] ?? "Étape"}</span>
-            <span className={s.adresse}>{e.adresse}</span>
-            <span className={s.acces}>
-              {[etage(e.etage), e.ascenseur ? "ascenseur" : "sans ascenseur", e.acces].filter(Boolean).join(" · ")}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <h2 className={s.titre}>Itinéraire et accès</h2>
+      <Itineraire d={d} />
 
-      <h2 className={s.titre}>{formules.length > 1 ? "Nos formules" : "Votre formule"}</h2>
-      {formules.length === 0 ? (
+      <h2 className={s.titre}>{liste.length > 1 ? "Nos formules" : "Votre formule"}</h2>
+      {liste.length === 0 ? (
         <p>Aucun devis n&apos;a encore été établi pour ce dossier.</p>
       ) : (
-        <div className={s.formules} style={{ gridTemplateColumns: `repeat(${formules.length}, minmax(0, 1fr))` }}>
-          {formules.map((f) => {
-            const lignes = (f.lignes ?? []) as any[];
+        <div className={s.formules} style={{ gridTemplateColumns: `repeat(${Math.min(liste.length, 4)}, minmax(0, 1fr))` }}>
+          {liste.map((f) => {
+            const { ch, c } = chiffrageDe(f, lireAssurance(f.assurance).tva ?? p.tvaAssurance);
+            const lignes = ch.mode === "forfait" ? ch.lignes.filter((l) => l.groupe === "divers") : ch.lignes;
             return (
-              <div key={f.id} className={`${s.formule} ${f.id === vedette && formules.length > 1 ? s.vedette : ""}`}>
-                {f.id === vedette && formules.length > 1 && <span className={s.badge}>Le plus choisi</span>}
-                <span className={s.nomFormule}>{nomFormule(f.formule)}</span>
+              <div key={f.id} className={`${s.formule} ${f.id === vedette && liste.length > 1 ? s.vedette : ""}`}>
+                {f.id === vedette && liste.length > 1 && <span className={s.badge}>Le plus choisi</span>}
+                <span className={s.nomFormule}>{nomDevis(f)}</span>
                 <span className={s.prix}>
-                  {eur(f.montant)} <small>TTC</small>
+                  {euros(c.ttc)} <small>TTC</small>
                 </span>
                 <span className={s.ht}>
-                  {eur(f.montant / 1.2)} HT · TVA 20 % {eur(f.montant - f.montant / 1.2)}
+                  {euros(c.ht)} HT · TVA {euros(c.tva)}{c.remise > 0 ? ` · remise ${pct(ch.remisePct)}` : ""}
                 </span>
                 <ul className={s.lignes}>
-                  {lignes.map((l, i) => (
-                    <li key={i} className={l.charge === "client" ? s.charge : undefined}>
+                  {ch.mode === "forfait" && <li><span className={s.coche}><Coche /></span><span>Forfait déménagement</span></li>}
+                  {lignes.map((l) => (
+                    <li key={l.id} className={l.charge === "client" ? s.charge : undefined}>
                       <span className={s.coche}>{l.charge === "client" ? "–" : <Coche />}</span>
-                      <span>
-                        {l.libelle}
-                        {l.charge === "client" ? " — à votre charge" : ""}
-                      </span>
+                      <span>{l.libelle}</span>
                     </li>
                   ))}
                 </ul>
+                <span className={s.numeroFormule}>Devis {f.numero}</span>
               </div>
             );
           })}
@@ -147,27 +401,30 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
       {prestations.length > 0 && (
         <>
           <h2 className={s.titre}>Qui fait quoi</h2>
-          <table className={s.prestations}>
-            <thead>
-              <tr>
-                <th>Prestation</th>
-                {formules.map((f) => (
-                  <th key={f.id}>{nomFormule(f.formule)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {prestations.map((libelle) => (
-                <tr key={libelle}>
-                  <td>{libelle}</td>
-                  {formules.map((f) => {
-                    const p = ((f.prestations ?? []) as any[]).find((x) => x.libelle === libelle);
-                    return <td key={f.id}>{!p ? "—" : p.charge === "client" ? "Vous" : <b>Bailly</b>}</td>;
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className={s.quiFaitFormules}>
+            {[prestations.slice(0, Math.ceil(prestations.length / 2)), prestations.slice(Math.ceil(prestations.length / 2))].map((moitie, i) => (
+              <table key={i} className={s.prestations}>
+                <thead>
+                  <tr>
+                    <th>Prestation</th>
+                    {liste.map((f) => <th key={f.id} title={nomDevis(f)}>{f.formule === "economique" && !f.titre && !f.categorie_specifique ? "Éco." : nomDevis(f)}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {moitie.map((libelle) => (
+                    <tr key={libelle}>
+                      <td>{libelle}</td>
+                      {liste.map((f) => {
+                        const x = prestationsDe(f).find((y) => y.libelle === libelle);
+                        return <td key={f.id}>{!x ? "—" : x.charge === "client" ? <span className={s.vous}>vous</span> : <span className={s.coche}><Coche /></span>}</td>;
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
+          </div>
+          <p className={s.legende}><span className={s.coche}><Coche /></span> réalisé par Bailly · <span className={s.vous}>vous</span> à votre charge</p>
         </>
       )}
 
@@ -175,28 +432,17 @@ export default function DevisBailly({ d, lienSignature }: { d: any; lienSignatur
         <div className={s.conditions}>
           <b>Conditions</b>
           <ul>
-            <li>Arrhes à la réservation : 30 % du montant de la formule retenue.</li>
-            {validite && <li>Offre valable jusqu’au {dateFr(validite, { day: "numeric", month: "long", year: "numeric" })}.</li>}
+            {arrhes.length === 1 ? (arrhes[0] > 0 && <li>Arrhes à la réservation : {pct(arrhes[0])} du montant de la formule retenue.</li>) : <li>Arrhes à la réservation : selon la formule retenue ({arrhes.map(pct).join(", ")}).</li>}
+            {soldes.map((x) => <li key={x}>Règlement du solde : {x}.</li>)}
+            {validite && <li>Offre valable jusqu’au {date(validite)}.</li>}
             {transport.length > 0 && <li>{transport.join(" · ")}.</li>}
-            {conditions.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
+            {conditions.map((x) => <li key={x} className={s.particulieres}>{x}</li>)}
+            {p.cgv.trim() && <li>Conditions générales de vente jointes.</li>}
           </ul>
         </div>
-        <div className={s.accord}>
-          <b>Bon pour accord</b>
-          <p>Formule retenue, date et signature précédée de la mention « bon pour accord ».</p>
-          <div className={s.signature} />
-          {aSigner && lienSignature && <div className={s.enLigne}>Ou signez en ligne : {lienSignature(aSigner.token)}</div>}
-        </div>
+        <Accord lien={aSigner && lienSignature ? lienSignature(aSigner.token) : null} cgv={!!p.cgv.trim()} />
       </section>
-
-      <footer className={s.pied}>
-        <span>
-          <b>Bailly Déménagement</b> · BD Moving Group · {TEL_AGENCE} · demenagements-bailly.com
-        </span>
-        <span>Membre IAM et de la Chambre Syndicale du Déménagement · ISO 9001, 14001, 45001</span>
-      </footer>
+      <Pied />
     </article>
   );
 }

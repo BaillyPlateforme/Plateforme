@@ -5,6 +5,9 @@ import { signerParToken } from "@/crm/actions2";
 import { eur, m3, nomClient } from "@/crm/lib/format";
 import DevisBailly from "@/crm/documents/DevisBailly";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
+import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
+import { effectifs } from "@/crm/devis/parametres";
+import { nomDevis } from "@/crm/devis/modele";
 import s from "./signature.module.css";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +37,12 @@ export default async function Signature({ params }: { params: Promise<{ token: s
   // Une autre formule du dossier a été signée, ici ou dans l'espace client : celle-ci n'est plus ouverte.
   const ferme = v.statut === "refuse";
   // Le document ne montre que la formule envoyée pour signature.
-  const document = { ...dossier, devis: dossier.devis.filter((x: { id?: unknown }) => x.id === v.id) };
+  const [devisComplets, parametres] = await Promise.all([devisPourDocument(v.dossier_id), lireParametres()]);
+  const eff = effectifs(parametres);
+  const complet = devisComplets.find((x) => x.id === v.id);
+  const document = { ...dossier, devis: devisComplets.filter((x) => x.id === v.id) };
+  // Les arrhes du devis (onglet Données contractuelles), sinon celles du CRM.
+  const arrhesPct = complet?.arrhes_pct != null ? Number(complet.arrhes_pct) : eff.arrhesPct;
 
   return (
     <div className={s.page}>
@@ -64,7 +72,7 @@ export default async function Signature({ params }: { params: Promise<{ token: s
 
       <div className={s.grille}>
         <div className={s.document}>
-          <DevisBailly d={document} />
+          <DevisBailly d={document} parametres={{ cgv: parametres.cgv, tvaAssurance: eff.tvaAssurance, arrhesPct }} />
         </div>
 
         <aside className={s.carte}>
@@ -82,13 +90,13 @@ export default async function Signature({ params }: { params: Promise<{ token: s
             </div>
             <div className={s.ligne}>
               <span>Formule</span>
-              <b>{({ economique: "Économique", standard: "Standard", premium: "Premium" } as Record<string, string>)[v.formule] ?? v.formule}</b>
+              <b>{complet ? nomDevis(complet) : v.formule}</b>
             </div>
           </div>
           <div className={s.montant}>
             <small>Montant TTC</small>
             <b>{eur(v.montant)}</b>
-            <span>Arrhes à la signature (30 %) : {eur(Math.round(v.montant * 0.3))}</span>
+            {arrhesPct > 0 && <span>Arrhes à la signature ({String(arrhesPct).replace(".", ",")} %) : {eur(Math.round(v.montant * arrhesPct) / 100)}</span>}
           </div>
 
           {signe ? (

@@ -380,3 +380,431 @@
 .prestations td b {
   color: #111;
 }
+
+/* ═══════════ Le devis sur une page A4 (variante « compact », DevisBailly seul) ═══════════
+ * Les classes communes (en-tête, cases, pied) restent celles de la fiche de
+ * visite (FeuilleBailly) : la variante ne les resserre que dans le devis. */
+.compact.feuille {
+  padding: 11mm 12mm 8mm;
+  font-size: 8.8pt;
+  line-height: 1.4;
+}
+.compact .entete {
+  padding-bottom: 4.5mm;
+}
+.compact .logo {
+  width: 44mm;
+}
+.compact .agence {
+  margin-top: 2.5mm;
+  font-size: 7.8pt;
+}
+.compact .reference h1 {
+  margin: 2mm 0 0.5mm;
+  font-size: 17pt;
+}
+.compact .reference p {
+  font-size: 8pt;
+}
+.compact .resume {
+  margin-top: 4.5mm;
+  gap: 2.5mm;
+}
+.compact .case {
+  padding: 2.4mm 3.2mm;
+  border-radius: 2.8mm;
+}
+.compact .case small {
+  font-size: 6.6pt;
+}
+.compact .case b {
+  margin-top: 0.4mm;
+  font-size: 9.6pt;
+}
+.compact .case span {
+  font-size: 7.6pt;
+}
+.compact .titre {
+  margin: 4.6mm 0 2mm;
+  font-size: 10.4pt;
+}
+.compact .titre::before {
+  width: 1.8mm;
+  height: 4mm;
+}
+.compact .bas {
+  margin-top: 4.5mm;
+  gap: 4mm;
+}
+.compact .conditions,
+.compact .accord {
+  padding: 3.2mm 4mm;
+  border-radius: 3mm;
+  font-size: 8pt;
+}
+.compact .conditions b,
+.compact .accord b {
+  font-size: 8.8pt;
+}
+.compact .conditions li + li {
+  margin-top: 0.6mm;
+}
+.compact .accord p {
+  font-size: 7.6pt;
+}
+.compact .signature {
+  min-height: 13mm;
+  margin-top: 2mm;
+}
+.compact .enLigne {
+  margin-top: 2mm;
+  padding: 1.6mm 2.4mm;
+  font-size: 7.4pt;
+}
+.compact .pied {
+  padding-top: 3.5mm;
+  font-size: 6.8pt;
+}
+.compact .formule {
+  padding: 3.6mm 3.6mm 3.2mm;
+  border-radius: 3mm;
+}
+.compact .nomFormule {
+  font-size: 11pt;
+}
+.compact .prix {
+  margin-top: 1.2mm;
+  font-size: 16pt;
+}
+.compact .lignes {
+  gap: 1mm;
+  margin-top: 2.6mm;
+  padding-top: 2.4mm;
+  font-size: 7.8pt;
+}
+.compact .prestations {
+  margin-bottom: 0;
+  font-size: 7.8pt;
+}
+.compact .prestations th {
+  padding: 1.2mm 2mm;
+  font-size: 6.8pt;
+}
+.compact .prestations td {
+  padding: 0.9mm 2mm;
+}
+/* Proposition à plusieurs formules : cartes resserrées. */
+.compact .formules {
+  gap: 3mm;
+}
+.compact .formule {
+  padding: 3mm 3.2mm 2.6mm;
+}
+.compact .formule .prix {
+  font-size: 14.5pt;
+}
+.compact .formule .ht {
+  margin-top: 0.8mm;
+  font-size: 7pt;
+}
+.compact .formule .lignes {
+  gap: 0.5mm;
+  margin-top: 2mm;
+  padding-top: 1.8mm;
+  font-size: 7.4pt;
+}
+.compact .formule .coche {
+  width: 3.6mm;
+  height: 3.6mm;
+  margin-top: 0.2mm;
+}
+.compact .formule .lignes li {
+  grid-template-columns: 3.6mm 1fr;
+  gap: 1.6mm;
+}
+.compact .adresses li {
+  padding: 1.6mm 2.2mm;
+}
+.compact .enLigne {
+  font-size: 6.8pt;
+  font-weight: 600;
+}
+/* Qui fait quoi, proposition à plusieurs formules : deux demi-tableaux côte à côte. */
+.quiFaitFormules {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm;
+  align-items: start;
+}
+.compact .quiFaitFormules .prestations {
+  font-size: 7.2pt;
+  line-height: 1.25;
+}
+.compact .quiFaitFormules .prestations th {
+  padding: 0.8mm 1mm;
+  font-size: 6pt;
+  letter-spacing: 0.04em;
+}
+.compact .quiFaitFormules .prestations td {
+  padding: 0.7mm 1mm;
+}
+.compact .quiFaitFormules .prestations th + th,
+.compact .quiFaitFormules .prestations td + td {
+  width: 11.5mm;
+  white-space: nowrap;
+}
+.compact .quiFaitFormules .prestations th + th {
+  font-size: 5.6pt;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 11.5mm;
+}
+.quiFaitFormules .coche,
+.legende .coche {
+  display: inline-grid;
+  width: 3.2mm;
+  height: 3.2mm;
+  margin: 0;
+  vertical-align: -0.6mm;
+}
+.quiFaitFormules .coche svg,
+.legende .coche svg {
+  width: 2.1mm;
+  height: 2.1mm;
+}
+.vous {
+  color: var(--gris);
+  font-size: 6.8pt;
+}
+.legende {
+  margin: 1.4mm 0 0;
+  color: var(--gris);
+  font-size: 6.8pt;
+}
+.compact .formules .lignes li {
+  line-height: 1.25;
+}
+.numeroFormule {
+  margin-top: auto;
+  padding-top: 2mm;
+  color: var(--gris);
+  font-size: 7pt;
+}
+
+/* Itinéraire et accès : deux colonnes d'adresses */
+.adresses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2mm 4mm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.adresses li {
+  display: grid;
+  grid-template-columns: 6mm 1fr;
+  gap: 2mm;
+  padding: 2mm 2.6mm;
+  border: 1px solid var(--filet);
+  border-radius: 2.6mm;
+}
+.adresses .point {
+  width: 5.6mm;
+  height: 5.6mm;
+  font-size: 7pt;
+}
+.adresses div {
+  display: grid;
+  min-width: 0;
+}
+.adresses small {
+  color: var(--gris);
+  font-size: 6.6pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.adresses b {
+  font-size: 8.6pt;
+  font-weight: 700;
+}
+.adresses span {
+  color: var(--gris);
+  font-size: 7.4pt;
+}
+
+/* Le chiffrage : les lignes, puis les totaux à droite */
+.chiffrage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62mm;
+  gap: 4mm;
+  align-items: start;
+}
+.lignesDevis {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.4pt;
+}
+.lignesDevis th {
+  padding: 1.4mm 2mm;
+  border-bottom: 1.6px solid var(--noir);
+  color: var(--gris);
+  font-size: 6.8pt;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.lignesDevis td {
+  padding: 1.5mm 2mm;
+  border-bottom: 1px solid var(--filet);
+  vertical-align: top;
+}
+.lignesDevis td small {
+  display: block;
+  color: var(--gris);
+  font-size: 7.2pt;
+}
+.lignesDevis tr[data-client] td {
+  color: var(--gris);
+}
+.lignesDevis em {
+  font-size: 7.4pt;
+  font-style: normal;
+}
+.n {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.totaux {
+  display: grid;
+  gap: 1.1mm;
+  margin: 0;
+  padding: 3mm 3.4mm;
+  border-radius: 3mm;
+  background: var(--fond);
+  font-size: 8.2pt;
+  font-variant-numeric: tabular-nums;
+}
+.totaux div {
+  display: flex;
+  justify-content: space-between;
+  gap: 3mm;
+}
+.totaux dt {
+  color: var(--gris);
+}
+.totaux dd {
+  margin: 0;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.totaux .ttc {
+  margin-top: 1.2mm;
+  padding: 2.2mm 2.6mm;
+  border-radius: 2.4mm;
+  background: var(--noir);
+  color: var(--jaune);
+  font-size: 11.5pt;
+}
+.totaux .ttc dt {
+  color: #fff;
+  font-weight: 750;
+}
+.totaux .ttc dd {
+  font-weight: 800;
+}
+.totaux .arrhes dt,
+.totaux .arrhes dd {
+  color: var(--noir);
+  font-weight: 700;
+}
+.assuranceTexte {
+  margin: 2mm 0 0;
+  color: var(--gris);
+  font-size: 7.6pt;
+}
+
+/* Qui fait quoi : deux listes */
+.quiFait {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 4mm;
+}
+.quiFait small {
+  display: block;
+  margin-bottom: 1.2mm;
+  color: var(--gris);
+  font-size: 6.6pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.quiFait ul {
+  display: grid;
+  gap: 0.7mm 4mm;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 7.6pt;
+  line-height: 1.3;
+}
+.quiFait > div:first-child ul {
+  grid-template-columns: 1fr 1fr;
+}
+.quiFait li {
+  display: grid;
+  grid-template-columns: 3.4mm 1fr;
+  gap: 1.4mm;
+  align-items: start;
+}
+.quiFait .coche {
+  width: 3.4mm;
+  height: 3.4mm;
+  margin-top: 0.2mm;
+}
+.quiFait .coche svg {
+  width: 2.2mm;
+  height: 2.2mm;
+}
+.quiFait [data-client] li {
+  color: var(--gris);
+}
+.quiFait [data-client] .coche {
+  background: var(--fond);
+  color: var(--gris);
+  font-size: 7pt;
+}
+.particulieres {
+  white-space: pre-line;
+}
+
+/* Les CGV, en page 2 quand Bailly les a fournies */
+.cgv {
+  break-before: page;
+}
+.cgvTexte {
+  column-count: 2;
+  column-gap: 7mm;
+  font-size: 7.4pt;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+.cgvVide {
+  display: grid;
+  gap: 4px;
+  width: 210mm;
+  margin: 0 auto 40px;
+  padding: 16px 20px;
+  border: 2px dashed #c9c6bd;
+  border-radius: 14px;
+  color: #615f68;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", Arial, sans-serif;
+  font-size: 13px;
+}
+@media print {
+  .cgvVide {
+    display: none;
+  }
+}
