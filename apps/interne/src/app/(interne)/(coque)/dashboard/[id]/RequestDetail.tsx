@@ -225,7 +225,7 @@ function InfosTab({ detail, araignee }: { detail: Detail; araignee: Araignee | n
           {/* L'araignée de la demande : la même que dans Demandes › Top demandes, six axes de 0 (centre) à 100 (bord). */}
           {araignee && (
             <div className={s.araignee}>
-              <Radar araignee={araignee} taille={260} libelles />
+              <Radar araignee={araignee} taille={290} libelles />
               <p className={s.prestige}>{basePrestige(araignee.prestige)}</p>
               <details className={s.regles}>
                 <summary>Comment se lit l&apos;araignée</summary>
