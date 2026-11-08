@@ -355,6 +355,16 @@ export async function listeReglements(f: FiltresReglements = {}): Promise<LigneL
   return rows.map((r) => ({ ...versReglement(r), ref: r.ref, client: r.client }));
 }
 
+/** Les compteurs du menu de la page Factures (sur un dossier, ou partout). */
+export async function compteursFacturation(dossier?: number | null) {
+  const w = dossier ? "where dossier_id = $1" : "";
+  const p = dossier ? [dossier] : [];
+  const [f] = await q(`select count(*) filter (where genre in ('facture','solde','acompte'))::int as factures, count(*) filter (where genre='acompte')::int as acomptes,
+      count(*) filter (where genre='avoir')::int as avoirs, count(*) filter (where genre <> 'avoir' and statut not in ('payee','annulee'))::int as ouvertes from factures ${w}`, p);
+  const [r] = await q(`select count(*)::int as reglements, count(*) filter (where nature='arrhes')::int as arrhes from paiements ${w}`, p);
+  return { factures: f.factures, acomptes: f.acomptes, avoirs: f.avoirs, ouvertes: f.ouvertes, reglements: r.reglements, arrhes: r.arrhes };
+}
+
 /** Les dossiers signés dont aucune arrhe n'est encore arrivée : ce que l'équipe attend. */
 export async function arrhesAttendues(dossier?: number | null) {
   return q(`select d.id, d.ref, d.statut, v.numero, v.montant::float8 as montant, v.signe_le, c.nom, c.prenom, c.societe

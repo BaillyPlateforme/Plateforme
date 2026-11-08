@@ -4,6 +4,7 @@ import { Ic } from "@/crm/lib/icons";
 import { Line, Gauge } from "@/crm/components/charts";
 import { eur, m3, nomClient, STATUTS, TYPES_PLURIEL, photoPour } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
+import { aEncaisser } from "@/crm/facturation/donnees";
 
 export const dynamic = "force-dynamic";
 const MOIS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
@@ -14,7 +15,7 @@ const MOIS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep"
  * journée vit sur /tableau-de-bord ; le Copilote sur /copilote.
  */
 export default async function Pilotage() {
-  const s = await stats();
+  const [s, enc] = await Promise.all([stats(), aEncaisser(5)]);
   const mois = new Date().getMonth() + 1;
   const pts = Array.from({ length: mois }, (_, i) => s.serie.find((x) => x.m === i + 1)?.ca ?? 0);
   const moy = pts.reduce((a, b) => a + b, 0) / Math.max(1, pts.length);
@@ -82,6 +83,14 @@ export default async function Pilotage() {
           <div className="card-h"><h3>À faire aujourd’hui</h3><small>{s.relances.length}</small></div>
           {s.relances.length === 0 ? <div className="empty">Rien à relancer.</div> : (
             <ul className="todo">{s.relances.map((r) => <li key={r.id}><i /><Link href={`/dossiers/${r.id}`}>Relancer {nomClient(r)} (devis envoyé il y a {r.jours} j)</Link></li>)}</ul>
+          )}
+        </section>
+        {/* Le reste à payer réel des dossiers en cours (src/crm/facturation, vue crm.dossiers_soldes). */}
+        <section className="card c4">
+          <div className="card-h"><h3>Reste à encaisser</h3><Link className="btn ghost sm" href="/factures?etat=ouvertes">Factures</Link></div>
+          <p className="big">{eur(enc.total)}<small> sur {enc.nombre} dossier{enc.nombre > 1 ? "s" : ""}</small></p>
+          {enc.premiers.length === 0 ? <div className="empty">Tout est encaissé.</div> : (
+            <ul className="todo">{enc.premiers.map((r) => <li key={r.dossier_id}><i /><Link href={`/dossiers/${r.dossier_id}#facturation`}>{nomClient(r)} · {r.ref} · <b>{eur(r.reste)}</b></Link></li>)}</ul>
           )}
         </section>
       </div>

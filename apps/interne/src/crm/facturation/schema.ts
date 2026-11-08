@@ -159,6 +159,9 @@ update crm.paiements p set facture_id = f.id
    and (select count(*) from crm.factures x where x.dossier_id = f.dossier_id and x.genre <> 'avoir'
           and x.garde_meuble_id is null and x.objet !~* 'garde.?meuble') = 1
    and p.recu_le <= coalesce(f.payee_le, current_date);
+-- Les règlements d'avant : leur nature (des arrhes, d'après le libellé) et le mode des paiements en ligne.
+update crm.paiements set nature = case when libelle ~* '^ *arrhes' then 'arrhes' when montant < 0 then 'remboursement' else 'reglement' end where nature is null;
+update crm.paiements set mode = 'carte_en_ligne' where session_paiement_id is not null and mode is null;
 drop view if exists crm.dossiers_soldes;
 drop view if exists crm.factures_soldes;
 create view crm.factures_soldes as

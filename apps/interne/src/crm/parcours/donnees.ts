@@ -5,6 +5,7 @@ import { getRequestDetail, type RequestDetail } from "@/lib/requests";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { NomIcone } from "@/ui/icones";
 import { etapesDu, type Etape, type Faits } from "./etapes";
+import { soldeDossier } from "@/crm/facturation/donnees";
 
 /*
  * Le parcours d'un dossier : tout ce que les trois faces de Bailly savent de
@@ -74,7 +75,8 @@ const RESUME = `select d.id, d.ref, d.statut, d.request_id, d.cree_le, d.maj_le,
     (select json_build_object('n',count(*),'premier',min(recu_le),'total',coalesce(sum(montant),0)::float8) from paiements where dossier_id=d.id) as paiements,
     (select json_build_object('n',count(*),'livrees',count(*) filter (where statut='livree')) from lettres_voiture where dossier_id=d.id) as lettres,
     (select json_build_object('n',count(*),'payees',count(*) filter (where statut='payee'),'premiere',min(emise_le),'derniere',max(payee_le),
-       'total',coalesce(sum(montant),0)::float8,'impaye',coalesce(sum(montant) filter (where statut<>'payee'),0)::float8) from factures where dossier_id=d.id) as factures,
+       'total',coalesce(sum(montant),0)::float8,'impaye',coalesce(sum(reste),0)::float8) from factures
+       join factures_soldes using (id, dossier_id, genre, statut) where dossier_id=d.id and genre<>'avoir' and statut<>'annulee') as factures,
     (select json_build_object('ouverts',count(*) filter (where statut<>'clos'),'clos',count(*) filter (where statut='clos'),'le',max(ouvert_le))
        from litiges where dossier_id=d.id) as litiges
   from dossiers d join clients c on c.id=d.client_id left join utilisateurs cm on cm.id=d.commercial_id`;
@@ -534,18 +536,16 @@ export async function parcoursDossier(id: number) {
   const etapes = etapesDu(faits);
 
   /* ── L'argent ── */
+  // Les chiffres de la facturation (vue crm.dossiers_soldes) : les mêmes que la fiche et la page Factures.
   const signe = devis.find((v) => v.statut === "signe") ?? null;
-  const recu = paiements.reduce((s, p) => s + p.montant, 0);
-  const facture = factures.reduce((s, f) => s + f.montant, 0);
-  const facturesReglees = factures.filter((f) => f.statut === "payee").reduce((s, f) => s + f.montant, 0);
-  const encaisse = recu + facturesReglees;
+  const so = await soldeDossier(id);
   const argent = {
     signe: signe?.montant ?? null,
     arrhesAttendues: signe ? Math.round(signe.montant * 0.3) : null,
-    recu,
-    facture,
-    encaisse,
-    reste: signe ? Math.max(0, signe.montant - encaisse) : factures.filter((f) => f.statut !== "payee").reduce((s, f) => s + f.montant, 0),
+    recu: so.regle,
+    facture: so.facture,
+    encaisse: so.encaisse,
+    reste: Math.max(0, so.reste),
   };
 
   /* ── Les documents ── */

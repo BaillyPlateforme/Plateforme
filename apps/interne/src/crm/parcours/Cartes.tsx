@@ -258,7 +258,7 @@ export function CarteArgent({ p }: { p: P }) {
         <dt className={s.fort}>Reste dû</dt>
         <dd className={`${s.fort} ${a.reste > 0 ? s.rose : ""}`}>{eur(a.reste)}</dd>
       </dl>
-      <p className={s.note}>Payé : paiements reçus et factures réglées. Reste dû : montant signé moins le payé.</p>
+      <p className={s.note}>Payé : tous les règlements reçus. Reste dû : le plus grand du devis signé et du facturé (le facturé seul après la facture de solde), moins le payé.</p>
     </section>
   );
 }

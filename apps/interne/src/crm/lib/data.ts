@@ -89,7 +89,8 @@ export async function stats() {
      count(*) filter (where statut in ('signe','refuse'))::int as decides from devis where cree_le > now() - interval '60 days'`);
   const lun = semaineCourante(now), fin = new Date(lun); fin.setDate(fin.getDate() + 7);
   const [vis] = await q<Row>(`select count(*) filter (where type in ('phys','visio'))::int as n, count(*) filter (where type in ('phys','visio') and not devis_etabli)::int as sans_devis from rendez_vous where debut >= $1 and debut < $2`, [lun.toISOString(), fin.toISOString()]);
-  const [arr] = await q<Row>(`select coalesce(sum(montant),0)::float8 as n from paiements where recu_le >= $1::date`, [d1]);
+  // Les arrhes seules : la table des paiements porte désormais tous les règlements (src/crm/facturation).
+  const [arr] = await q<Row>(`select coalesce(sum(montant),0)::float8 as n from paiements where recu_le >= $1::date and nature = 'arrhes'`, [d1]);
   const semaines = await q<{ s: string; n: number }>(`select to_char(date_trunc('week', date_chargement),'IW') as s, count(*)::int as n from dossiers
      where date_chargement is not null and date_chargement >= current_date - interval '8 weeks' and date_chargement < current_date + interval '1 week' and statut<>'perdu' group by 1 order by min(date_chargement)`);
   const [tun] = await q<Row>(`select

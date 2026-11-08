@@ -44,8 +44,8 @@ const SQL = `select d.id, d.ref, d.statut, d.volume::float8 as volume, d.periode
        order by case statut when 'signe' then 0 else 1 end, cree_le desc limit 1) as montant,
     coalesce((select json_agg(json_build_object('id',v.id,'numero',v.numero,'formule',v.formule,'montant',v.montant::float8,
        'statut',v.statut,'envoyeLe',v.envoye_le) order by v.montant) from devis v where v.dossier_id=d.id), '[]') as devis,
-    coalesce((select json_agg(json_build_object('id',f.id,'numero',f.numero,'objet',f.objet,'montant',f.montant::float8,
-       'emiseLe',f.emise_le) order by f.id) from factures f where f.dossier_id=d.id and f.statut<>'payee'), '[]') as factures
+    coalesce((select json_agg(json_build_object('id',f.id,'numero',f.numero,'objet',f.objet,'montant',s.reste::float8,
+       'emiseLe',f.emise_le) order by f.id) from factures f join factures_soldes s on s.id=f.id where f.dossier_id=d.id and s.reste > 0), '[]') as factures
   from dossiers d join clients c on c.id=d.client_id left join utilisateurs cm on cm.id=d.commercial_id`;
 
 function versCarte(r: Row, espaces: Set<number>): Carte {
