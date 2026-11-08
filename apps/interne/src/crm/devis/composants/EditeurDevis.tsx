@@ -12,6 +12,7 @@ import { OngletAchats, OngletInternational } from "./OngletAchats";
 import { OngletAdresses, OngletContrat, OngletDivers, OngletMoyens } from "./OngletsFiche";
 import OngletCommande from "./OngletCommande";
 import { euros } from "./champs";
+import { CLES_ONGLETS, type Onglet } from "../onglets";
 import s from "../editeur.module.css";
 
 /*
@@ -22,7 +23,6 @@ import s from "../editeur.module.css";
  * modifications non enregistrées demande confirmation.
  */
 
-export type Onglet = "adresses" | "contrat" | "divers" | "chiffrage" | "prestations" | "achats" | "moyens" | "international" | "commande";
 const ONGLETS: { cle: Onglet; label: string; icone: NomIcone }[] = [
   { cle: "adresses", label: "Adresses et accès", icone: "parcours" },
   { cle: "contrat", label: "Données contractuelles", icone: "devis" },
@@ -32,7 +32,6 @@ const ONGLETS: { cle: Onglet; label: string; icone: NomIcone }[] = [
   { cle: "achats", label: "Achats", icone: "facture" },
   { cle: "moyens", label: "Moyens", icone: "camion" },
 ];
-export const CLES_ONGLETS: Onglet[] = [...ONGLETS.map((o) => o.cle), "international", "commande"];
 
 type Props = {
   devis: { id: number; numero: string; statut: string; token: string | null; envoye_le: string | null; signe_le: string | null; retire_le: string | null; maj_le: string | null; validation: Record<string, unknown> | null };

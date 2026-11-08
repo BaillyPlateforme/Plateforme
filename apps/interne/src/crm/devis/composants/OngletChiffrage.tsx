@@ -89,8 +89,8 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
   const majAssurance = (p: Partial<typeof a>) => maj({ assurance: { ...a, ...p } });
 
   return (
-    <div className={s.chiffrage}>
-      <div className={s.colonnePrincipale}>
+    <>
+      <div className={s.zoneLignes}>
         <Section
           surtitre="Prestations et matériels"
           titre="Chiffrage"
@@ -155,7 +155,8 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
             </dl>
           </div>
         </Section>
-
+      </div>
+      <div className={s.zoneAssurance}>
         <Section
           surtitre="Assurance"
           titre="Assurance contractuelle et dommage"
@@ -190,7 +191,7 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
           </div>
         </Section>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -327,7 +328,7 @@ export function Recapitulatif({
 }) {
   const ht = saisie === "ht";
   return (
-    <aside className={s.recap} aria-label="Récapitulatif du devis">
+    <aside className={s.zoneRecap} aria-label="Récapitulatif du devis"><div className={s.recap}>
       <p className={s.recapTitre}>Récapitulatif</p>
       <dl>
         <div><dt>Brut {ht ? "HT" : "TTC"}</dt><dd>{euros(calcul.brut)}</dd></div>
@@ -359,6 +360,6 @@ export function Recapitulatif({
           {marge.libelle} <b>{euros(marge.montant)}{marge.pct != null ? ` · ${pct(marge.pct)}` : ""}</b>
         </p>
       )}
-    </aside>
+    </div></aside>
   );
 }

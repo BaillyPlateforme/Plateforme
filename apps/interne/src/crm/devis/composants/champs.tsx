@@ -7,9 +7,7 @@ import s from "../editeur.module.css";
  * segmentés, interrupteurs, sections. Tous contrôlés par l'état de l'éditeur.
  */
 
-export const euros = (n: number | null | undefined) =>
-  n == null ? "—" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-export const pct = (n: number | null | undefined) => (n == null ? "—" : `${String(Math.round(n * 100) / 100).replace(".", ",")} %`);
+export { euros, pct } from "../format";
 
 const versTexte = (v: number | null) => (v == null ? "" : String(v).replace(".", ","));
 /** « 1 650,5 » → 1650.5 ; vide → null ; illisible → undefined (on garde la saisie sans la prendre). */

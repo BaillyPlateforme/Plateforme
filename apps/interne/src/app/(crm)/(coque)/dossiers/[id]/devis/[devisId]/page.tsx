@@ -8,7 +8,8 @@ import Bandeau from "@/ui/Bandeau";
 import { chargerDevis } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 import { nomDevis } from "@/crm/devis/modele";
-import EditeurDevis, { CLES_ONGLETS, type Onglet } from "@/crm/devis/composants/EditeurDevis";
+import EditeurDevis from "@/crm/devis/composants/EditeurDevis";
+import { CLES_ONGLETS, type Onglet } from "@/crm/devis/onglets";
 
 export const dynamic = "force-dynamic";
 

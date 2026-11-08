@@ -358,16 +358,14 @@
 /* ─────────────── Chiffrage ─────────────── */
 .avecRecap {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 312px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-areas: "lignes recap" "assurance recap";
   gap: 18px;
   align-items: start;
 }
-.chiffrage,
-.colonnePrincipale {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
+.zoneLignes { grid-area: lignes; min-width: 0; }
+.zoneAssurance { grid-area: assurance; min-width: 0; }
+.zoneRecap { grid-area: recap; position: sticky; top: 190px; min-width: 0; }
 .reglagesChiffrage {
   display: flex;
   flex-wrap: wrap;
@@ -421,10 +419,10 @@
 .ligneTete,
 .ligne {
   display: grid;
-  grid-template-columns: 30px minmax(180px, 1fr) 70px 122px 82px 116px 74px 66px;
+  grid-template-columns: 28px minmax(200px, 1fr) 60px 112px 76px 110px 68px 64px;
   gap: 6px;
   align-items: center;
-  min-width: 780px;
+  min-width: 740px;
   padding: 0 10px;
 }
 .ligneTete {
@@ -455,20 +453,20 @@
   background: #f7f4ff;
   box-shadow: 0 0 0 2px #cbbcff, 0 18px 34px -18px rgba(75, 47, 224, 0.65);
 }
-.ligne input,
-.ligne select,
-.ligne .nombre input {
+.ecran .ligne input,
+.ecran .ligne select,
+.ecran .ligne .nombre input {
   height: 38px;
   border-color: transparent;
   background: transparent;
 }
-.ligne input:hover,
-.ligne select:hover {
+.ecran .ligne input:hover,
+.ecran .ligne select:hover {
   border-color: #ebe8f3;
   background: #fff;
 }
-.ligne[data-client] .designation input,
-.ligne[data-client] .nombre input {
+.ecran .ligne[data-client] .designation input,
+.ecran .ligne[data-client] .nombre input {
   color: var(--gris-clair);
 }
 .poignee {
@@ -496,7 +494,7 @@
   gap: 2px;
   min-width: 0;
 }
-.designation .precision {
+.ecran .designation .precision {
   height: 30px;
   color: var(--gris);
   font-size: 12.5px;
@@ -667,8 +665,7 @@
 
 /* Récapitulatif */
 .recap {
-  position: sticky;
-  top: 190px;
+  position: relative;
   overflow: hidden;
   padding: 22px 22px 20px;
   border-radius: 24px;
@@ -972,16 +969,16 @@
 .prestations li + li {
   border-top: 1px solid var(--filet-doux);
 }
-.prestations li input {
+.ecran .prestations li input {
   height: 36px;
   border-color: transparent;
   background: transparent;
 }
-.prestations li input:hover {
+.ecran .prestations li input:hover {
   border-color: #ebe8f3;
   background: #fff;
 }
-.prestations li[data-charge="so"] input {
+.ecran .prestations li[data-charge="so"] input {
   color: var(--gris-clair);
 }
 .numero {
@@ -1110,15 +1107,15 @@
 .achat {
   border-top: 1px solid var(--filet-doux);
 }
-.achat input,
-.achat select,
-.achat .nombre input {
+.ecran .achat input,
+.ecran .achat select,
+.ecran .achat .nombre input {
   height: 38px;
   border-color: transparent;
   background: transparent;
 }
-.achat input:hover,
-.achat select:hover {
+.ecran .achat input:hover,
+.ecran .achat select:hover {
   border-color: #ebe8f3;
   background: #fff;
 }
@@ -1200,11 +1197,11 @@
   font-size: 15px;
   font-weight: 750;
 }
-[data-ecart="plus"] {
+.poste [data-ecart="plus"] {
   color: var(--rouge);
   font-weight: 700;
 }
-[data-ecart="moins"] {
+.poste [data-ecart="moins"] {
   color: var(--vert-fonce);
   font-weight: 700;
 }
@@ -1420,13 +1417,43 @@
 }
 
 /* ─────────────── Écrans plus étroits ─────────────── */
-@media (max-width: 1320px) {
+@media (max-width: 1720px) {
   .avecRecap {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "lignes" "recap" "assurance";
   }
-  .recap {
+  .zoneRecap {
     position: static;
   }
+  .recap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    grid-template-rows: auto 1fr auto auto;
+    column-gap: 26px;
+    padding: 20px 22px;
+  }
+  .recapTitre { grid-column: 1; }
+  .recap dl {
+    grid-column: 1;
+    grid-row: 2 / span 3;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px 20px;
+    align-content: start;
+    margin-top: 12px;
+  }
+  .recap dl div {
+    flex-direction: column;
+    gap: 1px;
+  }
+  .recapSepare {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .recapTtc { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
+  .recapArrhes, .recapMarge { grid-column: 2; }
+}
+@media (max-width: 1320px) {
   .assurance {
     grid-template-columns: 1fr 1fr;
   }
