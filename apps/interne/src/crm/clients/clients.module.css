@@ -1576,3 +1576,80 @@ a.pageLien:hover {
   font-size: 12.5px;
   font-weight: 650;
 }
+
+/*
+ * La fiche sur un téléphone (390 px) : plus aucune rangée ne garde ses
+ * colonnes de bureau, la page ne défile plus en largeur (David, 08/11/2026).
+ * Chaque rangée garde son repère (vignette, icône, date) à gauche ; le reste
+ * s'empile dans la colonne de droite.
+ */
+@media (max-width: 760px) {
+  .identite {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 18px;
+  }
+  .identite > * {
+    padding: 0 2px;
+  }
+  .identite > * + * {
+    padding-top: 18px;
+    border-left: 0;
+    border-top: 1px solid #f0eef6;
+  }
+  .carteDossier,
+  .espaceLigne,
+  .rdv {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 8px;
+    column-gap: 12px;
+  }
+  .carteDossier > :nth-child(n + 3),
+  .espaceLigne > :nth-child(n + 3),
+  .rdv > :nth-child(n + 3) {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+  }
+  .demande {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+  }
+  .demande > * {
+    justify-self: start;
+    text-align: left;
+  }
+  .vignette {
+    width: 56px;
+    height: 48px;
+  }
+  .deuxTables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Les tableaux devis / factures défilent dans leur cadre plutôt que d'élargir la page. */
+  .deuxTables > div {
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .section {
+    min-width: 0;
+    padding: 18px 14px;
+  }
+  /* Les doublons : la ligne d'explication passe sous le titre, et le détail d'un doublon revient à la ligne. */
+  .doublons summary {
+    flex-wrap: wrap;
+  }
+  .doublons small {
+    white-space: normal;
+  }
+  .doublonTexte {
+    min-width: 0;
+  }
+  /* Les quatre totaux (devis, signé, facturé, reste) : deux par ligne. */
+  .totaux {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .totaux > span {
+    min-width: 0;
+    padding: 12px 14px;
+  }
+}
