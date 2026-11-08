@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
 import { AvecMenu } from "@/ui/MenuVertical";
 import { etatEnvois } from "@/lib/envois";
 import { currentUser } from "@/crm/lib/auth";
@@ -70,7 +70,6 @@ export default async function ConfigurationRelances({ searchParams }: { searchPa
         titre="Règles des relances"
         texte={`${actives} type${actives > 1 ? "s" : ""} actif${actives > 1 ? "s" : ""} sur ${RELANCES.length} · ${pretes} prêt${pretes > 1 ? "s" : ""} à partir`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`, "Délais provisoires"]}
-        bas={<Pilules label="Aller à un type" items={RELANCES.map((d) => ({ href: `#${d.type}`, label: d.libelle }))} />}
       >
         <Link href="/modeles" data-ton="contour">Courriers et SMS</Link>
         <Link href="#journal" data-ton="contour">Journal</Link>

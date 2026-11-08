@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
 import { AvecMenu } from "@/ui/MenuVertical";
 import { etatEnvois } from "@/lib/envois";
 import { abonneDOffice, estAbonne, jetonDesabonnement, lireEtat, texteAlerte } from "@/lib/alertes-equipe";
@@ -60,17 +60,6 @@ export default async function AlertesEquipe({ searchParams }: { searchParams: Pr
         titre="Alertes de l’équipe"
         texte={`${ALERTES.length} alertes · ${branchees} branchées · ${actives} actives · ${dests.filter((d) => !d.enPause).length} destinataires actifs`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`]}
-        bas={
-          <Pilules
-            label="Aller à"
-            items={[
-              { href: "#destinataires", label: "Destinataires" },
-              { href: "#catalogue", label: "Catalogue des alertes" },
-              { href: "#abonnements", label: "Abonnements" },
-              { href: "#journal", label: "Journal" },
-            ]}
-          />
-        }
       >
         <Link href="/dashboard/envois" data-ton="contour">Journal des envois</Link>
         <Link href="/relances/configuration" data-ton="contour">Règles des relances</Link>

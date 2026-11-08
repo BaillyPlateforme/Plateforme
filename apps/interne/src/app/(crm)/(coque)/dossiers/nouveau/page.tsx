@@ -3,7 +3,9 @@ import { commerciaux } from "@/crm/lib/data";
 import { currentUser } from "@/crm/lib/auth";
 import { instant, sourcesCreation } from "@/crm/creation/donnees";
 import CreationDossier from "@/crm/creation/CreationDossier";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
+import MenuCreation from "@/crm/creation/MenuCreation";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Nouveau dossier" };
@@ -23,16 +25,8 @@ export default async function NouveauDossier({ searchParams }: { searchParams: P
         surtitre="Commercial"
         titre="Nouveau dossier"
         texte="Le strict nécessaire ici ; tout le reste se complète sur la fiche."
-        bas={
-          <Pilules
-            label="Création de dossier"
-            items={[
-              { href: "/dossiers/nouveau", label: "Nouveau dossier", actif: true },
-              { href: "/dossiers/modeles", label: "Modèles de dossier" },
-            ]}
-          />
-        }
       />
+      <AvecMenu menu={<MenuCreation page="nouveau" />}>
       <CreationDossier
         moi={{ id: u.id, role: u.role }}
         commerciaux={coms.map((c) => ({ id: c.id, nom: c.nom }))}
@@ -42,6 +36,7 @@ export default async function NouveauDossier({ searchParams }: { searchParams: P
         modeleInitial={Number.isSafeInteger(modele) && modele > 0 ? modele : null}
         maintenant={instant()}
       />
+      </AvecMenu>
     </div>
   );
 }

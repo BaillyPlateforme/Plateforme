@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { currentUser } from "@/crm/lib/auth";
 import { instant, modelesDossier } from "@/crm/creation/donnees";
 import GestionModeles from "@/crm/creation/GestionModeles";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
+import MenuCreation from "@/crm/creation/MenuCreation";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Modèles de dossier" };
@@ -23,17 +25,10 @@ export default async function ModelesDossier({ searchParams }: { searchParams: P
         titre="Modèles de dossier"
         texte="Des points de départ pour créer vite ; les plus utilisés en tête."
         action={{ label: "Nouveau modèle", href: "/dossiers/modeles?nouveau=1", icone: "plus" }}
-        bas={
-          <Pilules
-            label="Création de dossier"
-            items={[
-              { href: "/dossiers/nouveau", label: "Nouveau dossier" },
-              { href: "/dossiers/modeles", label: "Modèles de dossier", actif: true },
-            ]}
-          />
-        }
       />
-      <GestionModeles key={nouveau ? "nouveau" : "liste"} modeles={modeles} maintenant={instant()} nouveau={nouveau} />
+      <AvecMenu menu={<MenuCreation page="modeles" />}>
+        <GestionModeles key={nouveau ? "nouveau" : "liste"} modeles={modeles} maintenant={instant()} nouveau={nouveau} />
+      </AvecMenu>
     </div>
   );
 }
