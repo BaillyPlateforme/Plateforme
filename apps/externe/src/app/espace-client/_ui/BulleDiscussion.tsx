@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { initialesDe, type FilVue } from "@/lib/espace-client/discussion-vue";
 import { Discussion, type ConseillerVue } from "./Discussion";
 import { Icone } from "./Icone";
+import { OUVRIR_DISCUSSION } from "./evenements";
+import "./contact.css";
 
 /*
  * La bulle « Une question ? », en bas à droite de chaque page d'un dossier :
@@ -26,11 +28,14 @@ export function BulleDiscussion({
   conseiller,
   nonLusInitial,
   lectureSeule,
+  contact,
 }: {
   reference: string;
   conseiller: ConseillerVue;
   nonLusInitial: number;
   lectureSeule: boolean;
+  /** Les deux autres voies vers le conseiller, en raccourci dans l'en-tête du panneau. */
+  contact?: { telephone: string | null; email: string | null };
 }) {
   const chemin = usePathname();
   const [ouvert, setOuvert] = useState(false);
@@ -44,6 +49,17 @@ export function BulleDiscussion({
     setOuvert(false);
     bouton.current?.focus({ preventScroll: true });
   }, []);
+
+  // « Ouvrir le chat » ailleurs dans la page (ContactConseiller) : la bulle s'ouvre, et le lien ne part pas.
+  useEffect(() => {
+    if (surPageConseiller) return;
+    const ouvrir = (e: Event) => {
+      e.preventDefault();
+      setOuvert(true);
+    };
+    window.addEventListener(OUVRIR_DISCUSSION, ouvrir);
+    return () => window.removeEventListener(OUVRIR_DISCUSSION, ouvrir);
+  }, [surPageConseiller]);
 
   // Échap ferme ; sur téléphone, la page ne défile pas sous le panneau plein écran.
   useEffect(() => {
@@ -122,6 +138,18 @@ export function BulleDiscussion({
             </p>
             <p className="fil-entete-sous">Votre conseiller · dossier {reference}</p>
           </div>
+          {contact?.telephone && (
+            <a className="fil-entete-lien fil-entete-contact" href={`tel:${contact.telephone.replace(/\s/g, "")}`} title={`Appeler ${conseiller.prenom} : ${contact.telephone}`}>
+              <Icone nom="phone" />
+              <span className="sr-only">Appeler {conseiller.prenom}</span>
+            </a>
+          )}
+          {contact?.email && (
+            <a className="fil-entete-lien fil-entete-contact" href={`mailto:${contact.email}?subject=${encodeURIComponent(`Dossier ${reference}`)}`} title={`Écrire un e-mail à ${conseiller.prenom} : ${contact.email}`}>
+              <Icone nom="mail" />
+              <span className="sr-only">Écrire un e-mail à {conseiller.prenom}</span>
+            </a>
+          )}
           <Link className="fil-entete-lien" href={`/espace-client/${encodeURIComponent(reference)}/conseiller`} onClick={() => setOuvert(false)} title="Ouvrir la discussion en grand">
             <Icone nom="arrow" />
             <span className="sr-only">Ouvrir la discussion en grand</span>

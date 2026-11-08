@@ -4,7 +4,7 @@ import { aVille } from "@/lib/espace-client/format";
 import { Hero } from "../../_ui/Hero";
 import { Frise } from "../../_ui/Frise";
 import { Tuiles } from "../../_ui/Tuiles";
-import { CarteConseiller } from "../../_ui/Cadre";
+import { ContactConseiller } from "../../_ui/ContactConseiller";
 
 type Props = { params: Promise<{ ref: string }> };
 
@@ -41,7 +41,8 @@ export default async function PageDeGarde({ params }: Props) {
               </p>
             </div>
             <Tuiles e={e} services={e.services.length} tutos={e.tutos.length} />
-            <CarteConseiller e={e} />
+            {/* Le conseiller et ses trois voies : chat, téléphone, e-mail. */}
+            <ContactConseiller e={e} />
           </div>
         </section>
       </main>

@@ -25,7 +25,7 @@ export default async function DossierLayout({ children, params }: { children: Re
     <>
       {children}
       <PiedDePage e={e} />
-      <BulleDiscussion reference={e.dossier.reference} conseiller={{ prenom: e.conseiller.prenom, nom: e.conseiller.nom }} nonLusInitial={nonLus} lectureSeule={!!apercu} />
+      <BulleDiscussion reference={e.dossier.reference} conseiller={{ prenom: e.conseiller.prenom, nom: e.conseiller.nom }} contact={{ telephone: e.conseiller.telephone || null, email: e.conseiller.email || null }} nonLusInitial={nonLus} lectureSeule={!!apercu} />
       {!apercu && <BoutonDemo reference={e.dossier.reference} email={e.client.email} fictif={e.client.demo} />}
     </>
   );

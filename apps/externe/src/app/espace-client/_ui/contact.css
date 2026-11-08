@@ -1,0 +1,133 @@
+/* Joindre son conseiller : trois voies à égalité (ContactConseiller.tsx). */
+.ec .contact-conseiller {
+  margin-top: 18px;
+  padding: clamp(22px, 3vw, 32px);
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.ec .cc-tete {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.ec .cc-av {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2a3b4d, #0b1118);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.ec .cc-av::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3bb57a;
+  border: 3px solid #fff;
+}
+.ec .cc-tete .kicker {
+  margin: 0;
+}
+.ec .cc-tete h3 {
+  margin: 2px 0 0;
+  font-family: var(--display);
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 600;
+  line-height: 1;
+}
+.ec .cc-sous {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 15.5px;
+}
+.ec .cc-voies {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ec .cc-voie {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.ec .cc-voie[data-voie="chat"] {
+  background: var(--accent-tint);
+  border-color: rgba(245, 208, 51, 0.55);
+}
+.ec .cc-ic {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+}
+.ec .cc-voie[data-voie="chat"] .cc-ic {
+  background: var(--accent);
+  color: var(--ink);
+}
+.ec .cc-ic svg {
+  width: 21px;
+  height: 21px;
+}
+.ec .cc-voie b {
+  margin-top: 4px;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.ec .cc-voie p {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.ec .cc-voie p a {
+  color: var(--ink);
+  font-weight: 600;
+  word-break: break-word;
+}
+.ec .cc-voie small {
+  font-size: 13.5px;
+}
+.ec .cc-cta {
+  align-self: flex-start;
+  margin-top: 6px;
+}
+@media (max-width: 860px) {
+  .ec .cc-voies {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Le téléphone et l'e-mail dans l'en-tête de la bulle : droits, eux (la flèche voisine est tournée). */
+.ec .fil-entete-lien.fil-entete-contact svg {
+  transform: none;
+}
+@media (max-width: 380px) {
+  .ec .fil-entete-contact {
+    display: none;
+  }
+}

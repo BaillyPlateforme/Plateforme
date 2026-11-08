@@ -59,7 +59,15 @@ export default async function Conseiller({ params }: { params: Promise<{ ref: st
                   </h2>
                 </div>
               </div>
+              {/* Les trois voies, à égalité (David, 08/11/2026) : le chat est ici, le téléphone et l'e-mail dessous. */}
+              <p className="kicker" style={{ margin: "18px 0 4px" }}>Trois façons de le joindre</p>
               <ul className="info-list">
+                <li>
+                  <span className="ic"><Icone nom="bulle" /></span>
+                  <span>
+                    <b>Le chat</b>Ici, sur cette page : sa réponse arrive dans votre espace
+                  </span>
+                </li>
                 <li>
                   <span className="ic"><Icone nom="phone" /></span>
                   <span>
@@ -70,7 +78,7 @@ export default async function Conseiller({ params }: { params: Promise<{ ref: st
                   <li>
                     <span className="ic"><Icone nom="mail" /></span>
                     <span>
-                      <b style={{ wordBreak: "break-all" }}><a href={`mailto:${c.email}`}>{c.email}</a></b>Par e-mail
+                      <b style={{ wordBreak: "break-all" }}><a href={`mailto:${c.email}?subject=${encodeURIComponent(`Dossier ${e.dossier.reference}`)}`}>{c.email}</a></b>Par e-mail
                     </span>
                   </li>
                 )}
