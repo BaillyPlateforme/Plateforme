@@ -16,6 +16,8 @@ type Contenu = {
   etiquettes?: (string | false | null | undefined)[];
   /** Les boutons de la page (statut, envoi…), posés dans le bandeau. */
   children?: React.ReactNode;
+  /** La rangée du bas du bandeau : les filtres et les vues de la page (jamais des sous-onglets). */
+  bas?: React.ReactNode;
 };
 
 /*
@@ -64,6 +66,7 @@ function Bande() {
       texte={c ? c.texte : meta.sous}
       action={c?.action}
       etiquettes={c?.etiquettes}
+      bas={c?.bas}
     >
       {c?.children}
     </Bandeau>
@@ -80,7 +83,7 @@ function Confier({ contenu }: { contenu: Contenu }) {
   useEffect(() => () => poser?.(null), [poser]);
   if (poser) return null;
   return (
-    <Bandeau surtitre={contenu.surtitre ?? ""} titre={contenu.titre ?? ""} texte={contenu.texte} action={contenu.action} etiquettes={contenu.etiquettes}>
+    <Bandeau surtitre={contenu.surtitre ?? ""} titre={contenu.titre ?? ""} texte={contenu.texte} action={contenu.action} etiquettes={contenu.etiquettes} bas={contenu.bas}>
       {contenu.children}
     </Bandeau>
   );
