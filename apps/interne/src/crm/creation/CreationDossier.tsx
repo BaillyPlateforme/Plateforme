@@ -22,11 +22,14 @@ import s from "./creation.module.css";
  * tout de suite, dès que le client a un nom et un moyen d'être joint.
  *
  * « Partir de… » préremplit ce qui se réutilise (segment, type de
- * déménagement, volume, options ; observations d'un modèle ; d'un dossier, son
- * trajet — départ, arrivée, étages, ascenseurs, accès —, et ses observations
- * quand c'est le même client). Un champ prérempli est marqué, et la reprise
- * s'annule d'un geste. Ce que l'utilisateur a tapé n'est jamais écrasé.
- * L'identité et les coordonnées du client ne sont jamais reprises.
+ * déménagement, volume, options ; observations d'un modèle). Pour le MÊME
+ * client (2e déménagement, sortie de garde-meuble), l'arrivée de son dernier
+ * dossier devient le départ du nouveau, avec étage, ascenseur et accès, et ses
+ * observations suivent ; le nouveau dossier ouvert depuis sa fiche part de là
+ * d'office. D'un AUTRE client, aucune adresse ni aucun accès : c'est le
+ * domicile d'un autre foyer (choix de David, 08/11/2026). Un champ prérempli
+ * est marqué, et la reprise s'annule d'un geste. Ce que l'utilisateur a tapé
+ * n'est jamais écrasé.
  */
 
 interface V {
@@ -62,19 +65,17 @@ function reprise(src: SourceDossier | SourceModele, clientId: number | null): Pa
   if (c.garde_meuble) r.garde_meuble = true;
   if (c.vehicule) r.vehicule = true;
   if (src.genre === "modele" && c.observations) r.observations = c.observations;
-  if (src.genre === "dossier") {
-    // D'un dossier, le trajet suit toujours : départ, arrivée, étages, ascenseurs, accès (David, 08/11/2026 :
-    // « si je clique sur un dossier, rien ne se remplit » — seuls le segment, le type et le volume, plus bas, l'étaient).
-    for (const g of ["depart", "arrivee"] as const) {
-      const e = src[g];
-      if (!e?.adresse) continue;
-      r[g] = e.adresse;
-      if (e.etage) r[`${g}_etage`] = e.etage;
-      if (e.ascenseur) r[`${g}_asc`] = true;
-      if (e.acces) r[`${g}_acces`] = e.acces;
+  // Le même client : il habite désormais à l'arrivée de son dernier dossier, qui devient le départ du nouveau ;
+  // l'arrivée reste à saisir. D'un autre client, rien du trajet : son adresse et ses codes ne regardent que lui.
+  if (src.genre === "dossier" && clientId && src.clientId === clientId) {
+    const e = src.arrivee?.adresse ? src.arrivee : src.depart;
+    if (e?.adresse) {
+      r.depart = e.adresse;
+      if (e.etage) r.depart_etage = e.etage;
+      if (e.ascenseur) r.depart_asc = true;
+      if (e.acces) r.depart_acces = e.acces;
     }
-    // Les observations parlent du client : elles ne suivent que pour le même client.
-    if (clientId && src.clientId === clientId && src.observations) r.observations = src.observations;
+    if (src.observations) r.observations = src.observations;
   }
   return r;
 }
@@ -125,7 +126,8 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
 
   const [etat, setEtat] = useState<Etat>(() => {
     const c = clientInitial;
-    // Le client rattaché d'emblée : son identité et son segment, comme « Rattacher » (sans reprendre son dernier dossier).
+    // Le client rattaché d'emblée (« Nouveau dossier » depuis sa fiche) : son identité et son segment, et, s'il a déjà
+    // déménagé avec nous, son dernier dossier — son arrivée devient le départ.
     const base: Etat = {
       v: c
         ? { ...VIDE, commercial_id: comDefaut, civilite: c.civilite ?? "", prenom: c.prenom ?? "", nom: c.nom ?? "", societe: c.societe ?? "", email: c.email ?? "", telephone: c.telephone ?? "", type: c.type }
@@ -134,7 +136,12 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
       origine: null,
     };
     const m = modeles.find((x) => x.id === modeleInitial);
-    return m ? appliquerSur(base, origineModele(m), reprise(m, c?.id ?? null), new Set(), base.v) : base;
+    if (m) return appliquerSur(base, origineModele(m), reprise(m, c?.id ?? null), new Set(), base.v);
+    if (c?.dernier) {
+      const origine: Origine = { cle: `client-${c.id}`, genre: "dossier", id: c.dernier.id, titre: `son dernier dossier ${c.dernier.ref}` };
+      return appliquerSur(base, origine, reprise(c.dernier, c.id), new Set(), base.v);
+    }
+    return base;
   });
   const v = etat.v;
   const touches = useRef(new Set<Cle>());
