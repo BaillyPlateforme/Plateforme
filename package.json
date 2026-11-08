@@ -25,6 +25,7 @@
     "semer:visites": "node scripts/semer-visites.mjs"
   },
   "dependencies": {
+    "@e-invoice-eu/core": "^3.4.3",
     "@google/genai": "^2.11.0",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.12.0",
