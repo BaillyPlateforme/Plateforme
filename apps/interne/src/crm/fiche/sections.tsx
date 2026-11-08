@@ -18,6 +18,7 @@ import { hhmmParis, jourParis, plageVisite } from "@/lib/visite/regles";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
 import * as F from "./actions";
 import CarteFacturation from "@/crm/facturation/CarteFacturation";
+import { FormulaireDupliquerDevis } from "@/crm/duplication/composants/DupliquerDevis";
 import type { FicheDonnees } from "./donnees";
 import {
   FenetreAdresses,
@@ -62,7 +63,8 @@ export const LIEN_NOUVEAU_CONTRAT_GM = (dossierId: number) => `/garde-meuble/nou
 const O = {
   nouveau: { cle: "nouveau", libelle: "Nouveau", picto: "nouveau" },
   modifier: { cle: "modifier", libelle: "Modifier", picto: "modifier" },
-  copier: { cle: "copier", libelle: "Copier", picto: "copier" },
+  // « Dupliquer » : un seul mot pour la même chose, partout dans le CRM (src/crm/duplication/textes.ts).
+  copier: { cle: "copier", libelle: "Dupliquer", picto: "copier" },
   confirmer: { cle: "confirmer", libelle: "Confirmer", picto: "confirmer" },
   imprimer: { cle: "imprimer", libelle: "Imprimer", picto: "imprimer" },
   transfert: { cle: "transfert", libelle: "Transfert", picto: "transfert" },
@@ -217,7 +219,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     const sms = c.etatsSms.get(r.id);
     const prochaine = new Date(new Date(r.debut).getTime() + 7 * 864e5);
     fenetres[`copier-rdv-${r.id}`] = {
-      surtitre: "Copier la visite",
+      surtitre: "Dupliquer la visite",
       titre: r.titre,
       contenu: <FenetreCopieRdv d={d} r={r} jour={jourParis(prochaine)} heure={r.journee ? "09:00" : hhmmParis(r.debut)} />,
     };
@@ -355,7 +357,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         modifier: { lien: signee ? `/tablette/${v.id}/signature` : `/tablette/${v.id}` },
         signer: signee ? { lien: `/api/visites/${v.id}/compte-rendu`, nouvelOnglet: true } : { lien: `/tablette/${v.id}` },
         tablette: signee ? off("Le compte-rendu de cette visite est signé.") : { lien: `/tablette/${v.id}` },
-        copier: off("Une visite sans rendez-vous ne se copie pas."),
+        copier: off("Une visite sans rendez-vous ne se duplique pas."),
         confirmer: off("Pas de rendez-vous à confirmer."),
       },
       libelles: { signer: signee ? "Compte-rendu" : "Signer", tablette: signee ? "Tablette" : "Reprendre" },
@@ -408,6 +410,12 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
   const lignesDevis: Ligne[] = d.devis.map((v: Row) => {
     const ouvert = ["brouillon", "envoye"].includes(v.statut) && !signe;
     const date = v.signe_le ?? v.envoye_le ?? data.devisCreeLe.get(v.id);
+    // « Dupliquer » : dans ce dossier ou dans un autre (src/crm/duplication), un brouillon numéroté à la suite.
+    fenetres[`dupliquer-devis-${v.id}`] = {
+      surtitre: `Devis ${v.numero} · dossier ${d.ref}`,
+      titre: "Dupliquer le devis",
+      contenu: <FormulaireDupliquerDevis devis={{ id: v.id, numero: v.numero, dossierId: id, ref: d.ref, client: nomClient(d), volume: Number(d.volume) || 0 }} />,
+    };
     return {
       id: `d${v.id}`,
       tri: ms(data.devisCreeLe.get(v.id)) || v.id,
@@ -429,7 +437,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       ],
       gestes: {
         modifier: { lien: `/dossiers/${id}/devis/${v.id}` },
-        copier: { action: F.copierDevis.bind(null, id, v.id) },
+        copier: { fenetre: `dupliquer-devis-${v.id}` },
         confirmer:
           v.statut === "brouillon" && !signe
             ? { action: A.envoyerDevis.bind(null, id, v.id), confirmer: "Envoyer au client ?" }
@@ -503,11 +511,11 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       ) : (
         <>
           <b>Pas encore de devis</b>
-          {d.volume <= 0 ? "Renseignez d’abord l’inventaire, ou partez d’un devis libre (« Nouveau »)." : "« Nouveau » : devis libre, formules au choix ou copie ; « 3 formules » les génère d’un coup."}
+          {d.volume <= 0 ? "Renseignez d’abord l’inventaire, ou partez d’un devis libre (« Nouveau »)." : "« Nouveau » : devis libre, formules au choix ou duplication d’un devis ; « 3 formules » les génère d’un coup."}
         </>
       ),
     gestes: {
-      // « Nouveau » : la page des devis du dossier, ouverte sur ses trois départs (libre, formules choisies, copie d'un autre client).
+      // « Nouveau » : la page des devis du dossier, ouverte sur ses trois départs (libre, formules choisies, duplication d'un devis).
       nouveau: d.type === "militaire" ? off("Dossier militaire : pas de devis.") : signe ? off("Un devis est déjà signé.") : { lien: `/devis?dossier=${id}&nouveau=libre` },
       formules: transfertDevis,
       imprimer: d.devis.length ? { lien: `/imprimer/${id}?doc=devis` } : off("Pas encore de devis."),
@@ -766,7 +774,12 @@ function ligneFacture(dossierId: number, f: Row, reglable: boolean): Ligne {
     ],
     gestes: {
       modifier: off("Une facture émise ne se modifie pas."),
-      copier: off("Une facture émise ne se copie pas."),
+      // Dupliquer : une facture à émettre, depuis la carte Facturation (la fiche ouvre sa fenêtre directement, onglet Commun › Factures).
+      copier: String(f.numero).startsWith("AV-")
+        ? off("Un avoir ne se duplique pas : il annule une facture.")
+        : duDossier
+          ? { aller: { section: "demenagements", onglet: "facturation" } }
+          : off("Facture sans dossier : elle ne se duplique pas encore dans le CRM (la facture à émettre est celle d'un dossier)."),
       imprimer: duDossier ? { lien: `/imprimer/${dossierId}?doc=facture&f=${f.id}` } : off("Facture sans dossier : elle s'imprime depuis la page Factures."),
       confirmer:
         f.statut === "payee"
@@ -847,7 +860,7 @@ function gardeMeubles(c: Contexte): SectionFiche {
       gestes: {
         // Le contrat (caisses une par une, photos, loyer, clôture) se modifie sur sa page, module garde-meuble.
         modifier: { lien: `/garde-meuble/${g.id}` },
-        copier: off("Un contrat ne se copie pas : « Nouveau » en ouvre un autre, prérempli avec le dossier."),
+        copier: off("Un contrat ne se duplique pas : « Nouveau » en ouvre un autre, prérempli avec le dossier."),
         transfert: g.afacturer
           ? { action: B.facturerGardeMeuble.bind(null, g.id, g.montant), confirmer: `Facturer ${eur(g.montant)} ?` }
           : off(g.actif ? `Prochaine échéance le ${jj(g.echeance)}.` : "Contrat terminé."),
@@ -1008,7 +1021,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
       cellules: [<b key="l">{p.libelle}</b>, jj(p.recu_le), <b key="m">{eur(p.montant)}</b>, <Etat key="e" v={["Reçu", "g"]} />],
       gestes: {
         modifier: off("Un règlement enregistré ne se modifie pas ici."),
-        copier: off("Un règlement ne se copie pas."),
+        copier: off("Un règlement ne se duplique pas."),
         supprimer: off("Un règlement enregistré ne se supprime pas ici."),
       },
     })),

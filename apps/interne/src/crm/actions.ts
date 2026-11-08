@@ -12,6 +12,7 @@ import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/com
 import { oublierCandidats } from "@/crm/creation/donnees";
 import { instantParis } from "@/lib/visite/regles";
 import { journaliser } from "@/crm/lib/journal";
+import { apresDuplication, reprendreDuplication } from "@/crm/duplication/dossier";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -62,7 +63,7 @@ export async function creerDossier(f: FormData) {
   const ref = await numero("BD", "dossiers");
   const com = n(f, "commercial_id") ?? (u.role === "commercial" ? u.id : null);
   const moisCa = s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : moisDepuisPeriode(s(f, "periode"));
-  const id = await transaction(async (db) => {
+  const { id, dup } = await transaction(async (db) => {
     const rattache = n(f, "client_id");
     let clientId = rattache ? (await db.query<{ id: number }>("select id from clients where id=$1", [rattache]))[0]?.id : undefined;
     if (!clientId) {
@@ -78,7 +79,8 @@ export async function creerDossier(f: FormData) {
     await db.query(etape, [d.id, 0, "depart", s(f, "depart"), s(f, "depart_etage"), f.get("depart_asc") === "on", s(f, "depart_acces")]);
     if (f.get("garde_meuble") === "on") await db.query(etape, [d.id, 1, "garde_meuble", "Garde-meuble Bailly", null, false, null]);
     await db.query(etape, [d.id, 2, "arrivee", s(f, "arrivee"), s(f, "arrivee_etage"), f.get("arrivee_asc") === "on", s(f, "arrivee_acces")]);
-    return d.id;
+    // Une duplication (src/crm/duplication/dossier.ts) : ce qu'elle reprend du dossier d'origine, dans la même transaction.
+    return { id: d.id, dup: await reprendreDuplication(db, d.id, clientId!, u, f) };
   });
   // Le point de départ choisi à l'écran : un modèle (son compteur d'usage avance) ou un dossier passé.
   let depuis = "";
@@ -92,12 +94,18 @@ export async function creerDossier(f: FormData) {
   }
   oublierCandidats();
   // Le fil, puis la projection : un client qui a déjà son espace client y retrouve ce dossier dès sa création,
-  // si tout ce qu'il faut est renseigné (crm/lib/espace.ts, rattacherAEspaceExistant).
-  await log(id, `Dossier créé${depuis}`);
+  // si tout ce qu'il faut est renseigné (crm/lib/espace.ts, rattacherAEspaceExistant). Une duplication écrit sa
+  // propre ligne (« Dossier dupliqué depuis… »), et le dossier d'origine garde la trace de sa copie.
+  await log(id, dup?.activite ?? `Dossier créé${depuis}`);
+  if (dup) await apresDuplication(id, ref, dup, u.id);
   refresh();
   // Ce client a déjà un espace : la fiche s'ouvre sur l'onglet Espace client, qui dit si le dossier y est ou ce qui manque.
+  // Une duplication : son bandeau (?duplique=<origine>) ramène au dossier d'origine.
   const espace = await espaceDuDossier(id);
-  redirect(espace ? `/dossiers/${id}?espace=${espace.dedans ? "ajoute" : "a-ajouter"}#espace-client` : `/dossiers/${id}`);
+  const params = new URLSearchParams();
+  if (dup) params.set("duplique", String(dup.sourceId));
+  if (espace) params.set("espace", espace.dedans ? "ajoute" : "a-ajouter");
+  redirect(`/dossiers/${id}${params.size ? `?${params}` : ""}${espace ? "#espace-client" : ""}`);
 }
 
 export async function majFiche(id: number, f: FormData) {
@@ -129,20 +137,7 @@ export async function majFiche(id: number, f: FormData) {
   refresh(id);
 }
 
-export async function dupliquerDossier(id: number) {
-  const u = await exiger();
-  const o = await q1<Row>("select * from dossiers where id=$1", [id]);
-  if (!o) return;
-  const ref = await numero("BD", "dossiers");
-  const nd = await q1<{ id: number }>(
-    `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,cree_par_id) values($1,$2,$3,$4,'visite',$5,$6,$7,$8,$9) returning id`,
-    [ref, o.client_id, o.commercial_id, o.traite_par_id, o.periode, o.mois_ca, o.volume, o.observations, u.id]);
-  await q("insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur,acces) select $2,ordre,genre,adresse,etage,ascenseur,acces from etapes_trajet where dossier_id=$1", [id, nd!.id]);
-  await q("insert into inventaire(dossier_id,piece,libelle,quantite,volume,destination,demontage) select $2,piece,libelle,quantite,volume,destination,demontage from inventaire where dossier_id=$1", [id, nd!.id]);
-  await log(nd!.id, `Dossier dupliqué depuis ${o.ref} (observations conservées)`);
-  refresh();
-  redirect(`/dossiers/${nd!.id}`);
-}
+/* La duplication d'un dossier passe par creerDossier (src/crm/duplication/dossier.ts). */
 export async function marquerPerdu(id: number) { await exiger(); await q("update dossiers set statut='perdu' where id=$1", [id]); await log(id, "Dossier marqué perdu"); refresh(id); }
 export async function rouvrir(id: number) { await exiger(); await q("update dossiers set statut='visite' where id=$1", [id]); await log(id, "Dossier rouvert"); refresh(id); }
 
@@ -170,7 +165,7 @@ export async function genererDevis(id: number) {
   await exiger();
   const d = await q1<Row>("select volume::float8 as volume, statut from dossiers where id=$1", [id]);
   if (!d) return;
-  // Seuls les brouillons du générateur sont remplacés : un devis libre ou copié (module devis) reste.
+  // Seuls les brouillons du générateur sont remplacés : un devis libre ou dupliqué (module devis) reste.
   await q("delete from devis where dossier_id=$1 and statut='brouillon' and coalesce(origine,'formules')='formules'", [id]);
   for (const fo of formules(d.volume) as Formule[]) {
     await q("insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite) values($1,$2,$3,$4,$5,$6,current_date + 60)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant, JSON.stringify(prestationsPour(fo.cle))]);

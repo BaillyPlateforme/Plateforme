@@ -7,7 +7,7 @@ import s from "../nouveau.module.css";
 
 /*
  * « Nouveau » devis (Créagidem, section H) : un devis libre (vierge, forfait
- * ou 5 postes), les seules formules qu'on veut proposer, ou la copie d'un
+ * ou 5 postes), les seules formules qu'on veut proposer, ou la duplication d'un
  * devis existant — de ce dossier ou d'un autre client, pris pour modèle.
  */
 
@@ -31,7 +31,7 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
   const CARTES: { cle: Genre; titre: string; texte: string; picto: string }[] = [
     { cle: "libre", titre: "Devis libre", texte: "Vierge : forfait ou 5 postes, lignes à votre main.", picto: "M12 5v14M5 12h14" },
     { cle: "formules", titre: "Formules du tarif", texte: "Seulement celles que vous proposez, calculées sur le volume.", picto: "M4 6h16M4 12h16M4 18h10" },
-    { cle: "copie", titre: "Copier un devis", texte: "De ce dossier ou d'un autre client, pris pour modèle.", picto: "M8 8h11v11H8zM5 16V5h11" },
+    { cle: "copie", titre: "Dupliquer un devis", texte: "De ce dossier ou d'un autre client, pris pour modèle.", picto: "M8 8h11v11H8zM5 16V5h11" },
   ];
 
   return (
@@ -49,7 +49,7 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
         ))}
       </div>
 
-      {erreur && <p className={s.erreur}>{erreur === "formule" ? "Cochez au moins une formule." : "Choisissez le devis à copier."}</p>}
+      {erreur && <p className={s.erreur}>{erreur === "formule" ? "Cochez au moins une formule." : "Choisissez le devis à dupliquer."}</p>}
 
       {genre === "libre" && (
         <div className={s.corps}>
@@ -98,7 +98,7 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
       {genre === "copie" && (
         <div className={s.corpsCopie}>
           <input type="hidden" name="source" value={source ?? ""} />
-          <input type="search" className={s.recherche} value={recherche} placeholder="Client, société, n° de devis ou de dossier…" aria-label="Rechercher un devis à copier" onChange={(e) => setRecherche(e.target.value)} autoFocus />
+          <input type="search" className={s.recherche} value={recherche} placeholder="Client, société, n° de devis ou de dossier…" aria-label="Rechercher un devis à dupliquer" onChange={(e) => setRecherche(e.target.value)} autoFocus />
           <ul className={s.modeles} aria-busy={cherche}>
             {modeles?.length === 0 && <li className={s.aucun}>Aucun devis ne correspond.</li>}
             {modeles?.map((m) => (
@@ -114,7 +114,7 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
           </ul>
           <div className={s.piedCopie}>
             <p className={s.note}>D&apos;un autre client, seuls le chiffrage, les prestations, les taux d&apos;assurance, les conditions et les achats prévus sont repris : rien qui tienne à son déménagement.</p>
-            <button className={s.creer} disabled={!source}>Copier ce devis</button>
+            <button className={s.creer} disabled={!source}>Dupliquer ce devis</button>
           </div>
         </div>
       )}

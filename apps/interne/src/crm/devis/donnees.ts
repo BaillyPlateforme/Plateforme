@@ -1,5 +1,5 @@
 import "server-only";
-import { q, q1, type Row } from "@/crm/lib/db";
+import { q, q1, type Db, type Row } from "@/crm/lib/db";
 import {
   lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations,
   type EtatDevis, type Etape, type Formule,
@@ -14,8 +14,10 @@ import { CLES_PARAMETRES, PARAMETRES_VIDES, effectifs, type ParametresDevis } fr
 
 const jour = (d: unknown) => (d ? new Date(d as string).toISOString().slice(0, 10) : "");
 
-export async function lireParametres(): Promise<ParametresDevis> {
-  const lignes = await q<{ cle: string; valeur: unknown }>("select cle, valeur from devis_parametres");
+/** Les paramètres du devis ; `db` : lus dans une transaction en cours (une duplication de dossier). */
+export async function lireParametres(db?: Db): Promise<ParametresDevis> {
+  const sql = "select cle, valeur from devis_parametres";
+  const lignes = db ? await db.query<{ cle: string; valeur: unknown }>(sql) : await q<{ cle: string; valeur: unknown }>(sql);
   const p: Record<string, unknown> = { ...PARAMETRES_VIDES };
   for (const { cle, valeur } of lignes) {
     if (!(CLES_PARAMETRES as string[]).includes(cle)) continue;

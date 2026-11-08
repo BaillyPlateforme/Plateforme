@@ -2,7 +2,7 @@ import "server-only";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { getSettings } from "@/lib/settings";
 import { nomClient } from "@/crm/lib/format";
-import { TVA_DEFAUT_CODE, htDepuisTtc, jourIso, arrondi, aujourdhuiParis, type LigneSaisie } from "./calcul";
+import { TVA_DEFAUT_CODE, htDepuisTtc, jourIso, arrondi, aujourdhuiParis, totaux, type LigneSaisie } from "./calcul";
 import { lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 
@@ -181,8 +181,47 @@ export interface Brouillon {
   devisId: number | null;
 }
 
+/**
+ * Une facture à émettre : le brouillon d'une facture dupliquée (crm.factures_a_emettre). Sans numéro ni
+ * date, hors des soldes et de l'espace client, jusqu'à son émission.
+ */
+export interface FactureAEmettre {
+  id: number; genre: "solde" | "acompte" | "facture"; objet: string; lignes: LigneSaisie[]; conditions: string | null; ttc: number;
+  sourceId: number | null; sourceNumero: string | null; sourceDossierId: number | null; sourceRef: string | null; creeLe: string; creePar: string | null;
+}
+
+/** Les lignes d'une facture à émettre, relues telles qu'enregistrées (jamais une déduction : elle tient au dossier d'origine). */
+export function lignesAEmettre(brut: unknown): LigneSaisie[] {
+  if (!Array.isArray(brut)) return [];
+  const nb = (v: unknown, repli = 0) => (typeof v === "number" && Number.isFinite(v) ? v : repli);
+  return brut
+    .filter((l): l is Row => !!l && typeof l === "object" && (l.genre === "prestation" || l.genre === "texte"))
+    .slice(0, 200)
+    .map((l) => ({
+      genre: l.genre, libelle: String(l.libelle ?? ""), detail: l.detail ? String(l.detail) : null, quantite: nb(l.quantite, 1),
+      unite: l.unite ? String(l.unite) : null, prixUnitaireHt: nb(l.prixUnitaireHt), tauxTva: nb(l.tauxTva, TVA_DEFAUT_CODE),
+    }));
+}
+
+export async function facturesAEmettre(dossierId: number): Promise<FactureAEmettre[]> {
+  const rows = await q(`select a.id, a.genre, a.objet, a.lignes, a.conditions_reglement, a.source_facture_id, a.source_numero, a.cree_le,
+        f.dossier_id as source_dossier_id, d.ref as source_ref, u.nom as cree_par
+      from factures_a_emettre a left join factures f on f.id = a.source_facture_id left join dossiers d on d.id = f.dossier_id
+      left join utilisateurs u on u.id = a.cree_par where a.dossier_id = $1 order by a.cree_le, a.id`, [dossierId]).catch(() => []);
+  return rows.map((r) => {
+    const lignes = lignesAEmettre(r.lignes);
+    return {
+      id: r.id, genre: r.genre, objet: r.objet, lignes, conditions: r.conditions_reglement ?? null, ttc: totaux(lignes).ttc,
+      sourceId: r.source_facture_id ?? null, sourceNumero: r.source_numero ?? null, sourceDossierId: r.source_dossier_id ?? null, sourceRef: r.source_ref ?? null,
+      creeLe: new Date(r.cree_le).toISOString(), creePar: r.cree_par ?? null,
+    };
+  });
+}
+
 export interface DonneesFacturation {
   dossierId: number; ref: string; statut: string; segment: string; aujourdhui: string;
+  /** Les factures dupliquées, pas encore émises. */
+  aEmettre: FactureAEmettre[];
   chargement: string | null; livraison: string | null;
   client: Payeur; payeur: Payeur | null; bonCommande: string | null;
   adresses: { depart: string | null; arrivee: string | null };
@@ -210,7 +249,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
       (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee
       from dossiers d where d.id=$1`, [id]);
   if (!d) return null;
-  const [client, payeur, devis, factures, reglements, solde, reglages, derniere, acomptesLignes, parametresDevis] = await Promise.all([
+  const [client, payeur, devis, factures, reglements, solde, reglages, derniere, acomptesLignes, parametresDevis, aEmettre] = await Promise.all([
     q1(`select ${COLS_CLIENT} from clients where id=$1`, [d.client_id]),
     d.payeur_client_id ? q1(`select ${COLS_CLIENT} from clients where id=$1`, [d.payeur_client_id]) : Promise.resolve(undefined),
     q1("select id, numero, formule, montant::float8 as montant, arrhes_pct::float8 as arrhes_pct, lignes, prestations from devis where dossier_id=$1 and statut='signe' order by signe_le desc nulls last, id desc limit 1", [id]),
@@ -222,6 +261,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
     q(`select l.facture_id, l.taux_tva::float8 as taux, sum(l.montant_ht)::float8 as ht from factures_lignes l join factures f on f.id = l.facture_id
         where f.dossier_id=$1 and f.genre='acompte' and f.statut <> 'annulee' and l.genre <> 'texte' group by 1, 2`, [id]),
     lireParametres(),
+    facturesAEmettre(id),
   ]);
   // Les arrhes : le pourcentage du devis signé, sinon celui des Paramètres du devis (30 % tant qu'il est vide),
   // comme l'éditeur du devis, la page de signature et le devis imprimé.
@@ -271,7 +311,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
   };
 
   return {
-    dossierId: id, ref: d.ref, statut: d.statut, segment: client?.type ?? "particulier", aujourdhui: aujourdhuiParis(),
+    dossierId: id, ref: d.ref, statut: d.statut, segment: client?.type ?? "particulier", aujourdhui: aujourdhuiParis(), aEmettre,
     chargement: jourIso(d.date_chargement), livraison: jourIso(d.date_livraison),
     client: payeurDe(client)!, payeur: payeurDe(payeur), bonCommande: d.bon_commande ?? null,
     adresses: { depart: d.depart ?? null, arrivee: d.arrivee ?? null },

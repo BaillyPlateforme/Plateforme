@@ -8,17 +8,27 @@ import FenetreFacture from "./FenetreFacture";
 import FenetreAvoir from "./FenetreAvoir";
 import FenetrePayeur from "./FenetrePayeur";
 import Fenetre, { Champ } from "./Fenetre";
-import { reaffecterReglement, supprimerReglement } from "./actions";
+import { reaffecterReglement, supprimerFactureAEmettre, supprimerReglement } from "./actions";
 import { initiales } from "@/crm/lib/format";
+import type { Brouillon, FactureAEmettre } from "./donnees";
+import { FormulaireDupliquerFacture } from "@/crm/duplication/composants/DupliquerFacture";
+import AvisDuplication from "@/crm/duplication/composants/AvisDuplication";
 import s from "./facturation.module.css";
 
 type Ouverte =
   | { genre: "encaisser"; nature?: "arrhes" | "reglement" | "remboursement"; factureId?: number | null; montant?: number }
   | { genre: "modifier"; reglement: ReglementVue }
   | { genre: "reaffecter"; reglement: ReglementVue }
-  | { genre: "facturer"; type: "solde" | "acompte" | "facture" }
+  | { genre: "facturer"; type: "solde" | "acompte" | "facture"; aEmettre?: FactureAEmettre }
   | { genre: "avoir"; facture: FactureVue }
+  | { genre: "dupliquer"; facture: FactureVue }
   | { genre: "payeur"; puis?: Ouverte };
+
+/** Une facture à émettre, telle que la fenêtre « Émettre » la propose : ses lignes, quel que soit le genre choisi. */
+const brouillonsDe = (a: FactureAEmettre): Record<"solde" | "acompte" | "facture", Brouillon> => {
+  const b = (genre: "solde" | "acompte" | "facture"): Brouillon => ({ genre, objet: a.objet, lignes: a.lignes, affecter: [], devisId: null });
+  return { solde: b("solde"), acompte: b("acompte"), facture: b("facture") };
+};
 
 const fr = (j: string | null) => (j ? j.split("-").reverse().join("/") : "—");
 const COURT: Record<string, string> = { facture: "FA", solde: "FS", acompte: "AR", avoir: "AV" };
@@ -35,6 +45,15 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
   const [message, setMessage] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [, lancer] = useTransition();
+  // Une facture à émettre qui vient d'être dupliquée (« ?facture_dupliquee=<id> », ou dans ce dossier même) : son bandeau.
+  const [dupliquee, setDupliquee] = useState<number | null>(null);
+  const avis = dupliquee ? d.aEmettre.find((a) => a.id === dupliquee) : undefined;
+
+  useEffect(() => {
+    const x = Number(new URL(window.location.href).searchParams.get("facture_dupliquee"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- lu une fois, à l'arrivée sur la page
+    if (Number.isSafeInteger(x) && x > 0) setDupliquee(x);
+  }, []);
 
   // « ?encaisser=arrhes » : la fenêtre s'ouvre à l'arrivée (lien depuis la carte du devis).
   useEffect(() => {
@@ -113,9 +132,47 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
               <button type="button" className={`${s.boutonFantome} ${s.petit}`} onClick={() => setMessage(null)}>Compris</button>
             </p>
           )}
+          {avis && (
+            <div style={{ marginTop: 14 }}>
+              <AvisDuplication
+                param="facture_dupliquee"
+                titre="Facture à émettre créée"
+                texte={`Dupliquée de ${avis.sourceNumero ?? "une facture"}${avis.sourceRef && avis.sourceDossierId !== d.dossierId ? ` (dossier ${avis.sourceRef})` : ""} : ${avis.lignes.length} ligne${avis.lignes.length > 1 ? "s" : ""}, ${euros2(avis.ttc)} TTC. Elle n'a pas encore de numéro : vérifiez-la, puis « Émettre » lui donne le suivant.`}
+                lien={avis.sourceId && avis.sourceDossierId ? `/imprimer/${avis.sourceDossierId}?doc=facture&f=${avis.sourceId}` : `/dossiers/${d.dossierId}#facturation`}
+                libelleLien={avis.sourceNumero ? `Voir ${avis.sourceNumero}` : "Voir l'original"}
+              />
+            </div>
+          )}
           <div className={s.section}>
-            <div className={s.sectionTete}><h4>Factures et avoirs</h4><span>{d.factures.length ? `${d.factures.length} document${d.factures.length > 1 ? "s" : ""}` : ""}</span></div>
-            {d.factures.length === 0 ? (
+            <div className={s.sectionTete}><h4>Factures et avoirs</h4><span>{d.factures.length ? `${d.factures.length} document${d.factures.length > 1 ? "s" : ""}` : ""}{d.aEmettre.length ? `${d.factures.length ? " · " : ""}${d.aEmettre.length} à émettre` : ""}</span></div>
+            {d.aEmettre.map((a) => (
+              <div key={`a${a.id}`} className={s.rangee} data-a-emettre="" data-nouvelle={a.id === dupliquee || undefined}>
+                <span className={s.vignette} data-genre={a.genre} style={{ borderStyle: "dashed" }}>{COURT[a.genre] ?? "FA"}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div className={s.ligneHaut}>
+                    <b>Sans numéro</b>
+                    <span className={s.genre}>{GENRE[a.genre as GenreFacture] ?? "Facture"}</span>
+                    <i className={s.etat} data-ton="attente" title="Pas encore émise : ni numéro, ni date, ni montant dû">À émettre</i>
+                  </div>
+                  <div className={s.ligneBas}>
+                    {a.objet}
+                    {a.sourceNumero ? <> · dupliquée de {a.sourceId && a.sourceDossierId ? <Link href={`/imprimer/${a.sourceDossierId}?doc=facture&f=${a.sourceId}`}>{a.sourceNumero}</Link> : a.sourceNumero}{a.sourceRef && a.sourceDossierId !== d.dossierId ? ` (dossier ${a.sourceRef})` : ""}</> : ""}
+                    {a.creePar ? ` · par ${a.creePar}` : ""}
+                  </div>
+                </div>
+                <div className={s.montants}>
+                  <span className={s.montant}><b>{euros2(a.ttc)}</b><small>non émise</small></span>
+                  <span className={s.actionsRangee}>
+                    <button type="button" className={s.boutonFantome} onClick={() => setOuverte({ genre: "facturer", type: a.genre, aEmettre: a })}>Émettre…</button>
+                    <button type="button" className={s.boutonFantome} data-danger onClick={() => {
+                      if (!window.confirm(`Supprimer cette facture à émettre (${euros2(a.ttc)}) ? Elle n'a jamais été émise : rien d'autre ne change.`)) return;
+                      lancer(async () => { const x = await supprimerFactureAEmettre(a.id); if (!x.ok) setMessage(x.erreur); });
+                    }}>Supprimer</button>
+                  </span>
+                </div>
+              </div>
+            ))}
+            {d.factures.length === 0 && d.aEmettre.length > 0 ? null : d.factures.length === 0 ? (
               <div className={s.vide}><b>Aucune facture</b>Facturez les arrhes dès leur réception, le solde à la fin du déménagement.</div>
             ) : d.factures.map((f) => (
               <div key={f.id} className={s.rangee} data-terne={f.statut === "annulee" || undefined}>
@@ -144,6 +201,7 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
                     <Link className={s.boutonFantome} href={`/imprimer/${d.dossierId}?doc=facture&f=${f.id}`}>PDF</Link>
                     {f.reste > 0 && <button type="button" className={s.boutonFantome} onClick={() => setOuverte({ genre: "encaisser", factureId: f.id, montant: f.reste })}>Encaisser</button>}
                     {f.genre !== "avoir" && <button type="button" className={s.boutonFantome} onClick={() => modifierFacture(f)}>Modifier</button>}
+                    {f.genre !== "avoir" && <button type="button" className={s.boutonFantome} title="Une facture à émettre, sans numéro, dans ce dossier ou un autre" onClick={() => setOuverte({ genre: "dupliquer", facture: f })}>Dupliquer</button>}
                     {f.genre !== "avoir" && f.statut !== "annulee" && <button type="button" className={s.boutonFantome} data-danger onClick={() => setOuverte({ genre: "avoir", facture: f })}>Annuler</button>}
                   </span>
                 </div>
@@ -221,10 +279,20 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
       {ouverte?.genre === "reaffecter" && <FenetreReaffecter reglement={ouverte.reglement} factures={ouvertes} onFermer={fermer} />}
       {ouverte?.genre === "facturer" && (
         <FenetreFacture
-          dossierId={d.dossierId} genre={ouverte.type} brouillons={d.brouillons} aujourdhui={d.aujourdhui} chargement={d.chargement} livraison={d.livraison}
-          derniereDate={d.derniereDate} taux={d.taux} delai={d.delai} conditions={d.conditions} payeur={payeur} payeurDistinct={!!d.payeur}
+          dossierId={d.dossierId} genre={ouverte.type} brouillons={ouverte.aEmettre ? brouillonsDe(ouverte.aEmettre) : d.brouillons} aujourdhui={d.aujourdhui} chargement={d.chargement} livraison={d.livraison}
+          derniereDate={d.derniereDate} taux={d.taux} delai={d.delai} conditions={ouverte.aEmettre?.conditions ?? d.conditions} payeur={payeur} payeurDistinct={!!d.payeur}
           bonCommande={d.bonCommande} reglementsLibres={libres} soldeExistant={d.factures.find((f) => f.genre === "solde" && f.statut !== "annulee")?.numero ?? null} onFermer={fermer} onChangerPayeur={() => setOuverte({ genre: "payeur", puis: ouverte })}
+          aEmettre={ouverte.aEmettre ? { id: ouverte.aEmettre.id, sourceNumero: ouverte.aEmettre.sourceNumero } : null}
         />
+      )}
+      {ouverte?.genre === "dupliquer" && (
+        <Fenetre surtitre={`Facture ${ouverte.facture.numero} · dossier ${d.ref}`} titre="Dupliquer la facture" sousTitre={`${ouverte.facture.objet} · ${euros2(ouverte.facture.ttc)} TTC`} onFermer={fermer}>
+          <FormulaireDupliquerFacture
+            facture={{ id: ouverte.facture.id, numero: ouverte.facture.numero, objet: ouverte.facture.objet, ttc: ouverte.facture.ttc, dossierId: d.dossierId, ref: d.ref, client: d.client.nom }}
+            onAnnuler={fermer}
+            onFaite={(id) => { setDupliquee(id); fermer(); }}
+          />
+        </Fenetre>
       )}
       {ouverte?.genre === "avoir" && (
         <FenetreAvoir facture={{ id: ouverte.facture.id, numero: ouverte.facture.numero, genre: ouverte.facture.genre, objet: ouverte.facture.objet, ttc: ouverte.facture.ttc, affecte: ouverte.facture.affecte, statut: ouverte.facture.statut, dossierId: d.dossierId }} onFermer={fermer} />

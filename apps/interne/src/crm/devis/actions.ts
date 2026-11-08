@@ -14,6 +14,7 @@ import {
   nomDevis, nouvelId, prestationsType, type EtatDevis, type Formule,
 } from "./modele";
 import { calculer, lignesPourBase, r2 } from "./calcul";
+import { copierDevisDans } from "./copie";
 import { chercherModeles, lireParametres } from "./donnees";
 import { CLES_PARAMETRES, PARAMETRES_VIDES, effectifs, type ParametresDevis } from "./parametres";
 
@@ -225,9 +226,9 @@ export async function creerDevis(dossierId: number, f: FormData) {
   if (genre === "copie") {
     const source = n(f, "source");
     if (!source) redirect(`/devis?dossier=${dossierId}&nouveau=copie&erreur=source`);
-    const id = await copier(source, d, p);
-    if (!id) redirect(`/devis?dossier=${dossierId}&nouveau=copie&erreur=source`);
-    redirect(`/dossiers/${dossierId}/devis/${id}?onglet=chiffrage`);
+    const c = await copier(source, d, p);
+    if (!c) redirect(`/devis?dossier=${dossierId}&nouveau=copie&erreur=source`);
+    redirect(`/dossiers/${dossierId}/devis/${c.id}?onglet=chiffrage&duplique=${source}`);
   }
 
   // Devis libre.
@@ -244,42 +245,49 @@ export async function creerDevis(dossierId: number, f: FormData) {
 }
 
 /**
- * La copie d'un devis : chiffrage, prestations, assurance (taux), conditions
- * et achats prévus. D'un autre client, rien de ce qui tient à son
- * déménagement ne suit (distance, poids lourds, dates, valeurs déclarées,
- * coûts réels, moyens) ; le nouveau devis repart en brouillon, daté du jour.
+ * La duplication d'un devis (src/crm/devis/copie.ts : ce qui suit et ce qui
+ * ne suit pas), en brouillon, dans le dossier `d`. Le dossier d'origine, s'il
+ * est un autre, garde la trace de la copie dans son fil.
  */
 async function copier(sourceId: number, d: Row, p: ParametresDevis) {
-  const src = await q1<Row>("select v.*, v.remise_pct::float8 as remise_pct, v.arrhes_pct::float8 as arrhes_pct, v.montant::float8 as montant, v.montant_ht::float8 as montant_ht, v.montant_tva::float8 as montant_tva from devis v where v.id=$1", [sourceId]);
-  if (!src) return null;
-  const memeDossier = src.dossier_id === d.id;
-  const assurance = lireAssurance(src.assurance);
-  if (!memeDossier) { assurance.contractuelle.valeur = null; assurance.dommage.valeur = null; }
-  const achats = lireAchats(src.achats, src.lignes).map((a) => ({ ...a, id: nouvelId("h"), reel: null, date: "", piece: "" }));
-  // Les lignes gardent leurs champs ; les identifiants sont renouvelés, l'assurance recalculée.
-  const lignes = lireLignes(src.lignes).map((l) => ({ ...l, id: nouvelId() }));
-  const eff = effectifs(p);
-  const chiffrage = { mode: src.mode === "forfait" ? "forfait" as const : "postes" as const, saisie: src.saisie === "ht" ? "ht" as const : "ttc" as const, remisePct: src.remise_pct ?? 0, lignes, assurance };
-  const calcul = calculer(chiffrage, eff.tvaAssurance);
-  const id = await inserer({
-    ...(await colonnesCommunes(d, p)),
-    formule: src.formule, titre: src.titre, categorie_specifique: src.categorie_specifique, categorie_libelle: src.categorie_libelle,
-    origine: "copie", copie_de: src.id, saisie: chiffrage.saisie, mode: chiffrage.mode, remise_pct: chiffrage.remisePct,
-    lignes: lignesPourBase(chiffrage, calcul, assurance.tva ?? eff.tvaAssurance), montant: calcul.ttc, montant_ht: calcul.ht, montant_tva: calcul.tva,
-    prestations: lirePrestations(src.prestations), assurance, achats,
-    arrhes_pct: src.arrhes_pct ?? eff.arrhesPct, reglement_solde: src.reglement_solde, conditions: src.conditions,
-    international: lireInternational(src.international),
-    ...(memeDossier ? {
-      distance_km: src.distance_km, poids_lourds: src.poids_lourds, deplacement: src.deplacement, groupage: src.groupage,
-      ref_interne: src.ref_interne, moyens: lireMoyens(src.moyens),
-    } : {}),
+  const u = await currentUser();
+  const c = await transaction((db) => copierDevisDans(db, sourceId, d.id, p, u));
+  if (!c) return null;
+  const libelle = c.memeDossier
+    ? `Devis ${c.source.numero} dupliqué en ${c.numero} (brouillon)`
+    : `Devis ${c.numero} dupliqué depuis le devis ${c.source.numero} (${c.source.client}, dossier ${c.source.ref})${c.volumeDiffere ? " · montants à vérifier, le volume diffère" : ""}`;
+  await apresCreation(d.id, libelle);
+  if (!c.memeDossier) {
+    const cible = await q1<{ ref: string }>("select ref from dossiers where id=$1", [d.id]);
+    await noter(c.source.dossierId, `Devis ${c.source.numero} dupliqué vers le dossier ${cible?.ref ?? d.id} (${c.numero}, brouillon)`);
+  }
+  await journaliser({
+    action: "devis.duplique", libelle, objet: { type: "devis", id: c.id }, dossierId: d.id, activite: libelle,
+    details: { source: c.source.numero, numero: c.numero, dossier_source: c.source.ref, volume_differe: c.volumeDiffere || undefined },
   });
-  const o = await q1<{ ref: string; nom: string; societe: string | null }>("select d.ref, c.nom, c.societe from dossiers d join clients c on c.id=d.client_id where d.id=$1", [src.dossier_id]);
-  await apresCreation(d.id, memeDossier ? `Devis ${src.numero} copié` : `Devis créé à partir du devis ${src.numero} (${o?.societe || o?.nom}, dossier ${o?.ref})`);
-  return id;
+  return c;
 }
 
-/** La recherche de la fenêtre « Copier un devis » : tous les dossiers, du plus récent au plus ancien. */
+/**
+ * « Dupliquer » un devis (fiche du dossier, liste des devis, éditeur) : dans
+ * son dossier (`cible` = son dossier) ou dans un autre, choisi dans la
+ * fenêtre. La copie s'ouvre dans l'éditeur, avec un bandeau qui ramène au
+ * devis d'origine.
+ */
+export async function dupliquerDevis(devisId: number, f: FormData) {
+  await exiger();
+  const v = await q1<{ dossier_id: number }>("select dossier_id from devis where id=$1", [devisId]);
+  if (!v) redirect("/devis");
+  const cible = n(f, "cible") ?? v.dossier_id;
+  const d = await contexteDossier(cible);
+  // Le dossier de destination a pu disparaître entre la recherche et l'envoi.
+  if (!d) redirect(`/dossiers/${v.dossier_id}/devis/${devisId}?erreur=cible`);
+  const c = await copier(devisId, d, await lireParametres());
+  if (!c) redirect(`/dossiers/${v.dossier_id}/devis/${devisId}?erreur=cible`);
+  redirect(`/dossiers/${cible}/devis/${c.id}?onglet=chiffrage&duplique=${devisId}`);
+}
+
+/** La recherche de la fenêtre « Dupliquer un devis » : tous les dossiers, du plus récent au plus ancien. */
 export async function rechercherModeles(texteRecherche: string) {
   await exiger();
   const rows = await chercherModeles(texteRecherche);

@@ -459,7 +459,7 @@ export function FenetrePlanifier({ d }: { d: Row }) {
   );
 }
 
-/** Copier une visite : le même rendez-vous, à une autre date. */
+/** Dupliquer une visite : le même rendez-vous, à une autre date. */
 export function FenetreCopieRdv({ d, r, jour, heure }: { d: Row; r: Row; jour: string; heure: string }) {
   return (
     <form action={F.copierRdv.bind(null, d.id, r.id)}>
@@ -484,7 +484,7 @@ export function FenetreCopieRdv({ d, r, jour, heure }: { d: Row; r: Row; jour: s
         )}
       </div>
       <div className={s.pied}>
-        <Valider>Copier la visite</Valider>
+        <Valider>Dupliquer la visite</Valider>
       </div>
     </form>
   );

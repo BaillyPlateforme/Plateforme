@@ -1,6 +1,6 @@
 /*
  * Les pictogrammes de la fiche : ceux des barres d'outils (Nouveau, Modifier,
- * Copier, Confirmer, Imprimer, Transfert, Signer…) et des sections, au trait,
+ * Dupliquer, Confirmer, Imprimer, Transfert, Signer…) et des sections, au trait,
  * sur la grille de 24, au même dessin que les icônes de la coque (ui/icones).
  */
 const P = {

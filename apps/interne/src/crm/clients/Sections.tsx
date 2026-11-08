@@ -149,6 +149,7 @@ export function Identite({
   espaceOuvert,
   entreprises,
   avant,
+  focusIdentite = false,
 }: {
   f: FicheClient;
   modifier: boolean;
@@ -158,6 +159,8 @@ export function Identite({
   /** Les espaces pro auxquels le client peut être rattaché (lib/espaces-pro.ts) ; vide si la liste ne se lit pas. */
   entreprises: Entreprise[];
   /** Sous le titre : l'enregistrement fait, les doublons possibles. */ avant?: React.ReactNode;
+  /** Le formulaire s'ouvre le curseur sur le prénom (une fiche tout juste dupliquée). */
+  focusIdentite?: boolean;
 }) {
   const c = f.client;
   const id = c.id as number;
@@ -181,7 +184,7 @@ export function Identite({
     >
       {avant}
       {modifier ? (
-        <FormulaireClient c={c} espaceOuvert={espaceOuvert} erreur={erreur} entreprises={entreprises} />
+        <FormulaireClient c={c} espaceOuvert={espaceOuvert} erreur={erreur} entreprises={entreprises} focus={focusIdentite} />
       ) : (
         <div className={s.identite}>
           <dl className={s.faits}>
@@ -248,7 +251,7 @@ function Champ({ l = 6, titre, aide, accent, children }: { l?: 2 | 3 | 4 | 6 | 8
 }
 
 /** Le formulaire de la fiche : les champs de la fenêtre « Fiche » d'un dossier, plus la facturation et les notes. */
-function FormulaireClient({ c, espaceOuvert, erreur, entreprises }: { c: Row; espaceOuvert: boolean; erreur: string | null; entreprises: Entreprise[] }) {
+function FormulaireClient({ c, espaceOuvert, erreur, entreprises, focus = false }: { c: Row; espaceOuvert: boolean; erreur: string | null; entreprises: Entreprise[]; focus?: boolean }) {
   return (
     <form action={majClient.bind(null, c.id)} className={s.formulaire}>
       {erreur === "nom" && <p className={s.erreur}>Le nom du client est obligatoire.</p>}
@@ -263,7 +266,7 @@ function FormulaireClient({ c, espaceOuvert, erreur, entreprises }: { c: Row; es
             </select>
           </Champ>
           <Champ l={4} titre="Prénom">
-            <input type="text" name="prenom" defaultValue={c.prenom ?? ""} />
+            <input type="text" name="prenom" defaultValue={c.prenom ?? ""} autoFocus={focus} />
           </Champ>
           <Champ l={6} titre="Nom">
             <input type="text" name="nom" defaultValue={c.nom ?? ""} required />

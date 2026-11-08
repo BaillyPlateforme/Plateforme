@@ -26,6 +26,8 @@ export interface PropsFenetreFacture {
   reglementsLibres: ReglementLibre[];
   /** Une facture de solde déjà émise (et pas annulée) sur ce dossier. */
   soldeExistant?: string | null;
+  /** Une facture à émettre (dupliquée) : ses lignes sont les brouillons ; l'émission la remplace. */
+  aEmettre?: { id: number; sourceNumero: string | null } | null;
   onFermer: () => void;
   onChangerPayeur: () => void;
 }
@@ -94,7 +96,7 @@ export default function FenetreFacture(p: PropsFenetreFacture) {
         dossierId: p.dossierId, genre, objet, dateMode, date: dateMode === "libre" ? dateLibre : null, echeance: echeance || null,
         conditions: conditions || null, bonCommande: bonCommande || null,
         lignes: retenues.map((l) => ({ genre: l.genre, libelle: l.libelle, detail: l.detail ?? null, quantite: l.quantite, unite: l.unite ?? null, prixUnitaireHt: l.prixUnitaireHt, tauxTva: l.tauxTva, factureDeduiteId: l.factureDeduiteId ?? null })),
-        affecter: [...affecter], devisId: brouillon.devisId,
+        affecter: [...affecter], devisId: brouillon.devisId, aEmettreId: p.aEmettre?.id ?? null,
       });
       if (!issue.ok) setErreur(issue.erreur);
       else setEmise({ id: issue.id!, numero: issue.numero! });
@@ -115,9 +117,11 @@ export default function FenetreFacture(p: PropsFenetreFacture) {
   return (
     <Fenetre
       large
-      surtitre={`Facturation · dossier`}
-      titre="Émettre une facture"
-      sousTitre="Une facture émise est numérotée et ne se modifie plus : vérifiez-la avant de l'émettre."
+      surtitre={p.aEmettre ? `Facture à émettre${p.aEmettre.sourceNumero ? ` · dupliquée de ${p.aEmettre.sourceNumero}` : ""}` : `Facturation · dossier`}
+      titre={p.aEmettre ? "Émettre la facture dupliquée" : "Émettre une facture"}
+      sousTitre={p.aEmettre
+        ? "Elle prend ici le numéro suivant des factures et la date choisie, puis ne se modifie plus : vérifiez-la avant de l'émettre."
+        : "Une facture émise est numérotée et ne se modifie plus : vérifiez-la avant de l'émettre."}
       onFermer={p.onFermer}
       pied={
         <>
@@ -182,7 +186,7 @@ export default function FenetreFacture(p: PropsFenetreFacture) {
               <Champ label="Bon de commande du compte" aide="facultatif" l={dateMode === "libre" ? 4 : 8} id={`${id}-bc`}>
                 <input id={`${id}-bc`} type="text" value={bonCommande} onChange={(e) => setBonCommande(e.target.value)} placeholder="BC-2026-…" />
               </Champ>
-              <Champ label="Conditions de règlement" aide={p.conditions ? "reprises des Paramètres" : "vides : à renseigner dans Paramètres"} l={12} id={`${id}-cond`}>
+              <Champ label="Conditions de règlement" aide={p.aEmettre ? "reprises de la facture dupliquée" : p.conditions ? "reprises des Paramètres" : "vides : à renseigner dans Paramètres"} l={12} id={`${id}-cond`}>
                 <textarea id={`${id}-cond`} value={conditions} onChange={(e) => setConditions(e.target.value)} style={{ minHeight: 56 }} />
               </Champ>
             </div>

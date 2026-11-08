@@ -14,7 +14,8 @@ import { instantParis, momentVisite } from "@/lib/visite/regles";
  * complètent celles d'actions.ts et d'actions2.ts, qui restent branchées
  * telles quelles sur la fiche : celles-ci couvrent ce que la fiche ajoute —
  * l'identité du client, les adresses et le suivi en fenêtres séparées, la
- * copie d'une visite, d'un devis ou d'une lettre de voiture, l'ajout et la
+ * duplication d'une visite, d'une lettre de voiture, d'un contact ou d'un
+ * service (un devis se duplique dans src/crm/devis/actions.ts), l'ajout et la
  * suppression d'une lettre, les contacts, les services, la modification d'un
  * litige.
  *
@@ -158,7 +159,7 @@ export async function majItineraire(id: number, f: FormData) {
 /* ---------- Déménagements · Visites ---------- */
 
 /**
- * « Copier » une visite : le même rendez-vous (type, commercial, durée,
+ * « Dupliquer » une visite : le même rendez-vous (type, commercial, durée,
  * titre, lieu, commentaire) à une autre date. La règle des visites tient :
  * pas sur un autre rendez-vous du commercial. Aucun SMS ne part : « Confirmer »
  * l'envoie quand l'équipe le décide.
@@ -174,7 +175,7 @@ export async function copierRdv(dossierId: number, rdvId: number, f: FormData) {
     const plages = await occupation(r.commercial_id, debut, new Date(debut.getTime() + r.duree_min * 60_000), null);
     const c = conflit(plages, debut, r.duree_min);
     if (c) {
-      await noter(dossierId, `Copie de la visite refusée : le commercial n'est pas libre le ${momentVisite(debut, true)} (${c.libelle})`);
+      await noter(dossierId, `Duplication de la visite refusée : le commercial n'est pas libre le ${momentVisite(debut, true)} (${c.libelle})`);
       rafraichir(dossierId);
       return;
     }
@@ -182,29 +183,14 @@ export async function copierRdv(dossierId: number, rdvId: number, f: FormData) {
   await q("insert into rendez_vous(commercial_id,dossier_id,type,titre,lieu,debut,duree_min,notes,journee) values($1,$2,$3,$4,$5,$6,$7,$8,false)", [
     r.commercial_id, dossierId, r.type, r.titre, r.lieu, debut.toISOString(), r.duree_min, r.notes,
   ]);
-  await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [dossierId, u.id, `Visite copiée au ${momentVisite(debut, true)}`]);
+  await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [dossierId, u.id, `Visite dupliquée au ${momentVisite(debut, true)}`]);
   await q("update dossiers set maj_le=now() where id=$1", [dossierId]);
   await projeterEspace(dossierId);
   rafraichir(dossierId);
   revalidatePath("/planning");
 }
 
-/* ---------- Déménagements · Devis ---------- */
-
-/** « Copier » un devis : un nouveau brouillon, mêmes lignes, prestations et conditions, validité de 60 jours. */
-export async function copierDevis(dossierId: number, devisId: number) {
-  await currentUser();
-  const v = await q1<Row>("select * from devis where id=$1 and dossier_id=$2", [devisId, dossierId]);
-  if (!v) return;
-  const num = await numero("DV", "devis");
-  await q(
-    `insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite,conditions,deplacement,groupage,distance_km)
-     values($1,$2,$3,$4,$5,$6,current_date + 60,$7,$8,$9,$10)`,
-    [dossierId, num, v.formule, JSON.stringify(v.lignes ?? []), v.montant, JSON.stringify(v.prestations ?? []), v.conditions, v.deplacement ?? "route", v.groupage ?? false, v.distance_km],
-  );
-  await noter(dossierId, `Devis ${v.numero} copié en ${num} (brouillon)`);
-  rafraichir(dossierId);
-}
+/* ---------- Déménagements · Devis : « Dupliquer » est dupliquerDevis (src/crm/devis/actions.ts) ---------- */
 
 /* ---------- Déménagements · Lettres de voiture ---------- */
 
@@ -223,7 +209,7 @@ export async function ajouterLettre(dossierId: number) {
   rafraichir(dossierId);
 }
 
-/** « Copier » : la même lettre (trajet, dates, prestataire, équipe, camion, consignes), sans montant. */
+/** « Dupliquer » : la même lettre (trajet, dates, prestataire, équipe, camion, consignes), sans montant. */
 export async function copierLettre(dossierId: number, lettreId: number) {
   await currentUser();
   const l = await q1<Row>("select * from lettres_voiture where id=$1 and dossier_id=$2", [lettreId, dossierId]);
@@ -234,7 +220,7 @@ export async function copierLettre(dossierId: number, lettreId: number) {
      values($1,$2,$3,$4,$5,$6,$7,0,$8,$9,$10)`,
     [dossierId, num, l.trajet, l.date_chargement, l.date_livraison, l.prestataire, l.prix_sous_traitance, l.equipe, l.immatriculation, l.instructions],
   );
-  await noter(dossierId, `Lettre de voiture ${l.numero} copiée en ${num}`);
+  await noter(dossierId, `Lettre de voiture ${l.numero} dupliquée en ${num}`);
   rafraichir(dossierId);
 }
 
@@ -314,7 +300,7 @@ export async function copierContact(dossierId: number, contactId: number) {
     "insert into contacts(client_id,civilite,prenom,nom,fonction,telephone,email,notes) select client_id,civilite,prenom,nom,fonction,telephone,email,notes from contacts where id=$1 and client_id=$2",
     [contactId, client],
   );
-  await noter(dossierId, "Contact copié");
+  await noter(dossierId, "Contact dupliqué");
   rafraichir(dossierId);
 }
 export async function supprimerContact(dossierId: number, contactId: number) {
@@ -353,7 +339,7 @@ export async function copierService(dossierId: number, serviceId: number) {
     "insert into services(dossier_id,libelle,date_prevue,montant,statut,notes) select dossier_id,libelle,date_prevue,montant,'prevu',notes from services where id=$1 and dossier_id=$2",
     [serviceId, dossierId],
   );
-  await noter(dossierId, "Service copié");
+  await noter(dossierId, "Service dupliqué");
   rafraichir(dossierId);
 }
 export async function supprimerService(dossierId: number, serviceId: number) {

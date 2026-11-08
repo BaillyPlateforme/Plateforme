@@ -14,6 +14,9 @@ import { ficheClient } from "@/crm/clients/donnees";
 import { entreprisesPro } from "@/crm/clients/entreprises";
 import { emailValide, lienTelephone, nomAffiche, telephoneLisible } from "@/crm/clients/commun";
 import { Argent, Demandes, Doublons, Dossiers, Espaces, Identite, RendezVous, Section } from "@/crm/clients/Sections";
+import { avisClientDuplique } from "@/crm/duplication/donnees";
+import AvisDuplication from "@/crm/duplication/composants/AvisDuplication";
+import { ConfirmerDuplicationClient, RenoncerDuplicationClient } from "@/crm/duplication/composants/DupliquerClient";
 import { MenuAncres, type Ancre } from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/suivi/MenuAncres";
 import s from "@/crm/clients/clients.module.css";
 
@@ -35,7 +38,7 @@ export const dynamic = "force-dynamic";
  * tête, discrètement, avec leurs liens : la fusion n'existe pas encore.
  */
 
-type Params = { modifier?: string; contact?: string; erreur?: string; enregistre?: string; espace?: string; ref?: string; m?: string };
+type Params = { modifier?: string; contact?: string; erreur?: string; enregistre?: string; espace?: string; ref?: string; m?: string; dupliquer?: string; duplique?: string };
 
 /** L'instant du rendu (hors du composant : un rendu reste pur). */
 const instant = () => Date.now();
@@ -51,12 +54,15 @@ export default async function PageClient({ params, searchParams }: { params: Pro
   const id = Number((await params).id);
   const sp = await searchParams;
   // La liste des espaces pro n'empêche jamais la fiche de s'ouvrir : sans elle, le rattachement se lit sans se modifier.
-  const [f, entreprises] = await Promise.all([
+  const source = sp.duplique && /^\d+$/.test(sp.duplique) ? Number(sp.duplique) : null;
+  const [f, entreprises, duplique] = await Promise.all([
     ficheClient(id),
     entreprisesPro().catch((e) => {
       console.error("Client : lecture des espaces pro impossible", e instanceof Error ? e.message : e);
       return [];
     }),
+    // La fiche vient d'être dupliquée (?duplique=<origine>) : son bandeau ramène à la fiche d'origine.
+    source ? avisClientDuplique(source) : Promise.resolve(null),
   ]);
   if (!f) notFound();
   const c = f.client;
@@ -125,6 +131,7 @@ export default async function PageClient({ params, searchParams }: { params: Pro
           ]}
           plus={[
             { label: "Modifier la fiche", aide: "Identité, coordonnées, facturation, notes", icone: "crayon", href: `/clients/${id}?modifier=1#identite` },
+            { label: "Dupliquer la fiche", aide: "Un autre contact de la même société : société et facturation reprises", icone: "dupliquer", href: `/clients/${id}?dupliquer=1#identite` },
             !!tel2 && { label: "Appeler l’autre numéro", aide: telephoneLisible(c.telephone2) ?? undefined, icone: "telephone", href: tel2 },
             "-",
             { label: "Tout son historique", aide: "Dans le Feed, ses dossiers, demandes et espaces", icone: "fil", href: `/feed?objet=c${id}` },
@@ -144,8 +151,21 @@ export default async function PageClient({ params, searchParams }: { params: Pro
               erreur={sp.erreur ?? null}
               espaceOuvert={espaceOuvert}
               entreprises={entreprises}
+              // Une fiche tout juste dupliquée : le curseur attend le prénom de la nouvelle personne.
+              focusIdentite={!!duplique && sp.modifier === "1"}
               avant={
                 <>
+                  {duplique && source && (
+                    <AvisDuplication
+                      titre={`Fiche dupliquée depuis ${duplique.nom}`}
+                      texte="Société, facturation (adresse, SIREN, TVA), entreprise et notes reprises. Saisissez l'identité et les coordonnées de ce nouveau contact, puis enregistrez."
+                      alerte={!c.nom?.trim() ? `Le nom est obligatoire : tant qu'il n'est pas enregistré, la fiche ne s'appelle que « ${nom} ».` : null}
+                      lien={duplique.lien}
+                      libelleLien="Fiche d'origine"
+                      autre={!c.nom?.trim() && !c.email && !c.telephone ? <RenoncerDuplicationClient id={id} source={source} /> : null}
+                    />
+                  )}
+                  {sp.dupliquer === "1" && !sp.modifier && <ConfirmerDuplicationClient id={id} nom={nom} />}
                   {sp.enregistre === "1" && (
                     <p className={s.flash} role="status">
                       <Icone nom="coche" taille={16} /> Fiche enregistrée.

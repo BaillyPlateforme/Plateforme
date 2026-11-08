@@ -101,6 +101,62 @@ export async function majClient(id: number, f: FormData) {
   redirect(`/clients/${id}?enregistre=${changes.length ? "1" : "0"}#identite`);
 }
 
+/**
+ * « Dupliquer la fiche » : une nouvelle fiche client qui reprend ce qui tient
+ * à l'entreprise — type, société, facturation (adresse, SIREN, TVA),
+ * entreprise (espace pro), notes — et laisse vide ce qui tient à la personne
+ * (civilité, prénom, nom, e-mail, téléphones). L'usage : un deuxième salarié
+ * ou contact de la même société. La fiche s'ouvre en modification, le nom à
+ * saisir (il est obligatoire à l'enregistrement).
+ */
+export async function dupliquerClient(id: number) {
+  await currentUser();
+  const c = await q1<{ id: number; type: string; societe: string | null }>(
+    `insert into clients(type, nom, societe, facturation_adresse, facturation_cp, facturation_ville, facturation_pays, siren, tva_intracom, espace_pro_id, notes)
+     select type, '', societe, facturation_adresse, facturation_cp, facturation_ville, facturation_pays, siren, tva_intracom, espace_pro_id, notes
+       from clients where id = $1 returning id, type, societe`,
+    [id],
+  );
+  if (!c) redirect("/clients");
+  const o = await q1<{ nom: string; prenom: string | null; societe: string | null }>("select nom, prenom, societe from clients where id = $1", [id]);
+  const origine = o?.societe || [o?.prenom, o?.nom].filter(Boolean).join(" ") || `n° ${id}`;
+  await journaliser({
+    action: "client.duplique",
+    libelle: `Fiche client dupliquée depuis ${origine} (client n° ${id}) : société et facturation reprises, identité à saisir`,
+    objet: { type: "client", id: c.id },
+    dossierId: await dernierDossier(id),
+    details: { source: id, societe: c.societe, type: c.type },
+  });
+  rafraichir(id);
+  redirect(`/clients/${c.id}?modifier=1&duplique=${id}#identite`);
+}
+
+/**
+ * Renoncer à une fiche tout juste dupliquée : elle n'est supprimée que tant
+ * qu'elle est restée vide — sans nom, sans e-mail ni téléphone, sans contact,
+ * sans dossier. Sinon, rien ne bouge.
+ */
+export async function abandonnerClientDuplique(id: number, source: number) {
+  await currentUser();
+  const r = await q1<{ id: number }>(
+    `delete from clients c where c.id = $1 and coalesce(btrim(c.nom), '') = '' and c.prenom is null and c.email is null and c.telephone is null and c.telephone2 is null
+       and not exists (select 1 from dossiers where client_id = c.id or payeur_client_id = c.id)
+       and not exists (select 1 from contacts where client_id = c.id) returning id`,
+    [id],
+  );
+  if (r) {
+    await journaliser({
+      action: "client.duplication_abandonnee",
+      libelle: `Fiche client dupliquée puis abandonnée, avant toute saisie (client n° ${id})`,
+      objet: { type: "client", id },
+      dossierId: await dernierDossier(source),
+      details: { source },
+    });
+  }
+  revalidatePath("/clients");
+  redirect(r ? `/clients/${source}#identite` : `/clients/${id}#identite`);
+}
+
 /** Ajoute un contact au client (conjoint, assistante, service des achats…). */
 export async function ajouterContactClient(clientId: number, f: FormData) {
   await currentUser();

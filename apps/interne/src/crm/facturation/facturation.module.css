@@ -486,6 +486,8 @@
   --filet: #ecebf3;
   width: min(760px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
+  /* Centrée : la remise à zéro du CRM (crm.css, « * { margin: 0 } ») retire la marge automatique d'une fenêtre modale. */
+  margin: auto;
   padding: 0;
   border: 0;
   border-radius: 26px;

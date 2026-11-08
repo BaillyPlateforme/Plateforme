@@ -70,6 +70,8 @@ const P: Record<string, string> = {
   gauche: '<path d="m15 18-6-6 6-6"/>',
   droite: '<path d="m9 18 6-6-6-6"/>',
   crayon: '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7.5 18.5 3 20l1.5-4.5z"/><path d="M14.5 5.5l3 3"/>',
+  // « Dupliquer », partout dans le CRM : le même dessin que l'outil de la fiche du dossier (src/crm/fiche/Picto.tsx).
+  dupliquer: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.6"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
   appareil: '<rect x="5.5" y="2.5" width="13" height="19" rx="2.5"/><path d="M11 18h2"/>',
   points: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
   epingle: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',

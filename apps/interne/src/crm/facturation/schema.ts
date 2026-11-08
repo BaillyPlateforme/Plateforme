@@ -339,4 +339,21 @@ create constraint trigger facturation_projeter after insert or update or delete 
 drop trigger if exists facturation_projeter on crm.devis;
 create constraint trigger facturation_projeter after update of statut on crm.devis
   deferrable initially deferred for each row execute function crm.facturation_projeter();
+-- Les factures à émettre : le brouillon d'une facture dupliquée (« Dupliquer » sur une facture). Ce n'est pas une
+-- facture : ni numéro, ni date, ni montant dû, ni place dans les vues des soldes ou dans l'espace client. Elle ne
+-- devient une facture qu'à l'émission (emettreFacture), qui lui donne le numéro suivant et la supprime d'ici.
+create table if not exists crm.factures_a_emettre (
+  id serial primary key,
+  dossier_id int not null references crm.dossiers(id) on delete cascade,
+  genre text not null default 'facture' check (genre in ('facture','solde','acompte')),
+  objet text not null,
+  lignes jsonb not null default '[]',
+  conditions_reglement text,
+  source_facture_id int references crm.factures(id) on delete set null,
+  source_numero text,
+  cree_par int references crm.utilisateurs(id) on delete set null,
+  cree_le timestamptz not null default now()
+);
+create index if not exists idx_factures_a_emettre_dossier on crm.factures_a_emettre(dossier_id);
+alter table crm.factures_a_emettre enable row level security;
 `;

@@ -1,0 +1,555 @@
+/*
+ * La duplication, partout dans le CRM : ce qui suit et ce qui ne suit pas,
+ * le choix du dossier de destination, les cases, et le bandeau du nouvel
+ * objet. Le design « Quantum » modernisé (indigo, violet, vert, ambre).
+ */
+.racine,
+.avis,
+.panneau,
+.boutons {
+  --indigo: #4b2fe0;
+  --indigo-fonce: #2e1f9e;
+  --violet: #7a52ff;
+  --vert: #0b7a4e;
+  --vert-clair: #e7f8f0;
+  --ambre: #b45309;
+  --ambre-clair: #fff6e5;
+  --encre: #17142b;
+  --gris: #6f6c80;
+  --filet: #ecebf3;
+  color: var(--encre);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+.racine {
+  display: grid;
+  gap: 18px;
+}
+
+/* ─────────────── Ce qui suit, ce qui ne suit pas ─────────────── */
+
+.suit {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.colonne {
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  background: #faf9fe;
+  border: 1px solid var(--filet);
+}
+.colonne[data-ton="repris"] {
+  background: linear-gradient(180deg, #f3fbf7, #fbfefc);
+  border-color: #d3f1e3;
+}
+.colonne h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gris);
+}
+.colonne[data-ton="repris"] h4 {
+  color: var(--vert);
+}
+.colonne ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.colonne li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #3c3953;
+}
+.colonne li svg {
+  margin-top: 2px;
+}
+.colonne[data-ton="repris"] li svg {
+  color: #14c27d;
+}
+.colonne[data-ton="jamais"] li svg {
+  color: #b4b1c4;
+}
+
+/* ─────────────── Où dupliquer ─────────────── */
+
+.cibles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.cible {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1.5px solid var(--filet);
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+.cible:hover {
+  border-color: #cfc3ff;
+}
+.cible:has(input:checked) {
+  border-color: var(--indigo);
+  background: #f6f3ff;
+  box-shadow: 0 10px 24px -18px rgba(75, 47, 224, 0.8);
+}
+.cible input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--indigo);
+}
+.cible b {
+  display: block;
+  font-size: 14px;
+  font-weight: 750;
+}
+.cible small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gris);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.choix {
+  display: grid;
+  gap: 8px;
+}
+.recherche {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px 0 42px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fbfaff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237b7893' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 14px center;
+  color: var(--encre);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 550;
+  outline: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.recherche:focus {
+  border-color: #a996ff;
+  background-color: #fff;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.1);
+}
+.resultats {
+  display: grid;
+  gap: 4px;
+  max-height: 268px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.resultats[aria-busy="true"] {
+  opacity: 0.6;
+}
+.resultat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 13px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.resultat:hover {
+  background: #f6f4fd;
+}
+.resultat[aria-pressed="true"] {
+  border-color: var(--indigo);
+  background: #f3efff;
+}
+.resultat .ref {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #ece8ff;
+  color: var(--indigo-fonce);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.resultat span b {
+  display: block;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resultat span small {
+  display: block;
+  overflow: hidden;
+  color: var(--gris);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.resultat em {
+  color: var(--gris);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.aucun {
+  padding: 14px;
+  color: var(--gris);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ─────────────── Cases et notes ─────────────── */
+
+.cases {
+  display: grid;
+  gap: 8px;
+}
+.casesDeux {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.case {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1.5px solid var(--filet);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.case:hover {
+  border-color: #d9cfff;
+}
+.case:has(input:checked) {
+  border-color: #c5b6ff;
+  background: #f8f6ff;
+}
+.case input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--indigo);
+}
+.case b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 750;
+}
+.case small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gris);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.case em {
+  align-self: center;
+  color: var(--gris);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.note,
+.alerte {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 13px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.note {
+  background: #f4f2fb;
+  color: #4a475c;
+}
+.alerte {
+  background: var(--ambre-clair);
+  color: var(--ambre);
+  font-weight: 600;
+}
+.erreur {
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: 13px;
+  background: #fff1f3;
+  color: #be123c;
+  font-size: 13px;
+  font-weight: 650;
+}
+.aValider {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff6e5;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ─────────────── Boutons ─────────────── */
+
+/* Le pied d'une fenêtre : « à valider » à gauche, les boutons à droite. */
+.boutons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.boutons .aValider {
+  margin-right: auto;
+}
+/* Dans une fenêtre de la fiche du dossier (src/crm/fiche) : son pied, collé en bas, comme ceux de ses formulaires. */
+.boutons[data-fiche] {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  width: auto;
+  margin: 0 -24px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--filet);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+}
+.principal,
+.secondaire,
+.discret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background-color 0.15s;
+}
+.principal {
+  border: 0;
+  background: linear-gradient(135deg, var(--indigo-fonce), var(--indigo) 55%, var(--violet));
+  color: #fff;
+  box-shadow: 0 14px 26px -16px rgba(75, 47, 224, 0.95);
+}
+.principal:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.principal:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.secondaire {
+  border: 1px solid #d9cfff;
+  background: #fff;
+  color: var(--indigo-fonce);
+}
+.secondaire:hover {
+  background: #f1edff;
+}
+.discret {
+  border: 0;
+  background: transparent;
+  color: var(--gris);
+}
+.discret:hover {
+  background: #f4f2fb;
+  color: var(--encre);
+}
+
+/* Le bouton d'une ligne de la liste des devis : celui de ses voisins (Modifier, PDF, Retirer). */
+.iconeLigne {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #6f6c80;
+  cursor: pointer;
+}
+.iconeLigne:hover {
+  background: #f1edff;
+  color: var(--indigo, #4b2fe0);
+}
+
+/* ─────────────── Le bandeau du nouvel objet ─────────────── */
+
+.avis {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid #cdeedd;
+  border-radius: 18px;
+  background: linear-gradient(120deg, #effbf5, #fbfffd 60%);
+  box-shadow: 0 18px 40px -32px rgba(11, 122, 78, 0.6);
+  animation: arrivee 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes arrivee {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.avisIcone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #0f9d63, #14c27d);
+  color: #fff;
+}
+.avisTexte {
+  min-width: 0;
+}
+.avisTexte b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14.5px;
+  font-weight: 750;
+}
+.avisTexte span {
+  display: block;
+  margin-top: 2px;
+  color: #3c4a44;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.avisTexte .avisAlerte {
+  color: var(--ambre);
+  font-weight: 650;
+}
+.avisActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.avisLien {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #b9e6cf;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--vert);
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.avisLien:hover {
+  background: #f0fbf5;
+}
+.avisFermer {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #6b7f76;
+  cursor: pointer;
+}
+.avisFermer:hover {
+  background: #e3f5ec;
+}
+
+/* ─────────────── Le panneau de confirmation (fiche client) ─────────────── */
+
+.panneau {
+  display: grid;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border: 1px solid #ddd5ff;
+  border-radius: 20px;
+  background: radial-gradient(520px 200px at 100% -40%, #ece6ff, transparent 70%), #fdfcff;
+}
+.panneauTete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.panneauIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--indigo-fonce), var(--violet));
+  color: #fff;
+}
+.panneauTete h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.panneauTete p {
+  margin: 3px 0 0;
+  color: var(--gris);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .suit,
+  .cibles,
+  .casesDeux {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .avis {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .avisActions {
+    grid-column: 1 / -1;
+  }
+}

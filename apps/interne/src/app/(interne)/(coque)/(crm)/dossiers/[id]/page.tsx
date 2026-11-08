@@ -4,7 +4,11 @@ import MenuActions from "@/ui/MenuActions";
 import { notFound } from "next/navigation";
 import { soldeDossier } from "@/crm/facturation/donnees";
 import { getDossier } from "@/crm/lib/data";
-import { q, type Row } from "@/crm/lib/db";
+import { q, q1, type Row } from "@/crm/lib/db";
+import { avisDossierDuplique } from "@/crm/duplication/donnees";
+import AvisDuplication from "@/crm/duplication/composants/AvisDuplication";
+import FenetreDupliquerDossier from "@/crm/duplication/composants/DupliquerDossier";
+import { Declencheur } from "@/crm/duplication/composants/Declencheur";
 import { eur, m3, nomClient, STATUTS } from "@/crm/lib/format";
 import * as A from "@/crm/actions";
 import { litiges as getLitiges } from "@/crm/lib/data2";
@@ -36,12 +40,12 @@ export const dynamic = "force-dynamic";
  * plus répétées dans la bande, ni le statut ailleurs que dans sa pastille.
  */
 
-export default async function PageDossier({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string }> }) {
+export default async function PageDossier({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string; duplique?: string }> }) {
   const id = Number((await params).id);
   const sp = await searchParams;
   const d = await getDossier(id);
   if (!d) notFound();
-  const [lit, etatsSms, users, data, espace, client, parcours, superAdmin, entreprises, sien] = await Promise.all([
+  const [lit, etatsSms, users, data, espace, client, parcours, superAdmin, entreprises, sien, devisActifs, duplique] = await Promise.all([
     getLitiges(id),
     etatsRdv(d.rdvs.map((r: Row) => r.id)),
     q("select id,nom,role from utilisateurs order by id"),
@@ -60,6 +64,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     entreprisesPro().catch(() => []),
     // Un client, un espace : l'espace que son client a déjà, quand ce dossier n'y est pas encore.
     espaceDuDossier(id),
+    // « Dupliquer à l'identique » propose de reprendre ses devis : ceux qui sont encore dans la proposition.
+    q1<{ n: number }>("select count(*)::int as n from devis where dossier_id=$1 and retire_le is null", [id]),
+    // Le dossier vient d'être dupliqué (?duplique=<origine>) : son bandeau dit d'où il vient et ce qui a été repris.
+    sp.duplique && /^\d+$/.test(sp.duplique) ? avisDossierDuplique(id, Number(sp.duplique)) : Promise.resolve(null),
   ]);
   const aAjouter = !!sien && !sien.dedans;
   d.telephone2 = client[0]?.telephone2 ?? null;
@@ -115,11 +123,21 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
           )}
           {espace[0] && <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`}>Suivi de l’espace (équipe)</Link>}
           <Link href={`/imprimer/${id}?doc=fiche`}>Fiche PDF</Link>
-          <form action={A.dupliquerDossier.bind(null, id)}><button>Dupliquer le dossier</button></form>
+          {/* Dupliquer : à l'identique (même client, une fenêtre dit ce qui suit) ou pour un nouveau client (l'écran de création, prérempli). */}
+          <Declencheur fenetre="dupliquer-dossier" titre="Un nouveau dossier pour le même client : trajet, inventaire, options, services">
+            Dupliquer à l’identique…
+          </Declencheur>
+          <Link href={`/dossiers/nouveau?depuis=${id}`} prefetch={false} title="L'écran de création, prérempli : vous choisissez ce qui est repris">
+            Dupliquer pour un nouveau client…
+          </Link>
           {d.statut === "perdu"
             ? <form action={A.rouvrir.bind(null, id)}><button>Rouvrir le dossier</button></form>
             : d.statut !== "termine" && <form action={A.marquerPerdu.bind(null, id)}><button data-danger>Marquer perdu</button></form>}
         </MenuActions>
+        {/* Hors du menu, qui se démonte après un choix : la fenêtre attend son appel. */}
+        <FenetreDupliquerDossier
+          dossier={{ id, ref: d.ref, client: nomClient(d), clientId: d.client_id, etapes: d.stops.length, objets: d.inv.length, services: data.services.filter((x) => x.statut !== "annule").length, devis: devisActifs?.n ?? 0 }}
+        />
       </Bandeau>
 
       {parcours && (
@@ -141,6 +159,20 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         />
       )}
 
+      {duplique && (
+        <AvisDuplication
+          titre={`Dossier dupliqué depuis ${duplique.ref}`}
+          texte={majuscule(duplique.libelle.replace(/^Dossier dupliqué depuis \S+ /, ""))}
+          alerte={
+            duplique.libelle.includes("à l'identique")
+              ? "Les devis repris sont des brouillons, pas envoyés. La période est celle d'origine : ajustez-la, puis posez les dates de ce déménagement."
+              : "Vérifiez ce qui a été repris : l'adresse et les accès d'un autre foyer ne suivent que si vous les avez cochés."
+          }
+          lien={duplique.lien}
+          libelleLien={`Voir ${duplique.ref}`}
+        />
+      )}
+
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
 
       {/* La discussion avec le client, quand il a un espace : repliée, ouverte d'elle-même s'il a écrit sans réponse. */}
@@ -150,6 +182,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     </div>
   );
 }
+
+const majuscule = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** La période dans le sous-titre (la date n'y figurait pas, David 08/11/2026) : la date de chargement, sinon le souhait du client, sinon le mois prévu. */
 function periodeDuSousTitre(d: Record<string, unknown>): string | null {

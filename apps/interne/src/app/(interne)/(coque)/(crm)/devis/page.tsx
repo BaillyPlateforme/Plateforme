@@ -6,7 +6,8 @@ import Bandeau from "@/ui/Bandeau";
 import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
 import type { NomIcone } from "@/ui/icones";
 import { compteursDevis, htDe, listeDevis } from "@/crm/devis/donnees";
-import { creerDevis, retirerDevis } from "@/crm/devis/actions";
+import { retirerDevis } from "@/crm/devis/actions";
+import { BoutonDupliquerDevis } from "@/crm/duplication/composants/DupliquerDevis";
 import { nomDevis } from "@/crm/devis/modele";
 import NouveauDevis from "@/crm/devis/composants/NouveauDevis";
 import { euros } from "@/crm/devis/format";
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 /*
  * L'onglet Devis (Créagidem, section H) : la liste, d'un dossier ou de tous,
- * avec les colonnes de Créagidem, et la barre Nouveau / Modifier / Copier /
+ * avec les colonnes de Créagidem, et la barre Nouveau / Modifier / Dupliquer /
  * Devis (PDF) / Retirer. Ouverte depuis un dossier (?dossier=), elle reste
  * sur ce dossier et propose de créer un devis.
  *
@@ -129,10 +130,8 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
                           <td>
                             <div className={s.actions}>
                               <Link href={lien} title="Modifier" aria-label={`Modifier le devis ${r.numero}`}><Pic d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" /></Link>
-                              <form action={creerDevis.bind(null, r.did)}>
-                                <input type="hidden" name="genre" value="copie" /><input type="hidden" name="source" value={r.id} />
-                                <button title="Copier ce devis dans son dossier" aria-label={`Copier le devis ${r.numero}`}><Pic d="M8 8h11v11H8zM5 16V5h11" /></button>
-                              </form>
+                              {/* Dupliquer : dans son dossier ou dans un autre (une fenêtre, src/crm/duplication). */}
+                              <BoutonDupliquerDevis devis={{ id: r.id, numero: r.numero, dossierId: r.did, ref: r.ref, client: nomClient(r), volume: Number(r.volume) || 0 }} />
                               <Link href={`/imprimer/${r.did}?doc=devis&v=${r.id}`} target="_blank" title="Aperçu PDF" aria-label={`PDF du devis ${r.numero}`}><Pic d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 14h6M9 17h4" /></Link>
                               {r.statut !== "signe" && !r.retire_le && (
                                 <form action={retirerDevis.bind(null, r.id)}><button title={r.statut === "brouillon" ? "Supprimer le brouillon" : "Retirer de la proposition"} aria-label={`${r.statut === "brouillon" ? "Supprimer" : "Retirer"} le devis ${r.numero}`} data-danger=""><Pic d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></button></form>

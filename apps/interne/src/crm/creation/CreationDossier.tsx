@@ -11,6 +11,8 @@ import {
 } from "./commun";
 import ChampAdresse from "@/ui/ChampAdresse";
 import { Picto } from "./Picto";
+import type { SourceDuplication } from "@/crm/duplication/types";
+import PanneauDuplication, { COCHES_DEFAUT, cochesInitiales, type Coches } from "@/crm/duplication/composants/PanneauDuplication";
 import s from "./creation.module.css";
 
 /*
@@ -30,6 +32,12 @@ import s from "./creation.module.css";
  * domicile d'un autre foyer (choix de David, 08/11/2026). Un champ prérempli
  * est marqué, et la reprise s'annule d'un geste. Ce que l'utilisateur a tapé
  * n'est jamais écrasé.
+ *
+ * « Dupliquer pour un nouveau client » (?depuis=<id>, le « ⋯ » d'un dossier)
+ * est un point de départ de plus, réglé par quatre cases (trajet et accès,
+ * inventaire, options et type, observations ; trajet et observations
+ * décochés d'office, ils décrivent un autre foyer). La création reste la
+ * même : creerDossier, qui reprend côté serveur ce que l'écran ne porte pas.
  */
 
 interface V {
@@ -80,6 +88,34 @@ function reprise(src: SourceDossier | SourceModele, clientId: number | null): Pa
   return r;
 }
 
+/**
+ * Ce que « Dupliquer pour un nouveau client » préremplit, case par case. Le
+ * reste — le détail des accès, les étapes intermédiaires, l'inventaire — est
+ * repris par le serveur à la création (src/crm/duplication/dossier.ts).
+ */
+function repriseDuplication(src: SourceDuplication, c: Coches, clientId: number | null): Partial<V> {
+  const r: Partial<V> = {};
+  if (c.options) {
+    // Le segment appartient au client : rattaché, c'est le sien qui compte.
+    if (src.type && !clientId) r.type = src.type;
+    if (src.typeDemenagement) r.type_demenagement = src.typeDemenagement;
+    if (src.gardeMeuble) r.garde_meuble = true;
+    if (src.vehicule) r.vehicule = true;
+  }
+  if (c.inventaire && src.volume > 0) r.volume = nombre(src.volume);
+  if (c.trajet) {
+    for (const [g, e] of [["depart", src.depart], ["arrivee", src.arrivee]] as const) {
+      if (!e?.adresse) continue;
+      r[g] = e.adresse;
+      if (e.etage) r[`${g}_etage`] = e.etage;
+      if (e.ascenseur) r[`${g}_asc`] = true;
+      if (e.acces) r[`${g}_acces`] = e.acces;
+    }
+  }
+  if (c.observations && src.observations) r.observations = src.observations;
+  return r;
+}
+
 /** Applique une reprise : la précédente est d'abord retirée ; un champ tapé par l'utilisateur reste le sien. */
 function appliquerSur(e: Etat, origine: Origine | null, champs: Partial<V>, touches: Set<Cle>, defauts: V): Etat {
   const v = { ...e.v } as Record<Cle, V[Cle]>;
@@ -110,21 +146,30 @@ interface Props {
   modeleInitial: number | null;
   /** Un client à rattacher d'emblée (`?client=<id>` : « Nouveau dossier pour ce client », depuis sa fiche). */
   clientInitial?: ClientConnu | null;
+  /** Un dossier à dupliquer pour un nouveau client (`?depuis=<id>`) : des cases disent ce qui est repris. */
+  duplication?: SourceDuplication | null;
   maintenant: number;
 }
 
 const sAbonner = () => () => {};
 const surMac = () => /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 
-export default function CreationDossier({ moi, commerciaux, monDernier, dernierAgence, modeles, modeleInitial, clientInitial = null, maintenant }: Props) {
+export default function CreationDossier({ moi, commerciaux, monDernier, dernierAgence, modeles, modeleInitial, clientInitial = null, duplication = null, maintenant }: Props) {
   const mac = useSyncExternalStore(sAbonner, surMac, () => true);
   const cmd = mac ? "⌘" : "Ctrl";
   const alt = mac ? "⌥" : "Alt+";
 
   const comDefaut = moi.role === "commercial" ? String(moi.id) : "";
   const origineModele = (m: SourceModele): Origine => ({ cle: `modele-${m.id}`, genre: "modele", id: m.id, titre: `le modèle « ${m.nom} »` });
+  // La duplication pour un nouveau client (src/crm/duplication) : un point de départ comme les autres, réglé par ses cases.
+  const origineDup: Origine | null = duplication ? { cle: `depuis-${duplication.id}`, genre: "dossier", id: duplication.id, titre: `le dossier ${duplication.ref}` } : null;
+  const [coches, setCoches] = useState<Coches>(() => (duplication ? cochesInitiales(duplication) : COCHES_DEFAUT));
 
   const [etat, setEtat] = useState<Etat>(() => {
+    if (duplication && origineDup && !clientInitial) {
+      const base: Etat = { v: { ...VIDE, commercial_id: comDefaut }, repris: [], origine: null };
+      return appliquerSur(base, origineDup, repriseDuplication(duplication, cochesInitiales(duplication), null), new Set(), base.v);
+    }
     const c = clientInitial;
     // Le client rattaché d'emblée (« Nouveau dossier » depuis sa fiche) : son identité et son segment, et, s'il a déjà
     // déménagé avec nous, son dernier dossier — son arrivée devient le départ.
@@ -247,6 +292,15 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   };
   const origineDossier = (d: SourceDossier, cle: string, titre: string): Origine => ({ cle, genre: "dossier", id: d.id, titre: `${titre} ${d.ref}` });
 
+  /* ---------- la duplication pour un nouveau client : ses cases ---------- */
+  const dupActive = !!origineDup && etat.origine?.cle === origineDup.cle;
+  const appliquerDuplication = (c: Coches) => {
+    if (!duplication || !origineDup) return;
+    setCoches(c);
+    const t = new Set(touches.current);
+    setEtat((e) => appliquerSur(e, origineDup, repriseDuplication(duplication, c, client?.id ?? null), t, defauts()));
+  };
+
   /* ---------- le client déjà connu ---------- */
   const rattacher = (c: ClientConnu, reprendre: boolean) => {
     setClient(c);
@@ -259,9 +313,10 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
         type: t.has("type") ? e.v.type : c.type,
       };
       const base = { ...e, v: v2 };
-      return reprendre && c.dernier
-        ? appliquerSur(base, origineDossier(c.dernier, `client-${c.id}`, "son dernier dossier"), reprise(c.dernier, c.id), t, defauts(c))
-        : base;
+      if (reprendre && c.dernier) return appliquerSur(base, origineDossier(c.dernier, `client-${c.id}`, "son dernier dossier"), reprise(c.dernier, c.id), t, defauts(c));
+      // Une duplication en cours reste : seul le segment, celui du client rattaché, cesse d'être repris.
+      if (duplication && origineDup && e.origine?.cle === origineDup.cle) return appliquerSur(base, origineDup, repriseDuplication(duplication, coches, c.id), t, defauts(c));
+      return base;
     });
     aFocaliser.current = "premier";
   };
@@ -472,7 +527,15 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
       <div className={s.grille}>
         {/* ---------- le formulaire ---------- */}
         <form ref={formulaire} action={creerDossier} noValidate onKeyDown={surTouche} className={s.formulaire}>
-          {etat.origine && (
+          {duplication && (dupActive || !etat.origine) ? (
+            <PanneauDuplication
+              source={duplication}
+              actif={dupActive}
+              coches={coches}
+              onChanger={appliquerDuplication}
+              onAnnuler={vierge}
+            />
+          ) : etat.origine && (
             <div className={s.origine} role="status">
               <i className={s.origineIcone}><Picto nom="reprise" /></i>
               <div className={s.origineTexte}>
@@ -745,6 +808,13 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
             <>
               <input type="hidden" name="source_genre" value={etat.origine.genre} />
               <input type="hidden" name="source_id" value={etat.origine.id} />
+            </>
+          )}
+          {dupActive && duplication && (
+            <>
+              <input type="hidden" name="dupliquer_depuis" value={duplication.id} />
+              <input type="hidden" name="dupliquer_mode" value="nouveau" />
+              {(Object.keys(coches) as (keyof Coches)[]).map((k) => coches[k] && <input key={k} type="hidden" name={`dupliquer_${k}`} value="on" />)}
             </>
           )}
 

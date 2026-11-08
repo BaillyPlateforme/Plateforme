@@ -7,7 +7,6 @@ import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { totaux, arrondi, aujourdhuiParis, jourIso, MODE, GENRE, euros2, type LigneSaisie } from "./calcul";
 import { chercherClients, mentionsEmetteur, payeurDe, reglagesFacturation, tauxParDefaut, CHAMPS_REGLAGES, type Payeur, type Reglages } from "./donnees";
-
 /*
  * Les actions de l'encaissement et de la facturation. Comme toutes celles du
  * CRM, elles vérifient la session d'abord (une action serveur s'appelle
@@ -237,6 +236,8 @@ const SaisieFacture = z.object({
   lignes: z.array(Ligne).min(1, "Ajoutez au moins une ligne.").max(200),
   affecter: z.array(z.number().int().positive()).max(100).default([]),
   devisId: z.number().int().positive().nullable().optional(),
+  /** La facture à émettre (une facture dupliquée) que cette émission remplace : elle disparaît à l'émission. */
+  aEmettreId: z.number().int().positive().nullable().optional(),
 });
 export type SaisieFacture = z.input<typeof SaisieFacture>;
 
@@ -297,12 +298,19 @@ export async function emettreFacture(saisie: SaisieFacture): Promise<Issue> {
   const mentions = Object.fromEntries(Object.entries(await mentionsEmetteur()).filter(([, v]) => v != null && v !== ""));
   const annee = date.slice(0, 4);
 
-  let r: { id: number; numero: string } | { erreur: string };
+  let r: { id: number; numero: string; depuis: string | null } | { erreur: string };
   try {
     r = await transaction(async (db) => {
       const numero = await prochainNumero(db, "FA", annee);
       const [dern] = await db.query<{ le: Date | null; numero: string | null }>("select emise_le as le, numero from factures where numero like 'FA-%' order by emise_le desc, id desc limit 1");
       if (dern?.le && jourIso(dern.le)! > date) return { erreur: `La date choisie (${dateFr(date)}) précède celle de la facture ${dern.numero} (${dateFr(jourIso(dern.le)!)}) : la numérotation des factures doit rester chronologique. Choisissez la date du jour.` };
+      // Une facture dupliquée : son brouillon part avant toute écriture. Déjà parti (un double clic, un autre poste), rien n'est émis.
+      let depuis: string | null = null;
+      if (s.aEmettreId) {
+        const [b] = await db.query<{ source_numero: string | null }>("delete from factures_a_emettre where id=$1 and dossier_id=$2 returning source_numero", [s.aEmettreId, s.dossierId]);
+        if (!b) return { erreur: "Cette facture à émettre a déjà été émise ou supprimée : rechargez la page." };
+        depuis = b.source_numero;
+      }
       const [f] = await db.query<{ id: number }>(
         `insert into factures(dossier_id, numero, objet, montant, montant_ht, montant_tva, statut, emise_le, genre, devis_id, date_mode, echeance_le, conditions_reglement,
            bon_commande, origine_client_id, payeur_client_id, payeur, mentions, emise_par)
@@ -317,7 +325,7 @@ export async function emettreFacture(saisie: SaisieFacture): Promise<Issue> {
       }
       if (regs.length) await db.query("update paiements set facture_id=$1 where id = any($2)", [f.id, regs.map((x) => x.id)]);
       if (t.ttc === 0) await db.query("update factures set statut='payee', payee_le=$2 where id=$1", [f.id, date]);
-      return { id: f.id, numero };
+      return { id: f.id, numero, depuis };
     });
   } catch (e) {
     return refus(`La facture n'a pas pu être enregistrée : ${e instanceof Error ? e.message : "erreur inconnue"}.`);
@@ -325,7 +333,7 @@ export async function emettreFacture(saisie: SaisieFacture): Promise<Issue> {
   if ("erreur" in r) return refus(r.erreur);
   await q("update dossiers set bon_commande=coalesce($2, bon_commande) where id=$1", [s.dossierId, s.bonCommande]);
   const modeDate = s.dateMode === "jour" ? "" : ` · datée du ${s.dateMode === "chargement" ? "chargement" : s.dateMode === "livraison" ? "jour de livraison" : dateFr(date)}`;
-  await noter(s.dossierId, `${GENRE[s.genre]} ${r.numero} émise : ${fr(t.ttc)} TTC${affecte ? ` · ${fr(affecte)} déjà réglés` : ""}${modeDate}`);
+  await noter(s.dossierId, `${GENRE[s.genre]} ${r.numero} émise : ${fr(t.ttc)} TTC${affecte ? ` · ${fr(affecte)} déjà réglés` : ""}${modeDate}${r.depuis ? ` · dupliquée de ${r.depuis}` : ""}`);
   await apres(s.dossierId);
   revalidatePath("/factures");
   return { ok: true, id: r.id, numero: r.numero };
@@ -437,6 +445,68 @@ export async function annulerParAvoir(factureId: number, motif: string): Promise
   await apres(f.dossier_id);
   revalidatePath("/factures");
   return { ok: true, id: r.id, numero: r.numero };
+}
+
+/* ---------- dupliquer une facture ---------- */
+
+/**
+ * « Dupliquer » une facture : une facture À ÉMETTRE, dans son dossier ou dans
+ * un autre (crm.factures_a_emettre). Elle reprend le genre, l'objet, les
+ * lignes (désignation, quantité, prix HT, TVA, lignes sans montant) et les
+ * conditions de règlement. Elle n'a ni numéro ni date : elle n'est pas une
+ * facture et ne compte nulle part (soldes, espace client, Factur-X) tant
+ * qu'elle n'est pas émise. C'est l'émission (emettreFacture) qui lui donne
+ * le numéro suivant de la suite FA-, sous verrou et dans l'ordre
+ * chronologique, et fige le client facturé et les mentions du dossier de
+ * destination. Jamais repris : le numéro, la date, les règlements et leur
+ * affectation, les déductions d'arrhes (propres au dossier d'origine). Un
+ * avoir ne se duplique pas.
+ */
+export async function dupliquerFacture(factureId: number, cibleId: number): Promise<Issue> {
+  const u = await exiger();
+  const f = await q1(`select f.id, f.numero, f.genre, f.objet, f.montant::float8 as ttc, f.montant_ht::float8 as ht, f.conditions_reglement, f.dossier_id, f.garde_meuble_id, d.ref
+      from factures f left join dossiers d on d.id = f.dossier_id where f.id=$1`, [factureId]);
+  if (!f) return refus("Facture introuvable.");
+  if (f.genre === "avoir") return refus("Un avoir ne se duplique pas : il annule une facture.");
+  const cible = await q1<{ id: number; ref: string }>("select id, ref from dossiers where id=$1", [cibleId]);
+  if (!cible) return refus("Le dossier de destination n'existe plus.");
+  const sources = await q(`select genre, libelle, detail, quantite::float8 as quantite, unite, prix_unitaire_ht::float8 as pu, taux_tva::float8 as taux
+      from factures_lignes where facture_id=$1 and genre <> 'deduction' order by ordre, id`, [factureId]);
+  const taux = tauxParDefaut(await reglagesFacturation());
+  const lignes: LigneSaisie[] = sources.length
+    ? sources.map((l) => ({ genre: l.genre, libelle: l.libelle, detail: l.detail ?? null, quantite: l.quantite, unite: l.unite ?? null, prixUnitaireHt: l.pu, tauxTva: l.taux }))
+    // Une facture d'avant les lignes : une ligne, son objet, au HT enregistré (sinon déduit du TTC au taux par défaut).
+    : [{ genre: "prestation", libelle: f.objet, quantite: 1, prixUnitaireHt: f.ht ?? arrondi(f.ttc / (1 + taux / 100)), tauxTva: f.ht ? arrondi(((f.ttc - f.ht) / f.ht) * 100) : taux }];
+  // Une facture de garde-meuble se duplique en facture libre : la période d'un contrat ne se facture que depuis le contrat.
+  const genre = f.garde_meuble_id ? "facture" : f.genre;
+  const sansDeduction = sources.length < (await q1<{ n: number }>("select count(*)::int as n from factures_lignes where facture_id=$1", [factureId]))!.n;
+  const r = await q1<{ id: number }>(
+    `insert into factures_a_emettre(dossier_id, genre, objet, lignes, conditions_reglement, source_facture_id, source_numero, cree_par)
+     values($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+    [cible.id, genre, f.objet, JSON.stringify(lignes), f.conditions_reglement ?? null, f.id, f.numero, u.id],
+  );
+  const autre = f.dossier_id !== cible.id;
+  const libelle = `Facture ${f.numero} dupliquée${autre && f.ref ? ` depuis le dossier ${f.ref}` : ""} : à émettre, sans numéro tant qu'elle ne l'est pas${sansDeduction ? " (déductions d'arrhes non reprises)" : ""}`;
+  await noter(cible.id, libelle);
+  if (autre) await noter(f.dossier_id, `Facture ${f.numero} dupliquée vers le dossier ${cible.ref} (à émettre)`);
+  await journaliser({
+    action: "facture.dupliquee", libelle, objet: { type: "facture_a_emettre", id: r!.id }, dossierId: cible.id, activite: libelle,
+    details: { source: f.numero, dossier_source: f.ref, genre, lignes: lignes.length },
+  });
+  await apres(cible.id, autre ? f.dossier_id : null);
+  return { ok: true, id: r!.id, numero: f.numero };
+}
+
+/** Supprimer une facture à émettre : rien de légal à défaire, elle n'a jamais été émise. */
+export async function supprimerFactureAEmettre(id: number): Promise<Issue> {
+  await exiger();
+  const r = await q1<{ dossier_id: number; source_numero: string | null; objet: string }>("delete from factures_a_emettre where id=$1 returning dossier_id, source_numero, objet", [id]);
+  if (!r) return refus("Cette facture à émettre n'existe plus.");
+  const libelle = `Facture à émettre supprimée (« ${r.objet} »${r.source_numero ? `, dupliquée de ${r.source_numero}` : ""})`;
+  await noter(r.dossier_id, libelle);
+  await journaliser({ action: "facture_a_emettre.supprimee", libelle, objet: { type: "facture_a_emettre", id }, dossierId: r.dossier_id, details: { source: r.source_numero }, activite: libelle });
+  await apres(r.dossier_id);
+  return { ok: true };
 }
 
 /* ---------- le client payeur ---------- */
