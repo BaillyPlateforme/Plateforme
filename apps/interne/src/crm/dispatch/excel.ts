@@ -191,7 +191,7 @@ export async function classeurModele(): Promise<Uint8Array> {
 
   const a = wb.addWorksheet("Aide");
   [22, 26, 70].forEach((l, i) => (a.getColumn(i + 1).width = l));
-  entete(a, "Importer les clients d'un conteneur", "Remplissez la feuille « Clients », une ligne par client, puis déposez le fichier dans le CRM (Dispatch international › Importer).", 3);
+  entete(a, "Importer les clients d'un conteneur", "Remplissez la feuille « Clients », une ligne par client, puis déposez le fichier dans le CRM (Conteneurs › Dispatch › Importer des clients).", 3);
   a.getRow(4).values = ["Colonne", "Statut", "Contenu"];
   titres(a.getRow(4));
   cols.forEach(([titre, , statut, aide], i) => {
