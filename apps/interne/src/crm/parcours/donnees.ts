@@ -1,10 +1,10 @@
 import "server-only";
 import { q, q1, type Row } from "@/crm/lib/db";
-import { nomClient, RDV_TYPES } from "@/crm/lib/format";
+import { RDV_TYPES } from "@/crm/lib/format";
 import { getRequestDetail, type RequestDetail } from "@/lib/requests";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { NomIcone } from "@/ui/icones";
-import { etapesDu, type Etape, type Faits } from "./etapes";
+import { etapesDu, type Faits } from "./etapes";
 import { soldeDossier } from "@/crm/facturation/donnees";
 
 /*
@@ -137,54 +137,6 @@ async function espacesDe(ids: number[]): Promise<Map<number, Espace>> {
     console.error("Parcours : lecture des espaces client impossible", e instanceof Error ? e.message : e);
   }
   return out;
-}
-
-/* ───────── La liste : les dossiers récents, ou ceux d'une recherche ───────── */
-
-export type Resume = {
-  id: number;
-  ref: string;
-  statut: string;
-  client: string;
-  segment: string;
-  depart: string | null;
-  arrivee: string | null;
-  volume: number;
-  commercial: string | null;
-  initiales: string | null;
-  commercialId: number | null;
-  montant: number | null;
-  majLe: string;
-  etapes: Etape[];
-};
-
-export async function resumesParcours(f: { q?: string; vue?: string }): Promise<Resume[]> {
-  const w: string[] = [];
-  const p: unknown[] = [];
-  if (f.q) {
-    p.push(`%${f.q}%`);
-    w.push(`(c.nom ilike $1 or c.prenom ilike $1 or c.societe ilike $1 or d.ref ilike $1 or exists (select 1 from etapes_trajet t where t.dossier_id=d.id and t.adresse ilike $1))`);
-  } else if (f.vue === "termines") w.push("d.statut='termine'");
-  else if (f.vue === "perdus") w.push("d.statut='perdu'");
-  else if (f.vue !== "tous") w.push("d.statut not in ('termine','perdu')");
-  const rows = await q(`${RESUME} ${w.length ? `where ${w.join(" and ")}` : ""} order by d.maj_le desc, d.id desc limit 36`, p);
-  const espaces = await espacesDe(rows.map((r) => r.id as number));
-  return rows.map((r) => ({
-    id: r.id,
-    ref: r.ref,
-    statut: r.statut,
-    client: nomClient(r) || "Sans nom",
-    segment: r.type,
-    depart: r.depart,
-    arrivee: r.arrivee,
-    volume: r.volume,
-    commercial: r.commercial,
-    initiales: r.initiales,
-    commercialId: r.commercial_id,
-    montant: (r.signe as Row | null)?.montant ?? null,
-    majLe: ISO(r.maj_le)!,
-    etapes: etapesDu(faitsDe(r, {}, espaces.get(r.id))),
-  }));
 }
 
 /* ───────── Le parcours complet d'un dossier ───────── */

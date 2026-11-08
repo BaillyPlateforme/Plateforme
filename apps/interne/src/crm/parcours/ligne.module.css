@@ -1,0 +1,408 @@
+/*
+ * Le parcours d'un dossier, en tête de sa page : une carte blanche posée à
+ * cheval sur le bas de la bande indigo (rangée `chevauche`, bandeau.module.css),
+ * la ligne des huit étapes de A à Z, leurs treize étapes détaillées, puis une
+ * bande de faits. Vert : fait ; indigo : en cours ; ambre : non enregistré.
+ */
+
+.carte {
+  position: relative;
+  margin-bottom: 18px;
+  padding: 18px 22px 0;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid #e8e6ef;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.02), 0 26px 50px -30px rgba(46, 31, 158, 0.5);
+  overflow: hidden;
+}
+/*
+ * À cheval sur la bande : la rangée du bas de la bande est vide sur cette
+ * page (les étapes sont ici), la carte s'y pose, à 30 px sous la phrase.
+ * La marge basse de la bande (22 px) se fond avec celle-ci : -86 px donnent
+ * 64 px de chevauchement. La classe répétée l'emporte sur la règle commune
+ * (`.bandeau + .chevauche`, 34 px).
+ */
+.carte.carte.carte {
+  margin-top: -86px;
+}
+
+/* ───────── L'en-tête ───────── */
+
+.tete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+}
+.teteIcone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px rgba(75, 47, 224, 0.9);
+}
+.titres {
+  min-width: 0;
+}
+.titres h2 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #14121f;
+}
+.titres p {
+  margin: 1px 0 0;
+  font-size: 13px;
+  color: #6f6c80;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.titres p b {
+  color: #2e1f9e;
+  font-weight: 700;
+}
+.jauge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.barres {
+  display: flex;
+  gap: 3px;
+}
+.barres i {
+  width: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e9e6f2;
+}
+.barres i[data-etat="fait"] {
+  background: #14c27d;
+}
+.barres i[data-etat="encours"] {
+  background: linear-gradient(90deg, #4b2fe0, #7a52ff);
+}
+.barres i[data-etat="manque"] {
+  background: #f59e0b;
+}
+.barres i[data-etat="sansobjet"] {
+  background: #cfcadf;
+}
+.jaugeTexte {
+  font-size: 12.5px;
+  color: #6f6c80;
+  white-space: nowrap;
+}
+.jaugeTexte b {
+  color: #14121f;
+  font-weight: 750;
+}
+.bascule {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px 0 14px;
+  border: 1px solid #e8e6ef;
+  border-radius: 999px;
+  background: #f7f6fc;
+  color: #2e1f9e;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.bascule:hover {
+  background: #efebff;
+  border-color: #d9ccfb;
+}
+.bascule em {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #ece8ff;
+  color: #4b2fe0;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 750;
+  text-align: center;
+}
+.chevron {
+  transition: transform 0.2s;
+}
+.bascule[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+
+/* ───────── La ligne de A à Z ───────── */
+
+.stations {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(148px, 1fr));
+  margin: 0 -22px;
+  padding: 2px 12px 18px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ddd6f3 transparent;
+}
+.station {
+  position: relative;
+  min-width: 0;
+  padding: 0 10px;
+}
+/* Le trait jusqu'à l'étape suivante : vert une fois l'étape faite. */
+.station:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 58px;
+  right: 4px;
+  height: 3px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, #dcd8e8 0 6px, transparent 6px 11px);
+}
+.station[data-etat="fait"]:not(:last-child)::after {
+  background: #14c27d;
+}
+.station[data-etat="encours"]:not(:last-child)::after {
+  background: linear-gradient(90deg, #7a52ff, rgba(122, 82, 255, 0.15));
+}
+.noeud {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+.rond {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f4f3f9;
+  border: 1px solid #e3e0ee;
+  color: #a7a3b8;
+}
+.station[data-etat="fait"] .rond {
+  border-color: transparent;
+  background: #14c27d;
+  color: #fff;
+  box-shadow: 0 8px 16px -10px rgba(20, 194, 125, 0.9);
+}
+.station[data-etat="encours"] .rond {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 0 0 5px rgba(75, 47, 224, 0.13), 0 10px 20px -10px rgba(75, 47, 224, 0.9);
+}
+.alerte {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+.nom {
+  display: block;
+  margin-top: 10px;
+  font-size: 13.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #14121f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.station[data-etat="avenir"] .nom {
+  color: #8b88a0;
+}
+.station[data-etat="encours"] .nom {
+  color: #2e1f9e;
+}
+.sous {
+  display: grid;
+  gap: 7px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.sous li {
+  min-width: 0;
+}
+.libelle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #3b3753;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.libelle i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d6d2e3;
+}
+.sous small {
+  display: block;
+  padding-left: 12px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #6f6c80;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sous li[data-etat="fait"] .libelle i {
+  background: #14c27d;
+}
+.sous li[data-etat="encours"] .libelle {
+  color: #2e1f9e;
+}
+.sous li[data-etat="encours"] .libelle i {
+  background: #4b2fe0;
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.16);
+}
+.sous li[data-etat="manque"] .libelle i {
+  background: #f59e0b;
+}
+.sous li[data-etat="manque"] small {
+  color: #b45309;
+}
+.sous li[data-etat="sansobjet"] .libelle,
+.sous li[data-etat="avenir"] .libelle {
+  color: #a7a3b8;
+}
+
+/* ───────── Les faits ───────── */
+
+.faits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 -22px;
+  border-top: 1px solid #efedf5;
+  background: #faf9fd;
+}
+.faits > div {
+  min-width: 0;
+  padding: 12px 22px 14px;
+}
+.faits > div + div {
+  border-left: 1px solid #efedf5;
+}
+.faits dt {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8b88a0;
+}
+.faits dd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 4px 0 0;
+  min-width: 0;
+}
+.faits dd b {
+  font-size: 15px;
+  font-weight: 750;
+  color: #14121f;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.faits dd small {
+  font-size: 12px;
+  color: #6f6c80;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.faits dd .vert {
+  color: #0e8a5a;
+}
+.vide {
+  font-size: 13.5px;
+  color: #a7a3b8;
+}
+.barre {
+  flex: 1;
+  min-width: 60px;
+  max-width: 140px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e9e6f2;
+  overflow: hidden;
+}
+.barre i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #14c27d;
+}
+.lien {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4b2fe0;
+  white-space: nowrap;
+}
+.lien:hover {
+  color: #2e1f9e;
+}
+
+/* La chronologie, dépliée sous le parcours. */
+.chronologie {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1100px) {
+  .faits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .faits > div:nth-child(3) {
+    border-left: 0;
+  }
+  .faits > div:nth-child(n + 3) {
+    border-top: 1px solid #efedf5;
+  }
+}
+
+@media (max-width: 760px) {
+  /* La bande n'a plus de hauteur fixe : la carte ne mord plus dessus. */
+  .carte.carte.carte {
+    margin-top: 0;
+  }
+  .tete {
+    flex-wrap: wrap;
+  }
+  .jauge {
+    margin-left: 0;
+  }
+}
