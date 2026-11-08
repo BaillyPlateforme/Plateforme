@@ -78,7 +78,7 @@ export default async function TableauRelances({ searchParams }: { searchParams: 
   const tentatives30 = tentatives.filter((t) => jourParis(new Date(t.date)) >= debutHisto);
 
   const tuiles: { libelle: string; valeur: number; sous: string; icone: NomIcone; ton: string; ombre: string; href: string }[] = [
-    { libelle: "Aujourd'hui", valeur: col("aujourdhui").length, sous: `${veille.dues.length} partiront à la veille de ce soir`, icone: "horloge", ton: "linear-gradient(135deg,#7a52ff,#a78bfa)", ombre: "rgba(122,82,255,.8)", href: kanban("col-aujourdhui") },
+    { libelle: "Aujourd'hui", valeur: col("aujourdhui").length, sous: `${veille.dues.length} partiront à la veille de ce soir`, icone: "horloge", ton: "linear-gradient(135deg,#7a52ff,#b9a8ff)", ombre: "rgba(122,82,255,.8)", href: kanban("col-aujourdhui") },
     { libelle: "7 prochains jours", valeur: j7, sous: "hors aujourd'hui", icone: "calendrier", ton: "linear-gradient(135deg,#4b2fe0,#7a52ff)", ombre: "rgba(75,47,224,.8)", href: kanban("col-avenir") },
     { libelle: "30 prochains jours", valeur: j30, sous: `${avenir.length} à venir en tout`, icone: "tendance", ton: "linear-gradient(135deg,#2e1f9e,#4b2fe0)", ombre: "rgba(46,31,158,.8)", href: kanban("col-avenir") },
     { libelle: "En retard", valeur: col("retard").length, sous: veille.enAttente ? `${veille.enAttente} attendent une décision` : "rattrapées par la veille sous 3 jours", icone: "cloche", ton: "linear-gradient(135deg,#e1306c,#ff6b9a)", ombre: "rgba(225,48,108,.8)", href: kanban("col-retard") },
