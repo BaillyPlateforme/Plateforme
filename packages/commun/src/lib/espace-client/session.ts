@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/auth";
 import { roleDuCompte } from "@/lib/supabase/roles";
 import { createServiceClient } from "@/lib/supabase/server";
+import { COOKIE_APERCU, LECTURE_SEULE, lireCookieApercu, type CookieApercu } from "./apercu";
 import { DUREE_SESSION_H, estDemo } from "./config";
 import { avecDelai, depot, maintenant } from "./depot";
 import { desceller, sceller } from "./signature";
@@ -24,6 +25,20 @@ import type { Client, Donnees } from "./types";
  *
  * En démonstration, sans base ni Supabase Auth, un cookie signé en tient
  * lieu ; il n'est lu qu'en démonstration.
+ *
+ * L'aperçu de l'équipe (apercu.ts) : un membre de l'équipe voit l'espace
+ * d'un client depuis le CRM, en lecture seule. Son cookie signé passe AVANT
+ * toute autre session, en base comme en démonstration, mais seulement tant
+ * qu'il est valable (signature et heure) : il ne se mélange jamais à une
+ * vraie session du client ouverte dans le même navigateur — l'une ou
+ * l'autre, jamais les deux. Pendant l'aperçu :
+ *   - le client est lu par la clé de service, et ses données par
+ *     `lireDuClient`, qui ne rend que ses lignes (restreindre) ;
+ *   - toute écriture est refusée (exigerClientPourAgir, refuserEnApercu) ;
+ *   - ni ec_sessions ni lien d'accès ne sont touchés : les indicateurs de
+ *     l'équipe (« vu par le client le… ») restent ceux du client ;
+ *   - « Se déconnecter » ne fait que quitter l'aperçu.
+ * Le cookie expiré ou effacé, la session ordinaire reprend ses droits.
  */
 
 /** Le cookie de la démonstration, et lui seul : en base, la session est celle de Supabase. */
@@ -32,8 +47,14 @@ const DUREE_MS = DUREE_SESSION_H * 60 * 60 * 1000;
 
 type ContenuDemo = { c: string; iat: number; exp: number };
 
+/** L'aperçu de l'équipe en cours : son cookie, s'il est signé et encore valable. Une fois par requête. */
+const apercuEnCours = cache(async (): Promise<CookieApercu | null> => lireCookieApercu((await cookies()).get(COOKIE_APERCU)?.value));
+
 /** Le client connecté, s'il y en a un et que sa session tient toujours. Une fois par requête. */
 export const clientConnecte = cache(async (): Promise<Client | null> => {
+  // L'aperçu de l'équipe passe avant tout, et seul : sans son client, personne n'est connecté.
+  const apercu = await apercuEnCours();
+  if (apercu) return clientApercu(apercu.c);
   if (estDemo()) return clientDemo();
   try {
     const supabase = await createAuthClient();
@@ -51,7 +72,7 @@ export const clientConnecte = cache(async (): Promise<Client | null> => {
   }
 });
 
-/** Pour les pages et les actions du client : sans session, retour à la connexion. */
+/** Pour les pages du client, qui lisent : sans session, retour à la connexion. */
 export async function exigerClient(): Promise<Client> {
   const client = await clientConnecte();
   if (!client) redirect("/espace-client/connexion");
@@ -59,12 +80,42 @@ export async function exigerClient(): Promise<Client> {
 }
 
 /**
+ * Qui regarde l'espace, quand c'est l'équipe : `par`, le nom (ou l'e-mail)
+ * de celui qui a ouvert l'aperçu depuis le CRM. Null hors aperçu.
+ */
+export async function apercuEquipe(): Promise<{ par: string } | null> {
+  const a = await apercuEnCours();
+  return a && (await clientConnecte()) ? { par: a.u } : null;
+}
+
+/**
+ * La garde de toute écriture venue du navigateur : action serveur, route qui
+ * modifie quelque chose. Pendant un aperçu de l'équipe, elle refuse, quel que
+ * soit le chemin (bouton, ou POST fabriqué à la main).
+ */
+export async function refuserEnApercu(): Promise<void> {
+  if (await apercuEnCours()) throw new Error(LECTURE_SEULE);
+}
+
+/** Pour les actions du client, qui écrivent : la session, et jamais pendant un aperçu de l'équipe. */
+export async function exigerClientPourAgir(): Promise<Client> {
+  await refuserEnApercu();
+  return exigerClient();
+}
+
+/**
  * Ce que le client connecté a le droit de lire — en base, par la RLS, avec
  * sa propre session. Une fois par requête : la mise en page et la page le
  * demandent toutes les deux.
+ *
+ * Pendant un aperçu de l'équipe, il n'y a pas de session du client pour la
+ * RLS : ses lignes sont lues par la clé de service, filtrées par client
+ * (`lireDuClient` couvre toutes les tables que lit une session de client),
+ * puis passées par `restreindre`, la même règle que les politiques RLS.
  */
 export const lireDonneesClient = cache(async (): Promise<Donnees> => {
   const client = await exigerClient();
+  if (await apercuEnCours()) return depot().lireDuClient(client.id);
   return depot().lireClient(client.id);
 });
 
@@ -124,11 +175,21 @@ export async function ouvrirSessionBase(
  * La déconnexion : la session sort du registre (elle ne lit plus rien, même
  * si son jeton vit encore quelques minutes), puis Supabase la révoque et
  * efface ses cookies.
+ *
+ * Pendant un aperçu de l'équipe, elle ne fait que quitter l'aperçu : son
+ * cookie s'efface, et une vraie session du client ouverte dans le même
+ * navigateur n'est pas touchée. Elle rend alors `apercu: true`.
  */
-export async function fermerSession() {
+export async function fermerSession(): Promise<{ apercu: boolean }> {
+  const jar = await cookies();
+  if (jar.get(COOKIE_APERCU)) {
+    const valable = !!(await apercuEnCours());
+    jar.delete({ name: COOKIE_APERCU, path: "/espace-client" });
+    if (valable) return { apercu: true };
+  }
   if (estDemo()) {
-    (await cookies()).delete({ name: COOKIE_DEMO, path: "/espace-client" });
-    return;
+    jar.delete({ name: COOKIE_DEMO, path: "/espace-client" });
+    return { apercu: false };
   }
   const supabase = await createAuthClient();
   const { data } = await supabase.auth.getClaims().catch(() => ({ data: null }));
@@ -136,6 +197,22 @@ export async function fermerSession() {
   if (sessionId && roleDuCompte(data?.claims?.app_metadata) === "client") {
     await avecDelai(createServiceClient().from("ec_sessions").update({ fermee_le: maintenant() }).eq("session_id", sessionId).is("fermee_le", null)).catch(() => undefined);
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+  }
+  return { apercu: false };
+}
+
+// --- L'aperçu de l'équipe -------------------------------------------------------------------------------
+
+/**
+ * Le client de l'aperçu, lu par la clé de service (en base) ou dans la
+ * mémoire (en démonstration) : il n'a pas de session à lui. La révocation des
+ * sessions du client ne coupe pas l'aperçu, qui n'en est pas une.
+ */
+async function clientApercu(id: string): Promise<Client | null> {
+  try {
+    return await depot().trouver("clients", id);
+  } catch {
+    return null;
   }
 }
 
