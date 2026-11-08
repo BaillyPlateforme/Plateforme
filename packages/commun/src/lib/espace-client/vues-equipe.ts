@@ -16,6 +16,7 @@ import { fichiersDuDossier, GROUPES_FICHIERS } from "./pieces-jointes";
 import { avancement, calculerFrise, estInternationalSuivi, piecesManquantes, prochaineEtape, suiviEquipe } from "./progression";
 import { LISTE_SEGMENTS, segmentDe } from "./segments";
 import { distanceKm, PARAMS_TOURNEE } from "./tournee";
+import { lireTutosVus } from "./tutos-vus";
 import type { Donnees } from "./types";
 
 /*
@@ -183,11 +184,24 @@ async function connexionsDu(clientId: string): Promise<Connexion[]> {
   }
 }
 
-/** La fiche d'un dossier, et les connexions de son client. */
+/**
+ * Les tutoriels publiés que le client a vus (« Mes tutos », ec_tutos_vus) :
+ * combien, sur combien, et lesquels. Une lecture qui échoue rend zéro, sans
+ * bloquer la fiche.
+ */
+async function tutosVusDu(d: Donnees, clientId: string) {
+  const publies = d.tutos.filter((t) => t.actif).sort((a, b) => a.ordre - b.ordre);
+  const vus = new Set((await lireTutosVus(clientId, "service")).map((v) => v.tuto_id));
+  const titres = publies.filter((t) => vus.has(t.id)).map((t) => t.titre);
+  return { vus: titres.length, total: publies.length, titres };
+}
+
+/** La fiche d'un dossier, les connexions de son client et les tutoriels qu'il a vus. */
 export async function vueDossierComplete(d: Donnees, id: string, porte: string) {
   const v = vueDossier(d, id, porte);
   if (!v) return null;
-  return { ...v, connexions: await connexionsDu(v.client.id) };
+  const [connexions, tutos] = await Promise.all([connexionsDu(v.client.id), tutosVusDu(d, v.client.id)]);
+  return { ...v, connexions, tutos };
 }
 
 export function vueCartons(d: Donnees, samediDemande: string | null) {

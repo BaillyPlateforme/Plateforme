@@ -571,6 +571,10 @@ a.puceRef:hover {
 .jaugePieces b {
   color: var(--f-ink);
 }
+/* Les tutos vus, sous les pièces : la même jauge, serrée contre elle. */
+.jaugePieces + .jaugePieces {
+  margin-top: 8px;
+}
 
 .points {
   container: points / inline-size;
