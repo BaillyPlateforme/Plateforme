@@ -101,6 +101,46 @@
   color: #fff;
 }
 
+/*
+ * Un long menu (Réglages : cinq groupes, dix-sept pages) : des lignes plus
+ * serrées, et un menu qui défile de lui-même s'il dépasse l'écran — collant,
+ * il ne laisserait sinon jamais voir ses dernières entrées.
+ */
+.dense {
+  gap: 1px;
+  padding: 12px 10px;
+  max-height: calc(100vh - 190px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #e2ddf5 transparent;
+  /* Des ombres de défilement : une ombre en bas tant qu'il reste des entrées dessous, en haut une fois défilé. */
+  background:
+    linear-gradient(#fff 30%, rgba(255, 255, 255, 0)) center top / 100% 36px no-repeat local,
+    linear-gradient(rgba(255, 255, 255, 0), #fff 70%) center bottom / 100% 36px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(46, 31, 158, 0.14), transparent) center top / 100% 12px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(46, 31, 158, 0.14), transparent) center bottom / 100% 12px no-repeat scroll,
+    #fff;
+}
+.dense .titre {
+  margin-bottom: 4px;
+}
+.dense .groupe {
+  gap: 1px;
+}
+.dense .groupe + .groupe {
+  margin-top: 5px;
+  padding-top: 5px;
+}
+.dense .sousTitre {
+  margin: 3px 10px 2px;
+}
+.dense .item {
+  min-height: 32px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+
 /* Écran étroit : le menu passe au-dessus du contenu, en ruban défilant. */
 @media (max-width: 980px) {
   .grille {
@@ -130,5 +170,9 @@
   }
   .item {
     white-space: nowrap;
+  }
+  .dense {
+    max-height: none;
+    overflow-y: hidden;
   }
 }

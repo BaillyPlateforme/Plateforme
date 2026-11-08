@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { etatEnvois } from "@/lib/envois";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { surtitreReglages } from "@/crm/reglages/pages";
 import { cartesMessages } from "@/crm/messages/donnees";
 import Marketplace from "@/crm/messages/Marketplace";
 
@@ -11,8 +14,9 @@ export const dynamic = "force-dynamic";
  * d'action — activable, modifiable, avec son déclencheur, son délai et son
  * nombre d'envois. Filtres par étape du parcours et par canal.
  *
- * Les filtres sont des liens (?etape=…&canal=…) : à la fusion avec le design
- * « Quantum », ils passent dans la rangée du bas du Bandeau (Pilules).
+ * Les filtres sont des liens (?etape=…&canal=…) : l'étape dans la rangée du
+ * bas du bandeau (Pilules), le canal dans ses boutons. Une page de Réglages :
+ * le menu de Réglages à gauche.
  */
 export default async function Modeles({ searchParams }: { searchParams: Promise<{ etape?: string; canal?: string }> }) {
   const sp = await searchParams;
@@ -35,7 +39,7 @@ export default async function Modeles({ searchParams }: { searchParams: Promise<
   return (
     <div className="view">
       <Bandeau
-        surtitre="Réglages · Courriers et SMS"
+        surtitre={surtitreReglages("/modeles")}
         titre="Courriers et SMS"
         texte={`${actifs} messages actifs sur ${cartes.length}${aValider ? ` · ${aValider} textes à valider` : ""} · envois : ${envois.libelle.toLowerCase()}`}
         bas={
@@ -54,9 +58,10 @@ export default async function Modeles({ searchParams }: { searchParams: Promise<
         <Link href={lien({ canal: null })} data-ton={!canal ? "plein" : "contour"}>Tous</Link>
         <Link href={lien({ canal: "email" })} data-ton={canal === "email" ? "plein" : "contour"}>E-mail</Link>
         <Link href={lien({ canal: "sms" })} data-ton={canal === "sms" ? "plein" : "contour"}>SMS</Link>
-        <Link href="/relances" data-ton="contour">Relances</Link>
       </Bandeau>
-      <Marketplace cartes={visibles} etapes={etapes} />
+      <AvecMenu menu={<MenuReglages />}>
+        <Marketplace cartes={visibles} etapes={etapes} />
+      </AvecMenu>
     </div>
   );
 }

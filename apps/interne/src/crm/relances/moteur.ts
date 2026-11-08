@@ -360,7 +360,7 @@ export async function envoyerRelance(r: Relance, par: string): Promise<{ ok: boo
     await alerterEquipe("relance_echec", {
       evenement: `${r.cle}-${jourParis()}`, reference: r.ref, conseillers: [commercial?.email],
       vars: { client: r.client || r.ref, reference: r.ref, relance: `${r.libelle} ${r.rang}/${r.sur}`, motif: libelle },
-      lien: { chemin: `/relances/kanban?dossier=${r.dossierId}`, libelle: "Ouvrir ses relances" },
+      lien: { chemin: `/relances?dossier=${r.dossierId}`, libelle: "Ouvrir ses relances" },
     });
   }
   return { ok: parties.length > 0, libelle };

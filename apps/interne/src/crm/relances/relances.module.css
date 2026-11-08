@@ -11,6 +11,13 @@
   gap: 18px;
   min-width: 0;
 }
+/* La rangée du bas du bandeau : les vues, puis les filtres. */
+.basBandeau {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 .grille {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -129,73 +136,6 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-
-/* ── Les tuiles du tableau de bord ───────────────────────────────────── */
-.tuiles {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
-  padding: 10px;
-  border-radius: 24px;
-  background: #fff;
-  border: 1px solid #efedf5;
-  box-shadow: 0 22px 50px -30px rgba(46, 31, 158, 0.45);
-}
-@media (max-width: 1360px) {
-  .tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-.tuile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding: 14px 16px 15px;
-  border-radius: 17px;
-  color: inherit;
-  text-decoration: none;
-  transition: background-color 0.15s, transform 0.15s;
-}
-.tuile + .tuile::before {
-  content: "";
-  position: absolute;
-  left: -5px;
-  top: 18px;
-  bottom: 18px;
-  width: 1px;
-  background: #efedf5;
-}
-.tuile:hover {
-  background: #f8f6ff;
-}
-.tuileIcone {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  margin-bottom: 8px;
-  border-radius: 11px;
-  color: #fff;
-  background: var(--ton, linear-gradient(135deg, #4b2fe0, #7a52ff));
-  box-shadow: 0 10px 18px -10px var(--ombre, rgba(75, 47, 224, 0.8));
-}
-.tuileLibelle {
-  font-size: 12.5px;
-  font-weight: 650;
-  color: #6f6c80;
-}
-.tuileValeur {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: #14121f;
-}
-.tuileSous {
-  font-size: 12px;
-  line-height: 1.35;
-  color: #8b889c;
 }
 
 /* ── Les graphiques en colonnes (HTML, sans bibliothèque) ────────────── */
@@ -553,98 +493,6 @@
   color: #8b889c;
 }
 
-/* ── Le mini-Kanban ──────────────────────────────────────────────────── */
-.mini {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-}
-@media (max-width: 1200px) {
-  .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-.miniCol {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-  border-radius: 18px;
-  background: #f8f7fb;
-  border: 1px solid #efedf5;
-}
-.miniTete {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 4px 4px;
-  color: inherit;
-  text-decoration: none;
-}
-.miniTete i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--c);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent);
-}
-.miniTete span {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 700;
-  color: #14121f;
-}
-.miniTete b {
-  font-size: 20px;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-  color: #14121f;
-}
-.miniCarte {
-  display: grid;
-  gap: 3px;
-  padding: 10px 11px;
-  border-radius: 12px;
-  background: #fff;
-  border: 1px solid #ecebf2;
-  border-left: 3px solid var(--c);
-  color: inherit;
-  text-decoration: none;
-  transition: transform 0.15s, box-shadow 0.2s;
-}
-.miniCarte:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 22px -16px rgba(46, 31, 158, 0.6);
-}
-.miniCarte b {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 680;
-  color: #14121f;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.miniCarte small {
-  overflow: hidden;
-  font-size: 11.5px;
-  color: #8b889c;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.miniPlus {
-  padding: 4px;
-  font-size: 12px;
-  font-weight: 650;
-  color: #4b2fe0;
-  text-align: center;
-  text-decoration: none;
-}
-.miniVide {
-  padding: 14px 6px;
-  font-size: 12px;
-  color: #a7a3b8;
-  text-align: center;
-}
-
 /* ── L'effet des relances ────────────────────────────────────────────── */
 .effets {
   display: grid;
@@ -694,58 +542,6 @@
   background: #faf9fd;
   font-size: 11.5px;
   line-height: 1.45;
-  color: #8b889c;
-}
-
-/* ── Les règles en vigueur (résumé) ──────────────────────────────────── */
-.resumes {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-@media (max-width: 1280px) {
-  .resumes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-.resume {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid #efedf5;
-  background: linear-gradient(180deg, #fff, #fbfaff);
-  color: inherit;
-  text-decoration: none;
-  transition: border-color 0.15s, transform 0.15s;
-}
-.resume:hover {
-  border-color: #cfc3ff;
-  transform: translateY(-1px);
-}
-.resume header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #14121f;
-}
-.resume header i {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-  background: var(--c);
-}
-.resume p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: #6f6c80;
-}
-.resume[data-actif="false"] {
-  background: repeating-linear-gradient(135deg, #fbfbfd 0 8px, #f7f6fa 8px 16px);
-}
-.resume[data-actif="false"] header {
   color: #8b889c;
 }
 
@@ -1732,57 +1528,6 @@
 }
 
 /* ── L'historique ────────────────────────────────────────────────────── */
-.filtres {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  overflow-x: auto;
-}
-.filtre {
-  flex: 0 0 auto;
-  width: auto;
-  height: 34px;
-  padding: 0 32px 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
-    right 12px center / 12px no-repeat;
-  color: rgba(255, 255, 255, 0.85);
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  appearance: none;
-  cursor: pointer;
-}
-.filtre[data-actif] {
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232e1f9e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  color: #2e1f9e;
-}
-.filtre option {
-  color: #14121f;
-}
-.filtreRaz {
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-.filtreRaz:hover {
-  color: #fff;
-}
 .tableau {
   width: 100%;
   border-collapse: collapse;
@@ -1851,43 +1596,3 @@
 .issue[data-famille="garde_fou"] { background: #fff4dc; color: #8a5300; }
 .issue[data-famille="echec"] { background: #ffe8f0; color: #b0164d; }
 .issue[data-famille="en_cours"] { background: #f1eff8; color: #6f6c80; }
-.bilan {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-@media (max-width: 1100px) {
-  .bilan { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-.bilan div {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 12px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid #efedf5;
-  box-shadow: 0 18px 40px -34px rgba(46, 31, 158, 0.5);
-}
-.bilan i {
-  grid-row: span 2;
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: var(--c);
-  color: #fff;
-  font-style: normal;
-}
-.bilan b {
-  font-size: 22px;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-  color: #14121f;
-}
-.bilan small {
-  font-size: 12px;
-  color: #6f6c80;
-}

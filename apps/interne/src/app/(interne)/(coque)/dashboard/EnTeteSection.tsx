@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ongletActif, sectionDe, type Onglet } from "@/crm/sections";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { pageReglageDe } from "@/crm/reglages/pages";
 import Bandeau from "@/ui/Bandeau";
 import type { NomIcone } from "@/ui/icones";
 import MenuVertical from "@/ui/MenuVertical";
@@ -58,12 +60,14 @@ function Bande() {
   const section = sectionDe(chemin);
   if (!section) return null;
   const meta = metaDe(chemin);
+  // Une page de Réglages : « Réglages · groupe », son titre et sa phrase, ceux du menu (crm/reglages/pages.ts).
+  const reglage = section.cle === "reglages" ? pageReglageDe(chemin) : null;
   const c = perso && perso.chemin === chemin ? perso.contenu : null;
   return (
     <Bandeau
-      surtitre={c?.surtitre ?? section.nom}
-      titre={c?.titre ?? meta.titre}
-      texte={c ? c.texte : meta.sous}
+      surtitre={c?.surtitre ?? (reglage ? `${section.nom} · ${reglage.groupe.titre}` : section.nom)}
+      titre={c?.titre ?? reglage?.page.titre ?? reglage?.page.label ?? meta.titre}
+      texte={c ? c.texte : (reglage?.page.texte ?? meta.sous)}
       action={c?.action}
       etiquettes={c?.etiquettes}
       bas={c?.bas}
@@ -117,12 +121,14 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/envois": "courrier",
 };
 
-/** Le menu vertical de la section courante : ses onglets, puis « Plus ». */
+/** Le menu vertical de la section courante : ses onglets, puis « Plus » ; pour Réglages, le menu unique de Réglages. */
 export function MenuDeSection() {
   const chemin = usePathname();
   const section = sectionDe(chemin);
+  if (!section) return null;
+  if (section.cle === "reglages") return <MenuReglages />;
   // Une section sans onglets (Demandes, Espace client) : pas de menu, la page prend toute la largeur.
-  if (!section || (!section.onglets.length && !section.plus?.length)) return null;
+  if (!section.onglets.length && !section.plus?.length) return null;
   const item = (o: Onglet) => ({ href: o.href, label: o.label, icone: ICONES[o.href], actif: ongletActif(o, chemin) });
   return (
     <MenuVertical

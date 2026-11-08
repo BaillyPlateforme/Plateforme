@@ -6,6 +6,7 @@
  */
 
 import { ADRESSES_REGLAGES } from "@/ui/navigation";
+import { PAGES_REGLAGES } from "./reglages/pages";
 
 export type Onglet = { href: string; label: string; /** Actif aussi sur les sous-pages. */ prefixe?: boolean };
 
@@ -31,12 +32,8 @@ export const SECTIONS: Section[] = [
     cle: "reglages",
     nom: "Réglages",
     accueil: "/reglages",
-    onglets: [
-      { href: "/dashboard/parametres", label: "Paramètres" },
-      { href: "/dashboard/configuration", label: "Configuration" },
-      { href: "/dashboard/equipe", label: "Équipe" },
-      { href: "/dashboard/envois", label: "Envois et veille" },
-    ],
+    // Toutes les pages de Réglages, du CRM comme de l'espace équipe ; le menu les range en groupes (MenuReglages).
+    onglets: PAGES_REGLAGES.map((p) => ({ href: p.href, label: p.label })),
   },
 ];
 

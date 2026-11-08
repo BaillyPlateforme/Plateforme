@@ -1,6 +1,8 @@
 import { currentUser } from "@/crm/lib/auth";
 import Bandeau from "@/ui/Bandeau";
-import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
+import { AvecMenu } from "@/ui/MenuVertical";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { surtitreReglages } from "@/crm/reglages/pages";
 import { lireParametres } from "@/crm/devis/donnees";
 import { enregistrerParametres } from "@/crm/devis/actions";
 import { ARRHES_CODE, TVA_CODE, VALIDITE_CODE } from "@/crm/devis/modele";
@@ -23,10 +25,8 @@ export default async function Parametres({ searchParams }: { searchParams: Promi
   const ok = (await searchParams).ok === "1";
   return (
     <div className="view">
-      <Bandeau surtitre="Devis · Réglages" titre="Paramètres du devis" texte="Ce que Bailly fournit une fois pour tous les devis : CGV, taux, formulations proposées à la saisie." secondaire={{ label: "Tous les devis", href: "/devis" }} />
-      <AvecMenu
-        menu={<MenuVertical titre="Devis" groupes={[{ titre: "Réglages", items: [{ href: "/devis/parametres", label: "Paramètres du devis", icone: "reglages", actif: true }] }, { titre: "Listes", items: [{ href: "/devis", label: "Tous les devis", icone: "devis" }, { href: "/devis?vue=signatures", label: "Toutes signatures", icone: "badge" }] }]} />}
-      >
+      <Bandeau surtitre={surtitreReglages("/devis/parametres")} titre="Paramètres du devis" texte="Ce que Bailly fournit une fois pour tous les devis : CGV, taux, formulations proposées à la saisie." />
+      <AvecMenu menu={<MenuReglages />}>
         <form action={enregistrerParametres} className={`${s.page} ${s.formulaire}`}>
           {ok && <p className={s.ok}>Paramètres enregistrés : ils valent pour les prochains devis et pour l&apos;impression de tous.</p>}
           <section className={s.carte}>
