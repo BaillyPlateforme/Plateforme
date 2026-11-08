@@ -96,11 +96,13 @@ export default async function SousTraitants({ searchParams }: { searchParams: Pr
                           {r.demo && <span className={u.demo}>Démo</span>}
                         </b>
                       </Link>
-                      <small>{[r.ville, r.pays && r.pays !== "France" ? r.pays : null].filter(Boolean).join(" · ") || "Ville non renseignée"}</small>
+                      <span className={s.sousNom}>
+                        <i className={u.etat} data-ton={cat.ton}>
+                          {cat.libelle}
+                        </i>
+                        <small>{[r.ville, r.pays && r.pays !== "France" ? r.pays : null].filter(Boolean).join(" · ") || "Ville non renseignée"}</small>
+                      </span>
                     </div>
-                    <i className={u.etat} data-ton={cat.ton}>
-                      {cat.libelle}
-                    </i>
                   </div>
                   {r.zones.length > 0 && (
                     <div className={s.zones}>
@@ -133,7 +135,7 @@ export default async function SousTraitants({ searchParams }: { searchParams: Pr
                         <b className={s.alerte}>{r.litiges}</b> litige{r.litiges > 1 ? "s" : ""}
                       </span>
                     )}
-                    <em>{r.derniere ? `Dernier : ${dateFr(r.derniere, { day: "numeric", month: "short", year: "numeric" })}` : "Jamais missionné"}</em>
+                    <em>{r.derniere ? `Dernière : ${dateFr(r.derniere, { day: "numeric", month: "short", year: "numeric" })}` : r.lettres ? "Sans date" : "Jamais missionnée"}</em>
                   </div>
                 </article>
               );

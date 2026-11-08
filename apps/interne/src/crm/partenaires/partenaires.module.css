@@ -75,10 +75,15 @@
   line-height: 1.25;
 }
 .nom small {
-  display: block;
-  margin-top: 4px;
   color: #6f6c80;
   font-size: 12.5px;
+}
+.sousNom {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 6px;
 }
 .contact {
   display: grid;
@@ -119,7 +124,8 @@
 .bas {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 4px 14px;
   padding-top: 12px;
   border-top: 1px dashed #ebe8f4;
   font-size: 12.5px;
@@ -128,6 +134,10 @@
 .bas b {
   color: #14121f;
   font-weight: 750;
+}
+.bas span,
+.bas em {
+  white-space: nowrap;
 }
 .bas em {
   margin-left: auto;
