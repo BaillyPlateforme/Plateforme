@@ -231,7 +231,8 @@
   margin-top: auto;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
+  white-space: nowrap;
   padding-top: 12px;
   border-top: 1px dashed var(--line);
   font-size: 12px;
@@ -246,6 +247,63 @@
   font-weight: 700;
   color: var(--accent);
   white-space: nowrap;
+}
+/* La rangée du bas du bandeau : les étapes, puis le canal. */
+.basBandeau {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* Les étapes tiennent sur une ligne : sur un écran étroit, elles défilent dans leur bande de verre au lieu de passer à la ligne. */
+.basBandeau > nav {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.basBandeau > :last-child {
+  flex-shrink: 0;
+}
+/* Les gestes d'une carte, dans son pied : tester l'envoi, supprimer. */
+.geste {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s;
+}
+.geste:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--accent);
+}
+.geste svg {
+  width: 14px;
+  height: 14px;
+}
+.geste[data-danger] {
+  padding: 0 7px;
+  color: var(--muted);
+}
+.geste[data-danger]:hover {
+  border-color: #f3b4c8;
+  background: #fff2f6;
+  color: #c2185b;
+}
+.geste:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* L'éditeur : une fenêtre au-dessus de la page. */
@@ -298,10 +356,22 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
+  /* La teinte de la colonne d'aperçu court sur toute la hauteur, même quand l'aperçu reste en haut. */
+  background: linear-gradient(90deg, var(--surface) 50%, color-mix(in srgb, var(--accent) 4%, #f4f4f7) 50%);
+}
+/* L'aperçu reste en vue pendant qu'on descend dans un long formulaire (le modèle, puis sa règle). */
+.corps > .apercu {
+  position: sticky;
+  top: 0;
+  align-self: start;
 }
 @media (max-width: 900px) {
   .corps {
     grid-template-columns: 1fr;
+    background: var(--surface);
+  }
+  .corps > .apercu {
+    position: static;
   }
 }
 .edition {
@@ -334,11 +404,170 @@
   line-height: 1.55;
   resize: vertical;
 }
+.edition select {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 38px 0 13px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236f6c80' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    right 14px center / 13px no-repeat;
+  appearance: none;
+  cursor: pointer;
+}
 .edition input:focus,
-.edition textarea:focus {
+.edition textarea:focus,
+.edition select:focus {
   outline: 0;
   border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.edition input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent);
+  box-shadow: none;
+}
+.edition code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: var(--soft);
+  font-size: 11.5px;
+}
+/* Le texte du test d'envoi : moins haut que celui de l'éditeur. */
+.edition textarea.court {
+  min-height: 150px;
+}
+/* Les rubriques de l'éditeur d'un modèle : le modèle, puis la règle qui l'envoie. */
+.rubrique {
+  margin: 4px 0 -4px;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.rubrique ~ .rubrique {
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.deux {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+.ligneTitre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+.edition .coche {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+}
+.encadre {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.sansRegle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+}
+.sansRegle .aide {
+  margin: 0;
+}
+.lienDiscret {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.supprimer {
+  margin-left: auto;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: #c2185b;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.supprimer:hover {
+  border-color: #f3b4c8;
+  background: #fff2f6;
+}
+/* Le test d'envoi : les valeurs d'exemple, le destinataire et son bouton. */
+.exemples {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.edition .exemples input {
+  padding: 8px 11px;
+  border-radius: 11px;
+  font-size: 13px;
+}
+.ligneEnvoi {
+  display: flex;
+  gap: 10px;
+}
+.ligneEnvoi input {
+  flex: 1;
+  min-width: 0;
+}
+.ligneEnvoi button {
+  flex-shrink: 0;
+}
+.texteBrut {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px -18px #17142b66;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.texteBrut > div {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  white-space: pre-wrap;
 }
 .jetons {
   display: flex;

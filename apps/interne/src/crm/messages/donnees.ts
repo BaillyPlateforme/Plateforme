@@ -1,7 +1,7 @@
 import "server-only";
 import { listAlerts } from "@/lib/alerts";
 import { modeleEffectif } from "@/lib/email-defauts";
-import { eventLabel, TEMPLATE_BLOCS, TEMPLATE_VARIABLES } from "@/lib/messaging";
+import { eventLabel, pieceJointeDuModele, TEMPLATE_BLOCS, TEMPLATE_VARIABLES, type AlertRow, type MessageTemplate, type RuleKind } from "@/lib/messaging";
 import { listTemplates } from "@/lib/templates";
 import { q } from "@/crm/lib/db";
 import { defRelance, reglesRelances } from "@/crm/relances/moteur";
@@ -13,8 +13,36 @@ import { CATALOGUE, ETAPES, lignesCatalogue, type Etape } from "./catalogue";
  * la table qui porte son texte. Les cartes du CRM et de l'espace client
  * viennent du catalogue (crm.modeles_messages) ; celles des questionnaires,
  * de leurs règles et de leurs modèles (public.alerts, message_templates), lus
- * tels quels.
+ * tels quels : une carte par règle, et une par modèle qu'aucune règle
+ * n'envoie (depuis le 08/11/2026, l'ancienne messagerie ayant rejoint cette
+ * page, chaque modèle a sa carte).
  */
+
+/** Un modèle des questionnaires, tel que l'éditeur le reprend (texte effectif : celui qui part). */
+export interface GabaritVue {
+  id: string;
+  name: string;
+  channel: "email" | "sms";
+  event: string;
+  sujet: string;
+  contenu: string;
+  pieceJointe: "" | "estimation";
+  active: boolean;
+}
+
+/** Une règle des questionnaires : quand, à qui et sous quelles conditions un modèle part. */
+export interface RegleVue {
+  id: string;
+  name: string;
+  kind: RuleKind;
+  event: string;
+  montant_min: number | null;
+  condition_champ: string | null;
+  condition_source: string | null;
+  destinataire: "client" | "custom";
+  destinataire_custom: string | null;
+  active: boolean;
+}
 
 export interface CarteVue {
   id: string;
@@ -22,6 +50,9 @@ export interface CarteVue {
   cle: string | null;
   alerteId: string | null;
   modeleId: string | null;
+  /** Cartes des questionnaires : la règle (aucune pour un modèle qu'aucune règle n'envoie) et le modèle. */
+  regle: RegleVue | null;
+  gabarit: GabaritVue | null;
   titre: string;
   etape: Etape;
   canal: "email" | "sms";
@@ -56,7 +87,33 @@ function etapeQuestionnaire(event: string): Etape {
   return event.startsWith("devis") ? "devis" : "demande";
 }
 
-export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: typeof ETAPES }> {
+function versGabarit(t: MessageTemplate): GabaritVue {
+  const e = modeleEffectif(t);
+  return {
+    id: t.id, name: t.name, channel: t.channel, event: t.event, sujet: e.sujet ?? "", contenu: e.contenu,
+    // Celle qui s'applique vraiment : sans réglage, un message qui montre l'estimation la joint.
+    pieceJointe: (pieceJointeDuModele(e) ?? "") as "" | "estimation",
+    active: t.active,
+  };
+}
+
+function versRegle(a: AlertRow): RegleVue {
+  return {
+    id: a.id, name: a.name, kind: a.kind, event: a.event, montant_min: a.montant_min == null ? null : Number(a.montant_min),
+    condition_champ: a.condition_champ, condition_source: a.condition_source, destinataire: a.destinataire,
+    destinataire_custom: a.destinataire_custom, active: a.active,
+  };
+}
+
+/** Les jetons d'un modèle des questionnaires : ses variables, et ses blocs pour un e-mail. */
+function variablesQuestionnaire(canal: "email" | "sms") {
+  return [
+    ...TEMPLATE_VARIABLES.map((v) => ({ jeton: v.token, libelle: v.label })),
+    ...(canal === "email" ? TEMPLATE_BLOCS.map((b) => ({ jeton: b.token, libelle: `Bloc : ${b.label} — ${b.aide}` })) : []),
+  ];
+}
+
+export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: typeof ETAPES; modeles: GabaritVue[] }> {
   const [lignes, compte, regles, alertes, modeles, historique] = await Promise.all([
     lignesCatalogue(),
     q<{ modele: string; canal: string; envoyes: number; total: number }>(
@@ -85,7 +142,7 @@ export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: ty
       : (e.delai ?? null);
     const noms = [...e.journal, ...(l?.nom ? [l.nom] : [])];
     return {
-      id: `crm:${e.cle}`, source: "crm", cle: e.cle, alerteId: null, modeleId: null,
+      id: `crm:${e.cle}`, source: "crm", cle: e.cle, alerteId: null, modeleId: null, regle: null, gabarit: null,
       titre: e.titre, etape: e.etape, canal: e.canal, declencheur: e.declencheur, delai,
       destinataire: "Au client",
       actif: e.verrouillee ? true : (l?.actif ?? false),
@@ -110,21 +167,36 @@ export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: ty
     ].filter(Boolean);
     cartes.push({
       id: `q:${a.id}`, source: "questionnaires", cle: null, alerteId: a.id, modeleId: t?.id ?? null,
+      regle: versRegle(a), gabarit: t ? versGabarit(t) : null,
       titre: a.name, etape: etapeQuestionnaire(a.event), canal: a.channel,
       declencheur: `Questionnaires du site · ${eventLabel(a.event)}${conditions.length ? ` (${conditions.join(", ")})` : ""}.`,
       delai: a.event === "manual" ? null : "Aussitôt",
       destinataire: a.destinataire === "custom" ? `À ${a.destinataire_custom ?? "l'équipe"}` : "Au client",
       actif: a.active && !!t?.active, verrouillee: null, aValider: !t, aBrancher: false, texteCode: false,
       modele: t?.name ?? "Sans modèle", objet: effectif?.sujet ?? null, corps: effectif?.contenu ?? "",
-      variables: [
-        ...TEMPLATE_VARIABLES.map((v) => ({ jeton: v.token, libelle: v.label })),
-        ...(a.channel === "email" ? TEMPLATE_BLOCS.map((b) => ({ jeton: b.token, libelle: `Bloc : ${b.label}` })) : []),
-      ],
+      variables: variablesQuestionnaire(a.channel),
       envois: h?.envoyes ?? 0, retenus: (h?.total ?? 0) - (h?.envoyes ?? 0),
       majLe: t?.updated_at ?? null,
     });
   }
+
+  // Les modèles qu'aucune règle n'envoie : ils n'avaient de place que dans l'ancienne messagerie.
+  for (const t of modeles.filter((m) => !alertes.some((a) => a.template_id === m.id))) {
+    const g = versGabarit(t);
+    cartes.push({
+      id: `m:${t.id}`, source: "questionnaires", cle: null, alerteId: null, modeleId: t.id, regle: null, gabarit: g,
+      titre: t.name, etape: etapeQuestionnaire(t.event), canal: t.channel,
+      declencheur: `Questionnaires du site · ${eventLabel(t.event)}. Aucune règle ne l'envoie.`,
+      delai: null, destinataire: "Sans règle d'envoi",
+      actif: t.active, verrouillee: null, aValider: false, aBrancher: false, texteCode: false,
+      modele: t.name, objet: g.sujet || null, corps: g.contenu,
+      variables: variablesQuestionnaire(t.channel),
+      // Sans règle, un modèle ne part qu'à la main : le journal des envois le connaît par son nom.
+      ...compter([t.name], t.channel),
+      majLe: t.updated_at ?? null,
+    });
+  }
   const ordre = new Map(ETAPES.map((e, i) => [e.cle, i]));
   cartes.sort((a, b) => (ordre.get(a.etape) ?? 0) - (ordre.get(b.etape) ?? 0));
-  return { cartes, etapes: ETAPES };
+  return { cartes, etapes: ETAPES, modeles: modeles.map(versGabarit).sort((a, b) => a.name.localeCompare(b.name, "fr")) };
 }

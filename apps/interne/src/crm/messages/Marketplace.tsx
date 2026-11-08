@@ -3,55 +3,92 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  apercuCarte, apercuQuestionnaire, basculerCarte, basculerQuestionnaire, enregistrerCarte, enregistrerQuestionnaire,
+  apercuCarte, basculerCarte, basculerModele, basculerQuestionnaire, enregistrerCarte, supprimerModele, supprimerRegle,
   type Apercu, type Retour,
 } from "./actions";
-import type { CarteVue } from "./donnees";
+import type { CarteVue, GabaritVue } from "./donnees";
+import EditeurModele from "./EditeurModele";
+import { Canal, Fenetre, PanneauApercu } from "./elements";
+import TestEnvoi, { type DepartTest } from "./TestEnvoi";
 import s from "./messages.module.css";
 
 /*
  * La marketplace des messages : une carte par type d'action, activable d'un
  * geste, qui s'ouvre pour modifier son texte (variables insérables, aperçu
- * rendu comme à l'envoi).
+ * rendu comme à l'envoi). Chaque carte se teste (« Tester l'envoi ») ; celles
+ * des questionnaires se suppriment, et s'ouvrent sur leur modèle et leur règle
+ * (événement, conditions, destinataire). « Nouveau modèle » et « Tester un
+ * envoi », dans le bandeau, ouvrent la création et le test libre
+ * (?nouveau=1, ?tester=1) — ce que faisait l'ancienne messagerie.
  */
 
-const Enveloppe = () => (
+const Corbeille = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="3" y="5" width="18" height="14" rx="2" />
-    <path d="m3 7 9 6 9-6" />
-  </svg>
-);
-const Bulle = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
   </svg>
 );
 
-/**
- * Le nombre de SMS facturés : 160 caractères (153 par morceau au-delà) dans
- * l'alphabet SMS (GSM 03.38), 70 (67) dès qu'un caractère en sort.
- */
-const GSM = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
-const GSM_ETENDU = "^{}\\[~]|€";
-function compterSms(texte: string) {
-  const chars = [...texte];
-  const unicode = chars.some((c) => !GSM.includes(c) && !GSM_ETENDU.includes(c));
-  const longueur = unicode ? chars.length : chars.reduce((n, c) => n + (GSM_ETENDU.includes(c) ? 2 : 1), 0);
-  const segments = unicode ? (longueur <= 70 ? 1 : Math.ceil(longueur / 67)) : longueur <= 160 ? 1 : Math.ceil(longueur / 153);
-  return { segments: Math.max(1, segments), unicode };
-}
-
-export default function Marketplace({ cartes, etapes }: { cartes: CarteVue[]; etapes: { cle: string; libelle: string }[] }) {
-  const [ouverte, setOuverte] = useState<CarteVue | null>(null);
+export default function Marketplace({
+  cartes,
+  etapes,
+  modeles,
+  partages,
+  creer = false,
+  testLibre = false,
+  lienSansFenetre,
+}: {
+  cartes: CarteVue[];
+  etapes: { cle: string; libelle: string }[];
+  /** Tous les modèles des questionnaires : la règle qui en change, et le test d'envoi. */
+  modeles: GabaritVue[];
+  /** Pour chaque modèle, les règles qui l'envoient. */
+  partages: Record<string, string[]>;
+  creer?: boolean;
+  testLibre?: boolean;
+  /** L'adresse de la page sans ?nouveau ni ?tester, pour refermer ces fenêtres. */
+  lienSansFenetre: string;
+}) {
+  const [ouverte, setOuverte] = useState<CarteVue | "nouveau" | null>(creer ? "nouveau" : null);
+  const [test, setTest] = useState<DepartTest | null>(testLibre ? { canal: "email", sujet: "", corps: "" } : null);
   const [erreur, setErreur] = useState<{ id: string; texte: string } | null>(null);
   const [enCours, demarrer] = useTransition();
   const router = useRouter();
 
+  // Les fenêtres ouvertes par le bandeau tiennent dans l'adresse : en les fermant, on la rend propre.
+  const fermerEditeur = () => {
+    setOuverte(null);
+    if (creer) router.replace(lienSansFenetre, { scroll: false });
+  };
+  const fermerTest = () => {
+    setTest(null);
+    if (testLibre) router.replace(lienSansFenetre, { scroll: false });
+  };
+
   const basculer = (c: CarteVue) =>
     demarrer(async () => {
-      const r: Retour = c.source === "crm" ? await basculerCarte(c.cle!, !c.actif) : await basculerQuestionnaire(c.alerteId!, !c.actif);
+      const r: Retour =
+        c.source === "crm" ? await basculerCarte(c.cle!, !c.actif) : c.alerteId ? await basculerQuestionnaire(c.alerteId, !c.actif) : await basculerModele(c.modeleId!, !c.actif);
       setErreur(r.ok ? null : { id: c.id, texte: r.erreur });
       router.refresh();
+    });
+
+  const supprimer = (c: CarteVue) => {
+    const question = c.regle ? `Supprimer la règle « ${c.regle.name} » ? Le modèle « ${c.modele} » reste dans Courriers et SMS, sans règle.` : `Supprimer le modèle « ${c.modele} » ?`;
+    if (!confirm(question)) return;
+    demarrer(async () => {
+      const r = c.regle ? await supprimerRegle(c.regle.id) : await supprimerModele(c.modeleId!);
+      setErreur(r.ok ? null : { id: c.id, texte: r.erreur });
+      router.refresh();
+    });
+  };
+
+  /** Le test d'une carte : son texte, rempli de valeurs d'exemple pour les cartes du CRM (leurs variables {…} ne sont pas celles du test). */
+  const tester = (c: CarteVue) =>
+    demarrer(async () => {
+      if (c.source === "crm") {
+        const a = await apercuCarte(c.cle!, c.objet, c.corps);
+        setTest({ titre: c.titre, canal: c.canal, sujet: a?.sujet ?? c.objet ?? "", corps: a?.texte ?? c.corps });
+      } else setTest({ titre: c.titre, modeleId: c.modeleId, canal: c.canal, sujet: c.objet ?? "", corps: c.corps });
     });
 
   const parEtape = etapes.map((e) => ({ ...e, cartes: cartes.filter((c) => c.etape === e.cle) })).filter((e) => e.cartes.length);
@@ -70,15 +107,12 @@ export default function Marketplace({ cartes, etapes }: { cartes: CarteVue[]; et
                 data-actif={c.actif}
                 role="button"
                 tabIndex={0}
-                aria-label={`${c.titre} : modifier le texte`}
+                aria-label={`${c.titre} : modifier`}
                 onClick={() => setOuverte(c)}
                 onKeyDown={(ev) => (ev.key === "Enter" || ev.key === " ") && ev.target === ev.currentTarget && setOuverte(c)}
               >
                 <div className={s.haut}>
-                  <span className={s.canal} data-canal={c.canal}>
-                    {c.canal === "sms" ? <Bulle /> : <Enveloppe />}
-                    {c.canal === "sms" ? "SMS" : "E-mail"}
-                  </span>
+                  <Canal canal={c.canal} />
                   <span className={s.etape}>{c.destinataire}</span>
                   <button
                     type="button"
@@ -110,6 +144,33 @@ export default function Marketplace({ cartes, etapes }: { cartes: CarteVue[]; et
                   <span title={c.retenus ? `${c.retenus} autre(s) au journal sans être partis` : undefined}>
                     <b>{c.envois}</b> envoi{c.envois > 1 ? "s" : ""}
                   </span>
+                  <button
+                    type="button"
+                    className={s.geste}
+                    disabled={enCours}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      tester(c);
+                    }}
+                  >
+                    Tester l&apos;envoi
+                  </button>
+                  {c.source === "questionnaires" && (c.regle || c.modeleId) && (
+                    <button
+                      type="button"
+                      className={s.geste}
+                      data-danger=""
+                      disabled={enCours}
+                      title={c.regle ? "Supprimer la règle" : "Supprimer le modèle"}
+                      aria-label={c.regle ? `Supprimer la règle « ${c.titre} »` : `Supprimer le modèle « ${c.titre} »`}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        supprimer(c);
+                      }}
+                    >
+                      <Corbeille />
+                    </button>
+                  )}
                   <span className={s.modifier}>{c.texteCode ? "Voir" : "Modifier"} →</span>
                 </div>
               </article>
@@ -117,12 +178,28 @@ export default function Marketplace({ cartes, etapes }: { cartes: CarteVue[]; et
           </div>
         </section>
       ))}
-      {ouverte && <Editeur carte={ouverte} fermer={() => setOuverte(null)} />}
+      {ouverte === "nouveau" ? (
+        <EditeurModele carte={null} modeles={modeles} autresRegles={[]} tester={setTest} bloquee={!!test} fermer={fermerEditeur} />
+      ) : ouverte?.source === "questionnaires" ? (
+        <EditeurModele
+          key={ouverte.id}
+          carte={ouverte}
+          modeles={modeles}
+          autresRegles={ouverte.modeleId ? (partages[ouverte.modeleId] ?? []).filter((n) => n !== ouverte.regle?.name) : []}
+          tester={setTest}
+          bloquee={!!test}
+          fermer={fermerEditeur}
+        />
+      ) : ouverte ? (
+        <Editeur key={ouverte.id} carte={ouverte} tester={setTest} bloquee={!!test} fermer={fermerEditeur} />
+      ) : null}
+      {test && <TestEnvoi modeles={modeles} depart={test} fermer={fermerTest} />}
     </>
   );
 }
 
-function Editeur({ carte, fermer }: { carte: CarteVue; fermer: () => void }) {
+/** L'éditeur d'une carte du CRM ou de l'espace client : son objet et son texte (les messages eux-mêmes sont ceux du catalogue). */
+function Editeur({ carte, tester, bloquee, fermer }: { carte: CarteVue; tester: (d: DepartTest) => void; bloquee: boolean; fermer: () => void }) {
   const [objet, setObjet] = useState(carte.objet ?? "");
   const [corps, setCorps] = useState(carte.corps);
   const [apercu, setApercu] = useState<Apercu | null>(null);
@@ -134,18 +211,9 @@ function Editeur({ carte, fermer }: { carte: CarteVue; fermer: () => void }) {
 
   // L'aperçu suit la saisie, rendu par le serveur comme à l'envoi.
   useEffect(() => {
-    const t = setTimeout(async () => {
-      const a = carte.source === "crm" ? await apercuCarte(carte.cle!, objet || null, corps) : carte.modeleId ? await apercuQuestionnaire(carte.modeleId, objet || null, corps) : null;
-      setApercu(a);
-    }, 350);
+    const t = setTimeout(async () => setApercu(await apercuCarte(carte.cle!, objet || null, corps)), 350);
     return () => clearTimeout(t);
   }, [carte, objet, corps]);
-
-  useEffect(() => {
-    const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
-    document.addEventListener("keydown", echap);
-    return () => document.removeEventListener("keydown", echap);
-  }, [fermer]);
 
   const inserer = (jeton: string) => {
     const z = zone.current;
@@ -162,95 +230,74 @@ function Editeur({ carte, fermer }: { carte: CarteVue; fermer: () => void }) {
 
   const enregistrer = () =>
     demarrer(async () => {
-      const r = carte.source === "crm" ? await enregistrerCarte(carte.cle!, objet || null, corps) : await enregistrerQuestionnaire(carte.modeleId!, objet || null, corps);
+      const r = await enregistrerCarte(carte.cle!, objet || null, corps);
       setRetour(r);
       if (r.ok) router.refresh();
     });
 
-  const { segments, unicode } = compterSms(apercu?.texte ?? corps);
+  // Le test reprend le texte en cours, rempli des valeurs d'exemple de l'aperçu.
+  const testerTexte = () => tester({ titre: carte.titre, canal: carte.canal, sujet: apercu?.sujet ?? objet, corps: apercu?.texte ?? corps });
+
   return (
-    <div className={s.voile} onClick={fermer} role="presentation">
-      <div className={s.fenetre} role="dialog" aria-modal="true" aria-label={`Modifier « ${carte.titre} »`} onClick={(e) => e.stopPropagation()}>
-        <div className={s.enTete}>
-          <div>
-            <span className={s.canal} data-canal={carte.canal}>
-              {carte.canal === "sms" ? <Bulle /> : <Enveloppe />}
-              {carte.canal === "sms" ? "SMS" : "E-mail"}
-            </span>
-            <h2>{carte.titre}</h2>
-            <p>
-              {carte.declencheur}
-              {carte.delai ? ` · ${carte.delai}` : ""} · {carte.destinataire}
-            </p>
-          </div>
-          <button className={s.fermer} onClick={fermer} aria-label="Fermer">
-            ×
-          </button>
-        </div>
-        <div className={s.corps}>
-          <div className={s.edition}>
-            {lectureSeule ? (
+    <Fenetre
+      canal={carte.canal}
+      titre={carte.titre}
+      phrase={`${carte.declencheur}${carte.delai ? ` · ${carte.delai}` : ""} · ${carte.destinataire}`}
+      fermer={fermer}
+      bloquee={bloquee}
+    >
+      <div className={s.corps}>
+        <div className={s.edition}>
+          {lectureSeule ? (
+            <>
               <p className={s.aide}>Ce message est composé par la plateforme (lien de connexion, identifiant, durée de validité) : il ne se modifie pas ici. L&apos;aperçu montre ce que reçoit le client.</p>
-            ) : (
-              <>
-                {carte.aValider && <p className={s.aide}><b>Texte à valider.</b> Ce type de message n&apos;a pas encore de texte validé par Bailly : rédigez-le, enregistrez-le, puis activez la carte.</p>}
-                {carte.canal === "email" && (
-                  <div>
-                    <label htmlFor="objet">Objet</label>
-                    <input id="objet" value={objet} onChange={(e) => setObjet(e.target.value)} />
-                  </div>
-                )}
-                <div>
-                  <label htmlFor="texte">Texte</label>
-                  <textarea id="texte" ref={zone} value={corps} onChange={(e) => setCorps(e.target.value)} placeholder="Bonjour {client}, …" />
-                </div>
-                <div>
-                  <label>Insérer une variable</label>
-                  <div className={s.jetons}>
-                    {carte.variables.map((v) => (
-                      <button key={v.jeton} type="button" className={s.jeton} title={v.libelle} onClick={() => inserer(v.jeton)}>
-                        {v.jeton}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <p className={s.aide}>
-                  {carte.source === "questionnaires"
-                    ? "Une ligne qui ne contient qu'un bloc devient ce bloc (carte de l'estimation, bouton…). Le texte est celui des questionnaires : il vaut pour toutes les règles qui l'emploient."
-                    : "Une ligne vide sépare deux paragraphes. La mise en page, le logo et le bouton éventuel sont ajoutés à l'envoi."}
-                </p>
-                <div className={s.actions}>
-                  <button className="btn primary" disabled={enCours} onClick={enregistrer}>
-                    {enCours ? "Enregistrement…" : "Enregistrer le texte"}
-                  </button>
-                  <button className="btn ghost" onClick={fermer}>
-                    Fermer
-                  </button>
-                  {retour && <span className={s.retour} data-ok={retour.ok}>{retour.ok ? retour.message : retour.erreur}</span>}
-                </div>
-              </>
-            )}
-          </div>
-          <div className={s.apercu}>
-            <small>Aperçu, avec des valeurs d&apos;exemple</small>
-            {!apercu ? (
-              <p className={s.aide}>Préparation de l&apos;aperçu…</p>
-            ) : apercu.canal === "sms" ? (
-              <div className={s.telephone}>
-                <div className={s.bulle}>{apercu.texte || "…"}</div>
-                <p className={s.compte}>
-                  {apercu.texte.length} caractères · {segments} SMS{unicode ? " (caractères accentués hors alphabet SMS : 70 par SMS)" : ""}
-                </p>
+              <div className={s.actions}>
+                <button type="button" className="btn ghost" disabled={!apercu} onClick={testerTexte}>
+                  Tester l&apos;envoi
+                </button>
               </div>
-            ) : (
-              <>
-                <p className={s.sujet}>{apercu.sujet}</p>
-                <iframe className={s.cadre} title="Aperçu de l'e-mail" sandbox="" srcDoc={apercu.html ?? ""} />
-              </>
-            )}
-          </div>
+            </>
+          ) : (
+            <>
+              {carte.aValider && <p className={s.aide}><b>Texte à valider.</b> Ce type de message n&apos;a pas encore de texte validé par Bailly : rédigez-le, enregistrez-le, puis activez la carte.</p>}
+              {carte.canal === "email" && (
+                <div>
+                  <label htmlFor="objet">Objet</label>
+                  <input id="objet" value={objet} onChange={(e) => setObjet(e.target.value)} />
+                </div>
+              )}
+              <div>
+                <label htmlFor="texte">Texte</label>
+                <textarea id="texte" ref={zone} value={corps} onChange={(e) => setCorps(e.target.value)} placeholder="Bonjour {client}, …" />
+              </div>
+              <div>
+                <label>Insérer une variable</label>
+                <div className={s.jetons}>
+                  {carte.variables.map((v) => (
+                    <button key={v.jeton} type="button" className={s.jeton} title={v.libelle} onClick={() => inserer(v.jeton)}>
+                      {v.jeton}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className={s.aide}>Une ligne vide sépare deux paragraphes. La mise en page, le logo et le bouton éventuel sont ajoutés à l&apos;envoi.</p>
+              <div className={s.actions}>
+                <button type="button" className="btn primary" disabled={enCours} onClick={enregistrer}>
+                  {enCours ? "Enregistrement…" : "Enregistrer le texte"}
+                </button>
+                <button type="button" className="btn ghost" disabled={!apercu} onClick={testerTexte}>
+                  Tester l&apos;envoi
+                </button>
+                <button type="button" className="btn ghost" onClick={fermer}>
+                  Fermer
+                </button>
+                {retour && <span className={s.retour} data-ok={retour.ok}>{retour.ok ? retour.message : retour.erreur}</span>}
+              </div>
+            </>
+          )}
         </div>
+        <PanneauApercu apercu={apercu} />
       </div>
-    </div>
+    </Fenetre>
   );
 }
