@@ -12,6 +12,11 @@ export type VuePlanning = "semaine" | "visites" | "dates";
 
 export const vuePlanning = (v: unknown): VuePlanning => (v === "visites" || v === "dates" ? v : "semaine");
 
+/** La rangée du bas du bandeau du planning : elle défile sur un écran étroit au lieu de déborder. */
+export function BasPlanning({ children }: { children: React.ReactNode }) {
+  return <div className={s.bas}>{children}</div>;
+}
+
 export default function VuesPlanning({ actif, separateur = false }: { actif: VuePlanning; separateur?: boolean }) {
   return (
     <>

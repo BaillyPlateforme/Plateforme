@@ -18,6 +18,8 @@
 .nombre {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
+  /* Le libellé a toujours la place de deux lignes : les valeurs s'alignent d'une tuile à l'autre. */
+  grid-template-rows: 33px auto;
   align-items: center;
   column-gap: 12px;
   min-width: 0;
@@ -358,7 +360,7 @@
   white-space: nowrap;
 }
 
-@media (max-width: 1350px) {
+@media (max-width: 1180px) {
   .rangee {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -378,6 +380,21 @@
   }
   .nombre::before {
     display: none;
+  }
+  .nombre {
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 10px;
+  }
+  .pastille {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .valeur {
+    flex-wrap: wrap;
+    column-gap: 6px;
+    font-size: 18px;
   }
   .demandes a {
     grid-template-columns: 36px minmax(0, 1fr) auto;

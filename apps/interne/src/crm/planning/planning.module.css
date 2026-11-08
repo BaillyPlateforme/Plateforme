@@ -373,7 +373,22 @@
   background: var(--line, #e4e2ee);
 }
 
-/* La rangée du bas du bandeau (BarreBas) : les vues, un filet, puis les commerciaux. */
+/* La rangée du bas du bandeau : les vues, un filet, puis les commerciaux ; elle défile sur un écran étroit. */
+.bas {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bas::-webkit-scrollbar {
+  display: none;
+}
+.bas > nav {
+  flex-shrink: 0;
+}
 .separateurBas {
   flex: none;
   width: 1px;

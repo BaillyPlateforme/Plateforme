@@ -11,6 +11,11 @@ import s from "./statistiques.module.css";
  */
 export type VueStatistiques = "commerciales" | "exploitation" | "demandes";
 
+/** La rangée du bas du bandeau des statistiques : elle défile sur un écran étroit au lieu de déborder. */
+export function BasStatistiques({ children }: { children: React.ReactNode }) {
+  return <div className={s.bas}>{children}</div>;
+}
+
 export default function VuesStatistiques({ actif, periode }: { actif: VueStatistiques; periode?: Periode }) {
   const suffixe = periode && periode.cle !== PERIODE_PAR_DEFAUT ? `?periode=${periode.cle}` : "";
   return (

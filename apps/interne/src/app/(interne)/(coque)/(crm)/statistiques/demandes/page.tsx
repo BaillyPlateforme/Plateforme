@@ -1,8 +1,7 @@
 import Bandeau, { Pilules } from "@/ui/Bandeau";
-import VuesStatistiques from "@/crm/statistiques/Vues";
+import VuesStatistiques, { BasStatistiques } from "@/crm/statistiques/Vues";
 import StatistiquesDuSite from "@/crm/statistiques/demandes/StatistiquesDuSite";
 import { VUES_DU_SITE, vueDuSite } from "@/crm/statistiques/demandes/vues";
-import { BarreBas } from "@/crm/exploitation/ui/Bas";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Statistiques des demandes du site" };
@@ -25,7 +24,7 @@ export default async function StatistiquesDemandes({ searchParams }: { searchPar
         titre="Demandes du site"
         texte="Analyse complète du flux de demandes, du formulaire comme des mails"
         bas={
-          <BarreBas>
+          <BasStatistiques>
             <VuesStatistiques actif="demandes" />
             <Pilules
               label="Analyse"
@@ -35,7 +34,7 @@ export default async function StatistiquesDemandes({ searchParams }: { searchPar
                 actif: v.cle === vue,
               }))}
             />
-          </BarreBas>
+          </BasStatistiques>
         }
       />
       <div className="vue-equipe">

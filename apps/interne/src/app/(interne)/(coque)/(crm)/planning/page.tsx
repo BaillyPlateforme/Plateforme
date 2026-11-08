@@ -12,8 +12,7 @@ import s from "@/crm/planning/planning.module.css";
 import { etatsRdv } from "@/crm/rdv/sms";
 // Le numéro de semaine ISO, le même que le planning d'exploitation (l'ancien calcul donnait 45 pour la semaine 46).
 import { semaineIso } from "@/crm/exploitation/planning";
-import { BarreBas } from "@/crm/exploitation/ui/Bas";
-import VuesPlanning, { vuePlanning } from "@/crm/planning/Vues";
+import VuesPlanning, { BasPlanning, vuePlanning } from "@/crm/planning/Vues";
 import VueVisites from "@/crm/visites/VueVisites";
 import VueDates from "@/crm/planning/VueDates";
 
@@ -67,7 +66,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
         texte={com ? coms.find((c) => c.id === com)?.nom : "Toute l’équipe commerciale"}
         action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}
         bas={
-          <BarreBas>
+          <BasPlanning>
             <VuesPlanning actif="semaine" separateur />
             <Pilules
               label="Commercial"
@@ -76,7 +75,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
                 ...coms.map((c) => ({ href: `/planning?semaine=${lundi}&com=${c.id}`, label: c.nom.split(" ")[0], actif: com === c.id })),
               ]}
             />
-          </BarreBas>
+          </BasPlanning>
         }
       >
         <Link href={nav(-7)} data-ton="fleche" aria-label="Semaine précédente"><Ic n="left" /></Link>

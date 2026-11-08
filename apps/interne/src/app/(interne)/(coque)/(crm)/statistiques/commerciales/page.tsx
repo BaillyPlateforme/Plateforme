@@ -2,10 +2,9 @@ import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { statsCommerciales, type Rattachement } from "@/crm/statistiques/donnees";
 import { PERIODES, PERIODE_PAR_DEFAUT, periodeDe, moisDansPeriode } from "@/crm/statistiques/periodes";
 import { couleursPar } from "@/crm/statistiques/palette";
-import VuesStatistiques from "@/crm/statistiques/Vues";
+import VuesStatistiques, { BasStatistiques } from "@/crm/statistiques/Vues";
 import { TYPES_PLURIEL } from "@/crm/lib/format";
 import { BarresClassees, Courbes, Entonnoirs, euros, eurosCourts, nombre, pourcent, Tuile, Tuiles } from "@/crm/statistiques/Graphiques";
-import { BarreBas } from "@/crm/exploitation/ui/Bas";
 import u from "@/crm/exploitation/ui/ui.module.css";
 import s from "@/crm/statistiques/statistiques.module.css";
 
@@ -55,17 +54,17 @@ export default async function StatistiquesCommerciales({ searchParams }: { searc
         titre="Statistiques commerciales"
         texte={`Par commercial · ${periode.phrase} · CA rattaché ${rattachement === "signature" ? "à la signature" : "au déménagement"}`}
         bas={
-          <BarreBas>
+          <BasStatistiques>
             <VuesStatistiques actif="commerciales" periode={periode} />
             <Pilules label="Période" items={PERIODES.map((p) => ({ href: lien({ periode: p.cle }), label: p.libelle, actif: periode.cle === p.cle }))} />
             <Pilules
               label="Rattachement du chiffre d'affaires"
               items={[
-                { href: lien({ ca: "signature" }), label: "CA à la signature", actif: rattachement === "signature" },
+                { href: lien({ ca: "signature" }), label: "À la signature", actif: rattachement === "signature" },
                 { href: lien({ ca: "demenagement" }), label: "Au déménagement", actif: rattachement === "demenagement" },
               ]}
             />
-          </BarreBas>
+          </BasStatistiques>
         }
       />
       <div className={u.ecran}>
