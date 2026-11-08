@@ -61,7 +61,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
   return (
     <div className="view planning">
       <Bandeau
-        surtitre={`Commercial · Semaine ${semaineIso(lundi)}`}
+        surtitre={`Dossiers · Planning · Semaine ${semaineIso(lundi)}`}
         titre={`Semaine du ${dateFr(lun, { day: "numeric", month: "long" })}`}
         texte={com ? coms.find((c) => c.id === com)?.nom : "Toute l’équipe commerciale"}
         action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}

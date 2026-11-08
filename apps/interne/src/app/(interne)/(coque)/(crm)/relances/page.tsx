@@ -122,7 +122,7 @@ export default async function Relances({
   return (
     <div className="view">
       <Bandeau
-        surtitre={ouvert ? `Commercial · Relances · ${ouvert.ref}${ouvert.client ? ` · ${ouvert.client}` : ""}` : "Commercial · Relances"}
+        surtitre={ouvert ? `Dossiers · Relances · ${ouvert.ref}${ouvert.client ? ` · ${ouvert.client}` : ""}` : "Dossiers · Relances"}
         titre={titre}
         texte={texte}
         etiquettes={[vue !== "historique" && `Envoi : ${envoi.libelle.toLowerCase()}`, vue !== "historique" && "Délais provisoires", exclu ? "Dossier marqué « ne pas relancer »" : null]}

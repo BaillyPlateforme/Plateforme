@@ -35,7 +35,7 @@ export default async function VueVisites() {
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial · Planning"
+        surtitre="Dossiers · Planning"
         titre="Visites techniques"
         texte="Proposez des créneaux depuis la fiche d'un dossier, faites la visite sur la tablette, et faites signer le compte-rendu au client."
         action={{ label: "Ouvrir la tablette", href: "/tablette", icone: "fleche" }}

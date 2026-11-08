@@ -116,7 +116,7 @@ export default async function Factures({ searchParams }: { searchParams: Promise
   return (
     <div className={`view ${s.page}`}>
       <Bandeau
-        surtitre={dossier ? `Facturation · dossier ${refDossier ?? ""}` : "Commercial · Facturation"}
+        surtitre={dossier ? `Facturation · dossier ${refDossier ?? ""}` : "Dossiers · Factures"}
         titre={vue === "reglements" ? "Règlements" : vue === "arrhes" ? "Arrhes" : type ? TYPES[type].titre : "Factures"}
         texte={texte}
         bas={

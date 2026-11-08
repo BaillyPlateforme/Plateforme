@@ -50,7 +50,7 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
   return (
     <div className="view">
       <Bandeau
-        surtitre={d ? `Dossier ${d.ref} · ${nomClient(d)}` : `Commercial · ${rows.length} devis`}
+        surtitre={d ? `Dossier ${d.ref} · ${nomClient(d)}` : `Dossiers · ${rows.length} devis`}
         titre={d ? "Devis du dossier" : signatures ? "Toutes signatures" : "Devis"}
         texte={d ? `${rows.length} devis · ${m3(d.volume)}` : signatures ? "Chaque lien de signature envoyé, et où il en est." : "Toutes les propositions, de l'établissement à la signature."}
         secondaire={d ? { label: "Fiche du dossier", href: `/dossiers/${d.id}` } : undefined}

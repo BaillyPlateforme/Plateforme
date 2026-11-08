@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Bandeau, { Etapes } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
 import MenuActions from "@/ui/MenuActions";
 import { notFound } from "next/navigation";
 import { soldeDossier } from "@/crm/facturation/donnees";
@@ -13,27 +13,30 @@ import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 import { ficheDossier } from "@/crm/fiche/donnees";
 import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sections";
 import Fiche from "@/crm/fiche/Fiche";
+import { parcoursDossier } from "@/crm/parcours/donnees";
+import LigneParcours from "@/crm/parcours/LigneParcours";
 
 export const dynamic = "force-dynamic";
 
 /*
- * La fiche d'un dossier, sur le modèle de Créagidem en version moderne
- * (src/crm/fiche) : le bandeau commun en tête — nom, référence, téléphone,
- * trajet, étapes du dossier, Solde, Parcours, Fiche PDF, Créer un modèle, « ⋯ »
- * —, puis la barre de la fiche et ses sections repliables (Déménagements,
- * Garde-meubles, Services, Commun), chacune avec sa barre d'outils et ses
- * onglets.
+ * La page d'un dossier, une seule (simplification du 08/11/2026, choix de
+ * David) : le bandeau commun en tête — nom, référence, téléphone, trajet,
+ * statut, Solde, Espace client, Créer un modèle, « ⋯ » —, puis, à cheval sur
+ * la bande, son parcours de A à Z (src/crm/parcours/LigneParcours : les
+ * étapes de la demande à l'avis, quelques faits, la chronologie), et dessous
+ * la fiche façon Créagidem (src/crm/fiche) : sa barre et ses sections
+ * repliables (Déménagements, Garde-meubles, Services, Commun).
+ *
+ * L'ancienne page du parcours (/parcours/<id>) y mène. Les étapes ne sont
+ * plus répétées dans la bande, ni le statut ailleurs que dans sa pastille.
  */
-
-const STEPS = ["Fiche client", "Visite technique", "Devis", "Commande", "Lettres de voiture", "Facture"];
-const STEP_OF: Record<string, number> = { prospect: 0, visite: 1, devis: 2, commande: 3, planifie: 4, termine: 5, perdu: 2 };
 
 export default async function PageDossier({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string }> }) {
   const id = Number((await params).id);
   const sp = await searchParams;
   const d = await getDossier(id);
   if (!d) notFound();
-  const [lit, etatsSms, users, data, espace, client] = await Promise.all([
+  const [lit, etatsSms, users, data, espace, client, parcours] = await Promise.all([
     getLitiges(id),
     etatsRdv(d.rdvs.map((r: Row) => r.id)),
     q("select id,nom,role from utilisateurs order by id"),
@@ -41,14 +44,22 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
     q<{ id: string }>("select id from public.ec_dossiers where crm_dossier_id=$1 order by created_at desc limit 1", [id]).catch(() => []),
     q<{ telephone2: string | null }>("select telephone2 from clients where id=$1", [d.client_id]),
+    // Le parcours n'empêche jamais la fiche de s'ouvrir : sans lui, la fiche reste entière.
+    parcoursDossier(id).catch((e) => {
+      console.error("Dossier : lecture du parcours impossible", e instanceof Error ? e.message : e);
+      return null;
+    }),
   ]);
   d.telephone2 = client[0]?.telephone2 ?? null;
-  const step = STEP_OF[d.statut];
   // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
   const solde = Math.max(0, (await soldeDossier(id)).reste);
 
   const instant = maintenant();
   const visiteLe = visiteDuSousTitre(data.rdvs, instant);
+  const aujourdhui = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" }).format(new Date());
+  const vuLe = parcours?.espace?.derniereConnexion
+    ? `vu par le client le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" }).format(new Date(parcours.espace.derniereConnexion))}`
+    : "jamais consulté par le client";
 
   const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, sp, solde, maintenant: instant });
 
@@ -60,26 +71,18 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
         // Le statut seul : sur une ligne, les pastilles ne rétrécissent pas et effaçaient le téléphone et le trajet.
         // Le segment est sur le repère du client, le type, le commercial et « traité par » en tête de la section
-        // Déménagements, le véhicule dans la bande des observations.
+        // Déménagements, le véhicule dans la bande des observations. Les étapes : le parcours, juste dessous.
         etiquettes={[STATUTS[d.statut].label]}
-        bas={
-          <Etapes
-            label="Étapes du dossier"
-            items={STEPS.map((l, i) => ({
-              label: l,
-              etat: d.statut === "perdu" ? "avenir" : i < step || d.statut === "termine" ? "fait" : i === step ? "encours" : "avenir",
-            }))}
-          />
-        }
       >
         {/* Une ancre ordinaire : elle ouvre Déménagements › Facturation (Fiche.tsx suit le changement d'ancre). */}
         <a href="#facturation" data-ton="contour" title="Ce que le client doit encore : montant signé (ou facturé), moins les règlements reçus">
           Solde {eur(solde)}
         </a>
-        <Link href={`/parcours/${id}`} data-ton="contour">Parcours</Link>
         {/* L'espace client du dossier, vu de l'équipe ; sans espace, l'onglet de la fiche qui l'ouvre. */}
         {espace[0] ? (
-          <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`} data-ton="contour" title="L'espace client de ce dossier, tel que l'équipe le suit">Espace client</Link>
+          <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`} data-ton="contour" title={`L'espace client de ce dossier, tel que l'équipe le suit · ${vuLe}`}>
+            Espace client
+          </Link>
         ) : (
           <a href="#commun-espace" data-ton="contour" title="Ce dossier n'a pas encore d'espace client : l'onglet de la fiche permet de l'ouvrir">Ouvrir l’espace client</a>
         )}
@@ -93,6 +96,22 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
             : d.statut !== "termine" && <form action={A.marquerPerdu.bind(null, id)}><button data-danger>Marquer perdu</button></form>}
         </MenuActions>
       </Bandeau>
+
+      {parcours && (
+        <LigneParcours
+          etapes={parcours.etapes}
+          perdu={d.statut === "perdu"}
+          evenements={parcours.evenements}
+          aujourdhui={aujourdhui}
+          faits={{
+            signe: parcours.signe,
+            paye: parcours.argent.encaisse,
+            facture: parcours.argent.facture,
+            prochainRdv: parcours.prochainRdv ? { debut: parcours.prochainRdv.debut, commercial: parcours.prochainRdv.commercial } : null,
+            demande: parcours.demande,
+          }}
+        />
+      )}
 
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
 

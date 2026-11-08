@@ -24,7 +24,7 @@ export default async function VueDates() {
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial · Planning"
+        surtitre="Dossiers · Planning"
         titre="Dates souhaitées"
         texte="Les dates de déménagement demandées sur le site, au mois"
         bas={<VuesPlanning actif="dates" />}

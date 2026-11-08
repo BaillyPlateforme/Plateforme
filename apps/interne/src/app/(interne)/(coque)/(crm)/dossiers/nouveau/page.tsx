@@ -22,7 +22,7 @@ export default async function NouveauDossier({ searchParams }: { searchParams: P
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial"
+        surtitre="Dossiers · Création"
         titre="Nouveau dossier"
         texte="Le strict nécessaire ici ; tout le reste se complète sur la fiche."
       />

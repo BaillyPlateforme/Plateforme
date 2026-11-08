@@ -17,7 +17,6 @@ import {
   type StatutLead,
   type Suivi,
 } from "@/lib/suivi-commun";
-import { KpiCard } from "@/crm/statistiques/demandes/graphiques";
 
 /*
  * Le suivi des leads : le tableau que Margaux tenait à la main, rempli tout
@@ -25,6 +24,10 @@ import { KpiCard } from "@/crm/statistiques/demandes/graphiques";
  * parcours et ses villes ; l'équipe n'y saisit que l'avancement du devis et
  * le chiffre d'affaires, que Créagidem ne laisse pas exporter. Les
  * indicateurs suivent la période et les filtres choisis.
+ *
+ * Troisième vue du Parcours depuis la simplification du 08/11/2026 (il était
+ * sous Demandes, /dashboard/leads). Règle de David : pas de chiffres en haut
+ * d'une liste — les indicateurs et le flux par semaine passent sous le tableau.
  */
 
 const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
@@ -163,43 +166,6 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
         </button>
       </div>
 
-      {/* ── Les indicateurs du tableau de Margaux ── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-        <KpiCard label="Leads" value={k.leads} sub={`${k.entreprises} entreprise${k.entreprises > 1 ? "s" : ""}`} color="var(--color-brand)" />
-        <KpiCard
-          label="Mutations"
-          value={k.mutations}
-          sub={k.leads ? `${Math.round((k.mutations / k.leads) * 100)} % des leads` : "—"}
-          color="var(--color-ink-soft)"
-        />
-        <KpiCard label="Demandes Paris" value={k.paris} sub={`${eur(k.caParis)} réalisés`} color="var(--color-nuit)" />
-        <KpiCard label="Devis en attente" value={k.devisAttente} sub={`${eur(k.caAttente)} en attente`} color="var(--color-brand-mid)" />
-        <KpiCard label="CA réalisé" value={k.caRealise} suffix=" €" sub={`${k.commandes} commande${k.commandes > 1 ? "s" : ""}`} color="#2e8b57" />
-        <KpiCard label="CA hors mutation" value={k.caHorsMutation} suffix=" €" sub="particuliers et entreprises" color="var(--color-brand-dark)" />
-      </div>
-
-      {/* ── Le flux, semaine par semaine ── */}
-      <section className="rounded-[18px] bg-card p-5 md:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[17px] font-semibold">Leads par semaine</h2>
-          <div className="flex flex-wrap items-center gap-4">
-            {(Object.keys(COULEUR) as Parcours[]).map((p) => (
-              <span key={p} className="flex items-center gap-1.5 text-[12px] text-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COULEUR[p] }} />
-                {NOM_PARCOURS[p]}
-              </span>
-            ))}
-          </div>
-        </div>
-        {visibles.length === 0 ? (
-          <div className="flex h-[160px] items-center justify-center rounded-[14px] bg-subtle/50 text-[13px] text-ink-soft">
-            Aucun lead sur cette période.
-          </div>
-        ) : (
-          <BarresParcours semaines={semaines} />
-        )}
-      </section>
-
       {/* ── Le tableau ── */}
       <section className="overflow-hidden rounded-[18px] bg-card">
         <div className="flex items-center justify-between gap-3 px-5 py-4">
@@ -235,6 +201,48 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* ── Les indicateurs du tableau de Margaux, sous la liste ── */}
+      <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+        <div className="rounded-[18px] bg-card p-5 md:p-6">
+          <h2 className="mb-4 text-[17px] font-semibold">Indicateurs</h2>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+            <Indicateur label="Leads" valeur={nf.format(k.leads)} sous={`${k.entreprises} entreprise${k.entreprises > 1 ? "s" : ""}`} couleur="var(--color-brand)" />
+            <Indicateur
+              label="Mutations"
+              valeur={nf.format(k.mutations)}
+              sous={k.leads ? `${Math.round((k.mutations / k.leads) * 100)} % des leads` : "—"}
+              couleur="var(--color-ink-soft)"
+            />
+            <Indicateur label="Demandes Paris" valeur={nf.format(k.paris)} sous={`${eur(k.caParis)} réalisés`} couleur="var(--color-nuit)" />
+            <Indicateur label="Devis en attente" valeur={nf.format(k.devisAttente)} sous={`${eur(k.caAttente)} en attente`} couleur="var(--color-brand-mid)" />
+            <Indicateur label="CA réalisé" valeur={eur(k.caRealise)} sous={`${k.commandes} commande${k.commandes > 1 ? "s" : ""}`} couleur="#2e8b57" />
+            <Indicateur label="CA hors mutation" valeur={eur(k.caHorsMutation)} sous="particuliers et entreprises" couleur="var(--color-brand-dark)" />
+          </dl>
+        </div>
+
+        {/* ── Le flux, semaine par semaine ── */}
+        <div className="rounded-[18px] bg-card p-5 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-[17px] font-semibold">Leads par semaine</h2>
+            <div className="flex flex-wrap items-center gap-4">
+              {(Object.keys(COULEUR) as Parcours[]).map((p) => (
+                <span key={p} className="flex items-center gap-1.5 text-[12px] text-ink-soft">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COULEUR[p] }} />
+                  {NOM_PARCOURS[p]}
+                </span>
+              ))}
+            </div>
+          </div>
+          {visibles.length === 0 ? (
+            <div className="flex h-[160px] items-center justify-center rounded-[14px] bg-subtle/50 text-[13px] text-ink-soft">
+              Aucun lead sur cette période.
+            </div>
+          ) : (
+            <BarresParcours semaines={semaines} />
+          )}
         </div>
       </section>
     </div>
@@ -317,6 +325,18 @@ function LigneLead({
         </Link>
       </td>
     </tr>
+  );
+}
+
+/** Un indicateur de la sélection : un repère de couleur, le chiffre, ce qu'il recouvre. */
+function Indicateur({ label, valeur, sous, couleur }: { label: string; valeur: string; sous: string; couleur: string }) {
+  return (
+    <div className="relative min-w-0 pl-3.5">
+      <span className="absolute left-0 top-0.5 h-8 w-1 rounded-full" style={{ background: couleur }} aria-hidden />
+      <dt className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{label}</dt>
+      <dd className="mt-1 whitespace-nowrap text-[22px] font-bold leading-tight tnum text-ink">{valeur}</dd>
+      <dd className="mt-0.5 truncate text-[11.5px] text-ink-soft">{sous}</dd>
+    </div>
   );
 }
 

@@ -141,7 +141,7 @@ export async function apercuAlerte(alerte: string, saisie?: { objet: string; cor
   }
   const etat = await lireEtat(q);
   const reglage = saisie ? { actif: true, objet: saisie.objet, corps: saisie.corps, valide: false, maj_par: null, maj_le: null } : (etat?.reglages.get(alerte) ?? null);
-  const m = await composerAlerte(def, reglage, EXEMPLE, { chemin: "/dossiers", libelle: "Ouvrir le dossier" }, lien);
+  const m = await composerAlerte(def, reglage, EXEMPLE, { chemin: "/parcours", libelle: "Ouvrir le dossier" }, lien);
   return { ok: true, sujet: m.sujet, html: m.html };
 }
 

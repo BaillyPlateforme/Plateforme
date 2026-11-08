@@ -21,7 +21,7 @@ export default async function ModelesDossier({ searchParams }: { searchParams: P
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial"
+        surtitre="Dossiers · Création"
         titre="Modèles de dossier"
         texte="Des points de départ pour créer vite ; les plus utilisés en tête."
         action={{ label: "Nouveau modèle", href: "/dossiers/modeles?nouveau=1", icone: "plus" }}
