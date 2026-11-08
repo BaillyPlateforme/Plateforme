@@ -63,7 +63,10 @@ function creerPool(): Pool {
   const pool = new Pool({
     connectionString: url,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    // Le pooler Supabase en mode session plafonne à 15 connexions pour tout le projet :
+    // CRM_POOL_MAX réduit la part d'un serveur (plusieurs serveurs de développement à la fois).
+    max: Math.max(1, Math.min(10, Number(process.env.CRM_POOL_MAX) || 5)),
+    idleTimeoutMillis: 10_000,
     types: TYPES,
     // Attendu avant la première requête de chaque connexion : si le réglage
     // échoue, la connexion est fermée et la requête échoue avec elle.
