@@ -7,7 +7,7 @@ import { Echec, Squelette } from "@/components/Squelette";
 import type { vueApercu } from "@/lib/espace-client/vues-equipe";
 import { LISTE_SEGMENTS, segmentDe } from "@/lib/espace-client/segments";
 import type { TypeClient } from "@/lib/espace-client/types";
-import { BandeauMode, Carte, dateFr, Jauge, LienBouton, Pastille, champ, usePorte } from "./socle";
+import { BandeauMode, Carte, dateFr, LienBouton, Pastille, champ, usePorte } from "./socle";
 
 type Donnees = ReturnType<typeof vueApercu>;
 
@@ -129,7 +129,22 @@ export function Apercu() {
                     <p className="text-[11.5px] text-ink-soft">{l.statut === "termine" ? "terminé" : l.joursAvant > 0 ? `dans ${l.joursAvant} j` : l.joursAvant === 0 ? "aujourd'hui" : "en cours"}</p>
                   </td>
                   <td className="px-5 py-3">
-                    <Jauge pourcent={l.pourcent} />
+                    {/* Le dossier complété (les points du client faits, comme en haut de sa fiche), et les pièces qui manquent. */}
+                    <Link href={`${racine}/dossiers/${l.id}#avancement`} className="block w-40" title={`Dossier complété à ${l.pourcent} %`}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eeecf5]">
+                          <span className="block h-full rounded-full" style={{ width: `${l.pourcent}%`, background: l.pourcent >= 100 ? "#14c27d" : "linear-gradient(90deg, #7a52ff, #4b2fe0)" }} />
+                        </span>
+                        <span className="w-9 text-right text-[12.5px] font-semibold tabular-nums text-ink">{l.pourcent} %</span>
+                      </span>
+                      <span className={`mt-1 block text-[11.5px] ${l.piecesManquantes ? "font-semibold text-danger" : "text-ink-soft"}`}>
+                        {l.piecesManquantes
+                          ? `${l.piecesManquantes} pièce${l.piecesManquantes > 1 ? "s" : ""} manquante${l.piecesManquantes > 1 ? "s" : ""}`
+                          : l.piecesDemandees
+                            ? "Pièces complètes"
+                            : "Aucune pièce demandée"}
+                      </span>
+                    </Link>
                   </td>
                   <td className="px-5 py-3">
                     {l.alerte ? <Pastille ton="alerte">{l.alerte}</Pastille> : l.prochaine ? <span>{l.prochaine}</span> : <Pastille ton="ok">Tout est fait</Pastille>}

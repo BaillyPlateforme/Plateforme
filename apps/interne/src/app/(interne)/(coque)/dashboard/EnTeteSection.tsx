@@ -22,6 +22,11 @@ type Contenu = {
   bas?: React.ReactNode;
   /** Les nombres du menu de gauche, par adresse d'onglet, quand la page les a déjà comptés. */
   nombres?: Record<string, number | undefined>;
+  /**
+   * Un menu de gauche propre à la page, à la place de celui de la section :
+   * les rubriques d'une longue page (la fiche d'un espace client), en ancres.
+   */
+  menu?: React.ReactNode;
 };
 
 /*
@@ -133,6 +138,8 @@ export function MenuDeSection() {
   const perso = useContext(Valeur);
   const section = sectionDe(chemin);
   if (!section) return null;
+  // La page a son propre menu (ses rubriques) : il remplace celui de la section le temps de la page.
+  if (perso && perso.chemin === chemin && perso.contenu.menu) return <>{perso.contenu.menu}</>;
   if (section.cle === "reglages") return <MenuReglages />;
   // Une section sans onglets : pas de menu, la page prend toute la largeur.
   if (!section.onglets.length && !section.plus?.length) return null;

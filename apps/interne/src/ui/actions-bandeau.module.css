@@ -1,0 +1,213 @@
+/*
+ * Les gestes d'une page dans la bande indigo (ActionsBandeau) : le geste
+ * principal en blanc, partagé quand il a des variantes ; des icônes de verre ;
+ * « ⋯ ». Une rangée, 40 px de haut.
+ *
+ * Les règles sont doublées (.ab .x) : la bande habille tout bouton de ses
+ * gestes (bandeau.module.css, `.actions button`), et ces règles-ci doivent
+ * l'emporter.
+ */
+.ab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Le geste principal : une pilule blanche, partagée en deux quand il a un menu. */
+.principale {
+  display: inline-flex;
+  align-items: stretch;
+  height: 40px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 12px 26px -14px rgba(14, 6, 70, 0.85), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+.ab .corps {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin: 0;
+  padding: 0 18px 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #2e1f9e;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.ab .corps svg {
+  color: #4b2fe0;
+}
+.ab .partage .corps {
+  padding-right: 14px;
+}
+.ab .corps:hover {
+  background: #f4f1ff;
+  transform: none;
+}
+.ab .fleche {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #e6e0fd;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #4b2fe0;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.ab .fleche svg {
+  transition: transform 0.2s;
+}
+.ab .fleche:hover {
+  background: #f4f1ff;
+  transform: none;
+}
+.ab .fleche[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* Une icône de verre : un rond, même hauteur que le geste principal. */
+.ab .icone {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.ab .icone:hover,
+.ab .icone[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.46);
+  transform: none;
+}
+.ab .icone[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ab .corps:focus-visible,
+.ab .fleche:focus-visible,
+.ab .icone:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Le panneau d'un menu (▾ ou ⋯), par-dessus la page. */
+.panneau {
+  position: fixed;
+  z-index: 90;
+  display: grid;
+  gap: 1px;
+  min-width: 264px;
+  max-width: 340px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(23, 20, 43, 0.08);
+  box-shadow: 0 28px 56px -24px rgba(46, 31, 158, 0.5), 0 2px 6px rgba(23, 20, 43, 0.06);
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  animation: ouverture 0.16s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform-origin: top right;
+}
+@keyframes ouverture {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #17142b;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.item:hover,
+.item:focus-visible {
+  background: #f5f3fc;
+  outline: none;
+}
+.item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.itemIcone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #f0edff;
+  color: #4b2fe0;
+  font-style: normal;
+}
+.itemTexte {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+  padding-top: 1px;
+}
+.itemTexte b {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.itemTexte small {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #77738f;
+}
+.itemSuffixe {
+  flex-shrink: 0;
+  margin-top: 8px;
+  color: #a7a3b8;
+}
+.item[data-danger] .itemIcone {
+  background: #fff1f3;
+  color: #be123c;
+}
+.item[data-danger] b {
+  color: #be123c;
+}
+.separateur {
+  margin: 5px 6px;
+  border: 0;
+  border-top: 1px solid #efedf5;
+}

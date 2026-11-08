@@ -2,595 +2,772 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import {
-  ajouterDevis, ajouterFacture, changerStatutDevis, deposerDocumentEquipe, envoyerAcces, marquerFacturePayee, marquerRealise,
-  modifierClient, modifierConteneur, modifierDossier, revoquerSessions, supprimerDocument,
+  ajouterDevis, ajouterFacture, changerStatutDevis, envoyerAcces, marquerFacturePayee, marquerRealise,
+  modifierClient, modifierConteneur, modifierDossier, revoquerSessions,
 } from "@/lib/actions/espace-client-equipe";
-import { CATEGORIES_DOCUMENT_EQUIPE, ESCALIER, MODELES_MESSAGE, MONTE_MEUBLE, POIDS_LOURD, STATIONNEMENT, STATUT_DOSSIER, STATUT_LIVRAISON, STATUT_SAV, TYPE_FACTURE, libelleEtage } from "@/lib/espace-client/libelles";
-import { TYPES_DOCUMENTS, verifierFichier } from "@/lib/espace-client/schemas";
+import { MODELES_MESSAGE, STATUT_DOSSIER, STATUT_LIVRAISON, STATUT_SAV, TYPE_FACTURE } from "@/lib/espace-client/libelles";
 import type { StatutDevis } from "@/lib/espace-client/types";
 import { LISTE_SEGMENTS } from "@/lib/espace-client/segments";
-import type { vueDossier } from "@/lib/espace-client/vues-equipe";
+import ActionsBandeau from "@/ui/ActionsBandeau";
 import ChampAdresse from "@/ui/ChampAdresse";
-import MenuActions from "@/ui/MenuActions";
+import { Icone } from "@/ui/icones";
 import EnTeteSection from "../../EnTeteSection";
-import { BandeauMode, Bouton, Carte, Champ, LienBouton, Pastille, Retour, champ, dateFr, dateHeureFr, euro, useAction, usePorte, zoneTexte } from "./socle";
+import { BandeauMode, Champ, Retour, champ, useAction, usePorte, zoneTexte } from "./socle";
+import { Avancement } from "./suivi/Avancement";
+import { MenuAncres, type Ancre } from "./suivi/MenuAncres";
+import { appareilDe, euros, jourCourt, jourHeure, nomAffiche, periodeCourte, RUBRIQUES, type Apercable, type DonneesFiche } from "./suivi/outils";
+import { PiecesJointes } from "./suivi/PiecesJointes";
+import { Reponses } from "./suivi/Reponses";
+import { Visionneuse } from "./suivi/Visionneuse";
+import s from "./suivi/suivi.module.css";
 
-type Donnees = NonNullable<ReturnType<typeof vueDossier>>;
 type Ouvrir = (id: string) => void;
 
-const TYPE_ACCEPTATION: Record<string, string> = {
-  cgv: "Conditions générales de vente",
-  rgpd: "Politique de confidentialité",
-  conditions_livraison: "Conditions de livraison certifiées",
-  declaration_valeurs: "Déclaration de valeurs certifiée",
-  devis: "Acceptation du devis",
-};
+/** Les liens signés durent cinq minutes : la fiche se relit toutes les quatre, sans clignoter. */
+const RELECTURE_MS = 4 * 60 * 1000;
 
-/** La fiche d'un dossier, vue de l'équipe : tout ce que voit le client, et tout ce qu'on peut y faire. */
+/**
+ * La fiche d'un espace client, vue de l'équipe : une longue page, ses
+ * rubriques dans le menu de gauche (Avancement, Pièces jointes, Réponses,
+ * Devis et factures, Cartons et SAV, Messages, Client). En haut, où en est le
+ * dossier et ce qui manque ; puis tout ce que le client a déposé et rempli,
+ * à voir et à télécharger ; les réglages tout en bas, repliés.
+ */
 export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }) {
   const porte = usePorte();
-  const { base } = porte;
-  const { donnees, erreur, recharger } = useRessource<Donnees>(`${base}/dossier/${id}`);
+  const { donnees, erreur, recharger } = useRessource<DonneesFiche>(`${porte.base}/dossier/${id}`);
   const cree = useSearchParams().get("cree");
   const action = useAction(recharger);
-  // Le droit de super admin, pour montrer « Modifier son espace » (la route d'ouverture le revérifie côté serveur).
+  // Le droit de super admin, pour proposer « Modifier son espace » (la route d'ouverture le revérifie côté serveur).
   const { donnees: droits } = useRessource<{ superAdmin: boolean }>(porte.demo ? null : "/api/data/droits");
+  const [edition, setEdition] = useState<"client" | "dossier" | "conteneur" | null>(null);
+
+  useEffect(() => {
+    const t = setInterval(recharger, RELECTURE_MS);
+    return () => clearInterval(t);
+  }, [recharger]);
+
+  const d = donnees;
+  const ancres: Ancre[] = RUBRIQUES.map((r) => ({
+    ...r,
+    nombre: !d ? undefined : r.id === "avancement" ? d.suivi.points.filter((p) => p.etat === "bloquant" || p.etat === "a_faire").length : r.id === "pieces" ? d.suivi.pieces.manquantes.length || d.fichiers.length : undefined,
+    ton: d && ((r.id === "avancement" && d.suivi.points.some((p) => p.etat === "bloquant")) || (r.id === "pieces" && d.suivi.pieces.manquantes.length > 0)) ? "alerte" : undefined,
+  }));
+  const menu = <MenuAncres titre="Ce dossier" ancres={ancres} retour={{ href: porte.racine, label: "Tous les espaces" }} />;
 
   if (erreur)
     return (
       <div>
-        <EnTeteSection propre surtitre="Espace client · Dossier" titre="Dossier client" />
+        <EnTeteSection propre surtitre="Espace client" titre="Dossier client" menu={menu} />
         <Echec message={erreur} onRetry={recharger} />
       </div>
     );
-  if (!donnees)
+  if (!d)
     return (
       <div>
-        <EnTeteSection propre surtitre="Espace client · Dossier" titre="Dossier client" texte="Chargement du dossier…" />
+        <EnTeteSection propre surtitre="Espace client" titre="Dossier client" texte="Chargement du dossier…" menu={menu} />
         <Squelette lignes={10} />
       </div>
     );
-  const { dossier, client } = donnees;
+
+  const { dossier, client } = d;
   const termine = dossier.statut === "termine";
+  const derniere = d.connexions[0];
+  const aller = (rubrique: string) => {
+    const el = document.getElementById(rubrique);
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 184, behavior: "smooth" });
+  };
+  const lienAcces = () =>
+    confirm(`Envoyer un nouveau lien d'accès à ${nomAffiche(client)} ?\n\nUn e-mail à ${client.email}, avec un lien de connexion à son espace.`) &&
+    action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu));
 
   return (
-    <div className="space-y-5">
-      {/* L'en-tête de la section, au trajet du dossier : bandeau puis onglets. */}
-      <div>
-        <EnTeteSection
-          propre
-          surtitre={`Espace client · ${dossier.reference}`}
-          titre={`${dossier.ville_depart} → ${dossier.ville_arrivee}`}
-          texte={[client.societe, [client.civilite, client.prenom, client.nom].filter(Boolean).join(" "), client.email].filter(Boolean).join(" · ")}
-          etiquettes={[
-            donnees.segment.libelle,
-            STATUT_DOSSIER[dossier.statut],
-            donnees.crm != null && "Relié au CRM",
-            `${dateFr(dossier.periode_debut).slice(0, 5)} → ${dateFr(dossier.periode_fin)}`,
-            `${dossier.volume_m3} m³`,
-            (client.masquer_devis || client.masquer_factures) && `${[client.masquer_devis && "Devis", client.masquer_factures && "factures"].filter(Boolean).join(" et ")} masqués`,
-          ]}
-        >
-          <button type="button" disabled={action.enCours} onClick={() => action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu))}>
-            Envoyer le lien d&apos;accès
-          </button>
-          {/* L'espace tel que le client le voit, en lecture seule (aperçu de l'équipe). Un <a> et jamais un <Link> :
-              un préchargement noterait une ouverture et émettrait un jeton. Absent du cadre de démonstration sans connexion. */}
-          {!porte.demo && (
-            <a href={`/espace-client-apercu/${id}`} target="_blank" rel="noopener" data-ton="contour">
-              Voir comme le client
-            </a>
-          )}
-          {/* L'espace en édition, au nom du client : les super admins seuls (lib/droits.ts). */}
-          {!porte.demo && droits?.superAdmin && (
-            <a href={`/espace-client-apercu/${id}?mode=edition`} target="_blank" rel="noopener" data-ton="contour" title="Modifier l'espace au nom du client : chaque geste est noté à votre nom">
-              Modifier son espace
-            </a>
-          )}
-          {donnees.crm != null && !porte.demo && (
-            <Link href={`/dossiers/${donnees.crm}#espace-client`} data-ton="contour">
-              Dossier du CRM
-            </Link>
-          )}
-          {/* Le retour à la liste des espaces (simplification du 08/11/2026). */}
-          <Link href={porte.racine} data-ton="contour">
-            Tous les espaces
-          </Link>
-          {/* Les gestes plus rares, derrière « ⋯ » : le bandeau garde ses boutons sur une ligne. */}
-          <MenuActions>
-            <button type="button" disabled={action.enCours} onClick={() => confirm("Couper toutes les sessions ouvertes de ce client ?") && action.lancer(() => revoquerSessions(id))}>
-              Couper les sessions
-            </button>
-            {!termine && (
-              <button type="button" disabled={action.enCours} onClick={() => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id))}>
-                Fin de chantier signée
-              </button>
+    <div className={s.fiche}>
+      <EnTeteSection
+        propre
+        surtitre="Espace client"
+        titre={nomAffiche(client)}
+        texte={
+          <>
+            {d.crm != null && !porte.demo ? (
+              <Link href={`/dossiers/${d.crm}`} className={s.puceRef} title="Ouvrir le dossier dans le CRM" prefetch={false}>
+                {dossier.reference}
+                <Icone nom="externe" taille={12} />
+              </Link>
+            ) : (
+              <span className={s.puceRef}>{dossier.reference}</span>
             )}
-          </MenuActions>
-        </EnTeteSection>
-        <BandeauMode mode={donnees.mode} />
-      </div>
-      {cree && !action.resultat && <p className="rounded-xl bg-good-soft px-3.5 py-2.5 text-[13px] font-medium text-good">✓ Dossier créé. L&apos;espace du client est prêt.</p>}
+            {dossier.ville_depart} → {dossier.ville_arrivee} · {periodeCourte(dossier.periode_debut, dossier.periode_fin)}
+          </>
+        }
+        etiquettes={[
+          d.segment.libelle,
+          STATUT_DOSSIER[dossier.statut],
+          derniere ? `Vu le ${jourCourt(derniere.le)}` : !porte.demo && "Jamais connecté",
+          (client.masquer_devis || client.masquer_factures) && `${[client.masquer_devis && "Devis", client.masquer_factures && "factures"].filter(Boolean).join(" et ")} masqués`,
+        ]}
+        menu={menu}
+      >
+        <ActionsBandeau
+          principale={
+            porte.demo
+              ? { label: "Envoyer le lien d'accès", icone: "envoyer", onClick: lienAcces, disabled: action.enCours }
+              : // L'espace tel que le client le voit, en lecture seule. Un <a> et jamais un <Link> : un préchargement noterait une ouverture.
+                { label: "Ouvrir l'espace", icone: "oeil", href: `/espace-client-apercu/${id}`, nouvelOnglet: true, titre: "L'espace tel que le client le voit, en lecture seule" }
+          }
+          variantes={
+            !porte.demo && droits?.superAdmin
+              ? [
+                  { label: "Voir comme le client", aide: "En lecture seule : rien ne change pour lui", icone: "oeil", href: `/espace-client-apercu/${id}`, nouvelOnglet: true },
+                  { label: "Modifier son espace", aide: "En édition, au nom du client : chaque geste est noté à votre nom", icone: "crayon", href: `/espace-client-apercu/${id}?mode=edition`, nouvelOnglet: true },
+                ]
+              : undefined
+          }
+          icones={[!!d.archive && { label: "Tout télécharger (ZIP)", titre: "Toutes les pièces jointes du dossier, en une archive ZIP", icone: "telecharger", href: d.archive, telecharger: true }]}
+          plus={[
+            !porte.demo && { label: "Envoyer le lien d'accès", aide: `Un e-mail à ${client.email}, pour entrer dans son espace`, icone: "envoyer", onClick: lienAcces, disabled: action.enCours },
+            d.crm != null && !porte.demo && { label: "Ouvrir le dossier du CRM", aide: `${dossier.reference} · devis, factures, planning`, icone: "dossierClient", href: `/dossiers/${d.crm}` },
+            {
+              label: "Modifier le client",
+              aide: "Coordonnées, conseiller, segment",
+              icone: "crayon",
+              onClick: () => {
+                setEdition("client");
+                setTimeout(() => aller("client"), 30);
+              },
+            },
+            "-",
+            {
+              label: "Couper les sessions",
+              aide: "Le client devra demander un nouveau lien",
+              icone: "connexion",
+              danger: true,
+              disabled: action.enCours,
+              onClick: () => confirm("Couper toutes les sessions ouvertes de ce client ? Il devra demander un nouveau lien d'accès.") && action.lancer(() => revoquerSessions(id)),
+            },
+            !termine && {
+              label: "Fin de chantier signée",
+              aide: "Le dossier passe à « terminé » ; la demande d'avis part au client",
+              icone: "commande",
+              disabled: action.enCours,
+              onClick: () => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id)),
+            },
+          ]}
+        />
+      </EnTeteSection>
+
+      <BandeauMode mode={d.mode} />
+      {cree && !action.resultat && <p className={s.flash}>Dossier créé : l&apos;espace du client est prêt.</p>}
       <Retour r={action.resultat} apercu={ouvrirApercu} />
 
-      <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-        <div className="space-y-5">
-          <Frise d={donnees} />
-          <Documents d={donnees} recharger={recharger} ouvrirApercu={ouvrirApercu} />
-          {donnees.crm != null ? (
-            <DevisFacturesCrm d={donnees} recharger={recharger} />
-          ) : (
-            <>
-              {!client.masquer_devis || !client.masquer_factures ? <DevisFactures d={donnees} recharger={recharger} /> : null}
-              {(client.masquer_devis || client.masquer_factures) && (
-                <Carte titre="Devis et factures">
-                  <p className="text-[13px] text-ink-soft">Masqués pour ce grand compte : le client ne les voit pas. Décochez le masquage dans « Client et réglages » pour les gérer ici.</p>
-                </Carte>
-              )}
-            </>
-          )}
-          <Engagements d={donnees} />
-        </div>
-        <div className="space-y-5">
-          <ReglesSegment d={donnees} />
-          <ReglagesClient d={donnees} recharger={recharger} />
-          {donnees.crm != null ? <InfosDossierLie d={donnees} recharger={recharger} /> : <InfosDossier d={donnees} recharger={recharger} />}
-          {donnees.suiviConteneur && <SuiviConteneur d={donnees} recharger={recharger} />}
-          <CartonsSav d={donnees} />
-          <Carte titre="Messages du dossier">
-            <ul className="space-y-2.5">
-              {donnees.notifications.map((n) => (
-                <li key={n.id} className="text-[12.5px]">
-                  <button onClick={() => ouvrirApercu(n.id)} className="text-left font-medium hover:text-brand-ink">
-                    {n.canal === "sms" ? "SMS · " : ""}
-                    {MODELES_MESSAGE[n.modele] ?? n.modele}
-                  </button>
-                  <p className="text-ink-soft">
-                    {dateHeureFr(n.sent_at)} · {n.destinataire} · {n.statut === "journalisee" ? "journalisé" : n.statut === "envoyee" ? "envoyé" : "échec"}
-                  </p>
-                </li>
-              ))}
-              {donnees.notifications.length === 0 && <li className="text-[13px] text-ink-soft">Aucun message pour l&apos;instant.</li>}
-            </ul>
-          </Carte>
-        </div>
-      </div>
+      <Avancement d={d} recharger={recharger} lien={(r) => `#${r}`} />
+
+      <Section id="pieces" titre="Pièces jointes" sous={`${d.fichiers.length} fichier${d.fichiers.length > 1 ? "s" : ""} · à voir dans la page, à télécharger un par un ou tous ensemble`}>
+        <PiecesJointes d={d} recharger={recharger} />
+      </Section>
+
+      <Section id="reponses" titre="Réponses du client" sous="Ce qu'il a rempli et certifié dans son espace">
+        <Reponses d={d} />
+      </Section>
+
+      <Section
+        id="devis"
+        titre="Devis et factures"
+        sous={d.crm != null ? "Établis dans le CRM, tels que le client les voit" : "Tels que le client les voit"}
+        actions={
+          d.crm != null &&
+          !porte.demo && (
+            <Link href={`/dossiers/${d.crm}`} className={s.boutonClair} prefetch={false}>
+              Gérer dans le CRM
+              <Icone nom="fleche" taille={15} />
+            </Link>
+          )
+        }
+      >
+        <DevisFactures d={d} recharger={recharger} />
+      </Section>
+
+      <Section id="cartons" titre="Cartons et SAV" sous="Les cartons livrés avant le départ, les avaries déclarées après">
+        <CartonsSav d={d} />
+      </Section>
+
+      <Section id="messages" titre="Messages et connexions" sous="Ce qui est parti au client, ce qu'il a écrit, et quand il est venu">
+        <Messages d={d} ouvrirApercu={ouvrirApercu} />
+      </Section>
+
+      <Section id="client" titre="Client et réglages" sous="Coordonnées, segment et dossier : repliés, à ouvrir pour modifier">
+        <ClientReglages d={d} recharger={recharger} edition={edition} setEdition={setEdition} />
+      </Section>
     </div>
   );
 }
 
-function Frise({ d }: { d: Donnees }) {
+function Section({ id, titre, sous, actions, children }: { id: string; titre: string; sous?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Carte titre="La frise du client" action={<span className="text-[12px] text-ink-soft">{d.avancement.faites} étape{d.avancement.faites > 1 ? "s" : ""} sur {d.avancement.total} · {d.avancement.pourcent} %</span>}>
-      <ol className="grid gap-2 sm:grid-cols-2">
-        {d.frise.map((e, i) => (
-          <li key={e.cle} className={`flex items-start gap-3 rounded-xl p-3 ${e.statut === "a_faire" ? (e.bloquante ? "bg-danger-soft/60" : "bg-brand-soft/60") : "bg-subtle/60"}`}>
-            <span className={`grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${e.statut === "fait" ? "bg-ink text-white" : e.statut === "a_faire" ? "bg-brand text-nuit" : "bg-line text-ink-soft"}`}>{e.statut === "fait" ? "✓" : i + 1}</span>
-            <span className="min-w-0">
-              <span className="block text-[13px] font-semibold leading-tight">
-                {e.titre} {e.bloquante && e.statut !== "fait" && <span className="text-[10.5px] font-bold uppercase tracking-wider text-danger">· bloquant</span>}
-              </span>
-              <span className="text-[12px] text-ink-soft">{e.detail}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </Carte>
-  );
-}
-
-function Documents({ d, recharger, ouvrirApercu }: { d: Donnees; recharger: () => void; ouvrirApercu: Ouvrir }) {
-  const action = useAction(recharger);
-  const form = useRef<HTMLFormElement>(null);
-  const [locale, setLocale] = useState<string | null>(null);
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
-  return (
-    <Carte titre="Documents">
-      <ul className="divide-y divide-line/70">
-        {d.pieces.map((p) => (
-          <li key={p.id} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
-            <span className="flex items-center gap-2">
-              <span className={p.depot ? "text-good" : p.obligatoire ? "text-danger" : "text-ink-soft"}>{p.depot ? "✓" : "•"}</span>
-              {p.libelle}
-              {p.pays && <Pastille>{p.pays}</Pastille>}
-            </span>
-            {p.depot ? (
-              <a href={p.depot.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                Ouvrir · {dateFr(p.depot.le)}
-              </a>
-            ) : (
-              <span className="text-ink-soft">{p.obligatoire ? "Manquante" : "Facultative"}</span>
-            )}
-          </li>
-        ))}
-        {d.documents.map((x) => (
-          <li key={x.id} className="flex items-center justify-between gap-3 py-2.5 text-[13px]">
-            <span className="flex items-center gap-2">
-              {x.libelle} <Pastille ton={x.source === "equipe" ? "noir" : "neutre"}>{x.source === "equipe" ? "Équipe" : "Client"}</Pastille>
-            </span>
-            <span className="flex items-center gap-3">
-              <a href={x.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                Ouvrir
-              </a>
-              {x.source === "equipe" && (
-                <button className="text-ink-soft hover:text-danger" onClick={() => confirm(`Retirer « ${x.libelle} » de l'espace du client ?`) && action.lancer(() => supprimerDocument(x.id))}>
-                  Retirer
-                </button>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-      <form
-        ref={form}
-        className="mt-4 space-y-3 rounded-xl bg-subtle/60 p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          const f = fd.get("fichier");
-          const m = verifierFichier(f instanceof File ? f : null, TYPES_DOCUMENTS);
-          setLocale(m);
-          if (m) return;
-          action.lancer(() => deposerDocumentEquipe(d.dossier.id, fd), (r) => {
-            if (r.ok) form.current?.reset();
-            if (r.ok && r.apercu) ouvrirApercu(r.apercu);
-          });
-        }}
-      >
-        <p className="text-[13px] font-semibold">Déposer un document pour le client</p>
-        <div className="grid gap-3 sm:grid-cols-[1.4fr_1fr]">
-          <Champ label="Nom du document" erreur={erreurs.libelle}>
-            <input name="libelle" className={champ} placeholder="Ex. : Lettre de voiture" />
-          </Champ>
-          <Champ label="Catégorie">
-            <select name="categorie" className={champ}>
-              {CATEGORIES_DOCUMENT_EQUIPE.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </Champ>
+    <section id={id} className={`${s.carte} ${s.section}`} aria-labelledby={`${id}-titre`}>
+      <header className={s.sectionTete}>
+        <div>
+          <h2 id={`${id}-titre`}>{titre}</h2>
+          {sous && <p>{sous}</p>}
         </div>
-        <Champ label="Fichier (PDF ou image, 10 Mo au plus)" erreur={locale ?? erreurs.fichier}>
-          <input type="file" name="fichier" accept={TYPES_DOCUMENTS.join(",")} className="block w-full text-[13px] file:mr-3 file:rounded-full file:border-0 file:bg-ink file:px-3 file:py-1.5 file:text-white" />
-        </Champ>
-        <Bouton disabled={action.enCours}>{action.enCours ? "Dépôt…" : "Déposer et prévenir le client"}</Bouton>
-        <Retour r={action.resultat} apercu={ouvrirApercu} />
-      </form>
-    </Carte>
+        {actions}
+      </header>
+      {children}
+    </section>
   );
 }
 
-function DevisFactures({ d, recharger }: { d: Donnees; recharger: () => void }) {
+// --- Devis et factures ---------------------------------------------------------------------------------
+
+const ETAT_DEVIS: Record<StatutDevis, { ton: string; texte: string }> = {
+  envoye: { ton: "a_faire", texte: "À accepter" },
+  accepte: { ton: "fait", texte: "Signé" },
+  refuse: { ton: "neutre", texte: "Non retenu" },
+  expire: { ton: "neutre", texte: "Expiré" },
+};
+
+/**
+ * Les devis et les factures, en lignes : numéro, montant, état, aperçu et
+ * téléchargement. Relié au CRM, ils s'y établissent ; sinon, l'équipe les
+ * ajoute ici (formulaires repliés).
+ */
+function DevisFactures({ d, recharger }: { d: DonneesFiche; recharger: () => void }) {
   const action = useAction(recharger);
+  const relie = d.crm != null;
+  const [vue, setVue] = useState<{ liste: Apercable[]; i: number } | null>(null);
   const [nouveauDevis, setNouveauDevis] = useState(false);
   const [nouvelleFacture, setNouvelleFacture] = useState(false);
-  const enDeux = (n: number) => new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + n)).toISOString().slice(0, 10);
-  const [devis, setDevis] = useState({ formule: d.dossier.formule, lignes: "", inclus: "", arrhes_pourcentage: d.client.type === "particulier" ? "30" : "0", valide_jusqu_au: enDeux(30), statut: "envoye" });
-  const [facture, setFacture] = useState({ type: "solde", libelle: `Solde du déménagement ${d.dossier.ville_depart} → ${d.dossier.ville_arrivee}`, montant_ttc: "", echeance: enDeux(14), periode: "" });
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const enJours = (n: number) => new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + n)).toISOString().slice(0, 10);
+  const [devis, setDevis] = useState({ formule: d.dossier.formule, lignes: "", inclus: "", arrhes_pourcentage: d.client.type === "particulier" ? "30" : "0", valide_jusqu_au: enJours(30), statut: "envoye" });
+  const [facture, setFacture] = useState({ type: "solde", libelle: `Solde du déménagement ${d.dossier.ville_depart} → ${d.dossier.ville_arrivee}`, montant_ttc: "", echeance: enJours(14), periode: "" });
+  const erreurs = action.resultat && !action.resultat.ok ? (action.resultat.erreurs ?? {}) : {};
+
+  const pdfs: Apercable[] = [
+    ...d.devis.map((v) => ({ cle: `devis:${v.id}`, libelle: `Devis ${v.numero}`, nom: `devis-${v.numero}.pdf`, mime: "application/pdf", lien: v.lien, telecharger: v.telecharger, categorie: "Devis", le: v.emis_le })),
+    ...d.factures.map((f) => ({ cle: `facture:${f.id}`, libelle: `${f.crm_paiement_id != null ? "Reçu" : "Facture"} ${f.numero}`, nom: `facture-${f.numero}.pdf`, mime: "application/pdf", lien: f.lien, telecharger: f.telecharger, categorie: TYPE_FACTURE[f.type], le: f.emise_le })),
+  ];
+  const ouvrir = (cle: string) => setVue({ liste: pdfs, i: pdfs.findIndex((p) => p.cle === cle) });
+  const masques = [d.client.masquer_devis && "les devis", d.client.masquer_factures && "les factures"].filter(Boolean).join(" et ");
+
+  const gestes = (cle: string, telecharger: string) => (
+    <span className={s.ligneGestes}>
+      <button type="button" className={s.lienDiscret} onClick={() => ouvrir(cle)}>
+        <Icone nom="oeil" taille={15} />
+        Aperçu
+      </button>
+      <a className={s.boutonIcone} href={telecharger} download title="Télécharger le PDF" aria-label="Télécharger le PDF">
+        <Icone nom="telecharger" taille={16} />
+      </a>
+    </span>
+  );
 
   return (
-    <Carte titre="Devis et factures">
-      {!d.client.masquer_devis && (
-        <>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Devis</p>
-          <ul className="divide-y divide-line/70">
+    <div className={s.devis}>
+      {masques && <p className={s.note}>Pour ce client, {masques} ne s&apos;affichent pas dans son espace ({d.segment.libelle.toLowerCase()}). L&apos;équipe les voit ici.</p>}
+      <div className={s.colonnesDocs}>
+        <div>
+          <h3 className={s.sousTitre}>Devis</h3>
+          <ul className={s.lignes}>
             {d.devis.map((v) => (
-              <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
-                <span>
-                  <span className="font-semibold">{v.numero}</span> · {v.formule} · {euro(v.montant_ttc)} TTC
-                  {v.arrhes_pourcentage > 0 && <span className="text-ink-soft"> · arrhes {v.arrhes_pourcentage} %</span>}
+              <li key={v.id} className={s.ligneDoc}>
+                <span className={s.picto} data-type="pdf" data-genre="devis">
+                  <Icone nom="devis" taille={16} />
                 </span>
-                <span className="flex items-center gap-2">
-                  <select value={v.statut} onChange={(e) => action.lancer(() => changerStatutDevis(v.id, e.target.value as StatutDevis))} className={`${champ} !h-8 !w-auto !py-0`} aria-label={`Statut du devis ${v.numero}`}>
+                <span className={s.ligneTexte}>
+                  <b>{v.numero}</b>
+                  <small>
+                    {v.formule} · émis le {jourCourt(v.emis_le)}
+                    {v.arrhes_pourcentage > 0 && ` · arrhes ${v.arrhes_pourcentage} %`}
+                  </small>
+                </span>
+                <span className={s.montant}>{euros(v.montant_ttc)}</span>
+                {relie ? (
+                  <span className={s.etat} data-etat={ETAT_DEVIS[v.statut].ton}>
+                    {ETAT_DEVIS[v.statut].texte}
+                    {v.statut === "accepte" && v.accepte_le && ` le ${jourCourt(v.accepte_le)}`}
+                  </span>
+                ) : (
+                  <select value={v.statut} onChange={(e) => action.lancer(() => changerStatutDevis(v.id, e.target.value as StatutDevis))} className={s.selectEtat} aria-label={`Statut du devis ${v.numero}`}>
                     <option value="envoye">Envoyé</option>
                     <option value="accepte">Accepté</option>
                     <option value="refuse">Non retenu</option>
                     <option value="expire">Expiré</option>
                   </select>
-                  <a href={v.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                    PDF
-                  </a>
-                </span>
-              </li>
-            ))}
-            {d.devis.length === 0 && <li className="py-2 text-[13px] text-ink-soft">Aucun devis : le client voit « devis en préparation ».</li>}
-          </ul>
-          {nouveauDevis ? (
-            <div className="mt-3 space-y-3 rounded-xl bg-subtle/60 p-4">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Champ label="Formule" erreur={erreurs.formule}>
-                  <input className={champ} value={devis.formule} onChange={(e) => setDevis({ ...devis, formule: e.target.value })} />
-                </Champ>
-                <Champ label="Arrhes (%)" erreur={erreurs.arrhes_pourcentage}>
-                  <input className={champ} inputMode="numeric" value={devis.arrhes_pourcentage} onChange={(e) => setDevis({ ...devis, arrhes_pourcentage: e.target.value })} />
-                </Champ>
-                <Champ label="Valable jusqu'au" erreur={erreurs.valide_jusqu_au}>
-                  <input className={champ} type="date" value={devis.valide_jusqu_au} onChange={(e) => setDevis({ ...devis, valide_jusqu_au: e.target.value })} />
-                </Champ>
-              </div>
-              <Champ label="Prestations, une par ligne : « Libellé ; montant HT ; détail »" erreur={erreurs.lignes ?? Object.entries(erreurs).find(([k]) => k.startsWith("lignes."))?.[1]}>
-                <textarea className={zoneTexte} value={devis.lignes} onChange={(e) => setDevis({ ...devis, lignes: e.target.value })} placeholder={"Déménagement Paris → Lyon ; 2150 ; 32 m³, équipe de 4\nEmballage du fragile ; 290"} />
-              </Champ>
-              <Champ label="Ce que la formule comprend (séparé par des virgules)">
-                <input className={champ} value={devis.inclus} onChange={(e) => setDevis({ ...devis, inclus: e.target.value })} placeholder="Emballage du fragile, Démontage / remontage" />
-              </Champ>
-              <div className="flex flex-wrap items-center gap-2">
-                <select className={`${champ} !w-auto`} value={devis.statut} onChange={(e) => setDevis({ ...devis, statut: e.target.value })} aria-label="Statut du nouveau devis">
-                  <option value="envoye">À accepter par le client</option>
-                  <option value="accepte">Déjà accepté</option>
-                </select>
-                <Bouton disabled={action.enCours} onClick={() => action.lancer(() => ajouterDevis(d.dossier.id, devis), (r) => r.ok && setNouveauDevis(false))}>
-                  Ajouter le devis
-                </Bouton>
-                <Bouton variante="discret" onClick={() => setNouveauDevis(false)}>
-                  Annuler
-                </Bouton>
-              </div>
-            </div>
-          ) : (
-            <Bouton variante="contour" className="mt-3" onClick={() => setNouveauDevis(true)}>
-              + Ajouter un devis
-            </Bouton>
-          )}
-        </>
-      )}
-
-      {!d.client.masquer_factures && (
-        <>
-          <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Factures</p>
-          <ul className="divide-y divide-line/70">
-            {d.factures.map((f) => (
-              <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
-                <span>
-                  <span className="font-semibold">{f.numero}</span> · {TYPE_FACTURE[f.type]} · {euro(f.montant_ttc)}
-                  <span className="text-ink-soft"> · {f.statut === "payee" ? `réglée le ${dateFr(f.payee_le!)}` : `échéance ${dateFr(f.echeance)}`}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  {f.statut === "payee" ? <Pastille ton="ok">Payée</Pastille> : <Pastille ton="attente">À régler</Pastille>}
-                  {f.statut !== "payee" && (
-                    <button className="text-[12px] text-ink-soft hover:text-ink" onClick={() => confirm("Marquer cette facture comme réglée hors ligne (virement, chèque) ?") && action.lancer(() => marquerFacturePayee(f.id))}>
-                      Réglée hors ligne
-                    </button>
-                  )}
-                  <a href={f.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                    PDF
-                  </a>
-                </span>
-              </li>
-            ))}
-            {d.factures.length === 0 && <li className="py-2 text-[13px] text-ink-soft">Aucune facture.</li>}
-          </ul>
-          {nouvelleFacture ? (
-            <div className="mt-3 space-y-3 rounded-xl bg-subtle/60 p-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Champ label="Type">
-                  <select className={champ} value={facture.type} onChange={(e) => setFacture({ ...facture, type: e.target.value })}>
-                    <option value="solde">Solde</option>
-                    <option value="arrhes">Arrhes</option>
-                    <option value="garde_meubles">Garde-meubles</option>
-                  </select>
-                </Champ>
-                <Champ label="Montant TTC (€)" erreur={erreurs.montant_ttc}>
-                  <input className={champ} inputMode="decimal" value={facture.montant_ttc} onChange={(e) => setFacture({ ...facture, montant_ttc: e.target.value.replace(",", ".") })} />
-                </Champ>
-                <Champ label="Libellé" erreur={erreurs.libelle} className="sm:col-span-2">
-                  <input className={champ} value={facture.libelle} onChange={(e) => setFacture({ ...facture, libelle: e.target.value })} />
-                </Champ>
-                <Champ label="Échéance" erreur={erreurs.echeance}>
-                  <input className={champ} type="date" value={facture.echeance} onChange={(e) => setFacture({ ...facture, echeance: e.target.value })} />
-                </Champ>
-                {facture.type === "garde_meubles" && (
-                  <Champ label="Mois couvert (AAAA-MM)" erreur={erreurs.periode}>
-                    <input className={champ} value={facture.periode} onChange={(e) => setFacture({ ...facture, periode: e.target.value })} placeholder="2026-12" />
-                  </Champ>
                 )}
-              </div>
-              <div className="flex gap-2">
-                <Bouton disabled={action.enCours} onClick={() => action.lancer(() => ajouterFacture(d.dossier.id, facture), (r) => r.ok && setNouvelleFacture(false))}>
-                  Émettre la facture
-                </Bouton>
-                <Bouton variante="discret" onClick={() => setNouvelleFacture(false)}>
-                  Annuler
-                </Bouton>
-              </div>
-            </div>
-          ) : (
-            <Bouton variante="contour" className="mt-3" onClick={() => setNouvelleFacture(true)}>
-              + Émettre une facture
-            </Bouton>
-          )}
-        </>
-      )}
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
-  );
-}
-
-/**
- * Les devis et factures d'un dossier relié : ils viennent du CRM, qui les
- * établit, les envoie et les encaisse. Ici, on les voit tels que le client
- * les voit, et un règlement reçu hors ligne s'inscrit dans le CRM.
- */
-function DevisFacturesCrm({ d, recharger }: { d: Donnees; recharger: () => void }) {
-  const action = useAction(recharger);
-  const { demo } = usePorte();
-  const masques = [d.client.masquer_devis && "les devis", d.client.masquer_factures && "les factures"].filter(Boolean).join(" et ");
-  return (
-    <Carte
-      titre="Devis et factures"
-      action={!demo && d.crm != null && <LienBouton href={`/dossiers/${d.crm}`}>Gérer dans le CRM</LienBouton>}
-    >
-      <p className="mb-4 rounded-xl bg-subtle/70 px-3.5 py-2.5 text-[12.5px] text-ink-soft">
-        Établis dans le CRM, ils arrivent ici d&apos;eux-mêmes : un devis envoyé apparaît chez le client, son acceptation ou ses arrhes réglées en ligne reviennent au CRM.
-        {masques && ` Pour ce client, ${masques} ne s'affichent pas dans son espace (${d.segment.libelle.toLowerCase()}).`}
-      </p>
-      <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Devis</p>
-      <ul className="divide-y divide-line/70">
-        {d.devis.map((v) => (
-          <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
-            <span>
-              <span className="font-semibold">{v.numero}</span> · {v.formule} · {euro(v.montant_ttc)} TTC
-              {v.arrhes_pourcentage > 0 && <span className="text-ink-soft"> · arrhes {v.arrhes_pourcentage} %</span>}
-            </span>
-            <span className="flex items-center gap-3">
-              <Pastille ton={v.statut === "accepte" ? "ok" : v.statut === "envoye" ? "attente" : "neutre"}>
-                {v.statut === "accepte" ? `Signé${v.accepte_le ? ` le ${dateFr(v.accepte_le)}` : ""}` : v.statut === "envoye" ? "Envoyé, à accepter" : v.statut === "refuse" ? "Non retenu" : "Expiré"}
-              </Pastille>
-              <a href={v.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                PDF
-              </a>
-            </span>
-          </li>
-        ))}
-        {d.devis.length === 0 && <li className="py-2 text-[13px] text-ink-soft">{d.client.type === "militaire" ? "Pas de devis : prise en charge par l'administration." : "Aucun devis envoyé depuis le CRM."}</li>}
-      </ul>
-      <p className="mb-2 mt-6 text-[12px] font-semibold uppercase tracking-wider text-ink-soft">Factures et règlements</p>
-      <ul className="divide-y divide-line/70">
-        {d.factures.map((f) => (
-          <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-[13px]">
-            <span>
-              <span className="font-semibold">{f.numero}</span> · {f.crm_paiement_id != null ? "Règlement" : TYPE_FACTURE[f.type]} · {f.libelle} · {euro(f.montant_ttc)}
-              <span className="text-ink-soft"> · {f.statut === "payee" ? `réglée le ${dateFr(f.payee_le!)}` : `émise le ${dateFr(f.emise_le)}`}</span>
-            </span>
-            <span className="flex items-center gap-2">
-              {f.statut === "payee" ? <Pastille ton="ok">Payée</Pastille> : <Pastille ton="attente">À régler</Pastille>}
-              {f.statut !== "payee" && f.crm_facture_id != null && (
-                <button className="text-[12px] text-ink-soft hover:text-ink" onClick={() => confirm("Marquer cette facture comme réglée hors ligne (virement, chèque) ? Elle le sera aussi dans le CRM.") && action.lancer(() => marquerFacturePayee(f.id))}>
-                  Réglée hors ligne
-                </button>
-              )}
-              <a href={f.lien} target="_blank" rel="noopener" className="font-medium hover:text-brand-ink">
-                PDF
-              </a>
-            </span>
-          </li>
-        ))}
-        {d.factures.length === 0 && <li className="py-2 text-[13px] text-ink-soft">Aucune facture ni aucun règlement au CRM.</li>}
-      </ul>
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
-  );
-}
-
-/** Ce que le segment change : les règles du cahier des charges, sous les yeux de l'équipe. */
-function ReglesSegment({ d }: { d: Donnees }) {
-  return (
-    <section className="rounded-[18px] bg-nuit p-5 text-white">
-      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand">Segment · {d.segment.libelle}</p>
-      <ul className="mt-3 list-disc space-y-2 pl-4 text-[13px] leading-snug text-white/85">
-        {d.segment.regles.map((r) => (
-          <li key={r}>{r}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function Engagements({ d }: { d: Donnees }) {
-  const c = d.conditions;
-  return (
-    <div className="grid gap-5 md:grid-cols-2">
-      <Carte titre="Conditions de livraison">
-        {c?.valide_at ? (
-          <div className="space-y-1.5 text-[13px]">
-            <p className="font-medium">{c.adresse_livraison}</p>
-            <p>
-              {libelleEtage(c.etage)} · {c.ascenseur ? `ascenseur${c.ascenseur_dimensions ? ` ${c.ascenseur_dimensions.largeur}×${c.ascenseur_dimensions.profondeur}×${c.ascenseur_dimensions.hauteur} cm` : ""}` : "sans ascenseur"} · escalier {ESCALIER[c.escalier].toLowerCase()}
-            </p>
-            <p>
-              Portage {c.distance_portage_m} m · poids lourd : {POIDS_LOURD[c.acces_poids_lourd].toLowerCase()} · {STATIONNEMENT[c.stationnement]}
-            </p>
-            <p>
-              Rue : {c.particularites_rue.join(", ") || "—"} · monte-meuble : {MONTE_MEUBLE[c.monte_meuble].toLowerCase()}
-            </p>
-            {c.horaires_restreints && <p>Horaires : {c.horaires_restreints}</p>}
-            {c.commentaire && <p className="text-ink-soft">« {c.commentaire} »</p>}
-            {c.photos.length > 0 && (
-              <p className="flex flex-wrap gap-2 pt-1">
-                {c.photos.map((p) => (
-                  <a key={p.id} href={p.lien} target="_blank" rel="noopener" className="rounded-full bg-subtle px-2.5 py-0.5 text-[12px] hover:bg-brand-soft">
-                    📷 {p.nom}
-                  </a>
-                ))}
-              </p>
+                {gestes(`devis:${v.id}`, v.telecharger)}
+              </li>
+            ))}
+            {d.devis.length === 0 && (
+              <li className={s.vide}>{d.client.type === "militaire" ? "Pas de devis : prise en charge par l'administration." : relie ? "Aucun devis envoyé depuis le CRM." : "Aucun devis : le client voit « devis en préparation »."}</li>
             )}
-            <p className="pt-1 text-[12px] text-good">Certifiées le {dateHeureFr(c.valide_at)}</p>
-          </div>
-        ) : (
-          <p className="text-[13px] text-danger">Questionnaire non rempli : étape bloquante.</p>
-        )}
-      </Carte>
-      <Carte titre="Déclaration de valeurs">
-        {d.declaration?.statut === "soumise" ? (
-          <div className="text-[13px]">
-            <p className="text-[26px] font-bold tabular-nums">{euro(d.declaration.total)}</p>
-            <ul className="mt-2 space-y-1 text-ink-soft">
-              {d.declaration.contenu.objets.map((o, i) => (
-                <li key={i}>
-                  {o.designation} · {o.categorie} · × {o.quantite} · {euro(o.quantite * o.valeur_unitaire)}
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[12px] text-good">Transmise le {dateHeureFr(d.declaration.soumise_at!)}</p>
-          </div>
-        ) : (
-          <p className="text-[13px] text-ink-soft">Pas encore transmise.</p>
-        )}
-      </Carte>
-      <Carte titre="Traçabilité des acceptations" className="md:col-span-2">
-        {d.acceptations.length ? (
-          <div className="-mx-5 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-[12.5px]">
-              <thead className="border-y border-line text-left text-[11px] text-ink-soft">
-                <tr>
-                  {["Engagement", "Version", "Date et heure", "Adresse IP", "Navigateur"].map((h) => (
-                    <th key={h} className="px-5 py-2 font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/70">
-                {d.acceptations.map((a) => (
-                  <tr key={a.id}>
-                    <td className="px-5 py-2">{TYPE_ACCEPTATION[a.type] ?? a.type}</td>
-                    <td className="px-5 py-2 tabular-nums">{a.version_texte}</td>
-                    <td className="px-5 py-2 tabular-nums">{dateHeureFr(a.accepted_at)}</td>
-                    <td className="px-5 py-2 tabular-nums">{a.ip}</td>
-                    <td className="max-w-[220px] truncate px-5 py-2 text-ink-soft" title={a.user_agent}>
-                      {a.user_agent}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-[13px] text-ink-soft">Aucune acceptation enregistrée.</p>
-        )}
-      </Carte>
+          </ul>
+          {!relie && !d.client.masquer_devis && (
+            <Repli ouvert={nouveauDevis} basculer={setNouveauDevis} label="Ajouter un devis">
+              <div className={s.formulaire}>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Champ label="Formule" erreur={erreurs.formule}>
+                    <input className={champ} value={devis.formule} onChange={(e) => setDevis({ ...devis, formule: e.target.value })} />
+                  </Champ>
+                  <Champ label="Arrhes (%)" erreur={erreurs.arrhes_pourcentage}>
+                    <input className={champ} inputMode="numeric" value={devis.arrhes_pourcentage} onChange={(e) => setDevis({ ...devis, arrhes_pourcentage: e.target.value })} />
+                  </Champ>
+                  <Champ label="Valable jusqu'au" erreur={erreurs.valide_jusqu_au}>
+                    <input className={champ} type="date" value={devis.valide_jusqu_au} onChange={(e) => setDevis({ ...devis, valide_jusqu_au: e.target.value })} />
+                  </Champ>
+                </div>
+                <Champ label="Prestations, une par ligne : « Libellé ; montant HT ; détail »" erreur={erreurs.lignes ?? Object.entries(erreurs).find(([k]) => k.startsWith("lignes."))?.[1]}>
+                  <textarea className={zoneTexte} value={devis.lignes} onChange={(e) => setDevis({ ...devis, lignes: e.target.value })} placeholder={"Déménagement Paris → Lyon ; 2150 ; 32 m³, équipe de 4\nEmballage du fragile ; 290"} />
+                </Champ>
+                <Champ label="Ce que la formule comprend (séparé par des virgules)">
+                  <input className={champ} value={devis.inclus} onChange={(e) => setDevis({ ...devis, inclus: e.target.value })} placeholder="Emballage du fragile, Démontage / remontage" />
+                </Champ>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select className={`${champ} !w-auto`} value={devis.statut} onChange={(e) => setDevis({ ...devis, statut: e.target.value })} aria-label="Statut du nouveau devis">
+                    <option value="envoye">À accepter par le client</option>
+                    <option value="accepte">Déjà accepté</option>
+                  </select>
+                  <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => ajouterDevis(d.dossier.id, devis), (r) => r.ok && setNouveauDevis(false))}>
+                    Ajouter le devis
+                  </button>
+                </div>
+              </div>
+            </Repli>
+          )}
+        </div>
+
+        <div>
+          <h3 className={s.sousTitre}>{relie ? "Factures et règlements" : "Factures"}</h3>
+          <ul className={s.lignes}>
+            {d.factures.map((f) => (
+              <li key={f.id} className={s.ligneDoc}>
+                <span className={s.picto} data-type="pdf" data-genre="facture">
+                  <Icone nom="facture" taille={16} />
+                </span>
+                <span className={s.ligneTexte}>
+                  <b>
+                    {f.numero} · {f.crm_paiement_id != null ? "Règlement" : TYPE_FACTURE[f.type]}
+                  </b>
+                  <small>
+                    {f.libelle} · {f.statut === "payee" ? `réglée le ${jourCourt(f.payee_le!)}` : relie ? `émise le ${jourCourt(f.emise_le)}` : `échéance ${jourCourt(f.echeance)}`}
+                  </small>
+                </span>
+                <span className={s.montant}>{euros(f.montant_ttc)}</span>
+                <span className={s.etat} data-etat={f.statut === "payee" ? "fait" : f.statut === "en_retard" ? "bloquant" : "a_faire"}>
+                  {f.statut === "payee" ? "Payée" : f.statut === "en_retard" ? "En retard" : "À régler"}
+                </span>
+                {gestes(`facture:${f.id}`, f.telecharger)}
+                {f.statut !== "payee" && (!relie || f.crm_facture_id != null) && (
+                  <button
+                    type="button"
+                    className={s.lienDiscret}
+                    data-plein=""
+                    onClick={() => confirm(`Marquer cette facture comme réglée hors ligne (virement, chèque) ?${relie ? " Elle le sera aussi dans le CRM." : ""}`) && action.lancer(() => marquerFacturePayee(f.id))}
+                  >
+                    Réglée hors ligne
+                  </button>
+                )}
+              </li>
+            ))}
+            {d.factures.length === 0 && <li className={s.vide}>{relie ? "Aucune facture ni aucun règlement au CRM." : "Aucune facture."}</li>}
+          </ul>
+          {!relie && !d.client.masquer_factures && (
+            <Repli ouvert={nouvelleFacture} basculer={setNouvelleFacture} label="Émettre une facture">
+              <div className={s.formulaire}>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Champ label="Type">
+                    <select className={champ} value={facture.type} onChange={(e) => setFacture({ ...facture, type: e.target.value })}>
+                      <option value="solde">Solde</option>
+                      <option value="arrhes">Arrhes</option>
+                      <option value="garde_meubles">Garde-meubles</option>
+                    </select>
+                  </Champ>
+                  <Champ label="Montant TTC (€)" erreur={erreurs.montant_ttc}>
+                    <input className={champ} inputMode="decimal" value={facture.montant_ttc} onChange={(e) => setFacture({ ...facture, montant_ttc: e.target.value.replace(",", ".") })} />
+                  </Champ>
+                  <Champ label="Libellé" erreur={erreurs.libelle} className="sm:col-span-2">
+                    <input className={champ} value={facture.libelle} onChange={(e) => setFacture({ ...facture, libelle: e.target.value })} />
+                  </Champ>
+                  <Champ label="Échéance" erreur={erreurs.echeance}>
+                    <input className={champ} type="date" value={facture.echeance} onChange={(e) => setFacture({ ...facture, echeance: e.target.value })} />
+                  </Champ>
+                  {facture.type === "garde_meubles" && (
+                    <Champ label="Mois couvert (AAAA-MM)" erreur={erreurs.periode}>
+                      <input className={champ} value={facture.periode} onChange={(e) => setFacture({ ...facture, periode: e.target.value })} placeholder="2026-12" />
+                    </Champ>
+                  )}
+                </div>
+                <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => ajouterFacture(d.dossier.id, facture), (r) => r.ok && setNouvelleFacture(false))}>
+                  Émettre la facture
+                </button>
+              </div>
+            </Repli>
+          )}
+        </div>
+      </div>
+      <Retour r={action.resultat} />
+      {vue && vue.i >= 0 && <Visionneuse fichiers={vue.liste} index={vue.i} changer={(i) => setVue((v) => (v ? { ...v, i } : v))} fermer={() => setVue(null)} />}
     </div>
   );
 }
 
-function ReglagesClient({ d, recharger }: { d: Donnees; recharger: () => void }) {
+/** Un bloc replié derrière un bouton : les formulaires ne prennent pas la page. */
+function Repli({ ouvert, basculer, label, children }: { ouvert: boolean; basculer: (v: boolean) => void; label: string; children: React.ReactNode }) {
+  return ouvert ? (
+    <div className={s.repli}>
+      <div className={s.repliTete}>
+        <b>{label}</b>
+        <button type="button" className={s.lienDiscret} onClick={() => basculer(false)}>
+          Annuler
+        </button>
+      </div>
+      {children}
+    </div>
+  ) : (
+    <button type="button" className={s.ajout} onClick={() => basculer(true)}>
+      <Icone nom="plus" taille={15} />
+      {label}
+    </button>
+  );
+}
+
+// --- Cartons et SAV ------------------------------------------------------------------------------------
+
+function CartonsSav({ d }: { d: DonneesFiche }) {
+  const { racine } = usePorte();
+  const [vue, setVue] = useState<{ liste: Apercable[]; i: number } | null>(null);
+  return (
+    <div className={s.deuxColonnes}>
+      <div className={s.panneauDoux}>
+        <div className={s.panneauTete}>
+          <h3>
+            <Icone nom="caisse" taille={16} />
+            Cartons
+          </h3>
+          <Link href={`${racine}/cartons`} className={s.lienFort} prefetch={false}>
+            Cartons du samedi
+            <Icone nom="fleche" taille={14} />
+          </Link>
+        </div>
+        {d.livraisons.length ? (
+          <ul className={s.cartons}>
+            {d.livraisons.map((l) => (
+              <li key={l.id}>
+                <div className={s.cartonsTete}>
+                  <Link href={`${racine}/cartons?samedi=${l.date_samedi}`} prefetch={false}>
+                    Samedi {jourCourt(l.date_samedi)}
+                  </Link>
+                  <span className={s.etat} data-etat={STATUT_LIVRAISON[l.statut].ton === "ok" ? "fait" : STATUT_LIVRAISON[l.statut].ton === "todo" ? "a_faire" : "neutre"}>
+                    {STATUT_LIVRAISON[l.statut].label}
+                  </span>
+                </div>
+                <dl className={s.mini}>
+                  <div>
+                    <dt>Cartons</dt>
+                    <dd>{l.nb_cartons ?? "À saisir"}</dd>
+                  </div>
+                  <div>
+                    <dt>Créneau</dt>
+                    <dd>{l.creneau_debut ? `${l.creneau_debut} – ${l.creneau_fin}` : "Pas encore fixé"}</dd>
+                  </div>
+                  <div data-large="">
+                    <dt>Adresse</dt>
+                    <dd>
+                      {l.adresse}
+                      {l.complement && `, ${l.complement}`}
+                      {l.code_acces && <small>Code : {l.code_acces}</small>}
+                    </dd>
+                  </div>
+                  <div data-large="">
+                    <dt>Contact sur place</dt>
+                    <dd>
+                      {l.contact_nom} · {l.contact_tel}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={s.vide}>{d.dossier.cartons_non_necessaires ? "Le client n'a pas besoin de cartons." : "Pas encore de samedi choisi : le client le choisit dans son espace."}</p>
+        )}
+      </div>
+
+      <div className={s.panneauDoux}>
+        <div className={s.panneauTete}>
+          <h3>
+            <Icone nom="litige" taille={16} />
+            SAV
+          </h3>
+          <Link href={`${racine}/sav`} className={s.lienFort} prefetch={false}>
+            Toutes les déclarations
+            <Icone nom="fleche" taille={14} />
+          </Link>
+        </div>
+        {d.sav.length ? (
+          <ul className={s.cartons}>
+            {d.sav.map((x) => {
+              const photos: Apercable[] = x.photos.map((p) => ({ cle: p.id, libelle: `Avarie ${x.numero}`, nom: p.nom, mime: p.mime, lien: p.lien, telecharger: p.telecharger, categorie: `SAV · ${x.numero}`, le: x.created_at, taille: p.taille }));
+              return (
+                <li key={x.id}>
+                  <div className={s.cartonsTete}>
+                    <b>
+                      {x.numero} · {x.objets}
+                    </b>
+                    <span className={s.etat} data-etat={x.statut === "cloturee" ? "fait" : x.statut === "en_analyse" ? "a_faire" : "bloquant"}>
+                      {STATUT_SAV[x.statut].label}
+                    </span>
+                  </div>
+                  <p className={s.savTexte}>{x.description}</p>
+                  <p className={s.savMeta}>
+                    Constat du {jourCourt(x.date_constat)} · déclarée le {jourCourt(x.created_at)} · {x.reserves_emises ? "réserves émises à la livraison" : "sans réserves à la livraison"}
+                  </p>
+                  {photos.length > 0 && (
+                    <ul className={s.photosMini}>
+                      {photos.map((p, i) => (
+                        <li key={p.cle}>
+                          <button type="button" onClick={() => setVue({ liste: photos, i })} aria-label={`Voir ${p.nom}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- adresse signée qui redirige vers le stockage */}
+                            <img src={p.lien} alt="" loading="lazy" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className={s.vide}>Aucune déclaration d&apos;avarie. Le SAV s&apos;ouvre au client une fois la livraison passée.</p>
+        )}
+        {d.dossier.avis_demande_le && (
+          <p className={s.savMeta}>
+            <Icone nom="etoile" taille={13} /> Demande d&apos;avis partie le {jourHeure(d.dossier.avis_demande_le)}.
+          </p>
+        )}
+      </div>
+      {vue && <Visionneuse fichiers={vue.liste} index={vue.i} changer={(i) => setVue((v) => (v ? { ...v, i } : v))} fermer={() => setVue(null)} />}
+    </div>
+  );
+}
+
+// --- Messages et connexions ---------------------------------------------------------------------------
+
+const STATUT_MESSAGE: Record<string, { ton: string; texte: string }> = {
+  journalisee: { ton: "neutre", texte: "Journalisé" },
+  envoyee: { ton: "fait", texte: "Envoyé" },
+  echec: { ton: "bloquant", texte: "Échec" },
+};
+
+const ETAT_CONNEXION = { ouverte: "Ouverte", fermee: "Fermée", expiree: "Expirée" } as const;
+
+function Messages({ d, ouvrirApercu }: { d: DonneesFiche; ouvrirApercu: Ouvrir }) {
+  return (
+    <div className={s.messages}>
+      <div>
+        <h3 className={s.sousTitre}>Journal des messages · {d.notifications.length}</h3>
+        {d.notifications.length ? (
+          <ol className={s.fil}>
+            {d.notifications.map((n) => {
+              const duClient = n.modele === "message_conseiller";
+              const texte = duClient && typeof n.payload.message === "string" ? n.payload.message : null;
+              const st = STATUT_MESSAGE[n.statut] ?? { ton: "neutre", texte: n.statut };
+              return (
+                <li key={n.id} className={s.filItem} data-client={duClient ? "" : undefined}>
+                  <span className={s.filPicto} data-canal={n.canal}>
+                    <Icone nom={n.canal === "sms" ? "sms" : duClient ? "clients" : "courrier"} taille={15} />
+                  </span>
+                  <div className={s.filCorps}>
+                    <div className={s.filTete}>
+                      <button type="button" onClick={() => ouvrirApercu(n.id)} className={s.filTitre}>
+                        {duClient ? "Message du client à son conseiller" : (MODELES_MESSAGE[n.modele] ?? n.modele)}
+                        {n.canal === "sms" && <em>SMS</em>}
+                      </button>
+                      <span className={s.etat} data-etat={st.ton}>
+                        {st.texte}
+                      </span>
+                    </div>
+                    <p className={s.filMeta}>
+                      {jourHeure(n.sent_at)} · {duClient ? `de ${d.client.email}` : `à ${n.destinataire}`}
+                    </p>
+                    {texte && <blockquote className={s.bulle}>{texte}</blockquote>}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className={s.vide}>Aucun message pour l&apos;instant.</p>
+        )}
+      </div>
+      <div>
+        <h3 className={s.sousTitre}>Connexions du client</h3>
+        {d.connexions.length ? (
+          <ul className={s.connexions}>
+            {d.connexions.map((c) => {
+              const etat = ETAT_CONNEXION[c.etat];
+              return (
+                <li key={c.le}>
+                  <span className={s.filPicto}>
+                    <Icone nom="appareil" taille={15} />
+                  </span>
+                  <span className={s.ligneTexte}>
+                    <b>{jourHeure(c.le)}</b>
+                    <small>
+                      {appareilDe(c.appareil)}
+                      {c.ip && ` · IP ${c.ip}`}
+                    </small>
+                  </span>
+                  <span className={s.etat} data-etat={etat === "Ouverte" ? "fait" : "neutre"}>
+                    {etat}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className={s.vide}>Le client ne s&apos;est pas encore connecté : il entre par le lien d&apos;accès reçu par e-mail.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- Client et réglages --------------------------------------------------------------------------------
+
+function ClientReglages({
+  d,
+  recharger,
+  edition,
+  setEdition,
+}: {
+  d: DonneesFiche;
+  recharger: () => void;
+  edition: "client" | "dossier" | "conteneur" | null;
+  setEdition: (e: "client" | "dossier" | "conteneur" | null) => void;
+}) {
+  const { demo } = usePorte();
+  const c = d.client;
+  const x = d.dossier;
+  const relie = d.crm != null;
+  const lus = (lignes: [string, React.ReactNode][]) => (
+    <dl className={s.definitions} data-ligne="">
+      {lignes.map(([k, v]) => (
+        <div key={k}>
+          <dt>{k}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+  const basculer = (e: "client" | "dossier" | "conteneur") => (
+    <button type="button" className={s.boutonClair} onClick={() => setEdition(edition === e ? null : e)} aria-expanded={edition === e}>
+      <Icone nom={edition === e ? "fermer" : "crayon"} taille={15} />
+      {edition === e ? "Fermer" : "Modifier"}
+    </button>
+  );
+
+  return (
+    <div className={s.deuxColonnes}>
+      <div className={s.panneauDoux}>
+        <div className={s.panneauTete}>
+          <h3>
+            <Icone nom="equipe" taille={16} />
+            Le client
+          </h3>
+          {basculer("client")}
+        </div>
+        {edition === "client" ? (
+          <ReglagesClient d={d} recharger={recharger} />
+        ) : (
+          <>
+            {lus([
+              ["Nom", [c.civilite, c.prenom, c.nom].filter(Boolean).join(" ")],
+              ...(c.societe ? ([["Société", c.societe]] as [string, string][]) : []),
+              ["E-mail", c.email],
+              ["Téléphone", c.telephone || "—"],
+              ["Conseiller", `${d.conseiller.prenom} ${d.conseiller.nom}`.trim()],
+              ["Segment", d.segment.libelle],
+              ...(c.masquer_devis || c.masquer_factures ? ([["Masqués", [c.masquer_devis && "Devis", c.masquer_factures && "Factures"].filter(Boolean).join(", ")]] as [string, string][]) : []),
+            ])}
+            <ul className={s.regles}>
+              {d.segment.regles.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div className={s.panneauDoux}>
+        <div className={s.panneauTete}>
+          <h3>
+            <Icone nom="dossierClient" taille={16} />
+            Le dossier
+          </h3>
+          {basculer("dossier")}
+        </div>
+        {edition === "dossier" ? (
+          relie ? (
+            <InfosDossierLie d={d} recharger={recharger} />
+          ) : (
+            <InfosDossier d={d} recharger={recharger} />
+          )
+        ) : (
+          <>
+            {lus([
+              ["Départ", x.adresse_depart || x.ville_depart],
+              ["Arrivée", x.adresse_arrivee || x.ville_arrivee],
+              ["Période", x.periode_debut === x.periode_fin ? jourCourt(x.periode_debut) : periodeCourte(x.periode_debut, x.periode_fin)],
+              ["Volume", `${x.volume_m3} m³${x.logement ? ` · ${x.logement}` : ""}`],
+              ["Formule", x.formule],
+              ["Statut", STATUT_DOSSIER[x.statut]],
+              ["Portée", x.portee === "international" ? `International · ${d.pays[x.pays_destination] ?? x.pays_destination} · ${x.mode_transport === "maritime" ? "maritime" : x.mode_transport === "aerien" ? "aérien" : "route"}` : "National"],
+              ...(x.bailleur_nom ? ([["Bailleur", `${x.bailleur_nom}${x.bailleur_email ? ` · ${x.bailleur_email}` : ""}`]] as [string, string][]) : []),
+            ])}
+            {relie && !demo && <p className={s.note}>Trajet, dates, volume, formule et statut viennent du CRM : ils se modifient dans la fiche du dossier, et l&apos;espace suit.</p>}
+          </>
+        )}
+      </div>
+
+      {d.suiviConteneur && (
+        <div className={s.panneauDoux} data-large="">
+          <div className={s.panneauTete}>
+            <h3>
+              <Icone nom="bateau" taille={16} />
+              Suivi du conteneur
+            </h3>
+            {basculer("conteneur")}
+          </div>
+          {edition === "conteneur" ? (
+            <SuiviConteneur d={d} recharger={recharger} />
+          ) : (
+            lus([
+              ["Compagnie", x.compagnie || "—"],
+              ["Conteneur", x.numero_conteneur || "—"],
+              ["Navire ou vol", x.navire || "—"],
+              ["Ports", x.port_depart || x.port_arrivee ? `${x.port_depart || "?"} → ${x.port_arrivee || "?"}` : "—"],
+              ["Arrivée prévue", x.eta ? jourCourt(x.eta) : "—"],
+              ["Statut affiché", x.statut_conteneur || "—"],
+            ])
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReglagesClient({ d, recharger }: { d: DonneesFiche; recharger: () => void }) {
   const action = useAction(recharger);
   const c = d.client;
   const [v, setV] = useState({ civilite: c.civilite ?? "", prenom: c.prenom, nom: c.nom, email: c.email, telephone: c.telephone, type: c.type as string, societe: c.societe ?? "", masquer_devis: c.masquer_devis, masquer_factures: c.masquer_factures, conseiller_id: c.conseiller_id });
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const erreurs = action.resultat && !action.resultat.ok ? (action.resultat.erreurs ?? {}) : {};
   return (
-    <Carte titre="Client et réglages">
+    <div className={s.formulaire}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Champ label="Prénom" erreur={erreurs.prenom}>
           <input className={champ} value={v.prenom} onChange={(e) => setV({ ...v, prenom: e.target.value })} />
@@ -615,9 +792,9 @@ function ReglagesClient({ d, recharger }: { d: Donnees; recharger: () => void })
         </Champ>
         <Champ label="Segment" className="sm:col-span-2">
           <div className="grid grid-cols-2 gap-2">
-            {LISTE_SEGMENTS.map((s) => (
-              <button key={s.cle} type="button" onClick={() => setV({ ...v, type: s.cle })} className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${v.type === s.cle ? "border-ink bg-ink text-white" : "border-line-strong hover:border-ink"}`}>
-                {s.libelle}
+            {LISTE_SEGMENTS.map((x) => (
+              <button key={x.cle} type="button" onClick={() => setV({ ...v, type: x.cle })} className={s.segment} aria-pressed={v.type === x.cle}>
+                {x.libelle}
               </button>
             ))}
           </div>
@@ -644,21 +821,19 @@ function ReglagesClient({ d, recharger }: { d: Donnees; recharger: () => void })
           </>
         )}
       </div>
-      <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierClient(d.dossier.id, v))}>
+      <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => modifierClient(d.dossier.id, v))}>
         Enregistrer le client
-      </Bouton>
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
+      </button>
+      <Retour r={action.resultat} />
+    </div>
   );
 }
 
-function InfosDossier({ d, recharger }: { d: Donnees; recharger: () => void }) {
+function InfosDossier({ d, recharger }: { d: DonneesFiche; recharger: () => void }) {
   const action = useAction(recharger);
   const x = d.dossier;
   const [v, setV] = useState({ ville_depart: x.ville_depart, ville_arrivee: x.ville_arrivee, adresse_depart: x.adresse_depart, adresse_arrivee: x.adresse_arrivee, periode_debut: x.periode_debut, periode_fin: x.periode_fin, portee: x.portee as string, mode_transport: x.mode_transport as string, pays_destination: x.pays_destination, statut: x.statut as string, volume_m3: String(x.volume_m3), formule: x.formule, logement: x.logement ?? "", photo: x.photo, request_id: x.request_id ?? "" });
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const erreurs = action.resultat && !action.resultat.ok ? (action.resultat.erreurs ?? {}) : {};
   const champs: [keyof typeof v, string, string?][] = [
     ["ville_depart", "Ville de départ"],
     ["ville_arrivee", "Ville d'arrivée"],
@@ -671,19 +846,19 @@ function InfosDossier({ d, recharger }: { d: Donnees; recharger: () => void }) {
     ["logement", "Logement"],
   ];
   return (
-    <Carte titre="Le dossier">
+    <div className={s.formulaire}>
       <div className="grid gap-3 sm:grid-cols-2">
         {champs.map(([k, l, type]) => (
           <Champ key={k} label={l} erreur={erreurs[k]}>
             {k === "ville_depart" || k === "ville_arrivee" ? (
-              <ChampAdresse mode="ville" className={champ} value={v[k]} onChange={(x) => setV((y) => ({ ...y, [k]: x }))} />
+              <ChampAdresse mode="ville" className={champ} value={v[k]} onChange={(y) => setV((z) => ({ ...z, [k]: y }))} />
             ) : k === "adresse_depart" || k === "adresse_arrivee" ? (
               // Une adresse choisie dans la liste donne aussi sa ville.
               <ChampAdresse
                 className={champ}
                 value={v[k]}
-                onChange={(x) => setV((y) => ({ ...y, [k]: x }))}
-                onChoisir={(a) => setV((y) => ({ ...y, [k === "adresse_depart" ? "ville_depart" : "ville_arrivee"]: a.ville }))}
+                onChange={(y) => setV((z) => ({ ...z, [k]: y }))}
+                onChoisir={(a) => setV((z) => ({ ...z, [k === "adresse_depart" ? "ville_depart" : "ville_arrivee"]: a.ville }))}
               />
             ) : (
               <input className={champ} type={type ?? "text"} value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} />
@@ -735,51 +910,40 @@ function InfosDossier({ d, recharger }: { d: Donnees; recharger: () => void }) {
           </select>
         </Champ>
       </div>
-      <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
+      <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
         Enregistrer le dossier
-      </Bouton>
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
+      </button>
+      <Retour r={action.resultat} />
+    </div>
   );
 }
 
 /**
  * Le dossier d'un espace relié au CRM : le trajet, la période, le volume, la
- * formule et le statut viennent du CRM et se lisent ici. L'espace règle ce
- * qui lui est propre : le pays et le transport d'un déménagement
- * international, le logement, la photo, le bailleur d'un logement social.
+ * formule et le statut viennent du CRM. L'espace règle ce qui lui est
+ * propre : le pays et le transport d'un déménagement international, le
+ * logement, la photo, le bailleur d'un logement social.
  */
-function InfosDossierLie({ d, recharger }: { d: Donnees; recharger: () => void }) {
+function InfosDossierLie({ d, recharger }: { d: DonneesFiche; recharger: () => void }) {
   const action = useAction(recharger);
   const { demo } = usePorte();
   const x = d.dossier;
   const [v, setV] = useState({ pays_destination: x.pays_destination, mode_transport: x.mode_transport as string, logement: x.logement ?? "", photo: x.photo, bailleur_nom: x.bailleur_nom ?? "", bailleur_email: x.bailleur_email ?? "" });
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const erreurs = action.resultat && !action.resultat.ok ? (action.resultat.erreurs ?? {}) : {};
   const international = x.portee === "international";
-  const lus: [string, string][] = [
-    ["Départ", x.adresse_depart],
-    ["Arrivée", x.adresse_arrivee],
-    ["Période", x.periode_debut === x.periode_fin ? dateFr(x.periode_debut) : `du ${dateFr(x.periode_debut)} au ${dateFr(x.periode_fin)}`],
-    ["Volume", `${x.volume_m3} m³`],
-    ["Formule", x.formule],
-    ["Statut", STATUT_DOSSIER[x.statut]],
-    ["Portée", international ? "International" : "National"],
-  ];
   return (
-    <Carte titre="Le dossier" action={!demo && d.crm != null && <LienBouton href={`/dossiers/${d.crm}`}>Modifier dans le CRM</LienBouton>}>
-      <dl className="divide-y divide-line/70 text-[13px]">
-        {lus.map(([k, val]) => (
-          <div key={k} className="flex justify-between gap-4 py-2">
-            <dt className="text-ink-soft">{k}</dt>
-            <dd className="text-right font-medium">{val}</dd>
-          </div>
-        ))}
-      </dl>
-      <p className="mt-2 text-[11.5px] text-ink-soft">Ces informations viennent du CRM : elles se modifient dans la fiche du dossier, et l&apos;espace suit.</p>
-      {international && x.pays_destination === "FR" && <p className="mt-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-[12.5px] font-medium text-danger">Pays de destination à préciser : il fixe les pièces que la douane demande.</p>}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <div className={s.formulaire}>
+      {!demo && d.crm != null && (
+        <p className={s.note}>
+          Trajet, dates, volume, formule et statut se modifient dans{" "}
+          <Link href={`/dossiers/${d.crm}`} prefetch={false}>
+            la fiche du dossier du CRM
+          </Link>
+          . Ici : ce qui est propre à l&apos;espace.
+        </p>
+      )}
+      {international && x.pays_destination === "FR" && <p className={s.erreur}>Pays de destination à préciser : il fixe les pièces que la douane demande.</p>}
+      <div className="grid gap-3 sm:grid-cols-2">
         {international && (
           <>
             <Champ label="Pays de destination" erreur={erreurs.pays_destination}>
@@ -823,21 +987,19 @@ function InfosDossierLie({ d, recharger }: { d: Donnees; recharger: () => void }
           </>
         )}
       </div>
-      <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
+      <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => modifierDossier(d.dossier.id, v))}>
         Enregistrer
-      </Bouton>
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
+      </button>
+      <Retour r={action.resultat} />
+    </div>
   );
 }
 
-function SuiviConteneur({ d, recharger }: { d: Donnees; recharger: () => void }) {
+function SuiviConteneur({ d, recharger }: { d: DonneesFiche; recharger: () => void }) {
   const action = useAction(recharger);
   const x = d.dossier;
   const [v, setV] = useState({ compagnie: x.compagnie ?? "", numero_conteneur: x.numero_conteneur ?? "", url_tracking: x.url_tracking ?? "", statut_conteneur: x.statut_conteneur ?? "", navire: x.navire ?? "", port_depart: x.port_depart ?? "", port_arrivee: x.port_arrivee ?? "", eta: x.eta ?? "" });
-  const erreurs = action.resultat && !action.resultat.ok ? action.resultat.erreurs ?? {} : {};
+  const erreurs = action.resultat && !action.resultat.ok ? (action.resultat.erreurs ?? {}) : {};
   const champs: [keyof typeof v, string, string?][] = [
     ["compagnie", "Compagnie"],
     ["numero_conteneur", "N° de conteneur"],
@@ -847,7 +1009,7 @@ function SuiviConteneur({ d, recharger }: { d: Donnees; recharger: () => void })
     ["port_arrivee", "Port d'arrivée"],
   ];
   return (
-    <Carte titre="Suivi du conteneur">
+    <div className={s.formulaire}>
       <div className="grid gap-3 sm:grid-cols-2">
         {champs.map(([k, l, type]) => (
           <Champ key={k} label={l} erreur={erreurs[k]}>
@@ -861,44 +1023,10 @@ function SuiviConteneur({ d, recharger }: { d: Donnees; recharger: () => void })
           <input className={champ} value={v.statut_conteneur} onChange={(e) => setV({ ...v, statut_conteneur: e.target.value })} />
         </Champ>
       </div>
-      <Bouton className="mt-4" disabled={action.enCours} onClick={() => action.lancer(() => modifierConteneur(d.dossier.id, v))}>
+      <button type="button" className={s.boutonPlein} disabled={action.enCours} onClick={() => action.lancer(() => modifierConteneur(d.dossier.id, v))}>
         Enregistrer le suivi
-      </Bouton>
-      <div className="mt-3">
-        <Retour r={action.resultat} />
-      </div>
-    </Carte>
-  );
-}
-
-function CartonsSav({ d }: { d: Donnees }) {
-  const { racine } = usePorte();
-  return (
-    <Carte titre="Cartons et SAV">
-      <ul className="space-y-2 text-[13px]">
-        {d.livraisons.map((l) => (
-          <li key={l.id} className="flex items-center justify-between gap-2">
-            <Link href={`${racine}/cartons?samedi=${l.date_samedi}`} className="hover:text-brand-ink">
-              Samedi {dateFr(l.date_samedi)} · {l.nb_cartons ?? "?"} cartons
-              {l.creneau_debut ? ` · ${l.creneau_debut}–${l.creneau_fin}` : ""}
-            </Link>
-            <Pastille ton={STATUT_LIVRAISON[l.statut].ton === "ok" ? "ok" : STATUT_LIVRAISON[l.statut].ton === "todo" ? "attente" : "neutre"}>{STATUT_LIVRAISON[l.statut].label}</Pastille>
-          </li>
-        ))}
-        {d.sav.map((s) => (
-          <li key={s.id} className="flex items-center justify-between gap-2">
-            <Link href={`${racine}/sav`} className="hover:text-brand-ink">
-              {s.numero} · {s.objets}
-            </Link>
-            <Pastille ton={s.statut === "cloturee" ? "ok" : "attente"}>{STATUT_SAV[s.statut].label}</Pastille>
-          </li>
-        ))}
-        {!d.livraisons.length && !d.sav.length && <li className="text-ink-soft">{d.dossier.cartons_non_necessaires ? "Le client n'a pas besoin de cartons." : "Rien pour l'instant."}</li>}
-      </ul>
-      {d.dossier.avis_demande_le && <p className="mt-3 text-[12px] text-ink-soft">Demande d&apos;avis partie le {dateHeureFr(d.dossier.avis_demande_le)}.</p>}
-      <div className="mt-3">
-        <LienBouton href={`${racine}/cartons`}>Cartons du samedi</LienBouton>
-      </div>
-    </Carte>
+      </button>
+      <Retour r={action.resultat} />
+    </div>
   );
 }
