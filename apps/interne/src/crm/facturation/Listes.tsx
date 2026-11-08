@@ -23,16 +23,16 @@ function LigneFacture({ f }: { f: LigneListeFacture }) {
   const avoir = f.genre === "avoir";
   return (
     <tr>
-      <td>
+      <td className={s.nw}>
         <Link href={doc(f)} className={s.numero}>{f.numero}</Link>
         <small>{GENRE[f.genre as GenreFacture] ?? "Facture"}{f.origineNumero ? ` · annule ${f.origineNumero}` : ""}{f.avoirNumero ? ` · annulée par ${f.avoirNumero}` : ""}</small>
       </td>
       <td>{f.payeurNomAffiche}{f.payeurNomAffiche !== f.origineNom && <small>payeur distinct</small>}</td>
       <td>{f.dossierId ? <Link href={`/dossiers/${f.dossierId}#facturation`}>{f.origineNom}</Link> : f.origineNom}<small>{f.ref ?? "garde-meuble"}</small></td>
       <td style={{ maxWidth: 240 }}>{f.objet}</td>
-      <td>{fr(f.emiseLe)}</td>
-      <td className={f.enRetard ? s.rouge : undefined}>{avoir || f.statut === "annulee" ? "—" : fr(f.echeanceLe)}</td>
-      <td><Etat etat={f.etat} /></td>
+      <td className={s.nw}>{fr(f.emiseLe)}</td>
+      <td className={`${s.nw} ${f.enRetard ? s.rouge : ""}`}>{avoir || f.statut === "annulee" ? "—" : fr(f.echeanceLe)}</td>
+      <td className={s.nw}><Etat etat={f.etat} /></td>
       <td className={s.num}><b>{avoir ? "− " : ""}{euros2(f.ttc)}</b></td>
       <td className={s.num}>{avoir || f.statut === "annulee" ? <span className={s.terne}>—</span> : euros2(f.statut === "payee" ? f.ttc : f.affecte)}</td>
       <td className={`${s.num} ${f.reste > 0 ? s.rouge : s.terne}`}>{f.reste > 0 ? euros2(f.reste) : "0 €"}</td>
@@ -104,14 +104,14 @@ export function TableReglements({ rows, arrhes }: { rows: LigneListeReglement[];
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
-              <td>{fr(r.recuLe)}{r.saisiPar && <small>saisi par {r.saisiPar}</small>}</td>
+              <td className={s.nw}>{fr(r.recuLe)}{r.saisiPar && <small>saisi par {r.saisiPar}</small>}</td>
               <td><Link href={`/dossiers/${r.dossierId}#facturation`}>{r.client}</Link><small>{r.ref}</small></td>
               {!arrhes && <td>{NATURE[r.nature ?? "reglement"] ?? "Règlement"}</td>}
-              <td><span className={s.mode} data-mode={r.mode ?? ""}><i>{MODE_COURT[r.mode ?? ""] ?? "—"}</i>{libelleMode(r.mode)}</span></td>
+              <td className={s.nw}><span className={s.mode} data-mode={r.mode ?? ""}><i>{MODE_COURT[r.mode ?? ""] ?? "—"}</i>{libelleMode(r.mode)}</span></td>
               <td>{[r.banque, r.numeroCheque && `n° ${r.numeroCheque}`, r.titulaire].filter(Boolean).join(" · ") || <span className={s.terne}>—</span>}{r.commentaire && <small>{r.commentaire}</small>}</td>
               <td>{r.compte ?? <span className={s.terne}>—</span>}</td>
-              <td>{r.datePrevue ? fr(r.datePrevue) : <span className={s.terne}>—</span>}</td>
-              <td>
+              <td className={s.nw}>{r.datePrevue ? fr(r.datePrevue) : <span className={s.terne}>—</span>}</td>
+              <td className={s.nw}>
                 {r.factureNumero
                   ? <Link className={s.lien} href={`/imprimer/${r.dossierId}?doc=facture&f=${r.factureId}`}>{r.factureNumero}</Link>
                   : <span className={s.etat} data-ton={arrhes ? "attente" : "info"}>{arrhes ? "À facturer" : "Au crédit"}</span>}

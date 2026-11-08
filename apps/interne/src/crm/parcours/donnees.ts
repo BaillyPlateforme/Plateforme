@@ -256,7 +256,7 @@ export async function parcoursDossier(id: number) {
     q("select a.id,a.libelle,a.cree_le,u.nom from activite a left join utilisateurs u on u.id=a.utilisateur_id where a.dossier_id=$1 order by a.cree_le,a.id", [id]),
     q("select id,libelle,montant::float8 as montant,recu_le,session_paiement_id from paiements where dossier_id=$1 order by recu_le,id", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
-    q("select id,numero,objet,montant::float8 as montant,statut,emise_le,payee_le from factures where dossier_id=$1 order by emise_le,id", [id]),
+    q("select id,numero,objet,montant::float8 as montant,statut,genre,emise_le,payee_le from factures where dossier_id=$1 order by emise_le,id", [id]),
     q("select id,objet,statut,ouvert_le,montant::float8 as montant from litiges where dossier_id=$1 order by ouvert_le,id", [id]),
     q1<{ photos: number; objets: number }>("select (select count(*) from photos_chantier where dossier_id=$1)::int as photos, (select count(*) from inventaire where dossier_id=$1)::int as objets", [id]),
   ]);
@@ -430,7 +430,7 @@ export async function parcoursDossier(id: number) {
     const emise = ISO(f.emise_le)!;
     const a = absorber(/^Facture.*émise|^Facture émise/i, emise, { jour: true });
     pousser({ id: `facture-${f.id}`, quand: a ? ISO(a.cree_le)! : emise, jour: !a, titre: `Facture ${f.numero} émise`, detail: `${f.objet} · ${eur(f.montant)}`, auteur: auteurDe(a, "CRM"), famille: "argent", icone: "facture", ...doc });
-    if (f.payee_le) {
+    if (f.payee_le && f.genre !== "avoir" && f.statut !== "annulee") {
       const payee = ISO(f.payee_le)!;
       const b = absorber(/^Facture.*(réglée|payée)/i, payee, { jour: true });
       pousser({ id: `facture-payee-${f.id}`, quand: b ? ISO(b.cree_le)! : payee, jour: !b, titre: `Facture ${f.numero} réglée`, detail: [eur(f.montant), b && /en ligne/i.test(b.libelle) ? "Réglée en ligne" : null].filter(Boolean).join(" · "), auteur: auteurDe(b, "CRM"), famille: "argent", icone: "coche", ton: "ok", ...doc });
@@ -552,7 +552,7 @@ export async function parcoursDossier(id: number) {
   const documents: Document[] = [
     { cle: "fiche", titre: "Fiche de visite", meta: `${compteurs?.objets ?? 0} objet${(compteurs?.objets ?? 0) > 1 ? "s" : ""} à l'inventaire · PDF`, href: `/imprimer/${id}?doc=fiche`, icone: "questionnaires" },
     ...(devis.length ? [{ cle: "devis", titre: "Proposition de devis", meta: `${devis.length} formule${devis.length > 1 ? "s" : ""} · PDF`, href: `/imprimer/${id}?doc=devis`, icone: "devis" as NomIcone }] : []),
-    ...factures.map((f) => ({ cle: `f${f.id}`, titre: `Facture ${f.numero}`, meta: `${eur(f.montant)} · ${f.statut === "payee" ? "réglée" : "à régler"}`, href: `/imprimer/${id}?doc=facture&f=${f.id}`, icone: "facture" as NomIcone })),
+    ...factures.map((f) => ({ cle: `f${f.id}`, titre: `Facture ${f.numero}`, meta: `${eur(f.montant)} · ${f.genre === "avoir" ? "avoir" : f.statut === "annulee" ? "annulée" : f.statut === "payee" ? "réglée" : "à régler"}`, href: `/imprimer/${id}?doc=facture&f=${f.id}`, icone: "facture" as NomIcone })),
     ...lettres.map((l) => ({ cle: `lv${l.id}`, titre: `Lettre de voiture ${l.numero}`, meta: l.trajet, href: `/imprimer/${id}?doc=lettre&lv=${l.id}`, icone: "camion" as NomIcone })),
     ...(ec?.documents ?? []).map((x) => ({ cle: `ec${x.id}`, titre: x.libelle, meta: `${CATEGORIE_DOC[x.categorie] ?? x.categorie} · déposé par ${x.source === "client" ? "le client" : "l'équipe"}`, href: `/dashboard/espace-client/dossiers/${espace!.id}`, icone: "dossierClient" as NomIcone })),
     ...((compteurs?.photos ?? 0) > 0 ? [{ cle: "photos", titre: "Photos de chantier", meta: `${compteurs!.photos} photo${compteurs!.photos > 1 ? "s" : ""} des déménageurs`, href: fiche, icone: "camion" as NomIcone }] : []),
