@@ -552,3 +552,12 @@
   background: #fbfaff;
   font-weight: 750;
 }
+
+/* ───────── Rangée du bas du bandeau : un filet entre les vues et les filtres ───────── */
+.separateurBas {
+  flex: none;
+  width: 1px;
+  height: 26px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.28);
+}

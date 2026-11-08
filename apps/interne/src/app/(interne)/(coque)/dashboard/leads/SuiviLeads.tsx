@@ -17,7 +17,7 @@ import {
   type StatutLead,
   type Suivi,
 } from "@/lib/suivi-commun";
-import { KpiCard } from "../statistiques/charts";
+import { KpiCard } from "@/crm/statistiques/demandes/graphiques";
 
 /*
  * Le suivi des leads : le tableau que Margaux tenait à la main, rempli tout

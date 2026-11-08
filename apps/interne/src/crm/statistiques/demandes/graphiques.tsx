@@ -363,13 +363,11 @@ export function Donut({
   const rI = rO * 0.62;
   const gap = 1.4; // degrés de séparation entre segments
 
-  let angle = 0;
-  const segs = data.map((d) => {
-    const frac = total > 0 ? d.value / total : 0;
-    const a0 = angle + gap / 2;
-    const a1 = angle + frac * 360 - gap / 2;
-    angle += frac * 360;
-    return { ...d, a0: Math.max(a0, angle - frac * 360), a1 };
+  // L'angle de départ de chaque segment : la somme des parts qui le précèdent (sans variable réassignée pendant le rendu).
+  const parts = data.map((d) => (total > 0 ? d.value / total : 0));
+  const segs = data.map((d, i) => {
+    const debut = parts.slice(0, i).reduce((s, p) => s + p, 0) * 360;
+    return { ...d, a0: debut + gap / 2, a1: debut + parts[i] * 360 - gap / 2 };
   });
 
   const active = hover != null ? segs[hover] : null;
