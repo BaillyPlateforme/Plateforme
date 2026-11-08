@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { Pool } from "pg";
+import { baseCrm, type Lire } from "@/lib/base-crm";
 import { versInterne } from "@/lib/adresses";
 import { bouton, echapper, mention, mettreEnPage, paragraphe } from "@/lib/email-layout";
 import { envoyerEmail } from "@/lib/envois";
@@ -14,7 +14,8 @@ import { alerteDe, CONSEILLER, remplirAlerte, type DefAlerte } from "./catalogue
  * crm.alertes_abonnements, crm.alertes_reglages, crm.alertes_evenements,
  * voir apps/interne/src/crm/alertes/schema.ts) ; l'équipe, elle, se lit dans
  * public.team_members, sans y écrire. L'app externe n'a pas le pool du CRM :
- * ce module a le sien, d'une connexion, par DATABASE_URL. Sans base lisible
+ * ce module passe par la petite connexion des modules partagés (base-crm.ts),
+ * d'une connexion, par DATABASE_URL. Sans base lisible
  * (variable absente, tables pas encore créées), une alerte qui existait part
  * comme avant — à ESPACE_CLIENT_EMAIL_EQUIPE, sinon au conseiller du
  * dossier — et une alerte nouvelle ne part pas.
@@ -25,26 +26,8 @@ import { alerteDe, CONSEILLER, remplirAlerte, type DefAlerte } from "./catalogue
  * elle ne doit pas faire échouer le geste qui la déclenche.
  */
 
-type Lire = <T>(sql: string, params?: unknown[]) => Promise<T[]>;
-
-const g = globalThis as typeof globalThis & { __alertesPool?: Pool | null };
-
-/** Le lecteur propre aux alertes (une connexion, mode session), ou rien sans DATABASE_URL utilisable. */
-function base(): Lire | null {
-  if (g.__alertesPool === undefined) {
-    const url = process.env.DATABASE_URL;
-    let ok = false;
-    try {
-      ok = !!url && new URL(url).port !== "6543";
-    } catch {
-      ok = false;
-    }
-    g.__alertesPool = ok ? new Pool({ connectionString: url, ssl: { rejectUnauthorized: false }, max: 1, idleTimeoutMillis: 5_000 }) : null;
-    g.__alertesPool?.on("error", (e) => console.error("Alertes : connexion perdue", e.message));
-  }
-  const p = g.__alertesPool;
-  return p ? async <T,>(sql: string, params: unknown[] = []) => (await p.query(sql, params)).rows as T[] : null;
-}
+/** Le lecteur propre aux modules partagés (une connexion, mode session), ou rien sans DATABASE_URL utilisable. */
+const base = baseCrm;
 
 /** L'adresse de ESPACE_CLIENT_EMAIL_EQUIPE, quand elle est réglée : elle recevait les alertes de l'espace client. */
 export const adresseVariable = () => process.env.ESPACE_CLIENT_EMAIL_EQUIPE?.trim().toLowerCase() || null;
