@@ -7,6 +7,7 @@ import { ouvrirEspaceClient, renvoyerLienEspace } from "@/crm/actions-espace";
 import { dateFr } from "@/crm/lib/format";
 import { Ic } from "@/crm/lib/icons";
 import type { Row } from "@/crm/lib/db";
+import ChoixMois, { moisDuTexte } from "@/crm/components/ChoixMois";
 import SuiviEspaceCrm from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/suivi/SuiviEspaceCrm";
 
 /*
@@ -112,7 +113,8 @@ export async function EspaceClient({ d, commerciaux, espace, message }: { d: Row
                   <small>{p.ok ? valeur[p.cle] : p.aide}</small>
                 </span>
                 {!p.ok && p.cle === "email" && <input type="email" name="email" placeholder="client@exemple.fr" required aria-label="Adresse e-mail du client" />}
-                {!p.ok && p.cle === "periode" && <input type="month" name="mois_ca" required aria-label="Mois prévu" />}
+                {/* Le mois prévu, proposé d'après la date souhaitée par le client (« Souhaitée le 19 novembre 2026 »). */}
+                {!p.ok && p.cle === "periode" && <ChoixMois name="mois_ca" required defaultValue={moisDuTexte(d.periode)} ariaLabel="Mois prévu" />}
                 {!p.ok && p.cle === "commercial" && (
                   <select name="commercial_id" required defaultValue="" aria-label="Commercial du dossier">
                     <option value="" disabled>Choisir…</option>

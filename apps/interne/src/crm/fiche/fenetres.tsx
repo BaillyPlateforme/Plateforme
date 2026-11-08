@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ChoixMois from "@/crm/components/ChoixMois";
 import type { Row } from "@/crm/lib/db";
 import * as A from "@/crm/actions";
 import * as B from "@/crm/actions2";
@@ -248,7 +249,7 @@ export function FenetreAdresses({ d }: { d: Row }) {
           <input type="text" name="periode" defaultValue={d.periode ?? ""} placeholder="Fin janvier 2027" />
         </Champ>
         <Champ l={4} titre="Mois de rattachement du CA">
-          <input type="month" name="mois_ca" defaultValue={moisCa} />
+          <ChoixMois name="mois_ca" defaultValue={moisCa} ariaLabel="Mois de rattachement du CA" />
         </Champ>
         <Champ l={4} titre="Date ferme">
           <input
