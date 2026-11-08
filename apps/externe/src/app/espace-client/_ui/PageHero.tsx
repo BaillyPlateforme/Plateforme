@@ -17,7 +17,26 @@ const i = (n: number) => ({ "--i": n }) as CSSProperties;
  * les pilules — la rubrique ouverte en jaune. Une barre claire prend le
  * relais en haut de l'écran quand on descend dans la page.
  */
-export function PageHero({ e, titre, sous, active }: { e: Espace; titre: string; sous?: string; active: string }) {
+export function PageHero({
+  e,
+  titre,
+  sous,
+  active,
+  kicker,
+  retour,
+  titreLong = false,
+}: {
+  e: Espace;
+  titre: React.ReactNode;
+  sous?: string;
+  active: string;
+  /** Une ligne en capitales au-dessus du titre (« Tuto 01 · Emballage »). */
+  kicker?: string;
+  /** Le lien de retour, à la place de « Mon déménagement à … » (une page de second niveau). */
+  retour?: { href: string; label: string };
+  /** Un titre de plusieurs mots : un corps plus petit, pour tenir en deux lignes. */
+  titreLong?: boolean;
+}) {
   const { dossier, photo } = e;
   const base = `/espace-client/${dossier.reference}`;
   const items = pilules(e);
@@ -32,10 +51,15 @@ export function PageHero({ e, titre, sous, active }: { e: Espace; titre: string;
           <ActionsHaut e={e} />
         </div>
         <div className="hero-center">
-          <Link className="crumb rise" style={i(0)} href={base}>
-            <Icone nom="back" /> Mon déménagement {aVille(dossier.ville_arrivee)}
+          <Link className="crumb rise" style={i(0)} href={retour?.href ?? base}>
+            <Icone nom="back" /> {retour?.label ?? `Mon déménagement ${aVille(dossier.ville_arrivee)}`}
           </Link>
-          <h1 className="display rise" style={i(1)}>
+          {kicker && (
+            <p className="kicker hero-kicker rise" style={i(1)}>
+              {kicker}
+            </p>
+          )}
+          <h1 className={`display rise${titreLong ? " titre-long" : ""}`} style={i(1)}>
             {titre}
           </h1>
           {sous && (

@@ -202,6 +202,17 @@ export function Avancement({ d, recharger, lien, compact = false }: { d: Donnees
               </span>
             </a>
           )}
+          {/* « Mes tutos » : les tutoriels que le client a vus — une information, pas un point du dossier. */}
+          {d.tutos.total > 0 && (
+            <p className={s.jaugePieces} title={d.tutos.titres.length ? `Vus : ${d.tutos.titres.join(", ")}` : "Aucun tutoriel vu pour l'instant"}>
+              <span>
+                Tutos vus <b>{d.tutos.vus}</b>/{d.tutos.total}
+              </span>
+              <span className={s.barre}>
+                <i style={{ width: `${(d.tutos.vus / d.tutos.total) * 100}%` }} data-complet={d.tutos.vus === d.tutos.total ? "" : undefined} />
+              </span>
+            </p>
+          )}
         </div>
 
         <div className={s.points}>
