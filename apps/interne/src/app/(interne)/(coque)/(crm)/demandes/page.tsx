@@ -1,22 +1,21 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
-import Filtres, { type Filtre } from "@/ui/Filtres";
 import { AvecMenu } from "@/ui/MenuVertical";
 import { currentUser } from "@/crm/lib/auth";
+import { activitesDe, dernieresActivites } from "@/crm/demandes/activites";
 import { araignees, lireDemandes } from "@/crm/demandes/donnees";
-import { estOuverte } from "@/crm/demandes/etapes";
+import { estOuverte, etapeDe } from "@/crm/demandes/etapes";
 import FiltresDemandes from "@/crm/demandes/FiltresDemandes";
 import FiltresKanban from "@/crm/demandes/FiltresKanban";
 import KanbanDemandes from "@/crm/demandes/KanbanDemandes";
 import ListeDemandes from "@/crm/demandes/ListeDemandes";
+import ListeDetail from "@/crm/demandes/ListeDetail";
+import type { LigneDemande } from "@/crm/demandes/liste-commun";
 import MenuDemandes, { estVueDemandes, type VueDemandes } from "@/crm/demandes/MenuDemandes";
 import RappelsBoard from "@/crm/demandes/RappelsBoard";
 import SuiviLeads from "@/crm/demandes/SuiviLeads";
-import TopDemandes from "@/crm/demandes/TopDemandes";
-import { filtresDe, lireFeed, optionsFeed, paramsDe, PERIODES } from "@/crm/feed/donnees";
-import Fil from "@/crm/feed/Fil";
-import { GENRES } from "@/crm/feed/sources";
+import { jourParis, libelleJour } from "@/crm/feed/donnees";
 import { dossiersDesDemandes } from "@/crm/parcours/demandes";
 import StatistiquesDuSite from "@/crm/statistiques/demandes/StatistiquesDuSite";
 import { vueDuSite } from "@/crm/statistiques/demandes/vues";
@@ -37,9 +36,9 @@ export const metadata: Metadata = { title: "Demandes" };
  * dans la rangée du bas.
  *
  *  - Kanban (/demandes) : les étapes détaillées, jusqu'à « Dossier » ;
- *  - Feed (?vue=feed) : tout ce qui arrive aux demandes (src/crm/feed, portée
- *    « demandes ») ;
- *  - Top demandes (?vue=top) : classées par potentiel, avec leur araignée ;
+ *  - Feed (?vue=feed) et Top demandes (?vue=top) : la même liste et le même
+ *    panneau de la demande choisie (ListeDetail), dans l'ordre de réception
+ *    (par jour) ou du potentiel (la n° 1 en vedette) ;
  *  - Analyse : Liste (?vue=liste), À rappeler (?vue=rappels), Statistiques
  *    (?vue=statistiques&analyse=…), Suivi des leads (?vue=leads).
  *
@@ -50,8 +49,8 @@ export const metadata: Metadata = { title: "Demandes" };
 
 const TEXTES: Record<VueDemandes, string> = {
   kanban: "Kanban · de la demande reçue au dossier : chaque demande, à son étape",
-  feed: "Feed · tout ce qui arrive aux demandes, au fil du temps",
-  top: "Top demandes · classées par potentiel, avec leur araignée",
+  feed: "Feed · les demandes dans l'ordre où elles arrivent, la dernière activité de chacune",
+  top: "Top demandes · les plus prometteuses d'abord, la meilleure en tête",
   liste: "Liste · tout ce qui arrive, du formulaire comme des mails",
   rappels: "À rappeler · les clients qui demandent qu'on les rappelle",
   statistiques: "Statistiques · le flux des demandes, du formulaire comme des mails",
@@ -62,6 +61,8 @@ const TEXTES: Record<VueDemandes, string> = {
 const SEUIL = 70;
 
 type Params = Record<string, string | string[] | undefined>;
+
+const dateLongue = (jour: string) => new Date(`${jour}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
 export default async function Demandes({ searchParams }: { searchParams: Promise<Params> }) {
   await currentUser();
@@ -93,22 +94,50 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
         <FiltresKanban />
       </Suspense>
     );
-  } else if (vue === "top") {
-    const toutes = un("tout") === "1";
+  } else if (vue === "top" || vue === "feed") {
+    // Top demandes et Feed : la même liste, le même panneau ; l'ordre change. Top montre d'abord les ouvertes, le Feed tout.
+    const tri = vue === "top" ? "potentiel" : "historique";
+    const portee = un("portee") === "ouvertes" || un("portee") === "toutes" ? un("portee") : un("tout") === "1" ? "toutes" : vue === "top" ? "ouvertes" : "toutes";
     const fort = un("potentiel") === "fort";
     const demandes = await lireDemandes().catch(() => null);
     if (!demandes) contenu = <Indisponible texte="Les demandes ne se lisent pas pour le moment : réessayez dans un instant." />;
     else {
-      const retenues = demandes.filter((d) => (toutes || estOuverte(d)) && (!fort || (d.potentiel ?? 0) >= SEUIL));
-      const radars = await araignees(retenues, demandes);
-      const lignes = retenues
-        .map((d) => ({ demande: d, araignee: radars.get(d.id)! }))
-        .sort((a, b) => (b.demande.potentiel ?? -1) - (a.demande.potentiel ?? -1) || (b.demande.estimation ?? -1) - (a.demande.estimation ?? -1) || b.demande.recueLe.localeCompare(a.demande.recueLe));
-      contenu = <TopDemandes lignes={lignes} filtre={toutes || fort} />;
+      const retenues = demandes.filter((d) => (portee === "toutes" || estOuverte(d)) && (!fort || (d.potentiel ?? 0) >= SEUIL));
+      const [radars, dernieres] = await Promise.all([araignees(retenues, demandes), tri === "historique" ? dernieresActivites(retenues).catch(() => ({})) : Promise.resolve({})]);
+      const aujourdhui = jourParis();
+      const lignes: LigneDemande[] = retenues
+        .map((d) => {
+          const jour = jourParis(new Date(d.recueLe));
+          const libelle = libelleJour(jour, aujourdhui);
+          return {
+            demande: d,
+            araignee: radars.get(d.id)!,
+            etape: etapeDe(d),
+            derniere: (dernieres as Record<string, LigneDemande["derniere"]>)[d.id] ?? null,
+            jour: tri === "historique" ? { cle: jour, libelle, sous: libelle === "Aujourd’hui" || libelle === "Hier" ? dateLongue(jour) : null } : null,
+          };
+        })
+        .sort((a, b) =>
+          tri === "historique"
+            ? b.demande.recueLe.localeCompare(a.demande.recueLe)
+            : (b.demande.potentiel ?? -1) - (a.demande.potentiel ?? -1) || (b.demande.estimation ?? -1) - (a.demande.estimation ?? -1) || b.demande.recueLe.localeCompare(a.demande.recueLe),
+        );
+      const demandee = un("sel");
+      const selection = lignes.find((l) => l.demande.id === demandee)?.demande.id ?? lignes[0]?.demande.id ?? null;
+      const activites = selection ? await activitesDe(selection, 5).catch(() => null) : null;
+      contenu = (
+        <ListeDetail
+          lignes={lignes}
+          tri={tri}
+          selection={selection}
+          activitesInitiales={selection && activites ? { [selection]: activites } : {}}
+          vide={fort || portee === "ouvertes" ? "Aucune demande pour ces filtres." : "Aucune demande."}
+        />
+      );
     }
-    const lien = (o: { tout?: boolean; fort?: boolean }) => {
-      const p = new URLSearchParams({ vue: "top" });
-      if (o.tout ?? toutes) p.set("tout", "1");
+    const lien = (o: { portee?: string; fort?: boolean }) => {
+      const p = new URLSearchParams({ vue });
+      p.set("portee", o.portee ?? portee!);
       if (o.fort ?? fort) p.set("potentiel", "fort");
       return `/demandes?${p}`;
     };
@@ -117,40 +146,13 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
         <Pilules
           label="Quelles demandes"
           items={[
-            { href: lien({ tout: false }), label: "Ouvertes", actif: !toutes },
-            { href: lien({ tout: true }), label: "Toutes", actif: toutes },
+            { href: lien({ portee: "ouvertes" }), label: "Ouvertes", actif: portee === "ouvertes" },
+            { href: lien({ portee: "toutes" }), label: "Toutes", actif: portee === "toutes" },
           ]}
         />
         <Pilules label="Fort potentiel" items={[{ href: lien({ fort: !fort }), label: `Fort potentiel (${SEUIL} et plus)`, actif: fort }]} />
       </div>
     );
-  } else if (vue === "feed") {
-    // Le Feed, réduit aux demandes : ses sources, ses phrases, son fil.
-    const params = paramsDe({ ...sp, portee: "demandes" });
-    const { filtres, objetLibelle } = await filtresDe(params);
-    const [page, options] = await Promise.all([lireFeed(filtres, null), optionsFeed(params.objet && objetLibelle ? { valeur: params.objet, libelle: objetLibelle } : null)]);
-    const liste: Filtre[] = [
-      { cle: "periode", libelle: "Toute la période", options: PERIODES },
-      { cle: "type", libelle: "Tous les types", options: GENRES.filter((g) => ["demande", "message", "dossier"].includes(g.cle)).map((g) => ({ valeur: g.cle, libelle: g.libelle })) },
-      { cle: "par", libelle: "Toute l’équipe", options: options.personnes },
-      { cle: "objet", libelle: "Toutes les demandes", options: options.objets.filter((o) => o.valeur.startsWith("r")) },
-    ];
-    const garder: Record<string, string | null> = { vue: "feed", periode: params.periode, type: params.type, par: params.par, objet: params.objet };
-    bas = (
-      <div className={f.basBandeau}>
-        <Suspense>
-          <Filtres filtres={liste} garder={["vue", "q"]} />
-        </Suspense>
-        <form className={f.recherche} action="/demandes" role="search">
-          {Object.entries(garder).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
-          <input type="search" name="q" defaultValue={params.q ?? ""} placeholder="Rechercher…" aria-label="Rechercher dans le fil des demandes" />
-          <button type="submit">Chercher</button>
-        </form>
-      </div>
-    );
-    const pour: Record<string, string> = {};
-    for (const [k, v] of Object.entries(params)) if (v && k !== "vue") pour[k] = String(v);
-    contenu = <Fil key={JSON.stringify(pour)} initial={page.evenements} suite={page.suite} params={pour} filtre={!!(params.periode || params.type || params.par || params.objet || params.q)} />;
   } else if (vue === "liste") {
     const [requests, dossiers] = await Promise.all([listRequests().catch(() => null), dossiersDesDemandes().catch(() => ({}))]);
     contenu = (

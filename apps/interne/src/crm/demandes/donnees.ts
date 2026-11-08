@@ -18,7 +18,7 @@ const iso = (d: unknown) => (d == null ? null : d instanceof Date ? d.toISOStrin
 const REQUETE = `select r.id, r.created_at, r.source::text as source, r.status::text as status, r.client_nom, r.client_email, r.client_tel,
     r.completion_token is not null as jeton,
     r.depart_adresse, r.depart_code_postal, r.depart_ville, r.arrivee_adresse, r.arrivee_code_postal, r.arrivee_ville,
-    r.volume_m3::float8 as volume, r.estimation_prix::float8 as estimation, r.date_souhaitee, r.score_potentiel, r.score_difficulte,
+    r.volume_m3::float8 as volume, r.estimation_prix::float8 as estimation, r.date_souhaitee, r.flexibilite, r.score_potentiel, r.score_difficulte,
     r.raw_payload->'details'->>'express' as express, r.raw_payload->'espace'->>'nom' as espace_nom,
     r.raw_payload->'details'->>'parcours' as parcours, r.raw_payload->'details'->>'transfert' as transfert,
     r.raw_payload->>'mutation_pro' as mutation, r.raw_payload->>'societe' as societe,
@@ -52,6 +52,7 @@ function versDemande(r: Record<string, unknown>): DemandeVue {
     estimation: SANS_PRIX.has(parcours) ? null : ((r.estimation as number | null) ?? null),
     // Une date sans heure, lue à minuit UTC par le pool du CRM : le jour seul.
     dateSouhaitee: r.date_souhaitee ? iso(r.date_souhaitee)!.slice(0, 10) : null,
+    flexibilite: (r.flexibilite as string | null) ?? null,
     potentiel: (r.score_potentiel as number | null) ?? null,
     difficulte: (r.score_difficulte as number | null) ?? null,
     parcours,
