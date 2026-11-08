@@ -739,9 +739,17 @@ function ligneFacture(dossierId: number, f: Row, reglable: boolean): Ligne {
           ? off("Facture déjà payée.")
           : reglable
             ? { action: A.facturePayee.bind(null, dossierId, f.id), confirmer: "Marquer payée ?" }
-            : off("Le règlement d'une facture de garde-meuble ne se saisit pas encore ici."),
+            : duDossier
+              // Une facture de garde-meuble du dossier se règle dans la carte Facturation (« Encaisser »).
+              ? { aller: { section: "demenagements", onglet: "facturation" } }
+              : off("Facture sans dossier : son règlement ne se saisit pas encore dans le CRM (la carte Facturation est celle d'un dossier)."),
       // L'avoir se fait dans la carte Facturation (src/crm/facturation), qui tient la numérotation AV- et le reste à payer.
-      transfert: f.statut === "annulee" ? off("Facture déjà annulée par un avoir.") : { aller: { section: "demenagements", onglet: "facturation" } },
+      transfert:
+        f.statut === "annulee"
+          ? off("Facture déjà annulée par un avoir.")
+          : duDossier
+            ? { aller: { section: "demenagements", onglet: "facturation" } }
+            : off("Facture sans dossier : son avoir ne se fait pas encore dans le CRM (la carte Facturation est celle d'un dossier)."),
       signer: off("Sans objet pour une facture."),
     },
     libelles: { confirmer: "Marquer payée", transfert: "Avoir" },
