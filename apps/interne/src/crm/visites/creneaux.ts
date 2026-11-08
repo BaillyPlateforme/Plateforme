@@ -52,13 +52,20 @@ export const conflit = (plages: Plage[], debut: Date, dureeMin: number) => {
   return plages.find((p) => p.debut < f && p.fin > d) ?? null;
 };
 
-/** Les prochains créneaux libres du commercial, pour une visite de `dureeMin` minutes. */
-export async function suggestions(commercialId: number, dureeMin: number, options: { nb?: number; sauf?: number | null; maintenant?: Date } = {}): Promise<Suggestion[]> {
+/**
+ * Les prochains créneaux libres du commercial, pour une visite de `dureeMin` minutes. `saufRdv` : le
+ * rendez-vous que l'on déplace — son créneau actuel ne l'empêche pas d'aller juste à côté.
+ */
+export async function suggestions(
+  commercialId: number,
+  dureeMin: number,
+  options: { nb?: number; sauf?: number | null; saufRdv?: number | null; maintenant?: Date } = {},
+): Promise<Suggestion[]> {
   const nb = options.nb ?? 8;
   const maintenant = options.maintenant ?? new Date();
   const premier = lendemain(jourParis(maintenant));
   const dernier = lendemain(premier, HORIZON_JOURS);
-  const plages = await occupation(commercialId, instantParis(premier, "00:00"), instantParis(dernier, "00:00"), options.sauf);
+  const plages = await occupation(commercialId, instantParis(premier, "00:00"), instantParis(dernier, "00:00"), options.sauf, undefined, options.saufRdv);
   const out: Suggestion[] = [];
   for (let jour = premier; jour < dernier && out.length < nb; jour = lendemain(jour)) {
     if (!JOURS_OUVRES.has(jourSemaine(jour))) continue;

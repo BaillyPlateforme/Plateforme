@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { Ic } from "@/crm/lib/icons";
 import Bandeau from "@/ui/Bandeau";
 import ChampAdresse from "@/ui/ChampAdresse";
@@ -10,10 +10,12 @@ import { instantParis, jourVisite, momentVisite } from "@/lib/visite/regles";
 import LegendePlanning from "../Legende";
 import { decaler, hhmm, lundiDuJour, minutes } from "../grille";
 import { TYPES_RDV, type TypeRdv } from "../types-rdv";
-import { chargerSemaine, planifierRdv } from "./actions";
-import type { DossierPlanif, SemainePlanif, SourcePlanif } from "./donnees";
+import { chargerSemaine, modifierRdv, planifierRdv } from "./actions";
+import type { DossierPlanif, RdvPlanif, SemainePlanif, SourcePlanif } from "./donnees";
 import { dureeParDefaut, titreParDefaut, verifierCreneau } from "./regles";
 import SemaineChoix, { type Choix } from "./SemaineChoix";
+import PrevenirClient from "./PrevenirClient";
+import VisiteActuelle from "./VisiteActuelle";
 import s from "./planificateur.module.css";
 
 /*
@@ -31,6 +33,14 @@ import s from "./planificateur.module.css";
  *
  * Sans dossier, c'est le « Nouveau RDV » du planning : visite, visio, tâche
  * ou règle perso, à la journée au besoin (une « journée visio »).
+ *
+ * En modification (`rdv`, /planning/<id>), le même écran repart du
+ * rendez-vous : la personne, le type, le créneau (surligné dans la semaine de
+ * la personne), la durée, le lieu et les observations. Changer de personne,
+ * de type ou de créneau reste un clic. En tête, le rendez-vous tel qu'il est
+ * au planning, avec « Marquer effectuée » et « Annuler la visite » ; à
+ * droite, ce qui change, et pour une visite déplacée, la confirmation du
+ * client remise à zéro et « Prévenir le client par SMS » (non coché).
  */
 
 const DUREES = [30, 45, 60, 90, 120];
@@ -42,6 +52,7 @@ const maj = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const jourCourt = (jour: string) =>
   new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${jour}T12:00:00Z`));
 const dureeFr = (min: number) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`);
+const estLien = (v: string | null | undefined): v is string => !!v && /^https?:\/\//i.test(v);
 
 /** Le jour et l'heure de Paris d'un instant : de quoi griser le passé. */
 function horloge(ms: number) {
@@ -56,15 +67,22 @@ function horloge(ms: number) {
 export default function Planificateur({
   dossier,
   source,
+  rdv = null,
+  retourVers = null,
   dossiers,
   commerciaux,
   commercialInitial,
   semaineInitiale,
   maintenantInitial,
   typeInitial,
+  apres,
 }: {
   dossier: DossierPlanif | null;
   source: SourcePlanif | null;
+  /** En modification : le rendez-vous que l'on reprend. */
+  rdv?: RdvPlanif | null;
+  /** D'où l'on vient (« planning ») : où l'on revient après avoir enregistré ou annulé. */
+  retourVers?: string | null;
   /** Sans dossier : les dossiers en cours, pour rattacher le rendez-vous. */
   dossiers: { id: number; libelle: string }[];
   commerciaux: { id: number; nom: string }[];
@@ -72,35 +90,44 @@ export default function Planificateur({
   semaineInitiale: SemainePlanif;
   maintenantInitial: number;
   typeInitial: TypeRdv;
+  /** Sous le planificateur (la fenêtre de visite d'un rendez-vous modifié). */
+  apres?: ReactNode;
 }) {
   const router = useRouter();
+  const edition = !!rdv;
   const [type, setType] = useState<TypeRdv>(typeInitial);
   const [commercialId, setCommercialId] = useState(commercialInitial);
   const [semaine, setSemaine] = useState(semaineInitiale);
   const [chargement, demarrer] = useTransition();
   const [maintenant, setMaintenant] = useState(maintenantInitial);
-  const [choix, setChoix] = useState<Choix | null>(null);
-  const [duree, setDuree] = useState(source?.duree ?? dureeParDefaut(typeInitial));
-  const [dureeTouchee, setDureeTouchee] = useState(!!source);
-  const [journee, setJournee] = useState(false);
-  const [titre, setTitre] = useState(source?.titre ?? titreParDefaut(typeInitial, dossier?.appel ?? null));
-  const [titreTouche, setTitreTouche] = useState(!!source);
-  const [notes, setNotes] = useState(source?.notes ?? "");
+  // En modification, le créneau actuel est déjà choisi : rien ne change tant qu'on ne touche à rien.
+  const [choix, setChoix] = useState<Choix | null>(rdv ? { jour: rdv.jour, min: rdv.min } : null);
+  const [duree, setDuree] = useState(rdv?.duree || source?.duree || dureeParDefaut(typeInitial));
+  const [dureeTouchee, setDureeTouchee] = useState(!!source || edition);
+  const [journee, setJournee] = useState(rdv?.journee ?? false);
+  const [titre, setTitre] = useState(rdv?.titre ?? source?.titre ?? titreParDefaut(typeInitial, dossier?.appel ?? null));
+  const [titreTouche, setTitreTouche] = useState(!!source || edition);
+  const [notes, setNotes] = useState(rdv?.notes ?? source?.notes ?? "");
+  const [prevenir, setPrevenir] = useState(false);
 
-  // Le lieu de la visite : une étape du trajet (le départ d'abord), avec son étage et son accès.
+  // Le lieu de la visite : une étape du trajet (le départ d'abord, ou celle de la visite modifiée), avec son étage et son accès.
   const etapes = useMemo(() => dossier?.etapes.filter((e) => e.genre !== "garde_meuble") ?? [], [dossier]);
   const etapeDepart = etapes.find((e) => e.genre === "depart" && e.adresse) ?? etapes.find((e) => e.adresse) ?? etapes[0] ?? null;
-  const [etapeId, setEtapeId] = useState<number | null>(etapeDepart?.id ?? null);
+  const etapeVisite = rdv?.type === "phys" && rdv.lieu ? etapes.find((e) => e.adresse?.trim() === rdv.lieu?.trim()) : undefined;
+  const etapeInitiale = etapeVisite ?? etapeDepart;
+  const [etapeId, setEtapeId] = useState<number | null>(etapeInitiale?.id ?? null);
   const etape = etapes.find((e) => e.id === etapeId) ?? null;
-  const lieuSource = source && source.type === "phys" ? source.lieu : null;
+  const lieuSource = rdv ? (rdv.type === "phys" ? rdv.lieu : null) : source && source.type === "phys" ? source.lieu : null;
   const [adresse, setAdresse] = useState(lieuSource ?? etapeDepart?.adresse ?? "");
-  const [etage, setEtage] = useState(etapeDepart?.etage ?? "");
-  const [ascenseur, setAscenseur] = useState(etapeDepart?.ascenseur ?? false);
-  const [acces, setAcces] = useState(etapeDepart?.acces ?? "");
-  const [lien, setLien] = useState(source?.type === "visio" && source.lieu && /^https?:\/\//i.test(source.lieu) ? source.lieu : "");
-  const [lieuLibre, setLieuLibre] = useState(source && (source.type === "tache" || source.type === "perso") ? (source.lieu ?? "") : "");
+  const [etage, setEtage] = useState(etapeInitiale?.etage ?? "");
+  const [ascenseur, setAscenseur] = useState(etapeInitiale?.ascenseur ?? false);
+  const [acces, setAcces] = useState(etapeInitiale?.acces ?? "");
+  const lienRepris = rdv ? (rdv.type === "visio" ? rdv.lieu : null) : source?.type === "visio" ? source.lieu : null;
+  const [lien, setLien] = useState(estLien(lienRepris) ? lienRepris : "");
+  const repris = rdv ?? source;
+  const [lieuLibre, setLieuLibre] = useState(repris && (repris.type === "tache" || repris.type === "perso") ? (repris.lieu ?? "") : "");
 
-  const [etat, envoyer, enCours] = useActionState(planifierRdv, null);
+  const [etat, envoyer, enCours] = useActionState(edition ? modifierRdv : planifierRdv, null);
 
   // L'horloge avance : ce qui devient passé se grise.
   useEffect(() => {
@@ -113,26 +140,31 @@ export default function Planificateur({
   const commercial = commerciaux.find((c) => c.id === commercialId) ?? commerciaux[0];
   const prenom = commercial?.nom.split(" ")[0] ?? "";
   const choixVisible = !!choix && semaine.jours.includes(choix.jour);
+  // Le rendez-vous modifié ne se gêne pas lui-même : il quitte la semaine montrée, son créneau actuel est marqué à part.
+  const evenements = useMemo(() => (rdv ? semaine.evenements.filter((e) => e.id !== rdv.id) : semaine.evenements), [semaine, rdv]);
+  // Rien ne bouge dans le planning (même créneau, même durée, même personne, même type) : rien à vérifier.
+  const creneauInchange =
+    !!rdv && !!choix && choix.jour === rdv.jour && (journee || choix.min === rdv.min) && journee === rdv.journee && (journee || duree === rdv.duree) && commercialId === rdv.commercialId && type === rdv.type;
   const verif = useMemo(
     () =>
-      choix && choixVisible
+      choix && choixVisible && !creneauInchange
         ? verifierCreneau({
-            type, jour: choix.jour, debutMin: choix.min, duree, journee, evenements: semaine.evenements, creneaux: semaine.creneaux,
+            type, jour: choix.jour, debutMin: choix.min, duree, journee, evenements, creneaux: semaine.creneaux,
             dossierId: dossier?.id ?? null, commercial: commercial?.nom ?? "", maintenant, debut: instantParis(choix.jour, hhmm(choix.min)).getTime(),
           })
         : null,
-    [choix, choixVisible, type, duree, journee, semaine, dossier, commercial, maintenant],
+    [choix, choixVisible, creneauInchange, type, duree, journee, evenements, semaine, dossier, commercial, maintenant],
   );
 
-  /** Relit la semaine du commercial (et ses créneaux libres) ; l'adresse de la page suit, pour un rechargement. */
+  /** Relit la semaine du commercial (et ses créneaux libres) ; l'adresse de la page suit, pour un rechargement (pas en modification). */
   function recharger(p: { commercialId?: number; lundi?: string; type?: TypeRdv; duree?: number }) {
     const c = p.commercialId ?? commercialId;
     const l = p.lundi ?? semaine.lundi;
     demarrer(async () => {
-      const r = await chargerSemaine(c, l, dossier?.id ?? null, p.type ?? type, p.duree ?? duree);
+      const r = await chargerSemaine(c, l, dossier?.id ?? null, p.type ?? type, p.duree ?? duree, rdv?.id ?? null);
       if (r) setSemaine(r);
     });
-    if (p.commercialId || p.lundi) {
+    if (!edition && (p.commercialId || p.lundi)) {
       const u = new URL(window.location.href);
       u.searchParams.set("com", String(c));
       u.searchParams.set("semaine", l);
@@ -176,13 +208,48 @@ export default function Planificateur({
 
   const date = choix?.jour ?? "";
   const heureChoisie = choix ? hhmm(choix.min) : "";
-  const pret = !!choix && !!titre.trim() && !verif?.bloquant && !chargement;
-  const libelleBouton = type === "phys" ? "Planifier la visite" : type === "visio" ? "Planifier la visio" : type === "tache" ? "Ajouter la tâche" : "Ajouter au planning";
-  const retour = dossier ? { label: "Retour au dossier", href: `/dossiers/${dossier.id}` } : { label: "Retour au planning", href: `/planning?semaine=${semaine.lundi}&com=${commercialId}` };
+
+  // En modification : ce qui a changé depuis l'ouverture. Le bouton n'enregistre que s'il y a quelque chose à enregistrer.
+  const lieuSaisi = type === "phys" ? adresse.trim() : type === "visio" ? lien.trim() : lieuLibre.trim();
+  const empreinte = JSON.stringify([type, commercialId, choix?.jour, journee ? 0 : choix?.min, journee, journee ? 0 : duree, titre.trim(), notes.trim(), lieuSaisi, type === "phys" ? [etapeId, etage, ascenseur, acces] : null]);
+  const [empreinteDepart] = useState(empreinte);
+  const modifie = edition && empreinte !== empreinteDepart;
+  const nouveauDebut = choix ? instantParis(choix.jour, journee ? "12:00" : hhmm(choix.min)) : null;
+  const deplace = !!rdv && !!nouveauDebut && nouveauDebut.getTime() !== new Date(rdv.debut).getTime();
+  const quandCourt = (jour: string, min: number, j: boolean) => (j ? `${jourCourt(jour)} · journée` : `${jourCourt(jour)} · ${hFr(min)}`);
+  const changements = rdv
+    ? [
+        deplace && choix && { cle: "quand", libelle: "Créneau", avant: quandCourt(rdv.jour, rdv.min, rdv.journee), apres: quandCourt(choix.jour, choix.min, journee) },
+        commercialId !== rdv.commercialId && { cle: "qui", libelle: "Qui", avant: rdv.commercial, apres: commercial?.nom ?? "—" },
+        type !== rdv.type && { cle: "type", libelle: "Type", avant: TYPES_RDV[rdv.type].court, apres: TYPES_RDV[type].court },
+        !journee && !rdv.journee && duree !== rdv.duree && { cle: "duree", libelle: "Durée", avant: dureeFr(rdv.duree), apres: dureeFr(duree) },
+      ].filter((x): x is { cle: string; libelle: string; avant: string; apres: string } => !!x)
+    : [];
+  // Une visite d'un dossier, déplacée à l'heure : sa confirmation repart de zéro, et le client peut être prévenu.
+  const smsPossible = !!rdv?.confirmation && deplace && visite && !journee;
+
+  const pret = !!choix && !!titre.trim() && !verif?.bloquant && !chargement && (!edition || modifie);
+  const libelleBouton = edition
+    ? modifie
+      ? "Enregistrer les modifications"
+      : "Aucune modification"
+    : type === "phys"
+      ? "Planifier la visite"
+      : type === "visio"
+        ? "Planifier la visio"
+        : type === "tache"
+          ? "Ajouter la tâche"
+          : "Ajouter au planning";
+  const retour =
+    dossier && retourVers !== "planning"
+      ? { label: "Retour au dossier", href: `/dossiers/${dossier.id}${edition ? "#demenagements-visites" : ""}` }
+      : rdv
+        ? { label: "Retour au planning", href: `/planning?semaine=${lundiDuJour(rdv.jour)}&com=${rdv.commercialId}` }
+        : { label: "Retour au planning", href: `/planning?semaine=${semaine.lundi}&com=${commercialId}` };
   const depart = dossier?.etapes.find((e) => e.genre === "depart")?.adresse;
   const arrivee = [...(dossier?.etapes ?? [])].reverse().find((e) => e.genre === "arrivee")?.adresse;
   const proposer =
-    dossier && visite && dossier.espace
+    dossier && visite && dossier.espace && !edition
       ? `/dossiers/${dossier.id}?vc=${commercialId}&vd=${[60, 90, 120].includes(duree) ? duree : 60}&vt=${type}#visite`
       : null;
   const fin = semaine.jours[semaine.jours.length - 1] ?? semaine.lundi;
@@ -191,16 +258,31 @@ export default function Planificateur({
       ? `${maj(jourVisite(`${choix.jour}T12:00:00Z`))} · journée entière`
       : `${maj(jourVisite(`${choix.jour}T12:00:00Z`))} · ${hFr(choix.min)} – ${hFr(choix.min + duree)}`
     : null;
+  // Les autres visites à venir du dossier (pas celle que l'on modifie).
+  const autresAVenir = dossier?.aVenir.filter((r) => r.id !== rdv?.id) ?? [];
+  const titrePage = rdv
+    ? rdv.type === "phys"
+      ? "Modifier la visite"
+      : rdv.type === "visio"
+        ? "Modifier la visio"
+        : "Modifier le rendez-vous"
+    : dossier
+      ? source
+        ? "Nouvelle visite"
+        : "Planifier une visite"
+      : "Nouveau rendez-vous";
 
   return (
     <div className={`view ${s.page}`}>
       <Bandeau
         surtitre={dossier ? `Planning · ${source ? "Nouvelle visite" : "Visite technique"}` : "Planning commercial"}
-        titre={dossier ? (source ? "Nouvelle visite" : "Planifier une visite") : "Nouveau rendez-vous"}
+        titre={titrePage}
         texte={
           dossier
             ? [dossier.client, dossier.ref, depart || arrivee ? `${depart ?? "—"} → ${arrivee ?? "—"}` : null].filter(Boolean).join(" · ")
-            : "Visite, visio, tâche ou règle perso : chacune a sa couleur au planning."
+            : rdv
+              ? `${TYPES_RDV[rdv.type].long} · ${rdv.titre}`
+              : "Visite, visio, tâche ou règle perso : chacune a sa couleur au planning."
         }
         etiquettes={[dossier?.segment]}
         secondaire={retour}
@@ -212,11 +294,16 @@ export default function Planificateur({
         <input type="hidden" name="dossier_id" value={dossier?.id ?? ""} />
         <input type="hidden" name="depuis_id" value={source?.id ?? ""} />
         <input type="hidden" name="duree_min" value={duree} />
+        {rdv && <input type="hidden" name="rdv_id" value={rdv.id} />}
+        {rdv && <input type="hidden" name="retour" value={retourVers ?? ""} />}
         {type === "phys" && etape && <input type="hidden" name="etape_id" value={etape.id} />}
 
         {/* ─── À gauche : quoi, où, pour qui ─── */}
         <div className={s.gauche}>
-          {!dossier && (
+          {/* En modification : le rendez-vous tel qu'il est au planning, et ses gestes (effectuée, annuler). */}
+          {rdv && <VisiteActuelle rdv={rdv} retour={retourVers} maintenant={maintenant} />}
+
+          {!dossier && !edition && (
             <section className={s.carte}>
               <label className={s.etiquette} htmlFor="planif-dossier">
                 Dossier lié <small>facultatif</small>
@@ -236,7 +323,7 @@ export default function Planificateur({
             </section>
           )}
 
-          {dossier && (source || dossier.aVenir.length > 0 || dossier.proposition) && (
+          {dossier && (source || autresAVenir.length > 0 || (dossier.proposition && !edition)) && (
             <div className={s.avis}>
               {source && (
                 <p className={s.avisInfo}>
@@ -247,15 +334,15 @@ export default function Planificateur({
                   </span>
                 </p>
               )}
-              {dossier.aVenir.map((r) => (
+              {autresAVenir.map((r) => (
                 <p key={r.id} className={s.avisAttention}>
                   <Ic n="alert" />
                   <span>
-                    Déjà au planning : {r.type === "visio" ? "visio" : "visite sur place"} le {momentVisite(r.debut)} avec {r.commercial}.
+                    {edition ? "Autre visite au planning" : "Déjà au planning"} : {r.type === "visio" ? "visio" : "visite sur place"} le {momentVisite(r.debut)} avec {r.commercial}.
                   </span>
                 </p>
               ))}
-              {dossier.proposition && (
+              {dossier.proposition && !edition && (
                 <p className={s.avisInfo}>
                   <Ic n="bell" />
                   <span>
@@ -478,6 +565,7 @@ export default function Planificateur({
                 <Ic n={TYPES_RDV[type].icone} />
               </i>
               <div className={s.recapTexte}>
+                {edition && <small className={s.recapSurtitre}>{modifie ? "Après modification" : "Le rendez-vous"}</small>}
                 {quandTexte ? <b>{quandTexte}</b> : <b className={s.recapVide}>Choisissez un créneau dans la semaine de {prenom}</b>}
                 <span>
                   {TYPES_RDV[type].long} avec {commercial?.nom ?? "—"}
@@ -502,8 +590,23 @@ export default function Planificateur({
                     ou proposer des créneaux au client
                   </Link>
                 )}
+                {edition && !modifie && <span className={s.recapAide}>Changez la personne, le type ou le créneau : un clic chacun.</span>}
               </div>
             </div>
+
+            {/* Ce qui change : l'ancien barré, le nouveau à côté. */}
+            {changements.length > 0 && (
+              <ul className={s.changements} aria-label="Ce qui change">
+                {changements.map((c) => (
+                  <li key={c.cle}>
+                    <small>{c.libelle}</small>
+                    <s>{c.avant}</s>
+                    <Ic n="right" />
+                    <b>{c.apres}</b>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className={s.recapChamps}>
               <label className={s.mini}>
@@ -512,7 +615,8 @@ export default function Planificateur({
                   type="date"
                   name="date"
                   value={date}
-                  min={aujourdhui}
+                  // Un rendez-vous passé se modifie (ses observations) sans être déplacé : son jour reste admis.
+                  min={rdv && rdv.jour < aujourdhui ? rdv.jour : aujourdhui}
                   required
                   onChange={(e) => {
                     const j = e.target.value;
@@ -590,6 +694,11 @@ export default function Planificateur({
                 ))}
               </ul>
             )}
+
+            {/* Une visite déplacée : sa confirmation repart de zéro, et le client peut être prévenu (case non cochée). */}
+            {rdv && smsPossible && nouveauDebut && (type === "phys" || type === "visio") && (
+              <PrevenirClient rdv={rdv} debut={nouveauDebut} commercial={commercial?.nom ?? rdv.commercial} type={type} coche={prevenir} cocher={setPrevenir} />
+            )}
           </section>
 
           <section className={s.semaine} aria-label={`Semaine de ${commercial?.nom ?? "—"}`}>
@@ -633,13 +742,16 @@ export default function Planificateur({
               jours={semaine.jours}
               aujourdhui={aujourdhui}
               minutesMaintenant={minutesMaintenant}
-              evenements={semaine.evenements}
+              evenements={evenements}
               creneaux={semaine.creneaux}
               dossierId={dossier?.id ?? null}
               type={type}
               duree={duree}
               journee={journee}
               choix={choix}
+              // Le créneau actuel, dans la semaine de la personne qui l'a aujourd'hui.
+              actuel={rdv && !rdv.journee && commercialId === rdv.commercialId ? { jour: rdv.jour, min: rdv.min, duree: rdv.duree } : null}
+              edition={edition}
               conflit={!!verif?.bloquant}
               onChoisir={setChoix}
               chargement={chargement}
@@ -648,6 +760,7 @@ export default function Planificateur({
           </section>
         </div>
       </form>
+      {apres}
     </div>
   );
 }

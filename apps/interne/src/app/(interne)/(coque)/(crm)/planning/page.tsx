@@ -22,8 +22,9 @@ export const dynamic = "force-dynamic";
 /*
  * Le planning commercial : la semaine entière, du lundi au dimanche, de 7 h
  * à 20 h, et les journées entières au-dessus (comme dans Créagidem). Un
- * rendez-vous se déplace au glisser-déposer et s'ouvre d'un clic pour être
- * modifié ou supprimé ; chaque visite montre où elle en est de son cycle.
+ * rendez-vous se déplace au glisser-déposer ; un clic ouvre sa petite
+ * fenêtre (Modifier, Déplacer, Ouvrir le dossier) ; chaque visite montre où
+ * elle en est de son cycle.
  * Les fiches de visite s'impriment par journée (en tête de chaque jour) ou
  * pour la semaine du commercial choisi.
  *
@@ -35,7 +36,12 @@ export const dynamic = "force-dynamic";
  */
 
 const NOMS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const OK: Record<string, string> = { cree: "Rendez-vous ajouté au planning.", modifie: "Rendez-vous enregistré.", supprime: "Rendez-vous supprimé." };
+const OK: Record<string, string> = {
+  cree: "Rendez-vous ajouté au planning.",
+  modifie: "Modifications enregistrées.",
+  supprime: "Rendez-vous supprimé.",
+  annule: "Rendez-vous annulé : le créneau est libéré.",
+};
 
 export default async function Planning({ searchParams }: { searchParams: Promise<{ semaine?: string; com?: string; ok?: string; vue?: string }> }) {
   const sp = await searchParams;

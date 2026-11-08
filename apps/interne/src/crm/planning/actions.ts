@@ -3,27 +3,31 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
-import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { envoyerSms } from "@/crm/actions2";
-import { conflit, occupation } from "@/crm/visites/creneaux";
+import { oublierEtatRdv, type EtatRdv } from "@/crm/rdv/sms";
 import { estVisite } from "@/crm/visites/cycle";
 import { instantParis, momentVisite } from "@/lib/visite/regles";
+import { raisonConfirmationOubliee } from "./planificateur/regles";
+import { creneauPris, verrouillerPlanning } from "./planificateur/serveur";
 
 /*
- * Les rendez-vous du planning commercial : les modifier, les déplacer au
- * glisser-déposer, les supprimer, classer une visite sans suite, et la
- * fenêtre de visite (les adresses du dossier, comme dans Créagidem).
+ * Les rendez-vous du planning commercial : les déplacer au glisser-déposer,
+ * classer une visite effectuée ou sans suite, et la fenêtre de visite (les
+ * adresses du dossier, comme dans Créagidem). Les modifier et les annuler se
+ * fait dans le planificateur (/planning/<id>, planificateur/actions.ts).
  *
  * Une visite (sur place ou en visio) suit la règle des créneaux proposés et
  * de la réservation par le client (ec_poser_visite_crm) : elle ne se pose pas
  * sur un autre rendez-vous du commercial, ni sur un créneau qu'il propose
- * encore à un autre client. Une tâche ou une règle perso se place librement,
- * comme à la création. Une journée entière informe et ne bloque rien.
+ * encore à un autre client (planificateur/serveur.ts). Une tâche ou une règle
+ * perso se place librement, comme à la création. Une journée entière informe
+ * et ne bloque rien.
  *
  * Après chaque changement d'une visite rattachée à un dossier, l'espace
  * client suit (projection), et le rappel de la veille suit le nouvel horaire
- * de lui-même (sa clé porte l'heure de la visite).
+ * de lui-même (sa clé porte l'heure de la visite). Déplacée, une visite perd
+ * l'état de sa confirmation par le client (rdv/sms.ts, oublierEtatRdv).
  */
 
 const s = (f: FormData, k: string) => {
@@ -34,19 +38,11 @@ const n = (f: FormData, k: string) => {
   const v = s(f, k);
   return v == null ? null : Number(v.replace(",", "."));
 };
-const TYPES = ["phys", "visio", "tache", "perso"];
 
 function rafraichir(dossierId?: number | null) {
   revalidatePath("/(interne)", "layout");
   revalidatePath("/(tablette)", "layout");
   if (dossierId) revalidatePath(`/dossiers/${dossierId}`);
-}
-
-/** Le créneau est-il libre pour une visite du commercial ? Rend le libellé du conflit, ou null. */
-async function chevauchement(r: { id: number; type: string; journee: boolean; commercial_id: number; dossier_id: number | null }, debut: Date, duree: number) {
-  if (!estVisite(r.type) || r.journee || duree <= 0) return null;
-  const plages = await occupation(r.commercial_id, debut, new Date(debut.getTime() + duree * 60_000), r.dossier_id, undefined, r.id);
-  return conflit(plages, debut, duree)?.libelle ?? null;
 }
 
 async function noter(dossierId: number | null, utilisateurId: number, libelle: string) {
@@ -55,27 +51,53 @@ async function noter(dossierId: number | null, utilisateurId: number, libelle: s
   await q("update dossiers set maj_le = now() where id = $1", [dossierId]);
 }
 
-export type IssueDeplacement = { ok: true; visite: boolean; telephone: boolean } | { ok: false; erreur: string };
+export type IssueDeplacement =
+  | { ok: true; visite: boolean; telephone: boolean; /** L'état de confirmation oublié (il portait sur l'ancien horaire). */ oublie?: EtatRdv | null }
+  | { ok: false; erreur: string };
 
-/** Le glisser-déposer de la grille : un nouveau jour (AAAA-MM-JJ) et une nouvelle heure de Paris (HH:MM). */
+/**
+ * Le glisser-déposer de la grille (et « Déplacer » de sa fenêtre) : un nouveau jour (AAAA-MM-JJ) et une
+ * nouvelle heure de Paris (HH:MM). La règle des visites est celle du planificateur (planificateur/serveur.ts),
+ * sous le même verrou ; déplacée, la visite perd l'état de sa confirmation, comme dans le planificateur.
+ */
 export async function deplacerRdv(id: number, jour: string, hhmm: string): Promise<IssueDeplacement> {
   const u = await currentUser();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(jour) || !/^\d{2}:\d{2}$/.test(hhmm)) return { ok: false, erreur: "Heure illisible." };
-  const r = await q1<Row>(
-    "select r.id, r.type, r.journee, r.commercial_id, r.dossier_id, r.duree_min, r.debut, c.telephone from rendez_vous r left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id where r.id = $1",
-    [id],
-  );
-  if (!r) return { ok: false, erreur: "Rendez-vous introuvable." };
-  const debut = instantParis(jour, r.journee ? "12:00" : hhmm);
-  if (+debut === +new Date(r.debut)) return { ok: true, visite: false, telephone: false };
-  const c = await chevauchement(r as never, debut, r.duree_min);
-  if (c) return { ok: false, erreur: `Le commercial n'est pas libre à cette heure (${c}).` };
-  await q("update rendez_vous set debut = $2 where id = $1", [id, debut.toISOString()]);
-  const visite = estVisite(r.type) && !r.journee && !!r.dossier_id;
-  if (visite) await noter(r.dossier_id, u.id, `Visite déplacée au ${momentVisite(debut, true)}`);
-  await projeterEspace(r.dossier_id);
-  rafraichir(r.dossier_id);
-  return { ok: true, visite, telephone: visite && !!String(r.telephone ?? "").replace(/\D/g, "") };
+  const { issue, dossierId } = await transaction<{ issue: IssueDeplacement; dossierId?: number | null }>(async (db) => {
+    const ko = (erreur: string) => ({ issue: { ok: false as const, erreur } });
+    const [r] = await db.query<Row>(
+      `select r.id, r.type, r.titre, r.journee, r.commercial_id, u.nom as commercial, r.dossier_id, r.duree_min, r.debut, c.telephone
+         from rendez_vous r join utilisateurs u on u.id = r.commercial_id left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id
+        where r.id = $1 for update of r`,
+      [id],
+    );
+    if (!r) return ko("Rendez-vous introuvable.");
+    const debut = instantParis(jour, r.journee ? "12:00" : hhmm);
+    if (+debut === +new Date(r.debut)) return { issue: { ok: true, visite: false, telephone: false } };
+    await verrouillerPlanning(db, r.commercial_id);
+    if (estVisite(r.type) && !r.journee && r.duree_min > 0) {
+      const pris = await creneauPris(db, { commercial: { id: r.commercial_id, nom: r.commercial }, type: r.type, debut, duree: r.duree_min, dossierId: r.dossier_id, saufRdv: id });
+      if (pris) return ko(pris);
+    }
+    await db.query("update rendez_vous set debut = $2 where id = $1", [id, debut.toISOString()]);
+    const oublie = await oublierEtatRdv(id, db);
+    const visite = estVisite(r.type) && !r.journee && !!r.dossier_id;
+    if (r.dossier_id) {
+      const noterDb = (libelle: string) => db.query("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [r.dossier_id, u.id, libelle]);
+      if (visite) await noterDb(`${r.type === "visio" ? "Visio" : "Visite"} déplacée au ${momentVisite(debut, true)}`);
+      if (oublie) await noterDb(`Confirmation de la visite remise à zéro : ${raisonConfirmationOubliee(oublie.etat)}`);
+      await db.query("update dossiers set maj_le = now() where id = $1", [r.dossier_id]);
+    }
+    return {
+      issue: { ok: true, visite, telephone: visite && !!String(r.telephone ?? "").replace(/\D/g, ""), oublie: oublie?.etat ?? null },
+      dossierId: r.dossier_id as number | null,
+    };
+  });
+  if (issue.ok) {
+    await projeterEspace(dossierId ?? null);
+    rafraichir(dossierId);
+  }
+  return issue;
 }
 
 /** Le SMS de confirmation d'un rendez-vous déplacé : le même que celui de la fiche du dossier. */
@@ -84,61 +106,6 @@ export async function confirmerParSms(id: number) {
   const r = await q1<{ dossier_id: number | null }>("select dossier_id from rendez_vous where id = $1", [id]);
   if (r?.dossier_id) await envoyerSms(r.dossier_id, id);
   rafraichir(r?.dossier_id);
-}
-
-/** La page d'un rendez-vous : tout se modifie, la règle des visites tient. */
-export async function modifierRdv(id: number, f: FormData) {
-  const u = await currentUser();
-  const r = await q1<Row>("select id, type, journee, commercial_id, dossier_id, debut, duree_min from rendez_vous where id = $1", [id]);
-  if (!r) redirect("/planning");
-  const retour = (m: string) => redirect(`/planning/${id}?erreur=${encodeURIComponent(m)}`);
-  const type = TYPES.includes(s(f, "type") ?? "") ? s(f, "type")! : r.type;
-  const journee = f.get("journee") === "on";
-  const jour = s(f, "date");
-  const heure = s(f, "heure") ?? "09:00";
-  if (!jour || !/^\d{4}-\d{2}-\d{2}$/.test(jour) || !/^\d{2}:\d{2}$/.test(heure)) retour("Date ou heure illisible.");
-  const duree = journee ? 0 : Math.round(n(f, "duree_min") ?? 60);
-  if (!journee && !(duree >= 15 && duree <= 720)) retour("Durée de 15 minutes à 12 heures.");
-  const commercial = n(f, "commercial_id") ?? r.commercial_id;
-  if (!(await q1("select 1 from utilisateurs where id = $1", [commercial]))) retour("Commercial introuvable.");
-  const debut = instantParis(jour!, journee ? "12:00" : heure);
-  const c = await chevauchement({ id, type, journee, commercial_id: commercial!, dossier_id: r.dossier_id }, debut, duree);
-  if (c) retour(`Le commercial n'est pas libre à cette heure (${c}).`);
-  await q(
-    "update rendez_vous set type = $2, titre = $3, lieu = $4, debut = $5, duree_min = $6, commercial_id = $7, notes = $8, journee = $9 where id = $1",
-    [id, type, s(f, "titre") ?? "Rendez-vous", s(f, "lieu"), debut.toISOString(), duree, commercial, s(f, "notes"), journee],
-  );
-  const deplace = +debut !== +new Date(r.debut);
-  if (estVisite(type) && r.dossier_id) await noter(r.dossier_id, u.id, deplace ? `Visite déplacée au ${momentVisite(debut, true)}` : "Rendez-vous de visite modifié");
-  if (deplace && f.get("sms") === "on" && r.dossier_id) await envoyerSms(r.dossier_id, id);
-  await projeterEspace(r.dossier_id);
-  rafraichir(r.dossier_id);
-  redirect(`/planning?semaine=${jour}&ok=modifie`);
-}
-
-/** Supprime un rendez-vous (le bouton de sa page, après confirmation). */
-export async function supprimerRendezVous(id: number) {
-  const u = await currentUser();
-  const r = await q1<{ dossier_id: number | null; debut: Date; type: string; journee: boolean; titre: string }>(
-    "delete from rendez_vous where id = $1 returning dossier_id, debut, type, journee, titre",
-    [id],
-  );
-  const activite = r && estVisite(r.type) && !r.journee ? `Rendez-vous de visite du ${momentVisite(r.debut, true)} supprimé` : null;
-  if (activite) await noter(r!.dossier_id, u.id, activite);
-  await projeterEspace(r?.dossier_id);
-  rafraichir(r?.dossier_id);
-  if (r) {
-    const le = new Date(r.debut).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Paris" });
-    await journaliser({
-      action: "rdv.supprime",
-      libelle: activite ?? `Rendez-vous « ${r.titre} » du ${le} supprimé`,
-      objet: { type: "rdv", id },
-      dossierId: r.dossier_id,
-      details: { titre: r.titre, type: r.type, debut: new Date(r.debut).toISOString(), journee: r.journee },
-      activite,
-    });
-  }
-  redirect(`/planning?semaine=${r ? new Date(r.debut).toISOString().slice(0, 10) : ""}&ok=supprime`);
 }
 
 /** Le cycle d'une visite : effectuée, ou classée sans suite (et l'inverse). */

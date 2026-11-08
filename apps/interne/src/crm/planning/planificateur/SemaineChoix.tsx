@@ -13,6 +13,9 @@ import s from "./planificateur.module.css";
  * (« journée visio ») au-dessus, et les créneaux qu'il propose à des clients.
  * Un clic sur la grille choisit le créneau, au quart d'heure ; au survol, le
  * créneau se dessine à la durée choisie. Un créneau passé ne se choisit pas.
+ *
+ * En modification (`actuel`), le créneau actuel du rendez-vous reste marqué
+ * en pointillé quand on en choisit un autre : on voit d'où l'on part.
  */
 
 const HAUT = 40;
@@ -32,6 +35,8 @@ export default function SemaineChoix({
   duree,
   journee,
   choix,
+  actuel = null,
+  edition = false,
   conflit,
   onChoisir,
   chargement,
@@ -47,6 +52,10 @@ export default function SemaineChoix({
   duree: number;
   journee: boolean;
   choix: Choix | null;
+  /** En modification : le créneau actuel du rendez-vous (dans la semaine de son commercial) et sa durée. */
+  actuel?: (Choix & { duree: number }) | null;
+  /** En modification : le choix se dit « Nouveau créneau » (ou « Créneau actuel » s'il n'a pas bougé). */
+  edition?: boolean;
   conflit: boolean;
   onChoisir: (c: Choix) => void;
   chargement: boolean;
@@ -76,6 +85,9 @@ export default function SemaineChoix({
     return { jour: el.dataset.jour!, min };
   }
 
+  // Le choix est-il resté sur le créneau actuel ? Le bloc le dit, au lieu de « Votre choix ».
+  const surActuel = !!choix && !!actuel && choix.jour === actuel.jour && choix.min === actuel.min && duree === actuel.duree;
+
   const fantome = (c: Choix, survole: boolean) => {
     const pos = position(c.min, duree, HAUT);
     return (
@@ -93,9 +105,19 @@ export default function SemaineChoix({
         {!survole && (
           <b className="ev-n">
             <Ic n={conflit ? "alert" : TYPES_RDV[type].icone} />
-            {conflit ? "Créneau pris" : "Votre choix"}
+            {conflit ? "Créneau pris" : surActuel ? "Créneau actuel" : edition ? "Nouveau créneau" : "Votre choix"}
           </b>
         )}
+      </div>
+    );
+  };
+
+  /** Le créneau actuel, en pointillé, quand le choix est ailleurs. */
+  const ancien = (a: Choix & { duree: number }) => {
+    const pos = position(a.min, a.duree, HAUT);
+    return (
+      <div key="actuel" className={`t-${type} ${s.actuel}`} style={{ top: pos.top, height: pos.height }} title={`Créneau actuel : ${heure(a.min)}–${heure(a.min + a.duree)}`}>
+        <b>Actuel · {heure(a.min)}</b>
       </div>
     );
   };
@@ -218,6 +240,7 @@ export default function SemaineChoix({
                     </div>
                   );
                 })}
+              {!journee && actuel && actuel.jour === j && !surActuel && ancien(actuel)}
               {!journee && survol?.jour === j && !(choix && choix.jour === j && choix.min === survol.min) && fantome(survol, true)}
               {!journee && choix?.jour === j && fantome(choix, false)}
             </div>

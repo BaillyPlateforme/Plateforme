@@ -80,6 +80,8 @@ export function prochaineEtape(f: Faits, c: Contexte): Prochaine {
         ton: "attendre",
         actions: [
           { label: "Voir la visite", href: `${dossier}${VISITES}`, principal: true },
+          // Le planificateur en modification, sur la visite annoncée ici (/planning/modifier la retrouve).
+          { label: "Modifier la visite", href: `/planning/modifier?dossier=${c.id}` },
           { label: "Planning", href: `/planning?semaine=${lundi(f.visite.prevue)}` },
         ],
       };

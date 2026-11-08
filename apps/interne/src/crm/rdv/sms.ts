@@ -2,7 +2,7 @@ import "server-only";
 import { alerterEquipe } from "@/lib/alertes-equipe";
 import type { ResultatEnvoi } from "@/lib/envois";
 import { normaliserTelephone } from "@/lib/envois/garde-fous";
-import { q, q1 } from "@/crm/lib/db";
+import { q, q1, type Db } from "@/crm/lib/db";
 import { appel, destinataire, envoyerSmsRendezVous } from "@/crm/envois";
 import { modeleDe, remplir } from "@/crm/messages/catalogue";
 
@@ -141,20 +141,8 @@ export async function etatsRdv(ids: number[]): Promise<Map<number, EtatAffiche>>
   if (!ids.length) return out;
   const lignes = await q<LigneRdvSms>("select * from rdv_sms where rendez_vous_id = any($1)", [ids]).catch(() => [] as LigneRdvSms[]);
   for (const l of lignes) {
-    const quand = (iso: string | null) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }) : "");
-    let etat: EtatRdv | null = null;
-    let detail = "";
-    if (l.reponse) {
-      etat = l.reponse;
-      detail = `${l.reponse_source === "sms" ? "Réponse au SMS" : "Saisi par l'équipe"} le ${quand(l.reponse_le)}`;
-    } else if (l.confirmation_statut === "envoye" || l.rappel_statut === "envoye") {
-      etat = "sans_reponse";
-      detail = `SMS parti le ${quand(l.rappel_statut === "envoye" ? l.rappel_le : l.confirmation_le)}`;
-    } else if (l.confirmation_statut || l.rappel_statut) {
-      etat = "non_parti";
-      detail = `SMS ${l.confirmation_statut ?? l.rappel_statut} (voir Envois et veille)`;
-    }
-    if (etat) out.set(l.rendez_vous_id, { etat, ...ETATS_RDV[etat], detail });
+    const e = etatDeLigne(l);
+    if (e) out.set(l.rendez_vous_id, e);
   }
   return out;
 }
@@ -187,6 +175,43 @@ export async function alertesRdv(): Promise<{ id: string; titre: string; sous: s
 /** L'équipe a vu l'annulation : elle quitte la cloche. */
 export async function marquerVu(rdvId: number) {
   await q("update rdv_sms set vue_le = now(), maj_le = now() where rendez_vous_id = $1", [rdvId]);
+}
+
+/**
+ * Un rendez-vous déplacé (ou annulé) : son état SMS est oublié. La
+ * confirmation, le rappel et la réponse du client (1 ou 2) portaient sur
+ * l'ancien horaire — le SMS dit « confirmé le {date} à {heure} ». Gardé, il
+ * ferait passer pour confirmé un horaire que le client n'a jamais vu,
+ * rattacherait une réponse tardive à l'ancien SMS au nouvel horaire, et un
+ * « 2 » d'hier priverait le nouvel horaire de son rappel de la veille.
+ *
+ * L'historique ne se perd pas : chaque envoi est au journal des envois, et la
+ * réponse du client au fil du dossier. Rend l'état oublié (pour le dire à
+ * l'équipe), ou null s'il n'y en avait pas. Peut lire et écrire dans une
+ * transaction (`db`).
+ */
+export async function oublierEtatRdv(rdvId: number, db?: Db): Promise<EtatAffiche | null> {
+  const sql = "delete from rdv_sms where rendez_vous_id = $1 returning *";
+  const [l] = db ? await db.query<LigneRdvSms>(sql, [rdvId]) : await q<LigneRdvSms>(sql, [rdvId]);
+  return l ? (etatDeLigne(l) ?? null) : null;
+}
+
+/** L'état affiché d'une ligne de crm.rdv_sms (voir etatsRdv). */
+function etatDeLigne(l: LigneRdvSms): EtatAffiche | undefined {
+  const quand = (iso: string | null) => (iso ? new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }) : "");
+  let etat: EtatRdv | null = null;
+  let detail = "";
+  if (l.reponse) {
+    etat = l.reponse;
+    detail = `${l.reponse_source === "sms" ? "Réponse au SMS" : "Saisi par l'équipe"} le ${quand(l.reponse_le)}`;
+  } else if (l.confirmation_statut === "envoye" || l.rappel_statut === "envoye") {
+    etat = "sans_reponse";
+    detail = `SMS parti le ${quand(l.rappel_statut === "envoye" ? l.rappel_le : l.confirmation_le)}`;
+  } else if (l.confirmation_statut || l.rappel_statut) {
+    etat = "non_parti";
+    detail = `SMS ${l.confirmation_statut ?? l.rappel_statut} (voir Envois et veille)`;
+  }
+  return etat ? { etat, ...ETATS_RDV[etat], detail } : undefined;
 }
 
 /**

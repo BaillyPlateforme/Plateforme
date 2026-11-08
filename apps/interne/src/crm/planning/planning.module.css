@@ -261,6 +261,208 @@
   color: var(--accent, #4b2fe0);
 }
 
+/* Le rendez-vous dont la fenêtre est ouverte. */
+.ouvert {
+  z-index: 7 !important;
+  box-shadow:
+    0 0 0 2px var(--c),
+    0 14px 30px -14px color-mix(in srgb, var(--c) 80%, transparent) !important;
+}
+
+/* « Déplacer » : la grille vise, le bloc suit le pointeur ; les autres blocs laissent passer le clic. */
+.messageViser {
+  border: 1px solid #d9d1fb;
+  background: #f3f0ff;
+  color: #2e1f9e;
+}
+.messageViser :global(.ic) {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.viser .col {
+  cursor: crosshair;
+}
+.viser .bloc,
+.viser .propose {
+  pointer-events: none;
+}
+.viser .bloc:not(.vise) {
+  opacity: 0.55;
+}
+.vise {
+  z-index: 8 !important;
+  box-shadow:
+    0 0 0 2px var(--c),
+    0 14px 34px -10px rgba(23, 21, 43, 0.45);
+}
+
+/* La petite fenêtre d'un rendez-vous, à côté de son bloc. */
+.pop {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--line, #e4e2ee);
+  border-top: 4px solid var(--c);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow:
+    0 24px 48px -20px rgba(23, 21, 43, 0.35),
+    0 2px 6px rgba(23, 21, 43, 0.06);
+  animation: popEntre 0.14s ease-out;
+}
+@keyframes popEntre {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pop {
+    animation: none;
+  }
+}
+.popTete {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.popIcone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: var(--c);
+  color: #fff;
+}
+.popIcone :global(.ic) {
+  width: 18px;
+  height: 18px;
+}
+.popTitre {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.popTitre small {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ci, var(--muted));
+}
+.popTitre b {
+  overflow: hidden;
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popFermer {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -4px -6px 0 0;
+  border-radius: 50%;
+  color: var(--muted, #6b6785);
+  font-size: 18px;
+  line-height: 1;
+}
+.popFermer:hover {
+  background: #f4f4f7;
+  color: var(--ink, #17152b);
+}
+.popInfos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.popInfos li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.popInfos li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popInfos :global(.ic) {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--muted, #6b6785);
+}
+.popPastilles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.popGestes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line, #e4e2ee);
+}
+.popModifier,
+.popGeste {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.popModifier {
+  background: var(--accent, #4b2fe0);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px var(--accent, #4b2fe0);
+}
+.popModifier:hover {
+  background: #3a22c4;
+}
+.popModifier :global(.ic) {
+  width: 14px;
+  height: 14px;
+}
+.popGeste {
+  border: 1px solid var(--line, #e4e2ee);
+  background: #fff;
+  color: var(--ink, #17152b);
+}
+.popGeste:hover {
+  background: var(--soft, #ece8ff);
+}
+.popModifier:focus-visible,
+.popGeste:focus-visible,
+.popFermer:focus-visible {
+  outline: 2px solid var(--accent, #4b2fe0);
+  outline-offset: 2px;
+}
+.popAstuce {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted, #6b6785);
+}
+
 /*
  * Un couloir étroit : au repos, le nom d'abord (deux lignes), puis l'heure
  * et un point de couleur pour l'état. Au survol ou au focus, le bloc passe

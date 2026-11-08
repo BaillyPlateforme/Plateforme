@@ -36,6 +36,25 @@ export function titreParDefaut(type: TypeRdv, appel: string | null) {
   return appel && (type === "phys" || type === "visio") ? appel : "";
 }
 
+/**
+ * Une visite qui change d'horaire perd l'état de sa confirmation (rdv/sms.ts, oublierEtatRdv) : la phrase qui
+ * le dit à l'équipe, d'après ce que le client avait fait. Textes à valider par Bailly.
+ */
+export function phraseConfirmationOubliee(etat: EtatConfirmation) {
+  const raison = raisonConfirmationOubliee(etat);
+  const suite = etat === "confirme" ? "sa confirmation est remise à zéro" : etat === "annule" ? "sa réponse est remise à zéro" : "le suivi de la confirmation repart de zéro";
+  return `${raison.charAt(0).toUpperCase()}${raison.slice(1)} : ${suite}.`;
+}
+
+/** Pourquoi la confirmation ne vaut plus, pour le fil du dossier : « le client avait confirmé l'ancien horaire ». */
+export function raisonConfirmationOubliee(etat: EtatConfirmation) {
+  if (etat === "confirme") return "le client avait confirmé l'ancien horaire";
+  if (etat === "annule") return "le client avait annulé l'ancien horaire";
+  return "le SMS de confirmation annonçait l'ancien horaire";
+}
+
+type EtatConfirmation = "confirme" | "annule" | "sans_reponse" | "non_parti";
+
 /** La durée proposée, en minutes : 1 h 30 sur place, 1 h en visio ou pour une tâche, comme au planning de démonstration. */
 export const dureeParDefaut = (type: TypeRdv) => (type === "phys" ? 90 : 60);
 
