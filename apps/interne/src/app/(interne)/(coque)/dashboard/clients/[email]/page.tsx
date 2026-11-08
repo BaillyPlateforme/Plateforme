@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getClientDetail } from "@/lib/clients";
 import { listDevisForClient } from "@/lib/devis";
+import { clientParEmail } from "@/crm/clients/donnees";
 import EnTeteSection from "../../EnTeteSection";
 import ClientProfileEditor from "./ClientProfileEditor";
 
@@ -10,17 +11,24 @@ export const dynamic = "force-dynamic";
  * L'historique d'une adresse e-mail : ses demandes du site, leurs devis, et
  * la fiche que l'équipe tient sur elle. On l'ouvre depuis la fiche d'une
  * demande (« Historique du client ») ; la liste « Clients du site » qui y
- * menait a quitté les menus le 08/11/2026.
+ * menait a quitté les menus le 08/11/2026. Quand l'adresse est celle d'un
+ * client du CRM, la bande mène à sa fiche (/clients/<id>) : tous ses
+ * dossiers ; la page reste pour les personnes qui n'ont qu'une demande.
  */
 export default async function ClientPage({ params }: { params: Promise<{ email: string }> }) {
   const { email: raw } = await params;
   const email = decodeURIComponent(raw);
-  const [detail, devis] = await Promise.all([getClientDetail(email), listDevisForClient(email)]);
+  const [detail, devis, crm] = await Promise.all([getClientDetail(email), listDevisForClient(email), clientParEmail(email).catch(() => null)]);
   const derniere = detail.requests[0];
 
   return (
     <div>
       <EnTeteSection propre surtitre="Demandes · Historique du client" titre={detail.profile?.nom ?? email} texte={email}>
+        {crm && (
+          <Link href={`/clients/${crm.id}`} data-ton="contour" title={crm.n > 1 ? `${crm.n} fiches du CRM à cette adresse : la plus récemment active` : "La fiche du client dans le CRM : tous ses dossiers"}>
+            Fiche client du CRM
+          </Link>
+        )}
         {derniere && (
           <Link href={`/dashboard/${derniere.id}`} data-ton="contour">
             Dernière demande

@@ -519,11 +519,12 @@
 /* ─────────────── Écrans plus étroits ─────────────── */
 
 @media (max-width: 1520px) {
+  /* Sept rubriques depuis « Clients » (08/11/2026) : un peu moins d'air entre elles, la recherche s'élargit au clic. */
   .rubrique {
-    padding: 0 11px;
+    padding: 0 8px;
   }
   .recherche {
-    width: 170px;
+    width: 150px;
   }
   .touche {
     display: none;
@@ -539,10 +540,19 @@
     justify-content: center;
   }
   .recherche {
-    width: 150px;
+    width: 140px;
   }
   .touche {
     display: none;
+  }
+}
+@media (max-width: 1240px) {
+  .rubrique {
+    padding: 0 6px;
+    font-size: 14px;
+  }
+  .marque {
+    margin-right: 10px;
   }
 }
 @media (max-width: 1120px) {

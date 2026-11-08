@@ -104,13 +104,15 @@ interface Props {
   dernierAgence: SourceDossier | null;
   modeles: SourceModele[];
   modeleInitial: number | null;
+  /** Un client à rattacher d'emblée (`?client=<id>` : « Nouveau dossier pour ce client », depuis sa fiche). */
+  clientInitial?: ClientConnu | null;
   maintenant: number;
 }
 
 const sAbonner = () => () => {};
 const surMac = () => /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 
-export default function CreationDossier({ moi, commerciaux, monDernier, dernierAgence, modeles, modeleInitial, maintenant }: Props) {
+export default function CreationDossier({ moi, commerciaux, monDernier, dernierAgence, modeles, modeleInitial, clientInitial = null, maintenant }: Props) {
   const mac = useSyncExternalStore(sAbonner, surMac, () => true);
   const cmd = mac ? "⌘" : "Ctrl";
   const alt = mac ? "⌥" : "Alt+";
@@ -119,13 +121,21 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   const origineModele = (m: SourceModele): Origine => ({ cle: `modele-${m.id}`, genre: "modele", id: m.id, titre: `le modèle « ${m.nom} »` });
 
   const [etat, setEtat] = useState<Etat>(() => {
-    const base: Etat = { v: { ...VIDE, commercial_id: comDefaut }, repris: [], origine: null };
+    const c = clientInitial;
+    // Le client rattaché d'emblée : son identité et son segment, comme « Rattacher » (sans reprendre son dernier dossier).
+    const base: Etat = {
+      v: c
+        ? { ...VIDE, commercial_id: comDefaut, civilite: c.civilite ?? "", prenom: c.prenom ?? "", nom: c.nom ?? "", societe: c.societe ?? "", email: c.email ?? "", telephone: c.telephone ?? "", type: c.type }
+        : { ...VIDE, commercial_id: comDefaut },
+      repris: [],
+      origine: null,
+    };
     const m = modeles.find((x) => x.id === modeleInitial);
-    return m ? appliquerSur(base, origineModele(m), reprise(m, null), new Set(), base.v) : base;
+    return m ? appliquerSur(base, origineModele(m), reprise(m, c?.id ?? null), new Set(), base.v) : base;
   });
   const v = etat.v;
   const touches = useRef(new Set<Cle>());
-  const [client, setClient] = useState<ClientConnu | null>(null);
+  const [client, setClient] = useState<ClientConnu | null>(clientInitial);
   const [reperes, setReperes] = useState<Reperes>({ client: null, doublons: [], proches: [] });
   const [ignores, setIgnores] = useState<number[]>([]);
   const [erreur, setErreur] = useState<{ champ: Cle; texte: string } | null>(null);

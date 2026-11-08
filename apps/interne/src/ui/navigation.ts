@@ -91,6 +91,11 @@ export const GROUPES: Groupe[] = [
     ],
   },
   {
+    // Les clients, pour eux-mêmes : la liste et la fiche de chacun, tous ses dossiers (demande de David, 08/11/2026).
+    titre: "Clients",
+    entrees: [{ href: "/clients", label: "Clients", icone: "clients" }],
+  },
+  {
     titre: "Exploitation",
     entrees: [
       { href: "/exploitation", label: "Planning", icone: "grille" },

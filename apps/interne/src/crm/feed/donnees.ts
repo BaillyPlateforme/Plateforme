@@ -51,7 +51,7 @@ export function paramsDe(sp: Record<string, string | string[] | undefined>): Par
     periode: PERIODES.some((p) => p.valeur === v("periode")) ? v("periode") : null,
     type: GENRES.some((g) => g.cle === v("type")) ? (v("type") as Genre) : null,
     par: par && (par === "auto" || /^[^@\s]+@[^@\s]+$/.test(par)) ? par : null,
-    objet: objet && (/^d\d{1,9}$/.test(objet) || (objet.startsWith("r") && UUID.test(objet.slice(1)))) ? objet : null,
+    objet: objet && (/^[dc]\d{1,9}$/.test(objet) || (objet.startsWith("r") && UUID.test(objet.slice(1)))) ? objet : null,
     q: v("q")?.slice(0, 80) ?? null,
     portee: v("portee") === "demandes" ? "demandes" : null,
   };
@@ -69,6 +69,22 @@ export const jourParis = (d: Date = new Date()) => d.toLocaleDateString("en-CA",
 
 /** Le dossier ou la demande choisis, dans les trois mondes : le dossier du CRM, sa demande du site, son espace client. */
 async function resoudreObjet(objet: string): Promise<{ filtre: NonNullable<Filtres["objet"]>; libelle: string } | null> {
+  // Un client du CRM (c<id>, l'historique de sa fiche /clients/<id>) : ses dossiers, leurs demandes et
+  // leurs espaces, et les demandes du site envoyées depuis son e-mail.
+  if (objet.startsWith("c")) {
+    const r = await q1<{ societe: string | null; prenom: string | null; nom: string | null; dossiers: number[]; demandes: string[]; espaces: string[] }>(
+      `select c.societe, c.prenom, c.nom,
+              coalesce((select array_agg(d.id) from crm.dossiers d where d.client_id = c.id), '{}') as dossiers,
+              coalesce((select array_agg(distinct r.id::text) from public.requests r
+                         where r.id in (select d.request_id from crm.dossiers d where d.client_id = c.id)
+                            or (nullif(trim(c.email), '') is not null and lower(trim(r.client_email)) = lower(trim(c.email)))), '{}') as demandes,
+              coalesce((select array_agg(x.id::text) from public.ec_dossiers x join crm.dossiers d on d.id = x.crm_dossier_id where d.client_id = c.id), '{}') as espaces
+         from crm.clients c where c.id = $1`,
+      [Number(objet.slice(1))],
+    );
+    if (!r) return null;
+    return { filtre: { dossiers: r.dossiers, demandes: r.demandes, espaces: r.espaces }, libelle: `Client · ${nomClient(r) || "sans nom"}` };
+  }
   if (objet.startsWith("d")) {
     const id = Number(objet.slice(1));
     const r = await q1<{ ref: string; request_id: string | null; espaces: string[]; societe: string | null; prenom: string | null; nom: string | null }>(

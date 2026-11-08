@@ -111,8 +111,8 @@ export default async function Feed({ searchParams }: { searchParams: Promise<Rec
         }
       >
         {params.objet && objetLibelle && !objetLibelle.endsWith("(supprimé)") && (
-          <Link href={params.objet.startsWith("d") ? `/dossiers/${params.objet.slice(1)}` : `/dashboard/${params.objet.slice(1)}`} data-ton="contour">
-            {params.objet.startsWith("d") ? "Ouvrir le dossier" : "Ouvrir la demande"}
+          <Link href={params.objet.startsWith("d") ? `/dossiers/${params.objet.slice(1)}` : params.objet.startsWith("c") ? `/clients/${params.objet.slice(1)}` : `/dashboard/${params.objet.slice(1)}`} data-ton="contour">
+            {params.objet.startsWith("d") ? "Ouvrir le dossier" : params.objet.startsWith("c") ? "Ouvrir la fiche client" : "Ouvrir la demande"}
           </Link>
         )}
       </Bandeau>
