@@ -36,7 +36,7 @@ export default async function Lettres({ searchParams }: { searchParams: Promise<
         surtitre="Exploitation"
         titre="Lettres de voiture"
         texte={libres ? `${rows.length} lettres · ${libres} prestataire${libres > 1 ? "s" : ""} en texte libre, à relier à l’annuaire` : "Une lettre par rupture de charge ; seule la première porte le montant."}
-        secondaire={{ label: "Annuaire des sous-traitants", href: "/sous-traitants" }}
+        secondaire={{ label: "Annuaire des partenaires", href: "/partenaires" }}
         bas={
           <BarreBas>
             <Pilules
@@ -102,7 +102,7 @@ export default async function Lettres({ searchParams }: { searchParams: Promise<
                       <span className={s.ligneChoix}>
                         <ChoixPrestataire lettre={r.id} lie={r.sous_traitant_id} annuaire={annuaire} />
                         {r.sous_traitant_id && (
-                          <Link href={`/sous-traitants/${r.sous_traitant_id}`} className={u.lien} title={`Fiche de ${r.st_nom}`}>
+                          <Link href={`/partenaires/${r.sous_traitant_id}`} className={u.lien} title={`Fiche de ${r.st_nom}`}>
                             Fiche
                           </Link>
                         )}

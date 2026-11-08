@@ -155,7 +155,7 @@ export function TableLitiges({ lignes, listes }: { lignes: Litige[]; listes: Lis
                 </td>
                 <td>
                   {l.sous_traitant_id ? (
-                    <Link href={`/sous-traitants/${l.sous_traitant_id}`} className={u.lien} onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/partenaires/${l.sous_traitant_id}`} className={u.lien} onClick={(e) => e.stopPropagation()}>
                       {l.sous_traitant}
                     </Link>
                   ) : (

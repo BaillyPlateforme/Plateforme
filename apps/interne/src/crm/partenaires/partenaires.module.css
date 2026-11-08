@@ -1,7 +1,41 @@
 /*
- * L'annuaire des sous-traitants et partenaires : les cartes des sociétés, la
- * fiche, et le champ « prestataire » des lettres de voiture.
+ * L'annuaire des partenaires (déménageurs et sociétés) : les cartes, la fiche
+ * d'une société, et le champ « prestataire » des lettres de voiture.
  */
+.groupe {
+  display: grid;
+  gap: 12px;
+}
+.groupeTitre {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 4px 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.groupeTitre small {
+  color: #a7a3b8;
+  letter-spacing: 0.04em;
+}
+.groupeLien {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #4b2fe0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  text-decoration: none;
+}
+.groupeLien:hover {
+  color: #2e1f9e;
+}
 .grille {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
@@ -247,6 +281,11 @@
 .lienAnnuaire[data-lie="oui"] {
   background: #dcf7ea;
   color: #0b7f50;
+  text-decoration: none;
+  pointer-events: auto;
+}
+.lienAnnuaire[data-lie="oui"]:hover {
+  background: #c4f0da;
 }
 .lienAnnuaire[data-lie="non"] {
   background: #f1f0f5;

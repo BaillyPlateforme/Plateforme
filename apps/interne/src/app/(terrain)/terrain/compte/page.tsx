@@ -60,10 +60,11 @@ export default async function Compte() {
           <section className={s.bloc}>
             <p className={s.surtitre}>Bureau</p>
             <p className={s.aide} style={{ marginTop: 0 }}>Vous voyez l&apos;outil tel que le voient les déménageurs, avec tous les chantiers du jour.</p>
-            <a className={s.boutonContour} href="/demenageurs">
+            {/* Une autre mise en page racine : Next recharge la page entière, comme le faisait le lien simple. */}
+            <Link className={s.boutonContour} href="/partenaires?vue=demenageurs">
               <Picto nom="bureau" taille={20} />
               Retour au CRM
-            </a>
+            </Link>
           </section>
         )}
 

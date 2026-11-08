@@ -7,6 +7,7 @@ import { Apercu } from "./Apercu";
 import { ApercuMessage } from "./ApercuMessage";
 import { Cartons } from "./Cartons";
 import { Destinations } from "./Destinations";
+import { EnTeteEspace } from "./EnTeteEspace";
 import { Fiche } from "./Fiche";
 import { Journal } from "./Journal";
 import { Nouveau } from "./Nouveau";
@@ -53,7 +54,7 @@ export function BackOffice({ porte, vue, id }: { porte: Porte; vue: Vue; id?: st
   const [apercu, setApercu] = useState<string | null>(null);
   return (
     <PorteProvider value={porte}>
-      {/* Dans le CRM, l'en-tête et les onglets sont ceux de la section (EnTeteSection) ;
+      {/* Dans le CRM, le bandeau de la section porte les vues (EnTeteEspace) : plus d'onglets dans la page ;
           la démo sans connexion garde les siens. */}
       <div className={porte.demo ? "px-5 py-5 md:px-7 md:py-6" : undefined}>
         {porte.demo && (
@@ -66,6 +67,7 @@ export function BackOffice({ porte, vue, id }: { porte: Porte; vue: Vue; id?: st
             <Onglets vue={vue} />
           </>
         )}
+        {(vue === "dossiers" || vue === "cartons" || vue === "sav") && <EnTeteEspace vue={vue} />}
         <Suspense>
           {vue === "dossiers" && <Apercu />}
           {vue === "nouveau" && <Nouveau ouvrirApercu={setApercu} />}

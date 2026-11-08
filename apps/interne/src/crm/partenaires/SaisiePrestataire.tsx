@@ -34,11 +34,17 @@ export default function SaisiePrestataire({
           </option>
         ))}
       </datalist>
-      {texte.trim() && (
-        <em className={s.lienAnnuaire} data-lie={trouve ? "oui" : "non"} title={trouve ? "Société de l'annuaire" : "Texte libre : ce nom n'est pas dans l'annuaire"}>
-          {trouve ? "Annuaire" : "Libre"}
-        </em>
-      )}
+      {/* Une société de l'annuaire : la pastille ouvre sa fiche (Partenaires), dans un nouvel onglet pour ne pas perdre la saisie. */}
+      {texte.trim() &&
+        (trouve ? (
+          <a className={s.lienAnnuaire} data-lie="oui" href={`/partenaires/${trouve.id}`} target="_blank" rel="noopener" title="Société de l'annuaire : ouvrir sa fiche">
+            Annuaire
+          </a>
+        ) : (
+          <em className={s.lienAnnuaire} data-lie="non" title="Texte libre : ce nom n'est pas dans l'annuaire">
+            Libre
+          </em>
+        ))}
     </span>
   );
 }

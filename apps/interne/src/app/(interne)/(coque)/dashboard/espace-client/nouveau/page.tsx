@@ -4,6 +4,7 @@ import { ouvrirEspaceClient, ouvrirEspaceDepuisDemande } from "@/crm/actions-esp
 import { prealablesEspace } from "@/lib/espace-client/crm";
 import { SEGMENTS, segmentDuCrm } from "@/lib/espace-client/segments";
 import { Carte, LienBouton, Pastille, champ } from "../_composants/socle";
+import EnTeteSection from "../../EnTeteSection";
 
 export const metadata = { title: "Ouvrir un espace — Espace client — Bailly" };
 export const dynamic = "force-dynamic";
@@ -46,6 +47,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
 
   return (
     <div className="space-y-5">
+      {/* Le bandeau de la section : le titre de l'écran et le retour à la liste des espaces. */}
+      <EnTeteSection propre surtitre="Espace client" titre="Ouvrir un espace" texte="Les dossiers de vos clients, de la visite au SAV">
+        <Link href="/dashboard/espace-client" data-ton="contour">
+          Tous les espaces
+        </Link>
+      </EnTeteSection>
       {sp.demande && /^[0-9a-f-]{36}$/i.test(sp.demande) && (
         <Carte titre="Ouvrir l'espace d'une demande du site">
           <p className="text-[13px] text-ink-soft">

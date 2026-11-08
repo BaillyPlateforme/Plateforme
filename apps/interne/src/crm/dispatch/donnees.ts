@@ -111,6 +111,11 @@ export async function plan(id: number): Promise<Plan | null> {
   };
 }
 
+/** Le nombre de plans de dispatch, pour la pilule « Dispatch » des conteneurs. */
+export async function nombrePlans() {
+  return (await q1<{ n: number }>("select count(*)::int as n from dispatch_plans"))?.n ?? 0;
+}
+
 /** Les plans, du plus récemment modifié au plus ancien, avec leurs chiffres et le remplissage de chaque colonne. */
 export async function plans() {
   const rows = await q(`

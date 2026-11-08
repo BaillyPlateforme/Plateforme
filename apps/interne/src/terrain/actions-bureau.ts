@@ -16,7 +16,7 @@ import { changerEquipe, creerAgent, desactiverAgent, reactiverAgent, reinitialis
 type Acces = { identifiant: string; motDePasse: string };
 type Resultat<T = object> = ({ ok: true } & T) | { ok?: false; erreur: string };
 const echec = (e: unknown) => ({ erreur: e instanceof Error ? e.message : "Une erreur est survenue." });
-const PAGE = "/demenageurs";
+const PAGE = "/partenaires";
 
 export async function creerCompte(saisie: NouvelAgent): Promise<Resultat<Acces>> {
   try {

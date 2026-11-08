@@ -6,6 +6,9 @@ import s from "@/crm/dispatch/composants/dispatch.module.css";
 import { plans } from "@/crm/dispatch/donnees";
 import { dateLongue, jauge, m3 } from "@/crm/dispatch/outils";
 import { ilYa } from "@/crm/lib/format";
+import { compteursConteneurs } from "@/crm/conteneurs/donnees";
+import VuesConteneurs from "@/crm/conteneurs/Vues";
+import { BarreBas } from "@/crm/exploitation/ui/Bas";
 import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +17,24 @@ export const metadata = { title: "Dispatch international" };
 /*
  * Les plans de dispatch des conteneurs internationaux (§5 du cahier des
  * charges) : un plan par groupage, avec le remplissage de chaque conteneur.
+ * Depuis la simplification du 08/11/2026, c'est une vue des Conteneurs
+ * (pilules « Conteneurs · Dispatch » du bandeau), plus une entrée du menu.
  */
 export default async function Dispatchs() {
   await currentUser();
-  const liste = await plans();
+  const [liste, n] = await Promise.all([plans(), compteursConteneurs()]);
   return (
     <div className="view">
       <Bandeau
-        surtitre="Exploitation · International"
-        titre="Dispatch des conteneurs"
+        surtitre="Exploitation · Dispatch international"
+        titre="Conteneurs"
         texte="Un conteneur, plusieurs clients, plusieurs destinations : importez la liste, laissez l'IA proposer qui va où, ajustez au glisser-déposer, puis imprimez les feuilles de tournée."
         action={{ label: "Nouveau plan", href: "#nouveau", icone: "plus" }}
-        secondaire={{ label: "Les conteneurs", href: "/conteneurs" }}
+        bas={
+          <BarreBas>
+            <VuesConteneurs vue="dispatch" conteneurs={n.tous} plans={liste.length} />
+          </BarreBas>
+        }
       />
 
       {liste.length > 0 && (
