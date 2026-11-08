@@ -2,6 +2,7 @@ import Link from "next/link";
 import Bandeau, { Etapes } from "@/ui/Bandeau";
 import MenuActions from "@/ui/MenuActions";
 import { notFound } from "next/navigation";
+import { soldeDossier } from "@/crm/facturation/donnees";
 import { getDossier } from "@/crm/lib/data";
 import { q, type Row } from "@/crm/lib/db";
 import { eur, m3, nomClient, STATUTS } from "@/crm/lib/format";
@@ -43,11 +44,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   ]);
   d.telephone2 = client[0]?.telephone2 ?? null;
   const step = STEP_OF[d.statut];
-  // Le solde : ce que le client doit encore. Le plus grand du montant signé et du total facturé, moins les règlements.
-  const montantSigne = d.devis.filter((v: Row) => v.statut === "signe").reduce((a: number, v: Row) => a + Number(v.montant ?? 0), 0);
-  const facture = d.factures.reduce((a: number, f: Row) => a + Number(f.montant ?? 0), 0);
-  const regle = d.paiements.reduce((a: number, x: Row) => a + Number(x.montant ?? 0), 0);
-  const solde = Math.max(0, Math.max(montantSigne, facture) - regle);
+  // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
+  const solde = Math.max(0, (await soldeDossier(id)).reste);
 
   const instant = maintenant();
   const visiteLe = visiteDuSousTitre(data.rdvs, instant);

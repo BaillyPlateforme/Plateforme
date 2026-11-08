@@ -5,6 +5,7 @@ import { q, q1 } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { lireDemande } from "@/lib/espace-client/demandes";
 import { ouvrirEspaceDepuisCrm, renvoyerLienCrm } from "@/lib/espace-client/crm";
+import { projeterEspace } from "@/crm/lib/espace";
 
 /*
  * L'espace client, ouvert depuis le CRM. Un dossier, deux faces : le dossier
@@ -66,6 +67,8 @@ export async function ouvrirEspaceClient(dossierId: number, f: FormData) {
 
   const pays = s(f, "pays");
   const r = await ouvrirEspaceDepuisCrm(dossierId, { pays: pays && /^[A-Z]{2}$/.test(pays) ? pays : null });
+  // Les factures et règlements selon le modèle de la facturation (src/crm/facturation), après la projection d'ouverture.
+  if (r.ok) await projeterEspace(dossierId);
   refresh(dossierId);
   if (!r.ok) redirect(vers(dossierId, "erreur", r.erreur));
   redirect(vers(dossierId, r.deja ? "deja" : r.avertissement ? "avertissement" : "ouvert", r.avertissement));

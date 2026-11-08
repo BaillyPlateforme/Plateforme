@@ -76,7 +76,7 @@ const ANCRES: Record<string, [string, string]> = {
   visite: ["demenagements", "visites"],
   "espace-client": ["commun", "espace"],
   "photos-chantier": ["commun", "documents"],
-  facturation: ["commun", "reglements"],
+  facturation: ["demenagements", "facturation"],
 };
 
 // --- Le contexte de la fiche -----------------------------------------------------------------------------

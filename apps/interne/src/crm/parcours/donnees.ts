@@ -5,6 +5,7 @@ import { getRequestDetail, type RequestDetail } from "@/lib/requests";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { NomIcone } from "@/ui/icones";
 import { etapesDu, type Etape, type Faits } from "./etapes";
+import { soldeDossier } from "@/crm/facturation/donnees";
 
 /*
  * Le parcours d'un dossier : tout ce que les trois faces de Bailly savent de
@@ -74,7 +75,8 @@ const RESUME = `select d.id, d.ref, d.statut, d.request_id, d.cree_le, d.maj_le,
     (select json_build_object('n',count(*),'premier',min(recu_le),'total',coalesce(sum(montant),0)::float8) from paiements where dossier_id=d.id) as paiements,
     (select json_build_object('n',count(*),'livrees',count(*) filter (where statut='livree')) from lettres_voiture where dossier_id=d.id) as lettres,
     (select json_build_object('n',count(*),'payees',count(*) filter (where statut='payee'),'premiere',min(emise_le),'derniere',max(payee_le),
-       'total',coalesce(sum(montant),0)::float8,'impaye',coalesce(sum(montant) filter (where statut<>'payee'),0)::float8) from factures where dossier_id=d.id) as factures,
+       'total',coalesce(sum(montant),0)::float8,'impaye',coalesce(sum(reste),0)::float8) from factures
+       join factures_soldes using (id, dossier_id, genre, statut) where dossier_id=d.id and genre<>'avoir' and statut<>'annulee') as factures,
     (select json_build_object('ouverts',count(*) filter (where statut<>'clos'),'clos',count(*) filter (where statut='clos'),'le',max(ouvert_le))
        from litiges where dossier_id=d.id) as litiges
   from dossiers d join clients c on c.id=d.client_id left join utilisateurs cm on cm.id=d.commercial_id`;
@@ -254,7 +256,7 @@ export async function parcoursDossier(id: number) {
     q("select a.id,a.libelle,a.cree_le,u.nom from activite a left join utilisateurs u on u.id=a.utilisateur_id where a.dossier_id=$1 order by a.cree_le,a.id", [id]),
     q("select id,libelle,montant::float8 as montant,recu_le,session_paiement_id from paiements where dossier_id=$1 order by recu_le,id", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
-    q("select id,numero,objet,montant::float8 as montant,statut,emise_le,payee_le from factures where dossier_id=$1 order by emise_le,id", [id]),
+    q("select id,numero,objet,montant::float8 as montant,statut,genre,emise_le,payee_le from factures where dossier_id=$1 order by emise_le,id", [id]),
     q("select id,objet,statut,ouvert_le,montant::float8 as montant from litiges where dossier_id=$1 order by ouvert_le,id", [id]),
     q1<{ photos: number; objets: number }>("select (select count(*) from photos_chantier where dossier_id=$1)::int as photos, (select count(*) from inventaire where dossier_id=$1)::int as objets", [id]),
   ]);
@@ -428,7 +430,7 @@ export async function parcoursDossier(id: number) {
     const emise = ISO(f.emise_le)!;
     const a = absorber(/^Facture.*émise|^Facture émise/i, emise, { jour: true });
     pousser({ id: `facture-${f.id}`, quand: a ? ISO(a.cree_le)! : emise, jour: !a, titre: `Facture ${f.numero} émise`, detail: `${f.objet} · ${eur(f.montant)}`, auteur: auteurDe(a, "CRM"), famille: "argent", icone: "facture", ...doc });
-    if (f.payee_le) {
+    if (f.payee_le && f.genre !== "avoir" && f.statut !== "annulee") {
       const payee = ISO(f.payee_le)!;
       const b = absorber(/^Facture.*(réglée|payée)/i, payee, { jour: true });
       pousser({ id: `facture-payee-${f.id}`, quand: b ? ISO(b.cree_le)! : payee, jour: !b, titre: `Facture ${f.numero} réglée`, detail: [eur(f.montant), b && /en ligne/i.test(b.libelle) ? "Réglée en ligne" : null].filter(Boolean).join(" · "), auteur: auteurDe(b, "CRM"), famille: "argent", icone: "coche", ton: "ok", ...doc });
@@ -534,25 +536,23 @@ export async function parcoursDossier(id: number) {
   const etapes = etapesDu(faits);
 
   /* ── L'argent ── */
+  // Les chiffres de la facturation (vue crm.dossiers_soldes) : les mêmes que la fiche et la page Factures.
   const signe = devis.find((v) => v.statut === "signe") ?? null;
-  const recu = paiements.reduce((s, p) => s + p.montant, 0);
-  const facture = factures.reduce((s, f) => s + f.montant, 0);
-  const facturesReglees = factures.filter((f) => f.statut === "payee").reduce((s, f) => s + f.montant, 0);
-  const encaisse = recu + facturesReglees;
+  const so = await soldeDossier(id);
   const argent = {
     signe: signe?.montant ?? null,
     arrhesAttendues: signe ? Math.round(signe.montant * 0.3) : null,
-    recu,
-    facture,
-    encaisse,
-    reste: signe ? Math.max(0, signe.montant - encaisse) : factures.filter((f) => f.statut !== "payee").reduce((s, f) => s + f.montant, 0),
+    recu: so.regle,
+    facture: so.facture,
+    encaisse: so.encaisse,
+    reste: Math.max(0, so.reste),
   };
 
   /* ── Les documents ── */
   const documents: Document[] = [
     { cle: "fiche", titre: "Fiche de visite", meta: `${compteurs?.objets ?? 0} objet${(compteurs?.objets ?? 0) > 1 ? "s" : ""} à l'inventaire · PDF`, href: `/imprimer/${id}?doc=fiche`, icone: "questionnaires" },
     ...(devis.length ? [{ cle: "devis", titre: "Proposition de devis", meta: `${devis.length} formule${devis.length > 1 ? "s" : ""} · PDF`, href: `/imprimer/${id}?doc=devis`, icone: "devis" as NomIcone }] : []),
-    ...factures.map((f) => ({ cle: `f${f.id}`, titre: `Facture ${f.numero}`, meta: `${eur(f.montant)} · ${f.statut === "payee" ? "réglée" : "à régler"}`, href: `/imprimer/${id}?doc=facture&f=${f.id}`, icone: "facture" as NomIcone })),
+    ...factures.map((f) => ({ cle: `f${f.id}`, titre: `Facture ${f.numero}`, meta: `${eur(f.montant)} · ${f.genre === "avoir" ? "avoir" : f.statut === "annulee" ? "annulée" : f.statut === "payee" ? "réglée" : "à régler"}`, href: `/imprimer/${id}?doc=facture&f=${f.id}`, icone: "facture" as NomIcone })),
     ...lettres.map((l) => ({ cle: `lv${l.id}`, titre: `Lettre de voiture ${l.numero}`, meta: l.trajet, href: `/imprimer/${id}?doc=lettre&lv=${l.id}`, icone: "camion" as NomIcone })),
     ...(ec?.documents ?? []).map((x) => ({ cle: `ec${x.id}`, titre: x.libelle, meta: `${CATEGORIE_DOC[x.categorie] ?? x.categorie} · déposé par ${x.source === "client" ? "le client" : "l'équipe"}`, href: `/dashboard/espace-client/dossiers/${espace!.id}`, icone: "dossierClient" as NomIcone })),
     ...((compteurs?.photos ?? 0) > 0 ? [{ cle: "photos", titre: "Photos de chantier", meta: `${compteurs!.photos} photo${compteurs!.photos > 1 ? "s" : ""} des déménageurs`, href: fiche, icone: "camion" as NomIcone }] : []),

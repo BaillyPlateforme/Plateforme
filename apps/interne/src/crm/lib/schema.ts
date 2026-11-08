@@ -16,6 +16,7 @@ import { SCHEMA_VISITES } from "@/crm/visites/schema";
 import { SCHEMA_FICHE } from "@/crm/fiche/schema";
 import { SCHEMA_RELANCES } from "@/crm/relances/schema";
 import { SCHEMA_ALERTES } from "@/crm/alertes/schema";
+import { SCHEMA_FACTURATION } from "@/crm/facturation/schema";
 
 export const SCHEMA = `
 create schema if not exists crm;
@@ -328,4 +329,5 @@ alter table crm.modeles_dossier enable row level security;
 ${SCHEMA_VISITES}
 ${SCHEMA_FICHE}
 ${SCHEMA_RELANCES}
-${SCHEMA_ALERTES}`;
+${SCHEMA_ALERTES}
+${SCHEMA_FACTURATION}`;

@@ -116,10 +116,12 @@ async function candidats(): Promise<Candidat[]> {
 
   // Solde : une facture du CRM qui n'est pas réglée (les arrhes passent par les paiements).
   const factures = await q<Client & { id: number; dossier_id: number; ref: string; dstatut: string; numero: string; montant: number; emise_le: Date; date_livraison: Date | null; statut: string }>(
-    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, f.montant::float8 as montant, f.emise_le, f.statut,
+    // Le montant relancé est le reste à payer réel de la facture (paiements partiels déduits) ; ni avoir ni facture annulée.
+    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, s.reste::float8 as montant, f.emise_le,
+            case when f.statut = 'annulee' then 'payee' else f.statut end as statut,
             c.type as segment, c.nom, c.prenom, c.societe
-       from factures f join dossiers d on d.id = f.dossier_id join clients c on c.id = d.client_id
-      where f.statut <> 'payee' or f.id::text in (select split_part(cle, ':', 2) from relances where type='solde')`,
+       from factures f join factures_soldes s on s.id = f.id join dossiers d on d.id = f.dossier_id join clients c on c.id = d.client_id
+      where f.genre <> 'avoir' and (s.reste > 0 or f.id::text in (select split_part(cle, ':', 2) from relances where type='solde'))`,
   );
   for (const f of factures) {
     out.push({

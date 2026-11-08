@@ -15,12 +15,12 @@ import { libelleStatut, type StatutEnvoi } from "@/lib/envois";
 import { hhmmParis, jourParis, plageVisite } from "@/lib/visite/regles";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
 import * as F from "./actions";
+import CarteFacturation from "@/crm/facturation/CarteFacturation";
 import type { FicheDonnees } from "./donnees";
 import {
   FenetreAdresses,
   FenetreContact,
   FenetreCopieRdv,
-  FenetreFacture,
   FenetreIdentite,
   FenetreInventaire,
   FenetreLettre,
@@ -488,14 +488,13 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     apres: signe ? (
       <p className="sub" style={{ margin: 0 }}>
         Arrhes 30 % : <b>{eur(Math.round(signe.montant * 0.3))}</b>
-        {totalArrhes > 0 ? ` · reçues : ${eur(totalArrhes)}` : " · pas encore reçues (onglet Factures arrhes)"}
+        {totalArrhes > 0 ? ` · reçues : ${eur(totalArrhes)}` : " · pas encore reçues (onglet Facturation)"}
       </p>
     ) : undefined,
   };
 
   // --- Déménagements : la commande, sa planification et ses lettres de voiture.
   fenetres.planifier = { surtitre: `Dossier ${d.ref}`, titre: "Planification du déménagement", contenu: <FenetrePlanifier d={d} /> };
-  fenetres["facture-nouvelle"] = { surtitre: `Dossier ${d.ref}`, titre: "Émettre une facture", contenu: <FenetreFacture d={d} /> };
   const lignesLv: Ligne[] = d.lettres.map((l: Row) => {
     fenetres[`lettre-${l.id}`] = { surtitre: `Lettre de voiture · ${LV_ST[l.statut]?.[0] ?? l.statut}`, titre: l.numero, contenu: <FenetreLettre d={d} l={l} />, large: true };
     return {
@@ -603,7 +602,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         d.type === "compte"
           ? off("Client « compte » : pas de facture ni de paiement en ligne côté client (parcours dédié).")
           : apresCommande
-            ? { aller: { section: "demenagements", onglet: "factures-client", fenetre: "facture-nouvelle" } }
+            ? { aller: { section: "demenagements", onglet: "facturation" } }
             : off("Le dossier n'est pas encore en commande."),
       signer: off("La signature des lettres de voiture n'existe pas encore dans le CRM."),
       conteneur: { lien: "/conteneurs" },
@@ -655,55 +654,21 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     ) : undefined,
   };
 
-  // --- Factures arrhes : les arrhes reçues (le CRM n'édite pas encore de facture d'acompte).
-  const nouveauArrhes: Geste = !signe
-    ? off("Pas de devis signé.")
-    : totalArrhes > 0
-      ? off("Les arrhes sont déjà enregistrées.")
-      : { action: A.enregistrerArrhes.bind(null, id), confirmer: `Enregistrer ${eur(Math.round(signe.montant * 0.3))} ?` };
-  const arrhesOnglet: Onglet = {
-    cle: "factures-arrhes",
-    libelle: "Factures arrhes",
-    compte: arrhes.length,
-    colonnes: [{ libelle: "Règlement" }, { libelle: "Reçu le" }, { libelle: "Montant", num: true }, { libelle: "État" }],
-    lignes: arrhes.map((p: Row) => ({
-      id: `p${p.id}`,
-      tri: ms(p.recu_le) || p.id,
-      cellules: [<b key="l">{p.libelle}</b>, jj(p.recu_le), <b key="m">{eur(p.montant)}</b>, <Etat key="e" v={["Reçu", "g"]} />],
-    })),
-    vide: (
-      <>
-        <b>Aucunes arrhes reçues</b>
-        {signe ? `Arrhes 30 % : ${eur(Math.round(signe.montant * 0.3))}.` : "Les arrhes se demandent une fois un devis signé."}
-      </>
-    ),
-    gestes: { nouveau: nouveauArrhes, imprimer: off("Le CRM n'édite pas encore de facture d'acompte.") },
-    libelles: { nouveau: "Encaisser" },
-    apres: <Encaissement nouveau={nouveauArrhes} signe={signe} />,
-  };
-
-  // --- Factures client : celles du déménagement (celles du garde-meuble sont dans leur section).
-  const nouvelleFacture: Geste =
-    d.type === "compte"
-      ? off("Client « compte » : pas de facture ni de paiement en ligne côté client (parcours dédié).")
-      : !apresCommande
-        ? off("Le dossier n'est pas encore en commande.")
-        : { fenetre: "facture-nouvelle" };
-  const facturesOnglet: Onglet = {
-    cle: "factures-client",
-    libelle: "Factures client",
-    compte: facturesDem.length,
-    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Payée le" }],
-    lignes: facturesDem.map((f: Row) => ligneFacture(id, f, true)),
-    vide: (
-      <>
-        <b>Aucune facture</b>
-        {apresCommande ? "« Nouveau » émet la facture du déménagement." : "La facture s'émet une fois le dossier en commande."}
-      </>
-    ),
-    // EMPLACEMENT · FACTURATION : la fenêtre « facture-nouvelle » (fenetres.tsx, FenetreFacture) porte le formulaire actuel ;
-    // le formulaire complet du module de facturation la remplace à la fusion.
-    gestes: { nouveau: nouvelleFacture },
+  // --- Facturation : le module d'encaissement et de facturation (src/crm/facturation) — règlements,
+  // factures d'arrhes, de solde et libres, avoirs, client payeur, situation du dossier. La carte lit ses
+  // données elle-même et porte ses fenêtres ; `?encaisser=arrhes#facturation` ouvre l'encaissement.
+  const facturationOnglet: Onglet = {
+    cle: "facturation",
+    libelle: "Facturation",
+    compte: facturesDem.length + d.paiements.length,
+    colonnes: [],
+    lignes: [],
+    vide: null,
+    gestes: {
+      nouveau: off("Encaisser et facturer : les boutons de la carte ci-dessous."),
+      imprimer: off("Chaque facture s'imprime depuis sa ligne, dans la carte ci-dessous."),
+    },
+    avant: <CarteFacturation dossierId={id} />,
   };
 
   // --- Litiges
@@ -731,7 +696,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     gestes: { nouveau: { fenetre: "litige-nouveau" } },
   };
 
-  const parStatut: Record<string, string> = { prospect: "visites", visite: "visites", devis: "devis", perdu: "devis", commande: "demenagements", planifie: "demenagements", termine: facturesDem.length ? "factures-client" : "demenagements" };
+  const parStatut: Record<string, string> = { prospect: "visites", visite: "visites", devis: "devis", perdu: "devis", commande: "demenagements", planifie: "demenagements", termine: facturesDem.length ? "facturation" : "demenagements" };
   return {
     cle: "demenagements",
     titre: "Déménagements",
@@ -739,31 +704,10 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     // Le trajet est dans le bandeau : ici, ce que le bandeau ne montre plus (type, commercial, qui traite le dossier).
     resume: [TYPE_D[d.type_demenagement] ?? "National", `Commercial : ${d.commercial ?? "—"}`, `Traité par : ${d.traite_par ?? "—"}`].join(" · "),
     outils: [O.nouveau, O.modifier, O.copier, O.confirmer, O.imprimer, O.transfert, O.signer],
-    onglets: [visitesOnglet, devisOnglet, lvOnglet, arrhesOnglet, facturesOnglet, litigesOnglet],
+    onglets: [visitesOnglet, devisOnglet, lvOnglet, facturationOnglet, litigesOnglet],
     ongletParDefaut: parStatut[d.statut] ?? "visites",
     ouverteParDefaut: true,
   };
-}
-
-/** L'emplacement de l'encaissement : l'action existante, en attendant le module d'encaissement. */
-function Encaissement({ nouveau, signe }: { nouveau: Geste; signe?: Row }) {
-  return (
-    // EMPLACEMENT · ENCAISSEMENT : le composant d'encaissement (montant libre, mode de règlement, banque, n° de chèque, date) se branche ici à la fusion.
-    <div className={s.emplacement} data-emplacement="encaissement">
-      <div>
-        <b>Encaissement</b>
-        <br />
-        {signe ? `Arrhes 30 % de la formule signée : ${eur(Math.round(signe.montant * 0.3))}.` : "Pas de devis signé."}
-      </div>
-      {"action" in nouveau ? (
-        <form action={nouveau.action}>
-          <button className="btn primary sm">Enregistrer l’encaissement</button>
-        </form>
-      ) : (
-        <span className="sub">{"off" in nouveau ? nouveau.off : ""}</span>
-      )}
-    </div>
-  );
 }
 
 /** Une facture en ligne de tableau. `reglable` : une facture du déménagement (« Payée » termine le dossier planifié). */
@@ -1002,14 +946,8 @@ function services(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionF
 function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFiche {
   const { d, data } = c;
   const id = d.id as number;
-  const signe = d.devis.find((v: Row) => v.statut === "signe");
   const totalRegle = d.paiements.reduce((a: number, p: Row) => a + Number(p.montant ?? 0), 0);
-  const arrhesRecues = d.paiements.some((p: Row) => /arrhes/i.test(p.libelle));
-  const nouveauReglement: Geste = !signe
-    ? off("Pas de devis signé.")
-    : arrhesRecues
-      ? off("Les arrhes sont déjà enregistrées ; les autres règlements arrivent avec le module d'encaissement.")
-      : { action: A.enregistrerArrhes.bind(null, id), confirmer: `Enregistrer ${eur(Math.round(signe.montant * 0.3))} ?` };
+  const versFacturation: Geste = { aller: { section: "demenagements", onglet: "facturation" } };
   const lectureSeule = off("Journal en lecture seule.");
 
   // Règlements
@@ -1029,7 +967,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
       },
     })),
     vide: <b>Aucun règlement reçu.</b>,
-    gestes: { nouveau: nouveauReglement, imprimer: off("Pas encore de reçu imprimable."), signer: off("Sans objet pour un règlement.") },
+    gestes: { nouveau: versFacturation, imprimer: off("Pas encore de reçu imprimable."), signer: off("Sans objet pour un règlement.") },
     avant: (
       <div className={s.ligneInfos} style={{ padding: "2px 4px" }}>
         <span>
@@ -1042,7 +980,6 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
         </span>
       </div>
     ),
-    apres: <Encaissement nouveau={nouveauReglement} signe={signe} />,
   };
 
   // Factures (déménagement et garde-meuble)
@@ -1057,7 +994,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
       return { ...l, cellules: [l.cellules[0], <span key="o"><span className={s.long}>{f.objet}</span><small>{f.origine}</small></span>, ...l.cellules.slice(2)], gestes: { ...l.gestes, supprimer: off("Une facture émise ne se supprime pas.") } };
     }),
     vide: <b>Aucune facture.</b>,
-    gestes: { nouveau: { aller: { section: "demenagements", onglet: "factures-client" } } },
+    gestes: { nouveau: versFacturation },
   };
 
   // Contacts : le client lui-même, puis les autres personnes à joindre.

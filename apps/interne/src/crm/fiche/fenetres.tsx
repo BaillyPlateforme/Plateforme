@@ -435,26 +435,6 @@ export function FenetrePlanifier({ d }: { d: Row }) {
   );
 }
 
-/** Émettre une facture (le formulaire de l'ancienne fiche). */
-export function FenetreFacture({ d }: { d: Row }) {
-  return (
-    // EMPLACEMENT · FACTURATION : le formulaire complet du module de facturation se branche ici à la fusion.
-    <form action={A.emettreFacture.bind(null, d.id)} data-emplacement="facturation">
-      <div className={s.grille}>
-        <Champ l={8} titre="Objet">
-          <input type="text" name="objet" defaultValue="Solde du déménagement" />
-        </Champ>
-        <Champ l={4} titre="Montant" aide="vide = solde automatique">
-          <input type="number" step="1" name="montant" />
-        </Champ>
-      </div>
-      <div className={s.pied}>
-        <Valider>Émettre la facture</Valider>
-      </div>
-    </form>
-  );
-}
-
 /** Copier une visite : le même rendez-vous, à une autre date. */
 export function FenetreCopieRdv({ d, r, jour, heure }: { d: Row; r: Row; jour: string; heure: string }) {
   return (

@@ -249,8 +249,12 @@ export async function emettreFacture(id: number, f: FormData) {
   await log(id, "Facture émise"); refresh(id);
 }
 export async function facturePayee(id: number, facture: number) {
-  await exiger();
-  await q("update factures set statut='payee', payee_le=current_date where id=$1", [facture]);
+  const u = await exiger();
+  // Le reste de la facture devient un règlement (mode non précisé), comme dans la facturation (src/crm/facturation).
+  await q(`insert into paiements(dossier_id, libelle, montant, nature, facture_id, saisi_par)
+      select f.dossier_id, 'Règlement · facture ' || f.numero || ' marquée réglée', s.reste, 'reglement', f.id, $2
+        from factures f join factures_soldes s on s.id = f.id where f.id = $1 and s.reste > 0`, [facture, u.id]);
+  await q("update factures set statut='payee', payee_le=current_date where id=$1 and statut not in ('payee','annulee')", [facture]);
   await q("update dossiers set statut='termine' where id=$1 and statut='planifie'", [id]);
   await log(id, "Facture réglée · dossier terminé"); refresh(id);
 }
