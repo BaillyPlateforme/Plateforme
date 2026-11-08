@@ -81,7 +81,7 @@ export function FenetreIdentite({ d, espaceOuvert }: { d: Row; espaceOuvert: boo
       </div>
       <div className={s.pied}>
         <p>
-          Client n° {d.client_id} · dossier {d.ref}
+          <Link href={`/clients/${d.client_id}`}>Client n° {d.client_id}</Link> · dossier {d.ref}
         </p>
         <Valider>Enregistrer la fiche</Valider>
       </div>

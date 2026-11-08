@@ -161,7 +161,7 @@ export function construireFiche(c: Contexte) {
   const memo: Memo | null = d.observations || drapeaux.length ? { texte: d.observations ?? null, drapeaux, fenetre: "suivi" } : null;
 
   const identite = (
-    <span className={s.repere} title={`Client n° ${d.client_id}`}>
+    <Link href={`/clients/${d.client_id}`} className={s.repere} title={`Ouvrir la fiche du client n° ${d.client_id} : tous ses dossiers`}>
       <i>{initiales(nomClient(d) || "?")}</i>
       <span>
         <b>Client n° {d.client_id}</b>
@@ -169,7 +169,7 @@ export function construireFiche(c: Contexte) {
           {TYPES[d.type] ?? d.type} · {d.ref}
         </small>
       </span>
-    </span>
+    </Link>
   );
 
   // Une page revenue avec un message (visite, espace client) : l'onglet concerné d'abord.
@@ -1036,7 +1036,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
       tri: 0,
       cellules: [
         <span key="n">
-          <b>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ") || nomClient(d)}</b>
+          <b><Link href={`/clients/${d.client_id}`}>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ") || nomClient(d)}</Link></b>
           <small>Contact principal</small>
         </span>,
         d.societe ?? TYPES[d.type] ?? "Client",

@@ -73,6 +73,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       <Bandeau
         surtitre={`Dossier ${d.ref}`}
         titre={nomClient(d)}
+        titreHref={`/clients/${d.client_id}`}
         texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, periodeDuSousTitre(d), visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
         // Le statut seul : sur une ligne, les pastilles ne rétrécissent pas et effaçaient le téléphone et le trajet.
         // Le segment est sur le repère du client, le type, le commercial et « traité par » en tête de la section
@@ -133,7 +134,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
 
       {/* La discussion avec le client, quand il a un espace : repliée, ouverte d'elle-même s'il a écrit sans réponse. */}
-      {espace[0] && <FilClient dossierId={espace[0].id} client={nomClient(d)} />}
+      {espace[0] && <FilClient dossierId={espace[0].id} client={nomClient(d)} liens={[{ href: `/clients/${d.client_id}`, libelle: "Fiche client" }]} />}
 
       <Fiche dossierId={id} {...fiche} />
     </div>

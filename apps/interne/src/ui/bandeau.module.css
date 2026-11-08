@@ -95,6 +95,18 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.titreLien {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+  transition: text-decoration-color 0.15s;
+}
+.titreLien:hover,
+.titreLien:focus-visible {
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
 .ligne {
   display: flex;
   align-items: center;

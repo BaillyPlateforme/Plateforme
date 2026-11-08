@@ -78,6 +78,22 @@ export async function sourcesCreation(utilisateurId: number) {
   return { monDernier: mien ? versSource(mien) : null, dernierAgence: agence ? versSource(agence) : null, modeles };
 }
 
+/**
+ * Un client du CRM à rattacher d'emblée (`?client=<id>`, « Nouveau dossier
+ * pour ce client » depuis sa fiche) : son identité et son dernier dossier,
+ * comme un client reconnu pendant la saisie.
+ */
+export async function clientARattacher(id: number): Promise<ClientConnu | null> {
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  const c = await q1(`select c.*, (select count(*)::int from dossiers where client_id = c.id) as nb from clients c where c.id = $1`, [id]);
+  if (!c) return null;
+  const dernier = await q1(`${DOSSIER} where d.client_id = $1 order by d.cree_le desc, d.id desc limit 1`, [id]);
+  return {
+    id: c.id, type: c.type, civilite: c.civilite, prenom: c.prenom, nom: c.nom, societe: c.societe,
+    email: c.email, telephone: c.telephone, par: "email", nbDossiers: c.nb, dernier: dernier ? versSource(dernier) : null,
+  };
+}
+
 /* ---------- les repères de la saisie ---------- */
 
 /**

@@ -12,6 +12,7 @@ import BoutonRetour from "./BoutonRetour";
 export default function Bandeau({
   surtitre,
   titre,
+  titreHref,
   texte,
   action,
   secondaire,
@@ -21,6 +22,8 @@ export default function Bandeau({
 }: {
   surtitre: string;
   titre: string;
+  /** Le titre mène quelque part (le nom du client d'un dossier : sa fiche). */
+  titreHref?: string;
   texte?: React.ReactNode;
   action?: { label: string; href: string; icone?: NomIcone };
   secondaire?: { label: string; href: string };
@@ -61,7 +64,15 @@ export default function Bandeau({
             <BoutonRetour />
             {surtitre}
           </p>
-          <h1 className={s.titre}>{titre}</h1>
+          <h1 className={s.titre}>
+            {titreHref ? (
+              <Link href={titreHref} className={s.titreLien} prefetch={false}>
+                {titre}
+              </Link>
+            ) : (
+              titre
+            )}
+          </h1>
           {(texte || (etiquettes && etiquettes.some(Boolean))) && (
             <div className={s.ligne}>
               {texte && <p className={s.texte}>{texte}</p>}

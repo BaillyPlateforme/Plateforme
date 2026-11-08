@@ -1,0 +1,1501 @@
+/*
+ * Les clients : la liste (/clients) et la fiche d'un client (/clients/<id>),
+ * dans le design en vigueur — indigo #4b2fe0, indigo profond #2e1f9e,
+ * violet #7a52ff, vert #14c27d, ambre #f59e0b, ciel #0ea5e9, fond #f4f4f7,
+ * filet #e8e6ef. Cartes blanches arrondies, ombres douces, chiffres
+ * tabulaires. Le bandeau commun (ui/Bandeau) n'est pas touché.
+ */
+
+.liste,
+.fiche {
+  --indigo: #4b2fe0;
+  --profond: #2e1f9e;
+  --violet: #7a52ff;
+  --vert: #14c27d;
+  --ambre: #f59e0b;
+  --ciel: #0ea5e9;
+  --rose: #e1306c;
+  --filet: #e8e6ef;
+  --encre: #17142b;
+  --doux: #6f6c80;
+  --pale: #9a97ae;
+  --lavande: #f4f1ff;
+  --ombre: 0 1px 0 rgba(23, 20, 43, 0.03), 0 18px 40px -30px rgba(46, 31, 158, 0.38);
+  color: var(--encre);
+}
+
+/* ─────────── Les filtres de la bande ─────────── */
+
+.filtres {
+  max-width: 100%;
+}
+.recherche.recherche {
+  flex-basis: 330px;
+}
+.tri {
+  margin-left: auto;
+}
+
+/* ─────────── La liste ─────────── */
+
+.liste {
+  --colonnes: minmax(220px, 1.45fr) minmax(200px, 1.25fr) minmax(178px, 1.05fr) 104px 118px minmax(128px, 0.8fr) 92px 34px;
+  overflow: hidden;
+  border: 1px solid var(--filet);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--ombre);
+}
+.tete,
+.ligne {
+  display: grid;
+  grid-template-columns: var(--colonnes);
+  align-items: center;
+  column-gap: 16px;
+  padding: 0 18px 0 20px;
+}
+.tete {
+  height: 46px;
+  border-bottom: 1px solid var(--filet);
+  background: linear-gradient(180deg, #fbfaff, #fff);
+  color: var(--pale);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.num {
+  text-align: right;
+  justify-self: end;
+}
+.lignes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ligne {
+  position: relative;
+  min-height: 74px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1eff7;
+  transition: background-color 0.16s;
+  animation: entree 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+.ligne:last-child {
+  border-bottom: 0;
+}
+.ligne::before {
+  /* Le filet indigo de la ligne survolée, à gauche. */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(180deg, var(--indigo), var(--violet));
+  opacity: 0;
+  transform: scaleY(0.4);
+  transition: opacity 0.16s, transform 0.2s;
+}
+.ligne:hover {
+  background: linear-gradient(90deg, #f7f5ff, #fdfcff 60%);
+}
+.ligne:hover::before {
+  opacity: 1;
+  transform: none;
+}
+@keyframes entree {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ligne {
+    animation: none;
+  }
+}
+
+/* Qui : l'avatar teinté par type, le nom (le lien de toute la ligne), la pastille du type. */
+.qui {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.avatar {
+  --t: var(--indigo);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(135deg, color-mix(in srgb, var(--t) 78%, #fff), var(--t));
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--t) 90%, #000), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.avatar[data-teinte="ciel"] {
+  --t: var(--ciel);
+}
+.avatar[data-teinte="vert"] {
+  --t: #0fa86b;
+}
+.avatar[data-teinte="violet"] {
+  --t: var(--violet);
+}
+.avatar[data-teinte="ambre"] {
+  --t: #e98a00;
+}
+.quiTexte {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.nom {
+  overflow: hidden;
+  color: var(--encre);
+  font-size: 14.5px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.nom::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.ligne:hover .nom {
+  color: var(--profond);
+}
+.nom:focus-visible {
+  outline: none;
+}
+.nom:focus-visible::after {
+  outline: 2px solid var(--indigo);
+  outline-offset: -3px;
+  border-radius: 4px;
+}
+.sous {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.sousTexte {
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Coordonnées : un clic appelle ou écrit (au-dessus du lien de la ligne). */
+.coord {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.contact {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  width: fit-content;
+  padding: 2px 8px 2px 6px;
+  margin-left: -6px;
+  border-radius: 8px;
+  color: #3b3753;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.contact svg {
+  flex: none;
+  color: var(--pale);
+  transition: color 0.15s;
+}
+.contact span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+a.contact:hover {
+  background: #ece8ff;
+  color: var(--profond);
+}
+a.contact:hover svg {
+  color: var(--indigo);
+}
+.manque {
+  color: #c0bdd0;
+  font-size: 12.5px;
+  font-style: italic;
+}
+
+/* Dossiers : combien, l'étape du dernier, son commercial. */
+.dossiers {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.dossiersHaut {
+  color: var(--doux);
+  font-size: 12.5px;
+}
+.dossiersHaut b {
+  color: var(--encre);
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.dossiersHaut em {
+  color: var(--indigo);
+  font-style: normal;
+  font-weight: 650;
+}
+.dossiersBas {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.dossiersBas small {
+  color: var(--pale);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Montants. */
+.montant {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.montant[data-ton="du"] {
+  color: var(--rose);
+}
+.zero {
+  color: #c0bdd0;
+  font-weight: 600;
+  font-size: 13px;
+}
+.relance {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fff4e0;
+  color: #b26b00;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+/* Espace client : une pastille d'état. */
+.espace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #3b3753;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.espace span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.espace i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9d6e4;
+}
+.espace[data-etat="vu"] i {
+  background: var(--vert);
+  box-shadow: 0 0 0 4px rgba(20, 194, 125, 0.16);
+}
+.espace[data-etat="jamais"] i {
+  background: var(--ambre);
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+.espace[data-etat="aucun"] {
+  color: #c0bdd0;
+}
+.espace[data-etat="aucun"] i {
+  display: none;
+}
+
+.activite {
+  color: var(--doux);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.aller {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #f4f2fb;
+  color: var(--pale);
+  transition: background-color 0.16s, color 0.16s, transform 0.16s;
+}
+.ligne:hover .aller {
+  background: var(--indigo);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+.vide {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 64px 20px 72px;
+  color: var(--doux);
+  text-align: center;
+}
+.vide i {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--lavande);
+  color: var(--violet);
+}
+.vide b {
+  color: var(--encre);
+  font-size: 15px;
+}
+.vide a {
+  color: var(--indigo);
+  font-weight: 700;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--filet);
+  background: #fcfbff;
+  color: var(--doux);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.pagination div {
+  display: flex;
+  gap: 4px;
+}
+.pageLien {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: #3b3753;
+  font-weight: 700;
+  text-decoration: none;
+}
+a.pageLien:hover {
+  background: #ece8ff;
+  color: var(--profond);
+}
+.pageLien[aria-current="page"] {
+  background: var(--indigo);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(75, 47, 224, 0.9);
+}
+.pageLien[aria-disabled] {
+  color: #d3d0de;
+}
+
+/* Écrans plus étroits : l'activité, puis le CA et l'espace client, s'effacent (l'ordre des colonnes : voir la page). */
+@media (max-width: 1360px) {
+  .liste {
+    --colonnes: minmax(210px, 1.4fr) minmax(190px, 1.2fr) minmax(170px, 1fr) 96px 112px minmax(118px, 0.75fr) 30px;
+  }
+  .tete > :nth-child(7),
+  .ligne > :nth-child(7) {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .liste {
+    --colonnes: minmax(200px, 1.3fr) minmax(180px, 1.2fr) minmax(160px, 1fr) 108px 30px;
+  }
+  .tete > :nth-child(4),
+  .tete > :nth-child(6),
+  .ligne > :nth-child(4),
+  .ligne > :nth-child(6) {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════ La fiche d'un client ═══════════════════════════ */
+
+.fiche {
+  display: grid;
+  gap: 18px;
+}
+/* La fiche mord sur la rangée du bas de la bande, vide ici (la règle commune donne 34 px). */
+.dessus.dessus {
+  margin-top: -76px;
+}
+/* Sous le titre de l'identité : l'enregistrement fait et les doublons, avant les champs. */
+.flash,
+.doublons {
+  margin-bottom: 16px;
+}
+
+/* Le texte de la bande : contact, téléphone et e-mail, cliquables. */
+.bandeTexte {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+.bandeTexte > * + *::before {
+  content: "·";
+  margin: 0 9px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.bandeTexte a {
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.3);
+  text-underline-offset: 4px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.bandeTexte a:hover {
+  color: #fff;
+  text-decoration-color: #fff;
+}
+
+.flash {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 16px;
+  border-radius: 14px;
+  background: #e8f9f1;
+  border: 1px solid #bfeedb;
+  color: #0b7a4f;
+  font-size: 13.5px;
+  font-weight: 650;
+  animation: entree 0.4s both;
+}
+
+/* ─────────── Les doublons possibles : une ligne discrète, dépliable ─────────── */
+
+.doublons {
+  border: 1px solid #f6e3bd;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #fffaf0, #fff 70%);
+}
+.doublons summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  color: #8a5a00;
+  font-size: 13px;
+  list-style: none;
+  cursor: pointer;
+}
+.doublons summary::-webkit-details-marker {
+  display: none;
+}
+.doublons summary > svg:first-child {
+  color: var(--ambre);
+}
+.doublons summary b {
+  font-weight: 750;
+}
+.doublons summary span {
+  color: #a58a5a;
+}
+.doublonsChevron {
+  margin-left: auto;
+  color: #c9a66a;
+  transition: transform 0.2s;
+}
+.doublons[open] .doublonsChevron {
+  transform: rotate(180deg);
+}
+.doublons ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0 12px 12px;
+  list-style: none;
+}
+.doublons a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #f1e6cf;
+  color: var(--encre);
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.doublons a:hover {
+  border-color: #e9c77f;
+  box-shadow: 0 10px 22px -16px rgba(180, 120, 0, 0.6);
+}
+.doublons a > svg {
+  margin-left: auto;
+  color: #c9a66a;
+}
+.doublonAvatar {
+  composes: avatar;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.doublonTexte {
+  display: grid;
+  min-width: 0;
+}
+.doublonTexte b {
+  font-size: 13.5px;
+}
+.doublonTexte small {
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 11.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ─────────── Une section ─────────── */
+
+.section {
+  scroll-margin-top: 184px;
+  padding: 20px 22px 22px;
+  border: 1px solid var(--filet);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--ombre);
+}
+.sectionTete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.sectionIcone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f1edff, #e7e0ff);
+  color: var(--indigo);
+}
+.sectionTitres {
+  flex: 1;
+  min-width: 0;
+}
+.sectionTitres h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+}
+.sectionTitres p {
+  margin: 2px 0 0;
+  color: var(--doux);
+  font-size: 13px;
+}
+.sectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Les boutons de la fiche. */
+.boutonClair,
+.boutonPlein,
+.boutonDiscret,
+.boutonIcone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 11px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.boutonClair {
+  border: 1px solid #e3dff2;
+  background: #fff;
+  color: var(--profond);
+}
+.boutonClair:hover {
+  border-color: #c9bdfb;
+  background: var(--lavande);
+}
+.boutonClair svg {
+  color: var(--indigo);
+}
+.boutonPlein {
+  border: 0;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  color: #fff;
+  box-shadow: 0 10px 22px -12px rgba(75, 47, 224, 0.9);
+}
+.boutonPlein:hover {
+  box-shadow: 0 12px 26px -10px rgba(75, 47, 224, 0.95);
+}
+.boutonPlein:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.boutonDiscret {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--pale);
+}
+.boutonDiscret:hover {
+  background: #fdecf2;
+  color: var(--rose);
+}
+.boutonIcone {
+  width: 36px;
+  padding: 0;
+  border: 1px solid #e3dff2;
+  background: #fff;
+  color: var(--indigo);
+}
+.boutonIcone:hover {
+  border-color: #c9bdfb;
+  background: var(--lavande);
+}
+.videSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px dashed #e1ddee;
+  border-radius: 14px;
+  background: #fcfbff;
+  color: var(--doux);
+  font-size: 13.5px;
+}
+.videSection svg {
+  flex: none;
+  color: #b9b2d6;
+}
+.lienDoux {
+  color: var(--encre);
+  text-decoration: underline;
+  text-decoration-color: #d4ccf5;
+  text-underline-offset: 3px;
+}
+.lienDoux:hover {
+  color: var(--indigo);
+  text-decoration-color: var(--indigo);
+}
+.lienFort {
+  color: var(--encre);
+  font-weight: 750;
+  text-decoration: none;
+}
+.lienFort:hover {
+  color: var(--indigo);
+}
+
+/* ─────────── Identité et contacts ─────────── */
+
+.identite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.05fr);
+}
+.identite > * {
+  padding: 0 22px;
+}
+.identite > * + * {
+  border-left: 1px solid #f0eef6;
+}
+.identite > :first-child {
+  padding-left: 4px;
+}
+.identite > :last-child {
+  padding-right: 4px;
+}
+.faits {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  margin: 0;
+}
+.groupeTitre {
+  margin: 6px 0 0;
+  color: var(--violet);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.groupeTitre:first-child {
+  margin-top: 0;
+}
+.fait {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+.fait[data-large] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fait[data-large] dt {
+  display: none;
+}
+.fait dt {
+  color: var(--pale);
+  font-size: 12.5px;
+}
+.fait dd {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+}
+/* Une adresse e-mail longue : coupée en bout de ligne, entière au survol (title). */
+.fait dd a {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.aide {
+  color: var(--pale);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.notes {
+  color: #3b3753;
+  font-weight: 500;
+  white-space: pre-line;
+}
+
+.contacts {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.contactsTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lienAjout {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--indigo);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.lienAjout:hover {
+  text-decoration: underline;
+}
+.contactsVide {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fbfaff;
+  color: var(--doux);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.contactsListe {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.contactsListe li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px 8px 10px;
+  border-radius: 12px;
+  background: #fbfaff;
+}
+.contactAvatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ece8ff;
+  color: var(--profond);
+  font-size: 11px;
+  font-weight: 800;
+}
+.contactTexte {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.contactTexte b {
+  font-size: 13.5px;
+}
+.contactTexte em {
+  color: var(--doux);
+  font-style: normal;
+  font-weight: 550;
+}
+.contactTexte small {
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.contactForm {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fbfaff;
+  border: 1px solid #ece8f8;
+}
+
+/* Le formulaire : une grille de 12. */
+.formulaire {
+  display: grid;
+  gap: 16px;
+}
+.formulaire fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.formulaire legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--violet);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.grille {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+.champ {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.champ[data-l="2"] {
+  grid-column: span 2;
+}
+.champ[data-l="3"] {
+  grid-column: span 3;
+}
+.champ[data-l="4"] {
+  grid-column: span 4;
+}
+.champ[data-l="6"] {
+  grid-column: span 6;
+}
+.champ[data-l="8"] {
+  grid-column: span 8;
+}
+.champ[data-l="12"] {
+  grid-column: span 12;
+}
+.champ > span {
+  color: #4a475c;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.champ small {
+  color: var(--pale);
+  font-weight: 500;
+}
+.champ input,
+.champ select,
+.champ textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #e1ddee;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--encre);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.champ textarea {
+  resize: vertical;
+}
+.champ input:focus,
+.champ select:focus,
+.champ textarea:focus {
+  outline: 0;
+  border-color: #b6a6ff;
+  box-shadow: 0 0 0 3px #ece8ff;
+}
+.champ input[readonly] {
+  background: #f7f6fb;
+  color: var(--doux);
+}
+.pied {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+.erreur {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fdecf2;
+  color: #b4194f;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* ─────────── Dossiers : une carte par dossier ─────────── */
+
+.dossiersListe {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.carteDossier {
+  --e: var(--indigo);
+  position: relative;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 168px 210px 32px;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid #eeebf6;
+  border-radius: 18px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--e) 5%, #fff), #fff 46%);
+  transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s;
+}
+.carteDossier:hover {
+  border-color: color-mix(in srgb, var(--e) 35%, #fff);
+  box-shadow: 0 16px 34px -26px color-mix(in srgb, var(--e) 80%, #000);
+  transform: translateY(-1px);
+}
+.carteDossier:hover .aller {
+  background: var(--indigo);
+  color: #fff;
+}
+.vignette {
+  width: 76px;
+  height: 64px;
+  border-radius: 13px;
+  background: #ece8ff center / cover no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+.carteCorps {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.carteHaut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.carteRef {
+  color: var(--encre);
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+.carteRef::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+}
+.carteRef:focus-visible {
+  outline: none;
+}
+.carteRef:focus-visible::after {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+.marque {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f0f5;
+  color: var(--doux);
+  font-size: 11px;
+  font-weight: 700;
+}
+.trajet {
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.trajet span {
+  color: var(--pale);
+}
+.meta {
+  margin: 0;
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.carteCom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #3b3753;
+  font-size: 13px;
+  font-weight: 600;
+}
+.carteCom span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.carteChiffres {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.carteChiffres span {
+  display: grid;
+  justify-items: end;
+}
+.carteChiffres small {
+  color: var(--pale);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.carteChiffres b {
+  font-size: 15px;
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.carteChiffres [data-ton="du"] b {
+  color: var(--rose);
+}
+
+/* ─────────── Devis et factures ─────────── */
+
+.totaux {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 18px;
+  border: 1px solid #eeebf6;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fcfbff, #fff);
+}
+.totaux > span {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 14px 18px;
+}
+.totaux > span + span {
+  border-left: 1px solid #f0eef6;
+}
+.totaux small {
+  color: var(--pale);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.totaux b {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.totaux em {
+  color: var(--rose);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+}
+.totaux [data-ton="du"] b {
+  color: var(--rose);
+}
+.totaux [data-ton="ok"] b {
+  color: #0fa86b;
+}
+.totaux [data-ton="rien"] b {
+  color: #c0bdd0;
+}
+.jauge {
+  display: block;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #eeebf6;
+  overflow: hidden;
+}
+.jauge i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0fa86b, var(--vert));
+}
+.deuxTables {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 22px;
+}
+.tableTitre {
+  margin: 0 0 8px;
+  color: var(--violet);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table td {
+  padding: 10px 8px;
+  border-top: 1px solid #f1eff7;
+  vertical-align: middle;
+  font-size: 13.5px;
+}
+.table tr:first-child td {
+  border-top: 0;
+}
+.table td:first-child {
+  padding-left: 0;
+}
+.table td:last-child {
+  padding-right: 0;
+}
+.table td > small {
+  display: block;
+  margin-top: 3px;
+  color: var(--doux);
+  font-size: 12px;
+}
+.table td.num {
+  display: table-cell;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table td.num b {
+  font-weight: 780;
+}
+.du.du {
+  color: var(--rose);
+  font-weight: 650;
+}
+
+/* ─────────── Espace client ─────────── */
+
+.espaces {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.espaceLigne {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 170px auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid #eeebf6;
+  border-radius: 16px;
+  background: #fff;
+}
+.espaceLigne[data-etat="aucun"] {
+  border-style: dashed;
+  background: #fcfbff;
+}
+.espaceEtat {
+  display: grid;
+  place-items: center;
+}
+.espaceEtat i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #d9d6e4;
+}
+.espaceLigne[data-etat="vu"] .espaceEtat i {
+  background: var(--vert);
+  box-shadow: 0 0 0 5px rgba(20, 194, 125, 0.15);
+}
+.espaceLigne[data-etat="jamais"] .espaceEtat i {
+  background: var(--ambre);
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.15);
+}
+.espaceTexte,
+.espaceVu {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.espaceTexte b,
+.espaceVu b {
+  font-size: 14px;
+  font-weight: 750;
+}
+.espaceTexte em {
+  color: var(--pale);
+  font-style: normal;
+  font-weight: 600;
+}
+.espaceTexte small,
+.espaceVu small {
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.espaceLigne[data-etat="jamais"] .espaceVu b {
+  color: #b26b00;
+}
+.espaceActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ─────────── Messages et historique ─────────── */
+
+.fils {
+  display: grid;
+  gap: 12px;
+}
+.fils.fils > [data-variante] {
+  margin: 0;
+}
+/* Le fil du Feed, dans la carte de la section : ses jours perdent leur propre carte, un filet les sépare. */
+.historique {
+  margin: -6px -8px 0;
+}
+.historique section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.historique section + section {
+  padding-top: 8px;
+  border-top: 1px solid #f1eff7;
+}
+
+/* ─────────── Rendez-vous et demandes du site ─────────── */
+
+.rdvs,
+.demandes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rdv,
+.demande {
+  display: grid;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  border: 1px solid #eeebf6;
+  border-radius: 14px;
+  color: var(--encre);
+  text-decoration: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.rdv {
+  grid-template-columns: 48px minmax(0, 1fr) auto 140px 26px;
+}
+.rdv:hover,
+.demande:hover {
+  border-color: #d9d0fb;
+  background: #fbfaff;
+}
+.rdvs li[data-passe] .rdv {
+  background: #fcfcfd;
+}
+.rdvs li[data-passe] .rdvDate {
+  background: #f1f0f5;
+  color: var(--doux);
+}
+.rdvDate {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ece8ff, #f6f3ff);
+  color: var(--profond);
+  line-height: 1;
+}
+.rdvDate b {
+  font-size: 17px;
+  font-weight: 800;
+}
+.rdvDate small {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.rdvTexte,
+.demandeTexte {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.rdvTexte b,
+.demandeTexte b {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.demandeTexte b span {
+  color: var(--pale);
+}
+.rdvTexte small,
+.demandeTexte small {
+  overflow: hidden;
+  color: var(--doux);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.rdvEtat {
+  color: var(--doux);
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: right;
+}
+.rdvEtat[data-etat="avenir"] {
+  color: var(--indigo);
+}
+.rdvEtat[data-etat="fait"] {
+  color: #0fa86b;
+}
+.demande {
+  grid-template-columns: minmax(0, 1fr) auto 90px 110px;
+}
+.demandeMontant {
+  font-size: 13.5px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.demandeDossier {
+  color: var(--pale);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ─────────── La fiche, sur un écran plus étroit ─────────── */
+
+@media (max-width: 1360px) {
+  .identite {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    row-gap: 22px;
+  }
+  .identite > :last-child {
+    grid-column: 1 / -1;
+    padding: 18px 4px 0;
+    border-left: 0;
+    border-top: 1px solid #f0eef6;
+  }
+  .carteDossier {
+    grid-template-columns: 64px minmax(0, 1fr) 190px 28px;
+  }
+  .carteCom {
+    display: none;
+  }
+  .vignette {
+    width: 64px;
+    height: 56px;
+  }
+  .deuxTables {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
