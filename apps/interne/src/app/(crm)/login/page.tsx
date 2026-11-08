@@ -57,11 +57,9 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
     <div className={s.page}>
       <aside className={s.vitrine}>
         <div className={s.marque}>
-          <span className={s.monogramme}>B</span>
-          <span>
-            <b>Bailly Déménagement</b>
-            <small>Plateforme de l&apos;équipe</small>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
+          <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={110} height={35} className={s.logo} />
+          <small>Plateforme de l&apos;équipe</small>
         </div>
 
         <div className={s.promesse}>

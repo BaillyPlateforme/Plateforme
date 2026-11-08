@@ -50,6 +50,12 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.9);
 }
+/* Le vrai logo de Bailly, en blanc sur la bande indigo (exigence de David : plus de monogramme « B »). */
+.logo {
+  display: block;
+  width: auto;
+  height: 28px;
+}
 .monogramme {
   display: grid;
   place-items: center;
@@ -650,7 +656,7 @@
   display: block;
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, var(--violet), #8b5cf6);
+  background: linear-gradient(90deg, var(--violet), #7a52ff);
   transition: width 0.2s ease;
 }
 .progresAttente i {

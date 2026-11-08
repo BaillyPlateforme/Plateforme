@@ -90,8 +90,9 @@ export default async function Terrain() {
       <header className={s.entete}>
         <div className={s.enteteHaut}>
           <span className={s.marque}>
-            <span className={s.monogramme}>B</span>
-            Bailly Terrain
+            {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
+            <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
+            Terrain
           </span>
           <Link href="/terrain/compte" className={s.avatar} aria-label="Mon compte">
             {initiales(p.nom)}

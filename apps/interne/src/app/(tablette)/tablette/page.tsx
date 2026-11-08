@@ -130,8 +130,9 @@ export default async function Tablette({ searchParams }: { searchParams: Promise
       <header className={s.entete}>
         <div className={s.enteteHaut}>
           <span className={s.marque}>
-            <span className={s.monogramme}>B</span>
-            Bailly · Visite technique
+            {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
+            <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
+            Visite technique
           </span>
           <nav className={s.enteteLiens} aria-label="Affichage">
             {commercial && (

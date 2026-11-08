@@ -17,8 +17,9 @@ export default async function ConnexionTerrain({ searchParams }: { searchParams:
     <div className={s.connexion}>
       <header className={s.connexionHaut}>
         <span className={s.marque}>
-          <span className={s.monogramme}>B</span>
-          Bailly Terrain
+          {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
+          <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
+          Terrain
         </span>
         <h1>Vos chantiers et vos photos, sur le téléphone.</h1>
         <p>Les dossiers du jour, l&apos;adresse, l&apos;équipe, et les photos avant, après et de détail.</p>
