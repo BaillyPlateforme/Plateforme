@@ -6,7 +6,7 @@ import { emailEquipe } from "@/lib/espace-client/config";
 import { nomClient } from "@/lib/espace-client/format";
 import { conseillerDe } from "@/lib/espace-client/lectures";
 import { notifier } from "@/lib/espace-client/notifier";
-import { exigerClient, lireDonneesClient } from "@/lib/espace-client/session";
+import { exigerClientPourAgir, lireDonneesClient } from "@/lib/espace-client/session";
 import { choisirCreneauCrm, demanderCreneauxCrm } from "@/lib/espace-client/visite";
 
 /*
@@ -15,11 +15,12 @@ import { choisirCreneauCrm, demanderCreneauxCrm } from "@/lib/espace-client/visi
  * le chemin : la session, la propriété du dossier — cherché dans ce que la
  * RLS rend au client —, puis l'écriture, ici par les fonctions de la
  * migration 0015, qui réservent dans le CRM sous verrou et revérifient que
- * le créneau est bien à ce client.
+ * le créneau est bien à ce client. Pendant un aperçu de l'équipe, elles
+ * refusent d'entrée (exigerClientPourAgir).
  */
 
 async function contexte(reference: string) {
-  const client = await exigerClient();
+  const client = await exigerClientPourAgir();
   const d = await lireDonneesClient();
   const dossier = d.dossiers.find((x) => x.reference === reference && x.client_id === client.id);
   if (!dossier) throw new Error("Dossier introuvable.");
