@@ -122,6 +122,21 @@ export const CATALOGUE: EntreeCatalogue[] = [
     declencheur: "À la fin de chantier (« Dossier réalisé » dans l'espace client). Retenue tant qu'il n'y a pas de lien de dépôt d'avis.", delai: "Aussitôt" },
   { cle: "relance_avis", titre: "Relance de l'avis", etape: "apres", canal: "email", regle: "avis", variables: VARIABLES_CRM, journal: ["relance_avis"],
     declencheur: "La demande d'avis est partie : relance par la tâche de la veille." },
+  // ── Les relances par SMS (section Relances, 08/11/2026) : une carte par type,
+  //    vide et désactivée tant que Bailly n'en a pas validé le texte. ──────────
+  ...(
+    [
+      ["devis_relance_sms", "Devis à relancer", "devis", "devis", "Un devis envoyé reste sans signature"],
+      ["relance_pieces_sms", "Pièces manquantes", "commande", "pieces", "Des pièces à fournir manquent avant le déménagement"],
+      ["relance_conditions_sms", "Conditions de livraison", "commande", "conditions", "Les conditions de livraison ne sont pas validées avant le déménagement"],
+      ["relance_solde_sms", "Solde à régler", "facturation", "solde", "Une facture de solde reste à régler"],
+      ["relance_avis_sms", "Relance de l'avis", "apres", "avis", "La demande d'avis est partie"],
+    ] as const
+  ).map(([cle, titre, etape, regle, quand]): EntreeCatalogue => ({
+    cle, titre, etape, canal: "sms", regle, journal: [cle],
+    variables: regle === "pieces" ? [...VARIABLES_CRM, "pieces"] : regle === "solde" ? [...VARIABLES_CRM, "montant"] : VARIABLES_CRM,
+    declencheur: `${quand} : relance par SMS, quand la règle de relance prévoit ce canal.`,
+  })),
 ];
 
 export const entree = (cle: string) => CATALOGUE.find((e) => e.cle === cle) ?? null;

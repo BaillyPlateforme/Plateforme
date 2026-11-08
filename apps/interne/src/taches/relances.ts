@@ -18,10 +18,10 @@ export const tacheRelances: Tache = {
   async executer() {
     const r = await envoyerRelancesDuJour();
     const n = r.envoyees + r.echecs;
-    if (!n && !r.enAttente) return { statut: "rien", resume: "Aucune relance due aujourd'hui." };
+    if (!n && !r.enAttente && !r.horsCreneau) return { statut: "rien", resume: "Aucune relance due aujourd'hui." };
     return {
       statut: r.echecs ? "partielle" : "faite",
-      resume: `${n ? `${r.envoyees} relance${r.envoyees > 1 ? "s" : ""} traitée${r.envoyees > 1 ? "s" : ""}${r.echecs ? `, ${r.echecs} en échec` : ""}` : "aucune relance du jour"}${r.enAttente ? ` · ${r.enAttente} en retard de plus de ${RATTRAPAGE_JOURS} jours, laissée${r.enAttente > 1 ? "s" : ""} à la décision de l'équipe (Relances)` : ""}.`,
+      resume: `${n ? `${r.envoyees} relance${r.envoyees > 1 ? "s" : ""} traitée${r.envoyees > 1 ? "s" : ""}${r.echecs ? `, ${r.echecs} en échec` : ""}` : "aucune relance du jour"}${r.horsCreneau ? ` · ${r.horsCreneau} hors des jours ou heures d'envoi de leur règle` : ""}${r.enAttente ? ` · ${r.enAttente} en retard de plus de ${RATTRAPAGE_JOURS} jours, laissée${r.enAttente > 1 ? "s" : ""} à la décision de l'équipe (Relances)` : ""}.`,
       details: r,
     };
   },

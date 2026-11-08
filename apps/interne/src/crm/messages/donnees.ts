@@ -5,6 +5,7 @@ import { eventLabel, TEMPLATE_BLOCS, TEMPLATE_VARIABLES } from "@/lib/messaging"
 import { listTemplates } from "@/lib/templates";
 import { q } from "@/crm/lib/db";
 import { defRelance, reglesRelances } from "@/crm/relances/moteur";
+import { delaiEnClair } from "@/crm/relances/regles";
 import { CATALOGUE, ETAPES, lignesCatalogue, type Etape } from "./catalogue";
 
 /*
@@ -80,7 +81,7 @@ export async function cartesMessages(): Promise<{ cartes: CarteVue[]; etapes: ty
     const regle = e.regle ? regles.get(e.regle as never) : undefined;
     const def = e.regle ? defRelance(e.regle) : null;
     const delai = regle && def
-      ? `${regle.premier_delai_jours} j ${def.repere}${regle.nombre_max > 1 ? `, puis tous les ${regle.intervalle_jours} j (${regle.nombre_max} au plus)` : ""}${regle.actif ? "" : " · règle désactivée"}`
+      ? `${delaiEnClair(def, regle)}${regle.actif ? (regle.canaux.includes(e.canal) ? "" : ` · canal non retenu par la règle`) : " · règle désactivée"}`
       : (e.delai ?? null);
     const noms = [...e.journal, ...(l?.nom ? [l.nom] : [])];
     return {
