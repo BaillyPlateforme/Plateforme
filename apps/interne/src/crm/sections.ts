@@ -1,6 +1,6 @@
 /*
  * Les sections du CRM qui viennent de l'ancien espace équipe : les pages des
- * demandes du site (dans le Parcours), l'espace client vu de l'équipe, et les
+ * demandes du site (rangées dans Demandes), l'espace client vu de l'équipe, et les
  * réglages. Leurs pages vivent sous /dashboard, dans la coque du CRM ; ce
  * fichier dit, pour chacune, son nom, ses onglets, et à quelle section une
  * adresse appartient — le rail, l'en-tête et les onglets s'en servent.
@@ -12,7 +12,7 @@ import { PAGES_REGLAGES } from "./reglages/pages";
 export type Onglet = { href: string; label: string; /** Actif aussi sur les sous-pages. */ prefixe?: boolean };
 
 export type Section = {
-  cle: "parcours" | "espace-client" | "reglages";
+  cle: "demandes" | "espace-client" | "reglages";
   nom: string;
   accueil: string;
   /** Le menu vertical de la section ; vide : pas de menu, la page prend toute la largeur. */
@@ -28,17 +28,16 @@ export type Section = {
  * cartons du samedi et le SAV. Tout ce qui règle l'outil est dans Réglages,
  * un seul menu vertical.
  *
- * Les demandes du site n'ont plus de section à elles (unification du
- * 08/11/2026) : leur liste et ses vues sont dans le Parcours (/parcours,
- * Analyse des demandes) ; restent sous /dashboard la page d'une demande et
+ * Les vues des demandes du site sont une page du CRM, Demandes (/demandes,
+ * src/crm/demandes) ; restent sous /dashboard la page d'une demande et
  * l'historique d'un client, pleine largeur comme la page d'un dossier — sans
- * menu de gauche.
+ * menu de gauche. Elles relèvent de Demandes.
  */
 export const SECTIONS: Section[] = [
   {
-    cle: "parcours",
-    nom: "Parcours",
-    accueil: "/parcours",
+    cle: "demandes",
+    nom: "Demandes",
+    accueil: "/demandes",
     onglets: [],
   },
   {

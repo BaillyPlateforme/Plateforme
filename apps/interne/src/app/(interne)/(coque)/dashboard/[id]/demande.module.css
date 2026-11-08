@@ -137,3 +137,43 @@
   letter-spacing: -0.01em;
   color: var(--encre);
 }
+
+/* L'araignée de la demande, dans la carte Évaluation : centrée, sa base et sa règle dessous. */
+.araignee {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 10px 0 2px;
+  border-top: 1px solid #efedf5;
+}
+.prestige {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--doux);
+}
+.regles {
+  width: 100%;
+  font-size: 12px;
+  color: var(--doux);
+}
+.regles summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: #4b2fe0;
+  text-align: center;
+}
+.regles dl {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+.regles dt {
+  font-weight: 700;
+  color: var(--encre);
+}
+.regles dd {
+  margin: 0;
+  line-height: 1.45;
+}

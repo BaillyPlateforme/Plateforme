@@ -30,8 +30,9 @@ import h from "./hub.module.css";
  * Les vues sont dans le menu de gauche (choix de David, 08/11/2026), les
  * filtres (recherche, type de client, commercial, étape) dans la rangée du
  * bas de la bande : ils valent pour les deux vues et vivent dans l'adresse ;
- * passer d'une vue à l'autre ne recharge rien. L'analyse des demandes (même
- * menu, second groupe) a ses pages et ses filtres (src/crm/parcours/analyse).
+ * passer d'une vue à l'autre ne recharge rien. Les demandes du site, de près
+ * (Kanban détaillé, Feed, Top demandes, analyse), sont dans Demandes
+ * (src/crm/demandes) ; la colonne « Demandes » y mène (« Voir le détail »).
  */
 
 const prenom = (nom: string) => nom.split(/\s+/)[0] ?? nom;
@@ -84,7 +85,6 @@ export default function Hub({
   vueInitiale,
   initiaux,
   archives,
-  rappels,
 }: {
   cartes: Carte[];
   commerciaux: Commercial[];
@@ -93,8 +93,6 @@ export default function Hub({
   initiaux: Filtres;
   /** Les dossiers archivés qui répondent à la recherche de l'adresse. */
   archives: number;
-  /** Les rappels ouverts : la pastille de « À rappeler », au menu. */
-  rappels?: number;
 }) {
   const [vue, setVue] = useState(vueInitiale);
   const [filtres, setFiltres] = useState<Filtres>(initiaux);
@@ -181,7 +179,7 @@ export default function Hub({
         }
       />
 
-      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} nombres={{ rappels }} />}>
+      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} />}>
         {archives > 0 && filtres.q.trim() === initiaux.q.trim() && (
           <p className={h.archives}>
             <Icone nom="archive" taille={16} />

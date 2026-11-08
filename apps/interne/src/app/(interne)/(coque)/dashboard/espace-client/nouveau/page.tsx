@@ -80,7 +80,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
             <Link href="/dossiers/nouveau" className="inline-flex items-center rounded-xl bg-brand px-4 py-2.5 text-[13.5px] font-semibold text-nuit transition hover:bg-brand-mid">
               + Nouveau dossier dans le CRM
             </Link>
-            <Link href="/dashboard" className="inline-flex items-center rounded-xl border border-white/25 px-4 py-2.5 text-[13.5px] font-medium transition hover:border-white">
+            <Link href="/demandes" className="inline-flex items-center rounded-xl border border-white/25 px-4 py-2.5 text-[13.5px] font-medium transition hover:border-white">
               Demandes du site
             </Link>
           </div>

@@ -13,11 +13,10 @@ import type { CarteDemande } from "./demandes-commun";
 
 /**
  * Les vues du Parcours, au menu de gauche : le tableau (« colonnes » dans
- * l'adresse : la vue par défaut, /parcours) et la liste, puis l'analyse des
- * demandes du site — la liste détaillée, les rappels, les statistiques et le
- * suivi des leads.
+ * l'adresse : la vue par défaut, /parcours) et la liste. Les anciennes vues
+ * de son « Analyse des demandes » (VUES_ANALYSE) mènent à Demandes.
  */
-export type Vue = "colonnes" | "liste" | "demandes" | "rappels" | "statistiques" | "leads";
+export type Vue = "colonnes" | "liste";
 export const VUES_ANALYSE = ["demandes", "rappels", "statistiques", "leads"] as const;
 export type VueAnalyse = (typeof VUES_ANALYSE)[number];
 export const estVueAnalyse = (v: unknown): v is VueAnalyse => VUES_ANALYSE.includes(v as VueAnalyse);

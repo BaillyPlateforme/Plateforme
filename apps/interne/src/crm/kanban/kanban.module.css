@@ -881,8 +881,72 @@
   margin-top: 1px;
   padding-left: 28px;
 }
-.incomplete {
+/* « Voir le détail » : de la colonne des demandes du Tableau au Kanban de Demandes. */
+.colonneDemandes .teteHaut h2 {
+  flex: none;
+}
+.voirDetail {
+  flex: none;
+  margin-left: auto;
+  color: #4b2fe0;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: rgba(75, 47, 224, 0.3);
+  text-underline-offset: 3px;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+.voirDetail:hover {
+  color: #2e1f9e;
+  text-decoration-color: currentColor;
+}
+.marques {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
   margin-right: auto;
+}
+.marque {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #f4f3f9;
+  color: #3b3753;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.marque[data-ton="ambre"] {
+  background: #fff4e0;
+  color: #a4560a;
+}
+.marque[data-ton="rose"] {
+  background: #ffe4ec;
+  color: #be185d;
+}
+.marque[data-ton="vert"] {
+  background: #e3f8ee;
+  color: #0e7a50;
+}
+.statutDemande[data-statut="dossier"] {
+  background: #e3f8ee;
+  color: #0e7a50;
+}
+/* Une carte qu'on glisse (Kanban de Demandes) : sa poignée décale le texte. */
+.carteDemande:has([data-prise]) .ligneRef,
+.carteDemande:has([data-prise]) .trajet,
+.carteDemande:has([data-prise]) .pied,
+.carteDemande:has([data-prise]) .decision {
+  padding-left: 42px;
+}
+.carteDemande[data-ligne] {
+  cursor: grab;
+}
+.incomplete {
   display: inline-flex;
   align-items: center;
   height: 20px;

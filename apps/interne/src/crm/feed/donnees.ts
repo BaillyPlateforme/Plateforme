@@ -32,6 +32,8 @@ export interface ParamsFeed {
   par: string | null;
   objet: string | null;
   q: string | null;
+  /** « demandes » : le fil des seules demandes du site (Demandes › Feed). */
+  portee: "demandes" | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,6 +53,7 @@ export function paramsDe(sp: Record<string, string | string[] | undefined>): Par
     par: par && (par === "auto" || /^[^@\s]+@[^@\s]+$/.test(par)) ? par : null,
     objet: objet && (/^d\d{1,9}$/.test(objet) || (objet.startsWith("r") && UUID.test(objet.slice(1)))) ? objet : null,
     q: v("q")?.slice(0, 80) ?? null,
+    portee: v("portee") === "demandes" ? "demandes" : null,
   };
 }
 
@@ -103,6 +106,7 @@ export async function filtresDe(p: ParamsFeed): Promise<{ filtres: Filtres; obje
       // Un objet introuvable ne montre rien plutôt que tout.
       objet: p.objet ? (objet?.filtre ?? { dossiers: [], demandes: [], espaces: [] }) : null,
       recherche: p.q,
+      demandes: p.portee === "demandes",
     },
     objetLibelle: objet?.libelle ?? null,
   };
