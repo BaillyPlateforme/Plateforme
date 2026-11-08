@@ -1,33 +1,167 @@
 /*
- * Les pages de statistiques : tuiles de chiffres, graphiques en HTML et SVG
- * (méthode dataviz : tracés fins, filets clairs, bulles au survol ou au
- * clavier) et tableaux. Le cadre (cartes, états, tableaux) vient du socle des
- * modules d'exploitation, src/crm/exploitation/ui/ui.module.css.
+ * Les Statistiques et À la une : un seul dessin (Cadre.tsx, Graphiques.tsx).
+ * Une grille de douze colonnes où les cartes d'une rangée ont la même
+ * hauteur ; des tuiles de chiffres égales ; des graphiques en HTML et SVG
+ * selon la méthode dataviz (tracés fins, filets clairs, valeurs alignées,
+ * bulles au survol ou au clavier). Le fond, la bande et le menu sont ceux du
+ * design « Quantum » du CRM.
  */
 
-/* ───────── Mise en page ───────── */
-.duo {
+/* ───────── L'écran : un conteneur, pour que la grille suive la place laissée par le menu ───────── */
+.ecran {
+  container: ecran / inline-size;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+  color: #14121f;
+}
+.masque {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ───────── Grille et cartes ───────── */
+.grille {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
   align-items: stretch;
 }
-.duoEgal {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  align-items: stretch;
+.carte {
+  grid-column: span 12;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 20px 22px 18px;
+  border: 1px solid #eeecf5;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 54px -40px rgba(46, 31, 158, 0.5);
 }
-@media (max-width: 1280px) {
-  .duo,
-  .duoEgal {
-    grid-template-columns: minmax(0, 1fr);
+.carte[data-largeur="3"] {
+  grid-column: span 3;
+}
+.carte[data-largeur="4"] {
+  grid-column: span 4;
+}
+.carte[data-largeur="5"] {
+  grid-column: span 5;
+}
+.carte[data-largeur="6"] {
+  grid-column: span 6;
+}
+.carte[data-largeur="7"] {
+  grid-column: span 7;
+}
+.carte[data-largeur="8"] {
+  grid-column: span 8;
+}
+@container ecran (max-width: 900px) {
+  .carte[data-largeur="3"],
+  .carte[data-largeur="4"],
+  .carte[data-largeur="5"] {
+    grid-column: span 6;
+  }
+  .carte[data-largeur="6"],
+  .carte[data-largeur="7"],
+  .carte[data-largeur="8"] {
+    grid-column: span 12;
   }
 }
-.note {
-  margin: 14px 0 0;
+@container ecran (max-width: 620px) {
+  .carte[data-largeur] {
+    grid-column: span 12;
+  }
+}
+.carteTete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.carteTete h3 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: #14121f;
+}
+.carteTete p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #6f6c80;
+}
+.voir {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 8px 0 12px;
+  border-radius: 999px;
+  background: #f4f1ff;
+  color: #4b2fe0;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.voir:hover {
+  background: #e9e3ff;
+}
+/* Le chevron du jeu d'icônes regarde vers le bas : il mène ailleurs, il regarde à droite. */
+.voir svg {
+  transform: rotate(-90deg);
+}
+.corps {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.pied {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f1eff7;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
+  color: #6f6c80;
+}
+.pied b {
+  color: #14121f;
+  font-weight: 700;
+}
+.carteSerree {
+  padding: 0;
+  overflow: hidden;
+}
+.carteSerree > .carteTete {
+  margin: 0;
+  padding: 18px 22px;
+  border-bottom: 1px solid #efedf6;
+}
+.carteSerree > .corps,
+.carteHaut > .corps {
+  justify-content: flex-start;
+}
+.carteSerree > .pied {
+  margin: 0;
+  padding: 12px 22px 14px;
+}
+.note {
+  margin: 0;
+  max-width: 120ch;
+  font-size: 12px;
+  line-height: 1.55;
   color: #6f6c80;
 }
 .note b {
@@ -37,111 +171,242 @@
 /* ───────── Tuiles ───────── */
 .tuiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(var(--colonnes, 6), minmax(0, 1fr));
   gap: 12px;
 }
-.tuile {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-width: 0;
-  padding: 16px 18px;
-  border: 1px solid #eeecf5;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 20px 44px -34px rgba(46, 31, 158, 0.55);
+/* Six tuiles sous 1050 px : deux rangées de trois ; cinq tiennent sur une rangée jusqu'à 860 px. */
+@container ecran (max-width: 1050px) {
+  .tuiles:not([data-n="5"]) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
-.tuile small {
-  font-size: 12px;
+@container ecran (max-width: 860px) {
+  .tuiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container ecran (max-width: 560px) {
+  .tuiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Posées à cheval sur le bas de la bande (À la une), sur une plaque blanche, comme le Pilotage. */
+.chevauche {
+  margin-bottom: 18px;
+  padding: 12px;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 22px 50px -28px rgba(46, 31, 158, 0.45);
+}
+.chevauche .tuile {
+  box-shadow: none;
+  border-color: #f0edf8;
+}
+@media (max-width: 1100px) {
+  .chevauche {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .chevauche {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.tuile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 15px 16px 14px;
+  border: 1px solid #eeecf5;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 18px 40px -34px rgba(46, 31, 158, 0.5);
+  color: inherit;
+  text-decoration: none;
+}
+.tuileLien {
+  transition: border-color 0.15s, box-shadow 0.2s, transform 0.15s;
+}
+.tuileLien:hover {
+  border-color: #d6ccff;
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px -22px rgba(75, 47, 224, 0.55);
+}
+.tuileLien:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.28);
+}
+.tuileTete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 26px;
+}
+.tuileTete small {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12.5px;
   font-weight: 650;
   color: #6f6c80;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tuile b {
+.tuileIcone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: #efebff;
+  color: #4b2fe0;
+}
+.tuileIcone[data-ton="ambre"] {
+  background: #fff3dc;
+  color: #b45309;
+}
+.tuileValeur {
   font-size: 26px;
   font-weight: 750;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
   color: #14121f;
+  white-space: nowrap;
 }
-.tuile span {
+.tuileDetail {
+  overflow: hidden;
   font-size: 12px;
-  color: #6f6c80;
+  color: #4a475c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.tuile[data-ton="vert"] span {
-  color: #0b7f50;
+.tuileEcart {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: #8a86a0;
 }
-.tuile[data-ton="ambre"] span {
-  color: #a35b00;
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 6px;
+  border-radius: 999px;
+  background: #f1eff8;
+  color: #4a475c;
+  font-size: 11.5px;
+  font-weight: 750;
+  white-space: nowrap;
 }
-.tuile[data-ton="rose"] span {
+.delta[data-bon="true"] {
+  background: #e3f8ee;
+  color: #0b7a4f;
+}
+.delta[data-bon="false"] {
+  background: #ffe8ee;
   color: #be123c;
 }
-/* Le chiffre de tête : un seul par page. */
-.heros {
-  grid-column: span 2;
+/* Douze petites colonnes, posées au bas de la tuile. */
+.etincelle {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 30px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-bottom: 1px solid #ece9f5;
+  box-sizing: content-box;
+}
+.etincelle i {
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+}
+/* Une part d'un tout (un état du jour) : une jauge fine, au bas de la tuile, à la hauteur des petites colonnes. */
+.tuileJauge {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.tuileJauge > span {
   position: relative;
+  display: block;
+  height: 8px;
   overflow: hidden;
-  border-color: transparent;
-  background:
-    radial-gradient(320px 160px at 100% 0%, rgba(122, 82, 255, 0.55), transparent 70%),
-    linear-gradient(125deg, #2e1f9e, #4b2fe0 55%, #6a45f5);
-  box-shadow: 0 26px 50px -30px rgba(46, 31, 158, 0.9);
+  border-radius: 999px;
+  background: #ece8ff;
 }
-.heros small,
-.heros span {
-  color: rgba(255, 255, 255, 0.78);
+.tuileJauge > span > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: #4b2fe0;
 }
-.heros b {
-  font-size: 48px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  color: #fff;
+.tuileJauge[data-ton="ambre"] > span {
+  background: #fdf0d5;
 }
-@media (max-width: 760px) {
-  .heros {
-    grid-column: auto;
-  }
+.tuileJauge[data-ton="ambre"] > span > i {
+  background: #f59e0b;
+}
+.tuileJauge small {
+  overflow: hidden;
+  font-size: 11.5px;
+  color: #8a86a0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ───────── Légende ───────── */
 .legende {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
-  margin: 16px 0 0;
+  gap: 6px 16px;
+  margin: 14px 0 0;
   padding: 0;
   list-style: none;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: #4a475c;
 }
 .legende li {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 .legende i {
-  width: 12px;
-  height: 12px;
-  border-radius: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.legende i[data-forme="trait"] {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
 }
 
 /* ───────── État vide ───────── */
 .vide {
+  flex: 1;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 16px;
-  background: repeating-linear-gradient(0deg, transparent 0 39px, #f3f1f9 39px 40px), #fdfcff;
+  gap: 8px;
+  min-height: 132px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #fbfaff;
   color: #8a86a0;
   font-size: 13px;
   font-weight: 600;
   text-align: center;
 }
 .vide svg {
-  color: #c9c2ef;
+  color: #cfc7f3;
 }
 
 /* ───────── Bulle (survol ou clavier) ───────── */
@@ -157,7 +422,7 @@
   display: grid;
   gap: 4px;
   min-width: 150px;
-  max-width: 280px;
+  max-width: 300px;
   padding: 10px 12px;
   border-radius: 12px;
   background: #14121f;
@@ -191,10 +456,15 @@
   gap: 8px;
 }
 .bulleLigne i {
+  flex-shrink: 0;
   width: 9px;
   height: 9px;
   border-radius: 3px;
-  flex-shrink: 0;
+}
+.bulleLigne i[data-forme="trait"] {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
 }
 .bulleLigne em {
   margin-left: auto;
@@ -203,23 +473,33 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+.bulleSous {
+  padding-left: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
 
-/* ───────── Barres horizontales ───────── */
+/* ───────── Barres classées ───────── */
 .barres {
   display: grid;
-  gap: 10px;
+  gap: 2px;
 }
 .barre {
   display: grid;
-  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr);
+  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  min-height: 34px;
-  padding: 0 4px;
+  gap: 12px;
+  min-height: 40px;
+  padding: 4px 8px;
   border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
 }
 .barre:hover {
   background: #faf8ff;
+}
+.barreLien:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.25);
 }
 .barre > .bulle {
   left: auto;
@@ -231,18 +511,48 @@
   transform: translate(0, 0);
 }
 .barreNom {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.barreNom > i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.barres[data-disposition="pile"] .barreNom {
+  align-items: flex-start;
+}
+.barres[data-disposition="pile"] .barreNom > i {
+  margin-top: 6px;
+}
+.barreNom > span {
+  display: grid;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: #14121f;
+}
+.barreNom > span,
+.barreNom small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13.5px;
-  font-weight: 650;
-  color: #14121f;
+}
+.barreNom small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8a86a0;
 }
 .piste {
   position: relative;
   display: block;
-  height: 20px;
-  margin-right: 86px;
+  height: 12px;
+  border-radius: 0 4px 4px 0;
+  background: #f5f3fb;
 }
 .piste > i {
   position: absolute;
@@ -250,19 +560,47 @@
   display: block;
   border-radius: 0 4px 4px 0;
 }
-.piste > em {
-  position: absolute;
-  top: 50%;
-  padding-left: 8px;
-  transform: translateY(-50%);
-  font-size: 12.5px;
-  font-style: normal;
+.barreValeur {
+  min-width: 64px;
+  font-size: 13px;
   font-weight: 750;
   font-variant-numeric: tabular-nums;
-  color: #14121f;
+  text-align: right;
   white-space: nowrap;
+  color: #14121f;
 }
-/* Une pile (barres empilées) : 2 px de blanc entre les parts, l'extrémité arrondie. */
+/* En pile (une carte étroite) : le nom et la valeur sur une ligne, la barre dessous, de toute la largeur. */
+.barres[data-disposition="pile"] {
+  gap: 4px;
+}
+.barres[data-disposition="pile"] .barre {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "nom valeur"
+    "piste piste";
+  row-gap: 9px;
+  padding: 10px 10px 12px;
+}
+.barres[data-disposition="pile"] .barreNom {
+  grid-area: nom;
+}
+.barres[data-disposition="pile"] .barreNom > span {
+  font-size: 14px;
+}
+.barres[data-disposition="pile"] .barreNom small {
+  margin-top: 1px;
+  font-size: 12px;
+}
+.barres[data-disposition="pile"] .piste {
+  grid-area: piste;
+  height: 10px;
+}
+.barres[data-disposition="pile"] .barreValeur {
+  grid-area: valeur;
+  align-self: start;
+  font-size: 15px;
+}
+/* Une pile (barres empilées) : 2 px de blanc entre les parts, le bout arrondi. */
 .pile {
   position: absolute;
   inset: 0 auto 0 0;
@@ -278,76 +616,196 @@
   border-radius: 0 4px 4px 0;
 }
 
-/* ───────── Entonnoirs ───────── */
-.entonnoirs {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 14px;
-}
+/* ───────── Entonnoir ───────── */
 .entonnoir {
   display: grid;
-  gap: 8px;
-  padding: 14px 14px 12px;
-  border: 1px solid #f0edf8;
-  border-radius: 16px;
-  background: #fcfbff;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.entonnoirTete {
-  display: flex;
+.etape,
+.passage {
+  display: grid;
+  grid-template-columns: minmax(84px, 34%) minmax(0, 1fr) 44px;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 4px;
-  font-size: 13.5px;
-  font-weight: 750;
-}
-.entonnoirTete i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
+  gap: 12px;
 }
 .etape {
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr) 34px;
-  align-items: center;
-  gap: 10px;
-  font-size: 12.5px;
+  height: 30px;
+  padding: 0 4px;
+  border-radius: 8px;
 }
-.etape .piste {
-  height: 14px;
-  margin-right: 0;
+.etape:hover {
+  background: #faf8ff;
 }
-.etape b {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+.etape > .bulle {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.etape:hover > .bulle,
+.etape:focus-visible > .bulle {
+  transform: translate(0, 0);
 }
 .etapeNom {
-  color: #6f6c80;
-  font-weight: 600;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 650;
+  color: #14121f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etapeZone {
+  display: flex;
+  justify-content: center;
+  height: 24px;
+}
+.etapeZone > i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+}
+.etapeZone > .etapeZero {
+  width: 2px;
+  background: #d9d5e8;
+}
+.etape > b {
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.passage {
+  height: 22px;
+  padding: 0 4px;
+}
+.passageFlux {
+  position: relative;
+  grid-column: 2;
+  align-self: stretch;
+}
+.passageFlux svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.taux {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 7px;
+  border: 1px solid #ebe6fb;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 17px;
+  color: #4a475c;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ───────── Courbes et colonnes : le plan ───────── */
-.courbes,
-.colonnes {
-  padding: 8px 4px 0 0;
+/* ───────── Répartition : barre segmentée fine et liste ───────── */
+.repartition {
+  display: grid;
+  gap: 14px;
+}
+.segments {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+}
+.segments i {
+  display: block;
+  min-width: 3px;
+}
+.parts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.parts li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 42px;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 5px 0;
+  border-bottom: 1px solid #f5f3fa;
+  font-size: 13px;
+}
+.parts li:last-child {
+  border-bottom: 0;
+}
+.parts li > i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.parts li > span {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  color: #14121f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.parts small {
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #8a86a0;
+  text-overflow: ellipsis;
+}
+.parts b {
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.parts em {
+  font-size: 12px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #6f6c80;
+}
+.parts li[data-zero] {
+  opacity: 0.5;
+}
+
+/* ───────── Colonnes et aire : le plan ───────── */
+.colonnes,
+.aire {
+  padding-top: 6px;
 }
 .plan {
   position: relative;
-  height: 230px;
-  margin: 10px 0 0 58px;
+  margin: 12px 0 0 46px;
 }
-.grille {
+.aire .plan,
+.aire .axeX {
+  margin-right: 52px;
+}
+.filet {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
   border-top: 1px solid #efedf6;
 }
-.grille em {
+.filet em {
   position: absolute;
   right: calc(100% + 10px);
   top: 0;
   transform: translateY(-50%);
-  font-size: 11.5px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -358,8 +816,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  background: linear-gradient(#f5f2ff, #faf8ff);
-  border-radius: 6px;
+  background: #f7f5ff;
 }
 .traits {
   position: absolute;
@@ -376,6 +833,19 @@
   border-radius: 50%;
   box-shadow: 0 0 0 2px #fff;
   transform: translate(-50%, 50%);
+  pointer-events: none;
+}
+.finEtiquette {
+  position: absolute;
+  left: 100%;
+  padding-left: 12px;
+  transform: translateY(50%);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: #14121f;
+  white-space: nowrap;
   pointer-events: none;
 }
 .colonneSurvol {
@@ -407,46 +877,55 @@
 .colonneSurvol:focus-visible .visee {
   opacity: 1;
 }
-.colonneSurvol > .bulle {
+.colonneSurvol > .bulle,
+.colonne > .bulle {
   top: 6px;
   bottom: auto;
-  transform: translate(8px, 4px);
   left: 50%;
+  transform: translate(8px, 4px);
 }
-.colonneSurvol > .bulle[data-cote="gauche"] {
+.colonneSurvol > .bulle[data-cote="gauche"],
+.colonne > .bulle[data-cote="gauche"] {
   left: auto;
   right: 50%;
   transform: translate(-8px, 4px);
 }
 .colonneSurvol:hover > .bulle,
-.colonneSurvol:focus-visible > .bulle {
+.colonneSurvol:focus-visible > .bulle,
+.colonne:hover > .bulle,
+.colonne:focus-visible > .bulle {
   transform: translate(8px, 0);
 }
 .colonneSurvol:hover > .bulle[data-cote="gauche"],
-.colonneSurvol:focus-visible > .bulle[data-cote="gauche"] {
+.colonneSurvol:focus-visible > .bulle[data-cote="gauche"],
+.colonne:hover > .bulle[data-cote="gauche"],
+.colonne:focus-visible > .bulle[data-cote="gauche"] {
   transform: translate(-8px, 0);
 }
 .axeX {
   position: relative;
-  height: 28px;
-  margin-left: 58px;
+  height: 26px;
+  margin-left: 46px;
 }
 .axeX span {
   position: absolute;
-  top: 10px;
+  top: 9px;
   transform: translateX(-50%);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   color: #8a86a0;
   white-space: nowrap;
 }
 
-/* Les colonnes mensuelles. */
+/* Les colonnes. */
 .rangee {
   position: absolute;
   inset: 0;
   display: flex;
-  gap: 2px;
+  gap: 4px;
+}
+.rangee[data-serre] {
+  gap: 1px;
 }
 .colonne {
   flex: 1;
@@ -454,65 +933,90 @@
   align-items: flex-end;
   justify-content: center;
   min-width: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: default;
 }
 .colonne:hover {
   background: #faf8ff;
 }
-.colonne > i {
+.pileColonne {
   position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  width: min(22px, 66%);
+}
+.pileColonne i {
   display: block;
-  width: min(22px, 62%);
+  min-height: 2px;
+}
+.pileColonne i:last-of-type {
   border-radius: 4px 4px 0 0;
-  background: #cdc4ff;
 }
-.colonne[data-retenu] > i {
-  background: #4b2fe0;
-}
-.colonne > i em {
+.pileColonne em {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 5px);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 11.5px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 750;
+  font-variant-numeric: tabular-nums;
   color: #14121f;
   white-space: nowrap;
 }
-.colonne > .bulle {
-  bottom: auto;
-  top: 6px;
-  left: 50%;
-  transform: translate(8px, 4px);
-}
-.colonne > .bulle[data-cote="gauche"] {
-  left: auto;
-  right: 50%;
-  transform: translate(-8px, 4px);
-}
-.colonne:hover > .bulle,
-.colonne:focus-visible > .bulle {
-  transform: translate(8px, 0);
-}
-.colonne:hover > .bulle[data-cote="gauche"],
-.colonne:focus-visible > .bulle[data-cote="gauche"] {
-  transform: translate(-8px, 0);
-}
 .axeColonnes {
   display: flex;
-  gap: 2px;
-  margin: 8px 0 0 58px;
+  gap: 4px;
+  margin: 8px 0 0 46px;
+}
+.axeColonnes[data-serre] {
+  gap: 1px;
 }
 .axeColonnes span {
   flex: 1;
   min-width: 0;
-  text-align: center;
-  font-size: 11.5px;
+  overflow: visible;
+  font-size: 11px;
   font-weight: 600;
-  color: #8a86a0;
+  text-align: center;
   white-space: nowrap;
+  color: #8a86a0;
+}
+
+/* ───────── Chiffres (un état, en quelques valeurs) ───────── */
+.chiffres {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.chiffres > div {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #f0edf8;
+  border-radius: 14px;
+  background: #faf9fe;
+}
+.chiffres dt {
+  font-size: 12px;
+  font-weight: 650;
+  color: #6f6c80;
+}
+.chiffres dd {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #14121f;
+}
+.chiffres dd small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #8a86a0;
 }
 
 /* ───────── Jauge de remplissage ───────── */
@@ -542,11 +1046,11 @@
 /* ───────── Tableaux de chiffres ───────── */
 .pastilleSerie {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 8px;
+  width: 9px;
+  height: 9px;
+  margin-right: 9px;
   border-radius: 50%;
-  vertical-align: 0;
+  vertical-align: 1px;
 }
 .total td {
   background: #fbfaff;
