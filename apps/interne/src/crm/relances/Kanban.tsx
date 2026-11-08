@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { annuler, envoyerMaintenant, exclureDossier, reactiver, repousser, retirerExclusion, type Retour } from "./actions";
 import { COLONNES, defRelance, ecart, libelleCanal, STATUT_ENVOI, type Relance } from "./regles";
@@ -40,7 +40,13 @@ export function useGestes() {
   return { retour, setRetour, enCours, agir };
 }
 
+/** Le compte rendu d'un geste, en bas à droite ; il se ferme seul au bout de six secondes. */
 export function Toast({ retour, fermer }: { retour: Retour | null; fermer: () => void }) {
+  useEffect(() => {
+    if (!retour) return;
+    const t = setTimeout(fermer, 6000);
+    return () => clearTimeout(t);
+  }, [retour, fermer]);
   if (!retour) return null;
   return (
     <div className={s.toast} data-ok={retour.ok} role="status">

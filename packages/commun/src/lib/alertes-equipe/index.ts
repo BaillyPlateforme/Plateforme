@@ -258,7 +258,7 @@ export async function alerterEquipe(
         texte: m.texte,
       });
       if (r.statut === "envoye") partis++;
-      issues.push(r.statut);
+      issues.push(r.doublon ? "déjà traitée (même événement)" : r.statut);
     }
     await noterEvenement(alerte, ev.evenement, ev.reference, destinataires.length, `${destinataires.length} destinataire${destinataires.length > 1 ? "s" : ""} : ${[...new Set(issues)].join(", ")}`);
     return { destinataires: destinataires.length, partis };
