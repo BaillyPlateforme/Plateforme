@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
 import Filtres, { type Filtre } from "@/ui/Filtres";
+import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
 import { currentUser } from "@/crm/lib/auth";
 import { q1 } from "@/crm/lib/db";
 import { arrhesAttendues, compteursFacturation, listeFactures, listeReglements, soldeDossier } from "@/crm/facturation/donnees";
@@ -14,14 +15,15 @@ import s from "@/crm/facturation/facturation.module.css";
 export const dynamic = "force-dynamic";
 
 /*
- * La facturation (Créagidem, §Q). Simplification du 08/11/2026 : plus de
- * menu à gauche. Trois vues en pilules dans la rangée du bas du bandeau —
- * les factures, les règlements, les arrhes — et, à côté, leurs filtres en
- * listes déroulantes : pour les factures, le type (factures, factures
- * d'arrhes, avoirs), l'état et le regroupement par client payeur ou
- * d'origine ; pour les règlements, le mode ; pour les arrhes, l'affectation.
- * La recherche reste à droite. Ouverte depuis un dossier (?dossier=), la page
- * ne montre que lui. Les mentions et conditions sont dans Réglages.
+ * La facturation (Créagidem, §Q). Trois vues au menu de gauche, avec leurs
+ * nombres (choix de David, 08/11/2026 : les vues à gauche, les filtres dans
+ * la bande) — les factures, les règlements, les arrhes — et, dans la rangée
+ * du bas du bandeau, leurs filtres en listes déroulantes : pour les factures,
+ * le type (factures, factures d'arrhes, avoirs), l'état et le regroupement
+ * par client payeur ou d'origine ; pour les règlements, le mode ; pour les
+ * arrhes, l'affectation. La recherche reste à droite. Ouverte depuis un
+ * dossier (?dossier=), la page ne montre que lui. Les mentions et conditions
+ * sont dans Réglages.
  */
 type Vue = "factures" | "reglements" | "arrhes";
 const VUES: Vue[] = ["factures", "reglements", "arrhes"];
@@ -78,13 +80,17 @@ export default async function Factures({ searchParams }: { searchParams: Promise
       ? `${reglements.length} ${vue === "arrhes" ? "versement" : "règlement"}${reglements.length > 1 ? "s" : ""} · ${euros2(reglements.reduce((a, r) => a + r.montant, 0))}`
       : `Reste à payer sur cette liste : ${euros2(resteListe)}`;
 
-  const vues = (
-    <Pilules
-      label="Vues de la facturation"
-      items={[
-        { href: lien({ vue: "factures" }), label: "Factures", actif: vue === "factures", nombre: compteurs.ouvertes || undefined },
-        { href: lien({ vue: "reglements" }), label: "Règlements", actif: vue === "reglements", nombre: compteurs.reglements || undefined },
-        { href: lien({ vue: "arrhes" }), label: "Arrhes", actif: vue === "arrhes", nombre: attendues.length || undefined },
+  const menu = (
+    <MenuVertical
+      titre="Factures"
+      groupes={[
+        {
+          items: [
+            { href: lien({ vue: "factures" }), label: "Factures", icone: "facture", actif: vue === "factures", nombre: compteurs.ouvertes },
+            { href: lien({ vue: "reglements" }), label: "Règlements", icone: "euro", actif: vue === "reglements", nombre: compteurs.reglements },
+            { href: lien({ vue: "arrhes" }), label: "Arrhes", icone: "horloge", actif: vue === "arrhes", nombre: attendues.length },
+          ],
+        },
       ]}
     />
   );
@@ -121,7 +127,6 @@ export default async function Factures({ searchParams }: { searchParams: Promise
         texte={texte}
         bas={
           <div className={s.filtresBas}>
-            {vues}
             {/* Les filtres lisent l'adresse côté navigateur : une frontière Suspense. */}
             <Suspense>
               <Filtres filtres={filtres} garder={["dossier", "vue", "q"]} />
@@ -133,20 +138,22 @@ export default async function Factures({ searchParams }: { searchParams: Promise
         {dossier && <Link href={`/dossiers/${dossier}#facturation`} data-ton="contour">Fiche du dossier</Link>}
         {dossier && <Link href="/factures" data-ton="contour">Toute la facturation</Link>}
       </Bandeau>
-      {vue === "arrhes" && attendues.length > 0 && (
-        <div className={s.encart}>
-          <h4>Arrhes attendues · {attendues.length} dossier{attendues.length > 1 ? "s" : ""} signé{attendues.length > 1 ? "s" : ""} sans arrhes reçues</h4>
-          <ul>
-            {attendues.slice(0, 8).map((a) => (
-              <li key={a.id as number}>
-                <span><Link href={`/dossiers/${a.id}?encaisser=arrhes#facturation`}>{nomClient(a)}</Link> · {a.ref} · devis {a.numero} ({euros2(a.montant as number)})</span>
-                <Link href={`/dossiers/${a.id}?encaisser=arrhes#facturation`}>Encaisser →</Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {vue === "factures" ? <TableFactures rows={factures} groupe={groupe} /> : <TableReglements rows={reglements} arrhes={vue === "arrhes"} />}
+      <AvecMenu menu={menu}>
+        {vue === "arrhes" && attendues.length > 0 && (
+          <div className={s.encart}>
+            <h4>Arrhes attendues · {attendues.length} dossier{attendues.length > 1 ? "s" : ""} signé{attendues.length > 1 ? "s" : ""} sans arrhes reçues</h4>
+            <ul>
+              {attendues.slice(0, 8).map((a) => (
+                <li key={a.id as number}>
+                  <span><Link href={`/dossiers/${a.id}?encaisser=arrhes#facturation`}>{nomClient(a)}</Link> · {a.ref} · devis {a.numero} ({euros2(a.montant as number)})</span>
+                  <Link href={`/dossiers/${a.id}?encaisser=arrhes#facturation`}>Encaisser →</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {vue === "factures" ? <TableFactures rows={factures} groupe={groupe} /> : <TableReglements rows={reglements} arrhes={vue === "arrhes"} />}
+      </AvecMenu>
     </div>
   );
 }
