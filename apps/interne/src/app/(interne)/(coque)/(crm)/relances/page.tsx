@@ -11,7 +11,7 @@ import { cartesDesDossiers, type Carte } from "@/crm/kanban/donnees";
 import { ETAPE_DOSSIER, ETAPES_DOSSIER, estStatutDossier } from "@/crm/kanban/etapes";
 import { jourParis } from "@/crm/envois";
 import { RATTRAPAGE_JOURS, relancesEtRegles } from "@/crm/relances/moteur";
-import { CANAUX, COLONNES, FAMILLES, jourIso, libelleCanal, plus, RELANCES, STATUT_ENVOI, type Relance, type TypeRelance } from "@/crm/relances/regles";
+import { CANAUX, COLONNES, defCourrier, FAMILLES, jourIso, libelleCanal, plus, RELANCES, STATUT_ENVOI, type Relance, type TypeRelance } from "@/crm/relances/regles";
 import { enteteDossier, historiqueRelances, mesurerEffet } from "@/crm/relances/suivi";
 import { Colonnes, type Point } from "@/crm/relances/Graphiques";
 import Kanban, { BoutonExclusion } from "@/crm/relances/Kanban";
@@ -397,7 +397,7 @@ function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof
           </thead>
           <tbody>
             {lignes.slice(0, LIMITE).map((l) => {
-              const def = RELANCES.find((d) => d.type === l.type)!;
+              const def = defCourrier(l.type)!;
               const d = new Date(l.date);
               return (
                 <tr key={l.cle}>
@@ -427,6 +427,7 @@ function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof
                       relance {l.rang}
                       {l.envoyee ? "" : " · non inscrite comme partie"}
                       {l.partielle ? ` · ${l.partielle.titres.length} élément${l.partielle.titres.length > 1 ? "s" : ""} sur ${l.partielle.sur}` : ""}
+                      {l.comment ? ` · ${l.comment}` : ""}
                     </small>
                   </td>
                   <td>
@@ -442,7 +443,7 @@ function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof
                   </td>
                   <td>
                     <b>{l.origine === "veille" ? "La veille" : (l.par ?? "L’équipe")}</b>
-                    <small>{l.origine === "veille" ? "tâche planifiée" : "depuis le Kanban"}</small>
+                    <small>{l.origine === "veille" ? "tâche planifiée" : "à la main"}</small>
                   </td>
                 </tr>
               );

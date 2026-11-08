@@ -13,7 +13,7 @@ import { envoyerCarte, jourParis } from "@/crm/envois";
 import { lignesCatalogue, raisonDeNePasEnvoyer, type LigneModele } from "@/crm/messages/catalogue";
 import {
   CANAUX, creneauOuvert, defRelance, heureParis, jourPermis, libelleCanal, plus, RELANCES, repereDe,
-  type Canal, type Colonne, type DemandeRelance, type ElementRelance, type Regle, type Relance, type TypeRelance,
+  defCourrier, type Canal, type Colonne, type DemandeRelance, type ElementRelance, type Regle, type Relance, type RelanceCourrier, type TypeCourrier, type TypeRelance,
 } from "./regles";
 import { blocRelance, elementsChoisis, surtitreRelance, varsRelance, type LiensRelance } from "./courrier";
 
@@ -308,8 +308,27 @@ export interface Calcul {
   sansDate: Map<TypeRelance, number>;
 }
 
+/*
+ * Une relance envoyée à la main (Kanban, fiche de l'espace client) prend le
+ * rang suivant de sa suite, comme si la veille l'avait envoyée : la suite
+ * continue ensuite à son calendrier, mais la relance suivante ne part jamais
+ * moins de `intervalle_jours` après la dernière réellement partie — un envoi
+ * à la main en avance ne fait pas recevoir deux relances coup sur coup.
+ *
+ * Quand la suite n'a plus de rang à offrir (toutes parties, ou la suivante
+ * tomberait après le déménagement, ou le repère n'a pas de date), la fiche de
+ * l'espace client peut quand même relancer : c'est une relance « hors suite »
+ * (option `manuelles`), qui prend le rang suivant — au-delà du nombre de la
+ * règle s'il le faut (3/2) — et compte comme les autres. La veille n'en
+ * produit jamais.
+ */
+export interface OptionsRanger {
+  /** Proposer aussi, pour chaque objet encore à relancer, une relance à la main hors du calendrier de la veille. */
+  manuelles?: boolean;
+}
+
 /** Range les relances, à partir des entrées lues, pour un jour donné. Sans effet de bord. */
-function ranger(e: Entrees, aujourdhui: string, regles = e.regles): Calcul {
+function ranger(e: Entrees, aujourdhui: string, regles = e.regles, o: OptionsRanger = {}): Calcul {
   const parCle = new Map(e.decisions.map((d) => [d.cle, d]));
   const envoyeesParObjet = new Map<string, Decision[]>();
   for (const d of e.decisions) {
@@ -327,47 +346,86 @@ function ranger(e: Entrees, aujourdhui: string, regles = e.regles): Calcul {
     const repere = repereDe(def, regle.repere);
     const base = c.dates[repere.cle] ?? null;
     const sens = repere.sens === "apres" ? 1 : -1;
-    const calculee = (rang: number) => (base ? jourPermis(plus(base, sens * regle.premier_delai_jours + (rang - 1) * regle.intervalle_jours), regle.jours_envoi) : null);
     const commun = {
       type: c.type, libelle: def.libelle, dossierId: c.dossierId, ref: c.ref, client: c.client, segment: c.segment, objet: c.objet, sur: regle.nombre_max, vars: c.vars ?? {},
       demande: { ...c.demande, espace: c.espace ?? null },
     };
+    const parties = envoyeesParObjet.get(`${c.type}:${c.objetId}`) ?? [];
+    // La dernière relance réellement partie : la suivante attend au moins l'intervalle après elle.
+    const derniere = parties.map((d) => (d.envoyee_le ? jourParis(new Date(d.envoyee_le)) : null)).filter((x): x is string => !!x).sort().at(-1) ?? null;
+    const auPlusTot = derniere ? jourPermis(plus(derniere, regle.intervalle_jours), regle.jours_envoi) : null;
+    const auCalendrier = (rang: number) => (base ? jourPermis(plus(base, sens * regle.premier_delai_jours + (rang - 1) * regle.intervalle_jours), regle.jours_envoi) : null);
+    const calculee = (rang: number) => {
+      const prevue = auCalendrier(rang);
+      return prevue && auPlusTot && auPlusTot > prevue ? auPlusTot : prevue;
+    };
 
     // Les relances déjà parties restent visibles, quelle que soit la règle d'aujourd'hui.
-    for (const dec of envoyeesParObjet.get(`${c.type}:${c.objetId}`) ?? []) {
+    for (const dec of parties) {
       const rang = Number(dec.cle.split(":")[2]) || 1;
       out.push({
-        ...commun, cle: dec.cle, rang, prevue: calculee(rang) ?? iso(dec.envoyee_le) ?? aujourdhui, colonne: "envoyee",
+        ...commun, cle: dec.cle, rang, prevue: auCalendrier(rang) ?? iso(dec.envoyee_le) ?? aujourdhui, colonne: "envoyee",
         motif: dec.envoi_motif, envoyeeLe: dec.envoyee_le, envoiStatut: dec.envoi_statut, canaux: dec.canaux?.length ? dec.canaux : ["email"], reportee: false,
       });
     }
-    if (!base) {
-      if (!c.regle) sansDate.set(c.type, (sansDate.get(c.type) ?? 0) + 1);
-      continue;
-    }
 
     const canauxPrets = regle.canaux.filter((k) => !raisonDeNePasEnvoyer(e.cartes.get(def.cartes[k]) ?? null));
+    // Une carte sans texte ne bloque pas un envoi à la main : l'écran d'envoi propose un texte à relire.
+    const sansTexte = regle.canaux.filter((k) => !e.cartes.get(def.cartes[k])?.corps.trim());
     const exclu = e.exclusions.has(`${c.dossierId}:*`) ? "Dossier marqué « ne pas relancer »." : e.exclusions.has(`${c.dossierId}:${c.type}`) ? "Dossier exclu de cette relance." : null;
     const segment = regle.segments_exclus.includes(c.segment) ? `Segment « ${TYPES[c.segment] ?? c.segment} » exclu de cette relance.` : null;
-    const coupee = !regle.actif ? "Règle désactivée." : (exclu ?? segment ?? (canauxPrets.length ? null : motifCartes(def, regle.canaux, e.cartes)));
-    // « Avant » un repère, ou pour ce qu'il faut avant le déménagement : rien au-delà.
-    const borne = repere.sens === "avant" ? base : def.borne ? (c.dates[def.borne] ?? null) : null;
-    if (borne && aujourdhui >= borne) continue;
+    const blocage = !regle.actif ? "Règle désactivée." : (exclu ?? segment);
+    const coupee = blocage ?? (canauxPrets.length ? null : motifCartes(def, regle.canaux, e.cartes));
+    const aRediger = !blocage && !canauxPrets.length && sansTexte.length > 0;
+    let pousse = false;
 
-    for (let rang = 1; rang <= regle.nombre_max; rang++) {
-      const cle = `${c.type}:${c.objetId}:${rang}`;
-      const dec = parCle.get(cle);
-      if (dec?.statut === "envoyee") continue;
-      const prevue = dec?.statut === "reportee" && dec.report_au ? jourPermis(iso(dec.report_au)!, regle.jours_envoi) : calculee(rang)!;
-      if (borne && prevue >= borne) break;
-      const base2 = { ...commun, cle, rang, prevue, envoyeeLe: null, envoiStatut: null, reportee: dec?.statut === "reportee" };
-      const motif = dec?.statut === "annulee" ? "Annulée par l'équipe." : (c.regle ?? coupee);
-      if (motif) {
-        if (prevue >= limite || dec?.statut === "annulee") out.push({ ...base2, colonne: "desactivee", motif, canaux: regle.canaux });
+    if (!base) {
+      if (!c.regle) sansDate.set(c.type, (sansDate.get(c.type) ?? 0) + 1);
+    } else {
+      // « Avant » un repère, ou pour ce qu'il faut avant le déménagement : rien au-delà.
+      const borne = repere.sens === "avant" ? base : def.borne ? (c.dates[def.borne] ?? null) : null;
+      if (borne && aujourdhui >= borne) continue;
+
+      for (let rang = 1; rang <= regle.nombre_max; rang++) {
+        const cle = `${c.type}:${c.objetId}:${rang}`;
+        const dec = parCle.get(cle);
+        if (dec?.statut === "envoyee") continue;
+        const prevue = dec?.statut === "reportee" && dec.report_au ? jourPermis(iso(dec.report_au)!, regle.jours_envoi) : calculee(rang)!;
+        if (borne && prevue >= borne) break;
+        const base2 = { ...commun, cle, rang, prevue, envoyeeLe: null, envoiStatut: null, reportee: dec?.statut === "reportee" };
+        const annulee = dec?.statut === "annulee";
+        const motif = annulee ? "Annulée par l'équipe." : (c.regle ?? coupee);
+        if (motif) {
+          if (prevue >= limite || annulee || o.manuelles) {
+            // Ce qui bloque même à la main : tout, sauf une carte sans texte (l'écran d'envoi en propose un à relire).
+            const bloquee = annulee || c.regle ? motif : (blocage ?? (aRediger ? null : coupee));
+            out.push({ ...base2, colonne: "desactivee", motif, canaux: regle.canaux, bloquee, reglee: !annulee && !!c.regle, aRediger: !bloquee && aRediger });
+            pousse = true;
+          }
+          break;
+        }
+        out.push({ ...base2, motif: null, canaux: canauxPrets, colonne: prevue > aujourdhui ? "avenir" : prevue === aujourdhui ? "aujourdhui" : "retard", bloquee: null });
+        pousse = true;
         break;
       }
-      out.push({ ...base2, motif: null, canaux: canauxPrets, colonne: prevue > aujourdhui ? "avenir" : prevue === aujourdhui ? "aujourdhui" : "retard" });
-      break;
+    }
+
+    // À la main, hors du calendrier : l'objet reste à relancer, mais la veille n'a plus de rang à offrir.
+    if (o.manuelles && !pousse && !c.regle) {
+      const rangs = parties.map((d) => Number(d.cle.split(":")[2]) || 1);
+      let rang = 1;
+      while (rangs.includes(rang)) rang++;
+      const horsSuite =
+        rang > regle.nombre_max
+          ? `Les ${regle.nombre_max} relance${regle.nombre_max > 1 ? "s" : ""} prévue${regle.nombre_max > 1 ? "s" : ""} sont parties : celle-ci s'ajoute à la main, hors suite.`
+          : !base
+            ? "Hors calendrier : le repère de la règle n'a pas de date pour ce dossier."
+            : "Hors calendrier : la veille ne l'enverrait plus avant le déménagement.";
+      out.push({
+        ...commun, cle: `${c.type}:${c.objetId}:${rang}`, rang, prevue: aujourdhui, envoyeeLe: null, envoiStatut: null, reportee: false,
+        colonne: blocage || !canauxPrets.length ? "desactivee" : "aujourdhui", motif: coupee, canaux: canauxPrets.length ? canauxPrets : regle.canaux,
+        bloquee: blocage ?? (canauxPrets.length || aRediger ? null : coupee), aRediger: !blocage && aRediger, horsSuite,
+      });
     }
   }
   out.sort((a, b) => a.prevue.localeCompare(b.prevue));
@@ -379,14 +437,14 @@ function ranger(e: Entrees, aujourdhui: string, regles = e.regles): Calcul {
  * chaque suite (à venir, aujourd'hui, en retard), celles déjà envoyées, et
  * celles que rien ne fera partir (désactivées), avec la raison.
  */
-export async function listerRelances(aujourdhui = jourParis()): Promise<Relance[]> {
-  return ranger(await charger(), aujourdhui).relances;
+export async function listerRelances(aujourdhui = jourParis(), o: OptionsRanger = {}): Promise<Relance[]> {
+  return ranger(await charger(), aujourdhui, undefined, o).relances;
 }
 
 /** La même chose, avec les règles lues (évite une seconde lecture). */
-export async function relancesEtRegles(aujourdhui = jourParis()): Promise<Calcul & { regles: Map<TypeRelance, Regle> }> {
+export async function relancesEtRegles(aujourdhui = jourParis(), o: OptionsRanger = {}): Promise<Calcul & { regles: Map<TypeRelance, Regle> }> {
   const e = await charger();
-  return { ...ranger(e, aujourdhui), regles: e.regles };
+  return { ...ranger(e, aujourdhui, undefined, o), regles: e.regles };
 }
 
 /**
@@ -413,53 +471,87 @@ const RANG_STATUT = ["envoye", "bac_a_sable", "journalise", "bloque", "fictif", 
  * bouton, la rubrique de l'espace client (pièces, conditions, factures) ou le
  * lien de dépôt d'avis. Sans espace client ni lien, pas de bouton.
  */
-export async function liensRelance(type: TypeRelance, demande: DemandeRelance): Promise<LiensRelance> {
-  const parElement: Record<string, string> = {};
-  for (const e of demande.elements) if (e.jeton) parElement[e.id] = versInterne(`/signature/${e.jeton}`);
+export async function liensRelance(type: TypeCourrier, demande: DemandeRelance): Promise<LiensRelance> {
   const espace = demande.espace ? `${await adressePublique()}/espace-client/${encodeURIComponent(demande.espace)}` : null;
-  const principal =
-    type === "avis"
-      ? lienRegle()
-      : espace && ({ pieces: "/documents#pieces", conditions: "/documents#conditions", solde: "/devis#factures" } as Partial<Record<TypeRelance, string>>)[type];
-  return { parElement, principal: principal ? (type === "avis" ? principal : `${espace}${principal}`) : null };
+  const parElement: Record<string, string> = {};
+  for (const e of demande.elements) {
+    if (e.jeton) parElement[e.id] = versInterne(`/signature/${e.jeton}`);
+    else if (e.chemin && espace) parElement[e.id] = `${espace}/${e.chemin}`;
+  }
+  if (type === "avis") return { parElement, principal: lienRegle() };
+  const page = ({ pieces: "/documents#pieces", conditions: "/documents#conditions", solde: "/devis#factures", espace: "" } as Partial<Record<TypeCourrier, string>>)[type];
+  return { parElement, principal: espace && page != null ? `${espace}${page}` : null };
 }
 
-/** Ce que la relance a demandé, gardé avec elle (crm.relances.elements) : les éléments retenus, sur combien. */
+/**
+ * Ce que la relance a demandé, gardé avec elle (crm.relances.elements) : les
+ * éléments retenus, sur combien ; et, pour un envoi à la main, si le texte
+ * était personnalisé, ou proposé par la plateforme et relu, et si la relance
+ * était hors suite.
+ */
 export interface ElementsInclus {
   inclus: { id: string; titre: string }[];
   total: number;
   tout: boolean;
+  personnalisee?: boolean;
+  texte?: "propose";
+  horsSuite?: boolean;
+}
+
+/** Un envoi à la main : ses éléments cochés, ses canaux, et le texte de cet envoi quand il n'est pas celui de la carte. */
+export interface EnvoiManuel {
+  /** Les éléments cochés (leurs id) ; sans choix, tous — c'est ce que fait la veille. */
+  choix?: readonly string[] | null;
+  /** Les canaux de cet envoi ; par défaut, ceux prêts de la relance. */
+  canaux?: Canal[];
+  /** Le texte de cet envoi, par canal (avec ses variables et {elements}) : personnalisé, ou proposé et relu. */
+  textes?: Partial<Record<Canal, { objet: string | null; corps: string }>>;
+  /** L'équipe a modifié le texte (et pas seulement relu celui proposé). */
+  personnalisee?: boolean;
 }
 
 /**
- * Envoie une relance par chacun de ses canaux prêts, chaque fois avec sa clé
+ * Envoie une relance par chacun de ses canaux, chaque fois avec sa clé
  * (« relance:<cle> », « relance:<cle>:sms ») : elle ne part jamais deux fois.
  *
- * `choix` : les éléments cochés par l'équipe (leurs id) ; sans choix, tous —
- * c'est ce que fait la veille. L'e-mail porte la liste de ce qui est retenu,
- * et la relance garde, avec sa décision, ce qu'elle a demandé.
+ * Sans `envoi`, c'est la veille : tous les éléments, les canaux prêts, les
+ * textes des cartes. L'e-mail porte la liste de ce qui est retenu, et la
+ * relance garde, avec sa décision, ce qu'elle a demandé et comment.
  */
-export async function envoyerRelance(r: Relance, par: string, choix?: readonly string[] | null): Promise<{ ok: boolean; libelle: string; activite?: string; elements?: ElementsInclus }> {
-  const def = defRelance(r.type)!;
-  if (!r.canaux.length) return { ok: false, libelle: "aucun canal prêt dans « Courriers et SMS »" };
+export async function envoyerRelance(
+  r: RelanceCourrier,
+  par: string,
+  envoi: EnvoiManuel = {},
+): Promise<{ ok: boolean; libelle: string; activite?: string; elements?: ElementsInclus }> {
+  const def = defCourrier(r.type)!;
+  const canaux = envoi.canaux ?? r.canaux;
+  if (!canaux.length) return { ok: false, libelle: "aucun canal prêt dans « Courriers et SMS »" };
+  const { choix } = envoi;
   const choisis = elementsChoisis(r.demande, choix);
   if (choix && !choisis.length) return { ok: false, libelle: "aucun élément coché n'est encore à demander" };
-  const inclus: ElementsInclus = { inclus: choisis.map((e) => ({ id: e.id, titre: e.titre })), total: r.demande.elements.length, tout: choisis.length === r.demande.elements.length };
+  const proposes = canaux.filter((k) => envoi.textes?.[k]);
+  const inclus: ElementsInclus = {
+    inclus: choisis.map((e) => ({ id: e.id, titre: e.titre })), total: r.demande.elements.length, tout: choisis.length === r.demande.elements.length,
+    ...(envoi.personnalisee ? { personnalisee: true } : proposes.length ? { texte: "propose" as const } : {}),
+    ...(r.horsSuite ? { horsSuite: true } : {}),
+  };
   const bloc = choisis.length ? blocRelance(r.type, r.demande, choisis, await liensRelance(r.type, r.demande)) : undefined;
   const vars = choisis.length ? varsRelance(r.type, r.vars, choisis) : r.vars;
   const issues: { canal: Canal; statut: string; motif: string | null; libelle: string; parti: boolean }[] = [];
-  for (const canal of r.canaux) {
+  for (const canal of canaux) {
     const e = await envoyerCarte(def.cartes[canal], r.dossierId, {
       cle: canal === "email" ? `relance:${r.cle}` : `relance:${r.cle}:${canal}`,
       origine: par === "tâche planifiée" ? "veille" : "crm",
       vars,
+      texte: envoi.textes?.[canal] ?? null,
       ...(canal === "email" ? { bloc, surtitre: surtitreRelance(r.ref) } : {}),
     });
     const statut = e.resultat?.statut ?? "echec";
     issues.push({ canal, statut, motif: e.resultat?.motif ?? null, libelle: e.libelle, parti: !!e.resultat && !["echec", "incertain"].includes(statut) });
   }
   const parties = issues.filter((i) => i.parti);
-  const libelle = issues.map((i) => (r.canaux.length > 1 ? `${libelleCanal(i.canal)} : ${i.libelle}` : i.libelle)).join(" · ");
+  const libelle = issues.map((i) => (canaux.length > 1 ? `${libelleCanal(i.canal)} : ${i.libelle}` : i.libelle)).join(" · ");
+  const rangEnClair = r.type === "espace" ? `n° ${r.rang}` : `${r.rang}/${r.sur}`;
   // Une relance « partie » pour l'équipe : envoyée, ou traitée par les garde-fous (journalisée, recette…),
   // par un canal au moins. Un échec partout ne la marque pas : elle reste à envoyer.
   let activite: string | undefined;
@@ -469,18 +561,19 @@ export async function envoyerRelance(r: Relance, par: string, choix?: readonly s
     await q(
       `insert into relances(cle, type, dossier_id, rang, statut, envoyee_le, envoi_statut, envoi_motif, par, canaux, elements) values($1,$2,$3,$4,'envoyee',now(),$5,$6,$7,$8,$9)
        on conflict (cle) do update set statut='envoyee', envoyee_le=now(), envoi_statut=$5, envoi_motif=$6, par=$7, canaux=$8, elements=$9, report_au=null, maj_le=now()`,
-      [r.cle, r.type, r.dossierId, r.rang, statut, motif, par, parties.map((i) => i.canal), inclus.total ? JSON.stringify(inclus) : null],
+      [r.cle, r.type, r.dossierId, r.rang, statut, motif, par, parties.map((i) => i.canal), inclus.total || inclus.personnalisee || inclus.texte || inclus.horsSuite ? JSON.stringify(inclus) : null],
     );
-    // Une partie seulement des éléments : le fil du dossier dit lesquels.
+    // Une partie seulement des éléments : le fil du dossier dit lesquels ; et si le texte n'est pas celui de la carte.
     const quoi = inclus.tout ? "" : ` · ${inclus.inclus.length} élément${inclus.inclus.length > 1 ? "s" : ""} sur ${inclus.total} : ${choisis.map((e) => e.court).join(", ")}`;
-    activite = `${r.libelle} (${r.rang}/${r.sur}) : ${libelle}${quoi}`;
+    const comment = [inclus.personnalisee ? "texte personnalisé" : inclus.texte ? "texte proposé, relu" : null, inclus.horsSuite ? "hors suite" : null].filter(Boolean).join(", ");
+    activite = `${r.libelle} (${rangEnClair}) : ${libelle}${quoi}${comment ? ` · ${comment}` : ""}`;
     await q("insert into activite(dossier_id, libelle) values($1,$2)", [r.dossierId, activite]).catch(() => undefined);
   } else {
     // Aucun canal n'est parti : l'alerte de l'équipe « Relance en échec », à ses abonnés.
     const commercial = await q1<{ email: string | null }>("select u.email from dossiers d left join utilisateurs u on u.id = d.commercial_id where d.id = $1", [r.dossierId]).catch(() => undefined);
     await alerterEquipe("relance_echec", {
       evenement: `${r.cle}-${jourParis()}`, reference: r.ref, conseillers: [commercial?.email],
-      vars: { client: r.client || r.ref, reference: r.ref, relance: `${r.libelle} ${r.rang}/${r.sur}`, motif: libelle },
+      vars: { client: r.client || r.ref, reference: r.ref, relance: `${r.libelle} ${rangEnClair}`, motif: libelle },
       lien: { chemin: `/relances?dossier=${r.dossierId}`, libelle: "Ouvrir ses relances" },
     });
   }

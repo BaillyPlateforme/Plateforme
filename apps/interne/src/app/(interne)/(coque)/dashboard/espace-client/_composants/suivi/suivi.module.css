@@ -831,6 +831,45 @@ a.puceRef:hover {
   background: var(--f-indigo-soft);
   color: var(--f-indigo-ink);
 }
+/* Les autres relances : chacune ouvre l'écran d'envoi ; le nombre de ses éléments, « hors suite », ou grisée si elle est bloquée. */
+.relanceChoix .choix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.choix em {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--f-indigo-soft);
+  color: var(--f-indigo-ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.choix i {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  color: #9a6400;
+}
+.choix[data-bloquee] {
+  cursor: not-allowed;
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.relanceBloquees {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--f-muted);
+}
 
 /* --- Pièces jointes ------------------------------------------------------------------------------- */
 

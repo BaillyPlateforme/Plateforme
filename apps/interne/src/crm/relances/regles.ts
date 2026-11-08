@@ -20,6 +20,8 @@ export const CANAUX: { cle: Canal; libelle: string }[] = [
   { cle: "sms", libelle: "SMS" },
 ];
 export const libelleCanal = (c: string) => (c === "sms" ? "SMS" : "E-mail");
+/** Dans une phrase : « e-mail », « SMS ». */
+export const canalEnClair = (c: string) => (c === "sms" ? "SMS" : "e-mail");
 
 /** Un repère : la date d'où se compte le premier délai. */
 export interface Repere {
@@ -263,6 +265,12 @@ export interface ElementRelance {
   montant?: number | null;
   /** Le jeton de signature d'un devis : son lien propre. */
   jeton?: string | null;
+  /** La page de l'espace client où le faire (« documents#cgv ») : son lien propre. */
+  chemin?: string | null;
+  /** Le libellé de ce lien : « Accepter », « Choisir mon samedi »… */
+  action?: string | null;
+  /** Facultatif (les cartons) : décoché par défaut à l'envoi. */
+  facultatif?: boolean;
 }
 
 /** Ce qu'une relance demande, et de quoi composer ses liens. */
@@ -303,7 +311,41 @@ export interface Relance {
   vars: Record<string, string>;
   /** Ce que la relance demande au client, élément par élément. */
   demande: DemandeRelance;
+  /**
+   * Ce qui empêche de l'envoyer, même à la main : règle désactivée, dossier
+   * exclu, segment écarté, suite annulée, objet réglé. Un texte de carte
+   * manquant n'en est pas : l'écran d'envoi propose alors un texte à relire.
+   */
+  bloquee?: string | null;
+  /** L'objet est réglé (devis signé, pièces reçues…) : rien à relancer. */
+  reglee?: boolean;
+  /** Désactivée pour la seule raison qu'une carte n'a pas de texte : elle part de l'écran d'envoi, texte relu. */
+  aRediger?: boolean;
+  /** Une relance hors du calendrier de la veille, proposée à la main (fiche de l'espace client) : pourquoi. */
+  horsSuite?: string | null;
 }
+
+/**
+ * La relance « Ce qui manque » de l'espace client : tout ce que le client a
+ * encore à faire, en un seul message. Elle ne part qu'à la main, depuis la
+ * fiche de l'espace client ; la veille ne l'envoie jamais.
+ */
+export type TypeCourrier = TypeRelance | "espace";
+export interface DefCourrier {
+  type: TypeCourrier;
+  libelle: string;
+  couleur: string;
+  cartes: Record<Canal, string>;
+}
+export const RELANCE_ESPACE: DefCourrier = {
+  type: "espace", libelle: "Ce qui manque", couleur: "#f59e0b",
+  cartes: { email: "relance_espace", sms: "relance_espace_sms" },
+};
+/** Une relance de la veille, ou la relance « Ce qui manque ». */
+export const defCourrier = (t: string): DefCourrier | null => (t === "espace" ? RELANCE_ESPACE : defRelance(t));
+
+/** Une relance telle que l'écran d'envoi la reçoit : une relance du moteur, ou « Ce qui manque ». */
+export type RelanceCourrier = Omit<Relance, "type"> & { type: TypeCourrier };
 
 /** Les statuts du journal des envois, en clair, et leur famille sur les graphiques. */
 export const STATUT_ENVOI: Record<string, { libelle: string; famille: "reussi" | "garde_fou" | "echec" | "en_cours" }> = {

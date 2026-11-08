@@ -4,7 +4,7 @@ import { snapshotDe } from "@/lib/espace-client/lectures";
 import { piecesManquantes } from "@/lib/espace-client/progression";
 import { q } from "@/crm/lib/db";
 import { nomClient } from "@/crm/lib/format";
-import { defRelance, ecart, familleDe, RELANCES, STATUT_ENVOI, type Canal, type TypeRelance } from "./regles";
+import { defCourrier, ecart, familleDe, RELANCES, STATUT_ENVOI, type Canal, type TypeCourrier, type TypeRelance } from "./regles";
 
 /*
  * Le suivi des relances, en lecture : les envois (journal public.envois, lu
@@ -18,7 +18,7 @@ const nom = (c: Client) => (c.nom || c.societe ? nomClient(c) : "");
 /** Une relance partie (ou tentée), avec l'issue de chacun de ses canaux. */
 export interface LigneHistorique {
   cle: string;
-  type: TypeRelance;
+  type: TypeCourrier;
   rang: number;
   dossierId: number | null;
   ref: string;
@@ -34,6 +34,8 @@ export interface LigneHistorique {
   envoyee: boolean;
   /** Ce qu'elle a demandé, quand l'équipe n'en a retenu qu'une partie : les éléments retenus, sur combien. */
   partielle?: { titres: string[]; sur: number } | null;
+  /** Comment elle est partie, quand ce n'est pas avec le texte de la carte : « texte personnalisé », « texte proposé, relu », « hors suite ». */
+  comment?: string | null;
 }
 
 const ORDRE_FAMILLE = ["reussi", "garde_fou", "en_cours", "echec"] as const;
@@ -51,8 +53,9 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
       return [];
     }),
     q<Client & {
-      cle: string; type: TypeRelance; rang: number; dossier_id: number; envoyee_le: string; envoi_statut: string | null; envoi_motif: string | null; par: string | null;
-      canaux: Canal[] | null; ref: string | null; elements: { inclus?: { titre: string }[]; total?: number; tout?: boolean } | null;
+      cle: string; type: TypeCourrier; rang: number; dossier_id: number; envoyee_le: string; envoi_statut: string | null; envoi_motif: string | null; par: string | null;
+      canaux: Canal[] | null; ref: string | null;
+      elements: { inclus?: { titre: string }[]; total?: number; tout?: boolean; personnalisee?: boolean; texte?: string; horsSuite?: boolean } | null;
     }>(
       `select r.cle, r.type, r.rang, r.dossier_id, r.envoyee_le::text, r.envoi_statut, r.envoi_motif, r.par, r.canaux, r.elements, d.ref, c.nom, c.prenom, c.societe
          from relances r left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id
@@ -63,11 +66,12 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
 
   const lignes = new Map<string, LigneHistorique>();
   for (const d of decisions) {
-    if (!defRelance(d.type)) continue;
+    if (!defCourrier(d.type)) continue;
     lignes.set(d.cle, {
       cle: d.cle, type: d.type, rang: d.rang, dossierId: d.dossier_id, ref: d.ref ?? "", client: nom(d), date: d.envoyee_le, par: d.par,
       origine: d.par === "tâche planifiée" ? "veille" : "equipe", canaux: [], famille: "echec", envoyee: true,
       partielle: d.elements && d.elements.tout === false ? { titres: (d.elements.inclus ?? []).map((x) => x.titre), sur: d.elements.total ?? 0 } : null,
+      comment: [d.elements?.personnalisee ? "texte personnalisé" : d.elements?.texte === "propose" ? "texte proposé, relu" : null, d.elements?.horsSuite ? "hors suite" : null].filter(Boolean).join(" · ") || null,
     });
   }
   // Les envois du journal, rattachés à leur relance par la clé : « relance:<type>:<objet>:<rang>[:sms] ».
@@ -76,11 +80,11 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
     const reste = e.cle.slice("relance:".length);
     const cle = reste.endsWith(":sms") ? reste.slice(0, -4) : reste;
     const [type, , rang] = cle.split(":");
-    if (!defRelance(type)) continue;
+    if (!defCourrier(type)) continue;
     let l = lignes.get(cle);
     if (!l) {
       l = {
-        cle, type: type as TypeRelance, rang: Number(rang) || 1, dossierId: null, ref: e.reference ?? "", client: "", date: e.cree_le, par: null,
+        cle, type: type as TypeCourrier, rang: Number(rang) || 1, dossierId: null, ref: e.reference ?? "", client: "", date: e.cree_le, par: null,
         origine: e.origine === "veille" ? "veille" : "equipe", canaux: [], famille: "echec", envoyee: false,
       };
       lignes.set(cle, l);

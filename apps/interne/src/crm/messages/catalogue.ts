@@ -145,6 +145,13 @@ export const CATALOGUE: EntreeCatalogue[] = [
     variables: regle === "pieces" ? [...VARIABLES_CRM, "pieces"] : regle === "solde" ? [...VARIABLES_CRM, "montant"] : VARIABLES_CRM,
     declencheur: `${quand} : relance par SMS, quand la règle de relance prévoit ce canal.`,
   })),
+  // ── La relance « Ce qui manque » (fiche de l'espace client, 08/11/2026) : à la main
+  //    seulement, jamais par la veille. Vides tant que Bailly n'en a pas validé le
+  //    texte : l'écran d'envoi propose alors un texte à relire (relances/courrier.ts). ──
+  { cle: "relance_espace", titre: "Relance espace client", etape: "commande", canal: "email", variables: [...VARIABLES_CRM, "elements"], journal: ["relance_espace"],
+    declencheur: "« Relancer le client » sur la fiche d'un espace client : tout ce qui manque au dossier, en un message, à cocher et à relire avant l'envoi.", delai: "À la main" },
+  { cle: "relance_espace_sms", titre: "Relance espace client", etape: "commande", canal: "sms", variables: [...VARIABLES_CRM, "elements"], journal: ["relance_espace_sms"],
+    declencheur: "« Relancer le client » sur la fiche d'un espace client, quand l'équipe coche aussi le SMS.", delai: "À la main" },
 ];
 
 /*
