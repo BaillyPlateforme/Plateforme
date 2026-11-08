@@ -1,14 +1,9 @@
-import { listAlerts } from "@/lib/alerts";
-import { listTemplates } from "@/lib/templates";
-import WorkflowBuilder from "./WorkflowBuilder";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function WorkflowPage() {
-  const [rules, templates] = await Promise.all([listAlerts(), listTemplates()]);
-  return (
-    <div>
-      <WorkflowBuilder rules={rules} templates={templates} />
-    </div>
-  );
+/*
+ * Le workflow des demandes s'ouvre désormais du Parcours (simplification du
+ * 08/11/2026) : /parcours/automatismes.
+ */
+export default function AncienWorkflow() {
+  redirect("/parcours/automatismes");
 }

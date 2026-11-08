@@ -1,0 +1,143 @@
+/*
+ * Le Parcours, page de tous les dossiers : dans la rangée du bas de la bande,
+ * les vues (colonnes, liste, suivi des leads) puis les filtres, en verre, à la
+ * hauteur réservée de 44 px. La recherche et les commerciaux reprennent le
+ * dessin du Kanban (kanban.module.css) ; les choix (type, étape) sont des
+ * pilules de verre déroulantes.
+ */
+
+.vues {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.vues > a,
+.vues > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.vues > a:hover,
+.vues > button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.vues > [aria-pressed="true"],
+.vues > [aria-current="page"] {
+  background: #fff;
+  color: #2e1f9e;
+  box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
+}
+.vues > [aria-pressed="true"]:hover,
+.vues > [aria-current="page"]:hover {
+  background: #fff;
+  color: #2e1f9e;
+}
+
+/* Un commercial : ses initiales ; choisi, son prénom les suit (la classe répétée l'emporte sur kanban.module.css). */
+.avatar.avatar.avatar {
+  padding: 0 5px;
+}
+.avatar.avatar[aria-pressed="true"] {
+  padding-right: 13px;
+}
+
+/* Un trait de verre entre les vues et les filtres. */
+.filet {
+  flex: none;
+  width: 1px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* Un choix (type de client, étape) : une pilule de verre, blanche quand un filtre est posé. */
+.choix {
+  flex: none;
+  width: auto;
+  height: 42px;
+  margin: 0;
+  padding: 0 38px 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    right 15px center / 13px no-repeat;
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  appearance: none;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.choix:hover {
+  background-color: rgba(255, 255, 255, 0.17);
+}
+.choix:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.choix[data-actif] {
+  border-color: #fff;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232e1f9e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  color: #2e1f9e;
+  box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
+}
+.choix option {
+  color: #14121f;
+  background: #fff;
+}
+
+/* Une recherche qui retrouve aussi des dossiers archivés : le Parcours les écarte, l'archivage les montre. */
+.archives {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e8e6ef;
+  color: #3b3753;
+  font-size: 13px;
+}
+.archives svg {
+  flex: none;
+  color: #6f6c80;
+}
+.archives a {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #4b2fe0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.archives a:hover {
+  color: #2e1f9e;
+}
+
+/* Le suivi des leads et le workflow : des pages écrites avec Tailwind (classes de l'équipe). */
+.equipe {
+  min-width: 0;
+}

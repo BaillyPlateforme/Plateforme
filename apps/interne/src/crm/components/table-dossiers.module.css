@@ -1,0 +1,72 @@
+/* La liste des dossiers : des en-têtes qui trient, une vignette pour les demandes du site. */
+
+.table th {
+  padding: 6px 4px;
+}
+.entete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.entete:hover {
+  background: #f4f3f9;
+  color: #14121f;
+}
+.entete[data-actif] {
+  background: #ece8ff;
+  color: #2e1f9e;
+}
+.sens {
+  font-size: 11px;
+  opacity: 0.45;
+}
+.entete[data-actif] .sens {
+  opacity: 1;
+}
+:global(th.num) .entete {
+  flex-direction: row-reverse;
+}
+
+.vignetteDemande {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #ece8ff, #f6f3ff);
+  color: #4b2fe0;
+  font-style: normal;
+}
+
+/* L'étape d'une demande du site, pas encore au CRM : la pastille en pointillés. */
+.table :global(.st.d) {
+  background: #f6f3ff;
+  color: #6d4bd8;
+  box-shadow: inset 0 0 0 1px #d9ccfb;
+}
+
+.estimation {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  color: #3b3753;
+  font-weight: 600;
+}
+.estimation small {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.date {
+  color: #3b3753;
+}

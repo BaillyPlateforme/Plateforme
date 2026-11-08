@@ -3,36 +3,75 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import Bandeau from "@/ui/Bandeau";
 import { currentUser } from "@/crm/lib/auth";
-import PanneauDossiers from "@/crm/parcours/PanneauDossiers";
-import { cartesPanneau, VUES_PANNEAU } from "@/crm/parcours/cartes-panneau";
-import p from "@/crm/parcours/panneau.module.css";
+import { TYPES } from "@/crm/lib/format";
+import { cartesKanban, commerciauxKanban } from "@/crm/kanban/donnees";
+import { archivesTrouves, demandesSansDossier } from "@/crm/parcours/demandes";
+import { FILTRES_VIDES, lireFiltres } from "@/crm/parcours/filtres";
+import Hub from "@/crm/parcours/Hub";
+import Vues from "@/crm/parcours/Vues";
+import SuiviLeads from "@/crm/parcours/SuiviLeads";
+import { listLeads } from "@/lib/suivi";
+import k from "@/crm/kanban/kanban.module.css";
+import h from "@/crm/parcours/hub.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Parcours des dossiers" };
 
+type Params = { vue?: string; q?: string; type?: string; commercial?: string; etape?: string; segment?: string; dossier?: string };
+
 /*
- * Le Parcours donne vue directement sur la ligne de parcours d'un dossier :
- * celui qu'on demande, sinon le plus récemment modifié de la vue. Les autres
- * dossiers sont dans la bande de droite (cartes illustrées, refermable).
+ * Le Parcours : tous les dossiers, de la demande du site à la facture
+ * (src/crm/parcours/Hub.tsx). Les anciennes adresses y mènent : /kanban,
+ * /dossiers (la liste), /commandes, et, de l'espace équipe, le suivi des
+ * leads, le workflow et le Kanban des demandes.
+ *
+ * ?vue=leads : le suivi des leads (le tableau des demandes du site, ses
+ * statuts et chiffres d'affaires saisis à la main), troisième vue du Parcours.
  */
-export default async function Parcours({ searchParams }: { searchParams: Promise<{ vue?: string }> }) {
+export default async function Parcours({ searchParams }: { searchParams: Promise<Params> }) {
   await currentUser();
   const sp = await searchParams;
-  const vue = VUES_PANNEAU.some((v) => v.cle === sp.vue) ? (sp.vue as string) : "";
-  const cartes = await cartesPanneau(vue);
-  if (cartes[0]) redirect(`/parcours/${cartes[0].id}${vue ? `?vue=${vue}` : ""}`);
+  // Un lien d'avant, vers un dossier : sa page, qui porte désormais son parcours.
+  if (sp.dossier && /^\d+$/.test(sp.dossier)) redirect(`/dossiers/${sp.dossier}`);
 
-  return (
-    <div className="view">
-      <Bandeau surtitre="Commercial · Suivi des dossiers" titre="Parcours des dossiers" texte="De la demande à la facture, tout le parcours d’un dossier sur une page.">
-        <Link href="/kanban" data-ton="contour">Kanban</Link>
-      </Bandeau>
-      <div className={p.avecPanneau}>
-        <div className={p.zone}>
-          <p style={{ color: "var(--muted)" }}>Aucun dossier dans cette vue.</p>
+  if (sp.vue === "leads") {
+    const leads = await listLeads().catch(() => null);
+    return (
+      <div className="view">
+        <Bandeau
+          surtitre="Dossiers · Demandes du site"
+          titre="Parcours des dossiers"
+          texte="Chaque demande du site, du premier contact au chiffre d'affaires."
+          action={{ label: "Nouveau dossier", href: "/dossiers/nouveau", icone: "plus" }}
+          bas={
+            <div className={k.filtres}>
+              <Vues vue="leads" filtres={FILTRES_VIDES} />
+            </div>
+          }
+        >
+          <Link href="/parcours/automatismes" data-ton="contour" title="Les actions automatiques à chaque étape d'une demande du site">
+            Workflow
+          </Link>
+        </Bandeau>
+        <div className={`vue-equipe ${h.equipe}`}>
+          {leads ? <SuiviLeads leads={leads} /> : <div className="card empty">Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant.</div>}
         </div>
-        <PanneauDossiers cartes={cartes} actif={null} vue={vue} vues={VUES_PANNEAU} />
       </div>
-    </div>
-  );
+    );
+  }
+
+  const [cartes, commerciaux, demandes] = await Promise.all([
+    cartesKanban(),
+    commerciauxKanban(),
+    // Jamais bloquant : sans les demandes du site, les dossiers restent lisibles.
+    demandesSansDossier().catch((e) => {
+      console.error("Parcours : lecture des demandes du site impossible", e instanceof Error ? e.message : e);
+      return [];
+    }),
+  ]);
+  // ?segment= : le filtre de l'ancien Kanban, devenu ?type=.
+  const initiaux = lireFiltres({ ...sp, type: sp.type ?? sp.segment }, Object.keys(TYPES), commerciaux.map((c) => c.id));
+  const archives = initiaux.q.trim() ? await archivesTrouves(initiaux.q).catch(() => 0) : 0;
+
+  return <Hub cartes={cartes} commerciaux={commerciaux} demandes={demandes} vueInitiale={sp.vue === "liste" ? "liste" : "colonnes"} initiaux={initiaux} archives={archives} />;
 }

@@ -1,32 +1,17 @@
-import type { Metadata } from "next";
-import { currentUser } from "@/crm/lib/auth";
-import { cartesKanban, commerciauxKanban } from "@/crm/kanban/donnees";
-import TableauKanban from "@/crm/kanban/Tableau";
-
-export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Kanban des dossiers" };
+import { redirect } from "next/navigation";
 
 /*
- * Le Kanban des dossiers : toutes les étapes d'un coup d'œil, et le dépôt
- * d'un dossier dans une colonne déclenche l'action du métier (src/crm/kanban).
- * Les filtres arrivent par l'adresse (?commercial=, ?segment=, ?q=) ; le
- * tableau les applique ensuite sans recharger la page.
+ * Le Kanban des dossiers est devenu la vue « Colonnes » du Parcours
+ * (simplification du 08/11/2026). Un lien d'avant y mène, avec ses filtres
+ * (?segment= devient ?type=) ; ouvert sur un dossier (?dossier=), il mène à
+ * la page du dossier, qui porte son parcours.
  */
-export default async function Kanban({ searchParams }: { searchParams: Promise<{ commercial?: string; segment?: string; q?: string; dossier?: string }> }) {
-  await currentUser();
+export default async function AncienKanban({ searchParams }: { searchParams: Promise<{ commercial?: string; segment?: string; q?: string; dossier?: string }> }) {
   const sp = await searchParams;
-  const [cartes, commerciaux] = await Promise.all([cartesKanban(), commerciauxKanban()]);
-  const commercial = Number(sp.commercial);
-  return (
-    <TableauKanban
-      cartes={cartes}
-      commerciaux={commerciaux}
-      initiaux={{
-        commercial: commerciaux.some((c) => c.id === commercial) ? commercial : null,
-        segment: sp.segment && cartes.some((c) => c.segment === sp.segment) ? sp.segment : null,
-        // Ouvert depuis un dossier : le Kanban le montre seul, dans sa colonne (recherche sur sa référence).
-        q: (sp.q ?? (sp.dossier && /^\d+$/.test(sp.dossier) ? cartes.find((c) => c.id === Number(sp.dossier))?.ref ?? "" : "")).slice(0, 80),
-      }}
-    />
-  );
+  if (sp.dossier && /^\d+$/.test(sp.dossier)) redirect(`/dossiers/${sp.dossier}`);
+  const p = new URLSearchParams();
+  if (sp.q) p.set("q", sp.q);
+  if (sp.segment) p.set("type", sp.segment);
+  if (sp.commercial) p.set("commercial", sp.commercial);
+  redirect(`/parcours${p.size ? `?${p}` : ""}`);
 }

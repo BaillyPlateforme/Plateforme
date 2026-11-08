@@ -3,19 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
-import Bandeau from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
 import { Fenetre, Toast, type Message } from "@/crm/dispatch/composants/elements";
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { useGlisser } from "@/crm/dispatch/composants/useGlisser";
-import { dateFr, eur, m3, TYPES, TYPES_PLURIEL } from "@/crm/lib/format";
+import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
+import { STATUT_DEMANDE, type CarteDemande } from "@/crm/parcours/demandes-commun";
 import { deplacerDossier, type Choix } from "./actions";
 import type { Carte, Commercial } from "./donnees";
-import { COLONNES, INTITULE, NOM, RELANCE_JOURS, verdict, ville, type Geste, type Statut } from "./regles";
+import { INTITULE, NOM, RELANCE_JOURS, verdict, ville, type Geste, type Statut } from "./regles";
 import s from "./kanban.module.css";
 
 /*
- * Le Kanban des dossiers : une colonne par étape, une carte par dossier.
+ * Les colonnes du Parcours : une colonne par étape, une carte par dossier ;
+ * en tête, les demandes du site qui n'ont pas encore leur dossier au CRM.
+ * Le bandeau et les filtres sont ceux de la page (src/crm/parcours/Hub.tsx) :
+ * ce tableau reçoit les dossiers et la règle qui dit lesquels montrer.
  *
  * Le glisser-déposer est celui du dispatch (useGlisser) : souris et doigt,
  * sans bibliothèque. Pendant le glisser, chaque colonne dit si elle accepte
@@ -25,21 +28,36 @@ import s from "./kanban.module.css";
  * une petite fenêtre quand il manque une information (quel devis ? quelle
  * date ?). La carte bouge tout de suite (état optimiste) ; si le serveur
  * refuse, elle revient, avec la raison.
+ *
+ * Les demandes du site ne se glissent pas : une demande entre au CRM par le
+ * bouton « Créer le dossier » de sa fiche, qui s'ouvre d'un clic.
  */
 
-type Filtres = { commercial: number | null; segment: string | null; q: string };
 type Depot = { carte: Carte; vers: Statut; geste: Geste };
 
-const ORDRE_SEGMENTS = ["particulier", "compte", "militaire", "partenaire", "logement_social"];
 const SIGNES: Statut[] = ["commande", "planifie", "termine"];
 
-const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-const prenom = (nom: string) => nom.split(/\s+/)[0] ?? nom;
 const teinte = (id: number | null) => (id == null ? 0 : id % 5);
 
-export default function TableauKanban({ cartes, commerciaux, initiaux }: { cartes: Carte[]; commerciaux: Commercial[]; initiaux: Filtres }) {
+export default function TableauKanban({
+  cartes,
+  commerciaux,
+  garder,
+  statuts,
+  demandes,
+  filtresActifs,
+}: {
+  cartes: Carte[];
+  commerciaux: Commercial[];
+  /** Les filtres de la page : quels dossiers montrer. */
+  garder: (c: Carte) => boolean;
+  /** Les colonnes à montrer, dans l'ordre (toutes, sauf filtre d'étape). */
+  statuts: Statut[];
+  /** Les demandes du site à montrer en tête, déjà filtrées ; null : pas de colonne. */
+  demandes: CarteDemande[] | null;
+  filtresActifs: boolean;
+}) {
   const router = useRouter();
-  const [filtres, setFiltres] = useState<Filtres>(initiaux);
   const [perdus, setPerdus] = useState(false);
   const [depot, setDepot] = useState<Depot | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
@@ -53,20 +71,8 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
   const saisie = useRef<{ id: number } | null>(null);
   const [hauteur, setHauteur] = useState(120);
   const fermerMessage = useCallback(() => setMessage(null), []);
-
-  // Les filtres vivent dans l'adresse : un rechargement ou un lien partagé les garde.
-  useEffect(() => {
-    const p = new URLSearchParams();
-    if (filtres.commercial) p.set("commercial", String(filtres.commercial));
-    if (filtres.segment) p.set("segment", filtres.segment);
-    // Ouvert depuis un dossier (?dossier=) : tant que la recherche est celle du dossier, on garde
-    // le dossier dans l'adresse, pour que le menu reste sur lui.
-    const dossier = new URLSearchParams(window.location.search).get("dossier");
-    if (dossier && filtres.q.trim() === initiaux.q) p.set("dossier", dossier);
-    else if (filtres.q.trim()) p.set("q", filtres.q.trim());
-    const cible = `${window.location.pathname}${p.size ? `?${p}` : ""}`;
-    if (cible !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", cible);
-  }, [filtres, initiaux.q]);
+  // Une seule colonne choisie (filtre d'étape) : elle s'ouvre, même « Perdu ».
+  const seule = statuts.length === 1;
 
   // L'animation d'arrivée ne joue qu'une fois.
   useEffect(() => {
@@ -75,22 +81,13 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     return () => clearTimeout(t);
   }, [arrivee]);
 
-  const visibles = useMemo(() => {
-    const q = normaliser(filtres.q.trim());
-    return affichees.filter(
-      (c) =>
-        (!filtres.commercial || c.commercialId === filtres.commercial) &&
-        (!filtres.segment || c.segment === filtres.segment) &&
-        (!q || normaliser([c.client, c.ref, c.depart, c.arrivee].filter(Boolean).join(" ")).includes(q)),
-    );
-  }, [affichees, filtres]);
+  const visibles = useMemo(() => affichees.filter(garder), [affichees, garder]);
   const parColonne = useMemo(() => {
-    const m = new Map<Statut, Carte[]>(COLONNES.map((k) => [k, []]));
+    const m = new Map<Statut, Carte[]>(statuts.map((k) => [k, []]));
     for (const c of visibles) m.get(c.statut)?.push(c);
     for (const l of m.values()) l.sort((a, b) => b.majLe.localeCompare(a.majLe) || b.id - a.id);
     return m;
-  }, [visibles]);
-  const segments = useMemo(() => ORDRE_SEGMENTS.filter((k) => cartes.some((c) => c.segment === k)), [cartes]);
+  }, [visibles, statuts]);
 
   /* ── Le dépôt ── */
   const executer = (carte: Carte, vers: Statut, choix: Choix = {}) =>
@@ -135,8 +132,52 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     setHauteur(e.currentTarget.offsetHeight);
     commencer(e, c.id);
   };
+  // Le parcours d'un dossier, c'est sa page.
   const ouvrir = (c: Carte) => {
-    if (!apresGlisser()) router.push(`/parcours/${c.id}`);
+    if (!apresGlisser()) router.push(`/dossiers/${c.id}`);
+  };
+
+  /* ── La colonne des demandes du site ── */
+  const colonneDemandes = (liste: CarteDemande[]) => {
+    const total = liste.reduce((a, d) => a + (d.estimation ?? 0), 0);
+    return (
+      <section
+        key="demandes"
+        className={`${s.colonne} ${s.colonneDemandes}`}
+        data-statut="demandes"
+        data-etat={carteGlissee ? "interdit" : undefined}
+        aria-label={`Nouvelles demandes, ${liste.length} demandes du site`}
+      >
+        <header className={s.tete}>
+          <div className={s.teteHaut}>
+            <i className={s.pastille} aria-hidden />
+            <h2>Nouvelles demandes</h2>
+            <span className={s.nombre}>{liste.length}</span>
+          </div>
+          <p className={s.somme}>
+            {total > 0 ? (
+              <>
+                <b>{eur(total)}</b>
+                <span>estimés en ligne</span>
+              </>
+            ) : (
+              <span className={s.sansMontant}>Pas encore de montant</span>
+            )}
+          </p>
+        </header>
+        <div className={s.corps}>
+          {liste.map((d) => (
+            <CarteDeDemande key={d.id} demande={d} />
+          ))}
+          {liste.length === 0 && (
+            <div className={s.vide}>
+              <Icone nom="globe" taille={20} />
+              <span>Aucune demande{filtresActifs ? " pour ces filtres" : ""}</span>
+            </div>
+          )}
+        </div>
+      </section>
+    );
   };
 
   /* ── Une colonne ── */
@@ -146,8 +187,8 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     const visee = glisse?.cible === statut;
     const v = carteGlissee ? verdict(carteGlissee, statut) : null;
     const etat = !carteGlissee || !v ? undefined : v.ok ? "possible" : "interdit";
-    // « Perdu » est repliée par défaut ; « Nouveau », vide, aussi : aucun dépôt n'y mène, les dossiers y naissent.
-    const replie = (statut === "perdu" && !perdus) || (statut === "prospect" && liste.length === 0);
+    // « Perdu » est repliée par défaut ; « Nouveau », vide, aussi : aucun dépôt n'y mène, les dossiers y naissent.
+    const replie = !seule && ((statut === "perdu" && !perdus) || (statut === "prospect" && liste.length === 0));
 
     if (replie) {
       const pliable = statut === "perdu";
@@ -177,7 +218,7 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
             <i className={s.pastille} aria-hidden />
             <h2>{NOM[statut]}</h2>
             <span className={s.nombre}>{liste.length}</span>
-            {statut === "perdu" && (
+            {statut === "perdu" && !seule && (
               <button type="button" className={s.replier} onClick={() => setPerdus(false)} aria-label="Replier la colonne des dossiers perdus" title="Replier">
                 <Icone nom="chevron" taille={15} />
               </button>
@@ -216,7 +257,7 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
           {liste.length === 0 && !(visee && v?.ok) && (
             <div className={s.vide}>
               <Icone nom="kanban" taille={20} />
-              <span>Aucun dossier{filtres.commercial || filtres.segment || filtres.q ? " pour ces filtres" : ""}</span>
+              <span>Aucun dossier{filtresActifs ? " pour ces filtres" : ""}</span>
             </div>
           )}
         </div>
@@ -224,68 +265,11 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     );
   };
 
-  const filtresActifs = !!(filtres.commercial || filtres.segment || filtres.q.trim());
-
   return (
     <div className={s.racine}>
-      <Bandeau
-        surtitre="Commercial · Suivi des dossiers"
-        titre="Kanban des dossiers"
-        texte="Glissez un dossier vers l'étape suivante : le dépôt déclenche l'action du métier."
-        bas={
-          <div className={s.filtres}>
-            <label className={s.recherche}>
-              <Icone nom="recherche" taille={16} />
-              <input
-                type="search"
-                value={filtres.q}
-                onChange={(e) => setFiltres((f) => ({ ...f, q: e.target.value }))}
-                placeholder="Client, référence, ville…"
-                aria-label="Rechercher un dossier"
-              />
-            </label>
-            <div className={s.groupe} role="group" aria-label="Commercial">
-              <button type="button" aria-pressed={!filtres.commercial} onClick={() => setFiltres((f) => ({ ...f, commercial: null }))}>
-                Tous
-              </button>
-              {commerciaux.map((c) => (
-                <button key={c.id} type="button" aria-pressed={filtres.commercial === c.id} onClick={() => setFiltres((f) => ({ ...f, commercial: f.commercial === c.id ? null : c.id }))} title={c.nom}>
-                  <span className={s.mini} data-teinte={teinte(c.id)}>
-                    {c.initiales}
-                  </span>
-                  {prenom(c.nom)}
-                </button>
-              ))}
-            </div>
-            <div className={s.groupe} role="group" aria-label="Segment">
-              <button type="button" aria-pressed={!filtres.segment} onClick={() => setFiltres((f) => ({ ...f, segment: null }))}>
-                Tous
-              </button>
-              {segments.map((k) => (
-                <button key={k} type="button" aria-pressed={filtres.segment === k} onClick={() => setFiltres((f) => ({ ...f, segment: f.segment === k ? null : k }))}>
-                  {TYPES_PLURIEL[k] ?? k}
-                </button>
-              ))}
-            </div>
-            {filtresActifs && (
-              <button type="button" className={s.effacer} onClick={() => setFiltres({ commercial: null, segment: null, q: "" })}>
-                Effacer
-              </button>
-            )}
-          </div>
-        }
-      >
-        <Link href="/parcours" data-ton="plein">
-          <Icone nom="parcours" taille={17} />
-          Parcours d&apos;un dossier
-        </Link>
-        <Link href="/dossiers" data-ton="contour">
-          Liste des dossiers
-        </Link>
-      </Bandeau>
-
       <div ref={planche} className={`${s.planche} ${glisse ? s.glissement : ""}`}>
-        {COLONNES.map(colonne)}
+        {demandes && colonneDemandes(demandes)}
+        {statuts.map(colonne)}
       </div>
 
       {glisse && carteGlissee && (
@@ -306,7 +290,7 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
                 role="status"
               >
                 {v.ok ? <Icone nom="fleche" taille={14} /> : <Picto nom="alerte" taille={15} />}
-                <span>{v.ok ? `${INTITULE[v.geste.genre]} · « ${NOM[glisse.cible as Statut]} »` : v.raison}</span>
+                <span>{v.ok ? `${INTITULE[v.geste.genre]} · « ${NOM[glisse.cible as Statut]} »` : v.raison}</span>
               </p>
             );
           })()}
@@ -328,6 +312,50 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
       )}
       <Toast message={message} onFermer={fermerMessage} />
     </div>
+  );
+}
+
+/* ───────── Une demande du site ───────── */
+
+/** Une demande du site : un lien vers sa fiche, d'où elle entre au CRM. Elle ne se glisse pas. */
+function CarteDeDemande({ demande: d }: { demande: CarteDemande }) {
+  const date = d.dateSouhaitee ? dateFr(`${d.dateSouhaitee}T12:00:00Z`, { day: "numeric", month: "short", year: "numeric" }) : null;
+  return (
+    <Link href={`/dashboard/${d.id}`} className={`${s.carte} ${s.carteDemande}`} aria-label={`${d.client}, demande du site. Ouvrir la demande`}>
+      <div className={s.carteHaut}>
+        <span className={s.source} title={d.source === "email" ? "Reçue par e-mail" : "Formulaire du site"}>
+          <Icone nom={d.source === "email" ? "courrier" : "globe"} taille={14} />
+        </span>
+        <span className={s.client}>{d.client}</span>
+        <span className={s.statutDemande} data-statut={d.statut}>
+          {STATUT_DEMANDE[d.statut] ?? d.statut}
+        </span>
+      </div>
+      <div className={s.ligneRef}>
+        <span className={s.ref}>Reçue le {dateFr(d.recueLe, { day: "numeric", month: "short" })}</span>
+        <span className={s.segment} data-segment={d.parcours === "particulier" ? "particulier" : "compte"}>
+          {d.parcoursLabel}
+        </span>
+      </div>
+      <p className={s.trajet} title={[d.depart, d.arrivee].filter(Boolean).join(" → ")}>
+        <i className={s.point} />
+        <span>{d.depart ?? "Départ à préciser"}</span>
+        <Icone nom="fleche" taille={13} className={s.flecheTrajet} />
+        <span>{d.arrivee ?? "Arrivée à préciser"}</span>
+      </p>
+      <div className={s.pied}>
+        <span className={s.volume}>{d.volume != null && d.volume > 0 ? m3(d.volume) : "Volume ?"}</span>
+        <span className={s.date} title="Date souhaitée">
+          <Icone nom="calendrier" taille={13} />
+          {date ?? "Date à fixer"}
+        </span>
+        {d.estimation != null && (
+          <span className={s.montant} title="Estimation donnée par le site">
+            {eur(d.estimation)}
+          </span>
+        )}
+      </div>
+    </Link>
   );
 }
 
