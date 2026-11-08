@@ -48,9 +48,13 @@ export const ADRESSES_REGLAGES = [
   "/relances/alertes",
 ];
 const reglage = (c: string) => ADRESSES_REGLAGES.some((p) => sous(p)(c));
-/** Les demandes du site (l'ancienne section Questionnaires), hors espace client, statistiques et réglages. */
-const demandes = (c: string) =>
-  sous("/dashboard")(c) && !sous("/dashboard/espace-client")(c) && !sous("/dashboard/statistiques")(c) && !sous("/dashboard/tableau-de-bord")(c) && !reglage(c);
+/**
+ * Les pages des demandes du site (l'ancienne section Questionnaires, puis
+ * « Demandes ») : la page d'une demande, l'historique d'un client, et les
+ * anciennes adresses de la liste et de ses vues (/dashboard, rappels,
+ * focus…), qui mènent au Parcours. Hors espace client, accueil et réglages.
+ */
+const demandes = (c: string) => sous("/dashboard")(c) && !sous("/dashboard/espace-client")(c) && !sous("/dashboard/tableau-de-bord")(c) && !reglage(c);
 
 export const GROUPES: Groupe[] = [
   {
@@ -58,22 +62,23 @@ export const GROUPES: Groupe[] = [
     entrees: [
       // Pilotage, tableau du jour et vue d'ensemble des demandes : une seule page.
       { href: "/", label: "Accueil", icone: "bord", actif: (c) => c === "/" || sous("/tableau-de-bord")(c) || sous("/dashboard/tableau-de-bord")(c) },
-      // Commerciales, exploitation et demandes du site, au choix dans la page.
-      { href: "/statistiques", label: "Statistiques", icone: "stats", actif: (c) => sous("/statistiques")(c) || sous("/dashboard/statistiques")(c) },
+      // Commerciales et exploitation ; celles des demandes du site sont dans Parcours › Analyse des demandes.
+      { href: "/statistiques", label: "Statistiques", icone: "stats", actif: (c) => sous("/statistiques")(c) && !sous("/statistiques/demandes")(c) },
       { href: "/copilote", label: "Copilote", icone: "copilote" },
     ],
   },
   {
     titre: "Dossiers",
     entrees: [
-      // Le Parcours : tous les dossiers, de la demande à la facture (colonnes ou liste), et chaque dossier.
+      // Le Parcours, un seul (unification du 08/11/2026) : de la demande du site à la facture — le tableau, la
+      // liste et l'analyse des demandes —, chaque dossier, et chaque demande, sa première étape.
       {
         href: "/parcours",
         label: "Parcours",
         icone: "parcours",
-        actif: (c) => sous("/parcours")(c) || sous("/dossiers")(c) || sous("/kanban")(c) || sous("/commandes")(c),
+        actif: (c) => sous("/parcours")(c) || sous("/dossiers")(c) || sous("/kanban")(c) || sous("/commandes")(c) || sous("/statistiques/demandes")(c) || demandes(c),
+        compteur: "nouvelles",
       },
-      { href: "/dashboard", label: "Demandes", icone: "questionnaires", actif: demandes, compteur: "nouvelles" },
       // Rendez-vous commerciaux et visites techniques : un seul planning.
       { href: "/planning", label: "Planning", icone: "calendrier", actif: (c) => sous("/planning")(c) || sous("/visites")(c) },
       { href: "/devis", label: "Devis", icone: "devis", actif: (c) => sous("/devis")(c) && !reglage(c) },

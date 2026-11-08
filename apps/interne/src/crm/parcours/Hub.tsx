@@ -10,7 +10,7 @@ import type { Carte, Commercial } from "@/crm/kanban/donnees";
 import { DossierTable, type LigneDossier } from "@/crm/components/DossierTable";
 import { dateFr, photoPour, STATUTS, TYPES, TYPES_PLURIEL } from "@/crm/lib/format";
 import { NOM_PARCOURS } from "@/lib/parcours";
-import { STATUT_DEMANDE, type CarteDemande } from "./demandes-commun";
+import { libelleDemande, type CarteDemande } from "./demandes-commun";
 import { adresse, avecDemandes, ETAPES_FILTRE, FILTRES_VIDES, garderDemande, garderDossier, RANG_ETAPE, statutsDe, type Filtres } from "./filtres";
 import MenuParcours from "./MenuParcours";
 import k from "@/crm/kanban/kanban.module.css";
@@ -22,15 +22,16 @@ import h from "./hub.module.css";
  * Kanban, la liste « Clients et dossiers », les Commandes et le suivi des
  * dossiers qui menait au premier venu.
  *
- *  - Colonnes : les étapes, de « Nouvelles demandes » (le site, pas encore
- *    au CRM) à « Perdu » ; le glisser-déposer déclenche l'action du métier.
+ *  - Tableau : les étapes, de « Demandes » (les demandes du site qui
+ *    attendent qu'on les accepte ou qu'on les refuse, depuis leur carte) à
+ *    « Perdu » ; le glisser-déposer déclenche l'action du métier.
  *  - Liste : les mêmes, en tableau triable.
  *
  * Les vues sont dans le menu de gauche (choix de David, 08/11/2026), les
  * filtres (recherche, type de client, commercial, étape) dans la rangée du
  * bas de la bande : ils valent pour les deux vues et vivent dans l'adresse ;
- * passer d'une vue à l'autre ne recharge rien. Le suivi des leads, troisième
- * vue, est une page à part (même menu), avec ses propres filtres.
+ * passer d'une vue à l'autre ne recharge rien. L'analyse des demandes (même
+ * menu, second groupe) a ses pages et ses filtres (src/crm/parcours/analyse).
  */
 
 const prenom = (nom: string) => nom.split(/\s+/)[0] ?? nom;
@@ -61,14 +62,14 @@ function ligneDemande(d: CarteDemande): LigneDossier {
     cle: `r${d.id}`,
     href: `/dashboard/${d.id}`,
     client: d.client,
-    sous: `Demande du site · ${STATUT_DEMANDE[d.statut] ?? d.statut}`,
+    sous: `Demande du site · ${libelleDemande(d.statut)}`,
     photo: null,
     type: NOM_PARCOURS[d.parcours],
     depart: d.depart,
     arrivee: d.arrivee,
     volume: d.volume,
     commercial: null,
-    etape: { label: "Nouvelle demande", ton: "d", rang: RANG_ETAPE.demande },
+    etape: { label: "Demande", ton: "d", rang: RANG_ETAPE.demande },
     montant: d.estimation,
     estimation: true,
     date: d.dateSouhaitee,
@@ -83,6 +84,7 @@ export default function Hub({
   vueInitiale,
   initiaux,
   archives,
+  rappels,
 }: {
   cartes: Carte[];
   commerciaux: Commercial[];
@@ -91,6 +93,8 @@ export default function Hub({
   initiaux: Filtres;
   /** Les dossiers archivés qui répondent à la recherche de l'adresse. */
   archives: number;
+  /** Les rappels ouverts : la pastille de « À rappeler », au menu. */
+  rappels?: number;
 }) {
   const [vue, setVue] = useState(vueInitiale);
   const [filtres, setFiltres] = useState<Filtres>(initiaux);
@@ -177,7 +181,7 @@ export default function Hub({
         }
       />
 
-      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} />}>
+      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} nombres={{ rappels }} />}>
         {archives > 0 && filtres.q.trim() === initiaux.q.trim() && (
           <p className={h.archives}>
             <Icone nom="archive" taille={16} />

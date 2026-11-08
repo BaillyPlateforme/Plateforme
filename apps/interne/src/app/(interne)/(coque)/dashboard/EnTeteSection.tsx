@@ -108,20 +108,6 @@ function Confier({ contenu }: { contenu: Contenu }) {
 }
 
 const ICONES: Record<string, NomIcone> = {
-  "/dashboard/tableau-de-bord": "bord",
-  "/dashboard": "boite",
-  "/dashboard?vue=focus": "etoile",
-  "/dashboard?vue=kanban": "kanban",
-  "/dashboard?vue=rappels": "horloge",
-  "/dashboard/rappels": "horloge",
-  "/dashboard/statistiques": "tendance",
-  "/dashboard/espaces-pro": "equipe",
-  "/dashboard/devis": "devis",
-  "/dashboard/clients": "clients",
-  "/dashboard/agenda": "calendrier",
-  "/dashboard/simulateur": "euro",
-  "/dashboard/campagne": "etoile",
-  "/dashboard/playground": "copilote",
   "/dashboard/espace-client": "dossierClient",
   "/dashboard/espace-client/nouveau": "plus",
   "/dashboard/espace-client/cartons": "caisse",

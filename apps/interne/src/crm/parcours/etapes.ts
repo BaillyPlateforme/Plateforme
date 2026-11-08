@@ -232,6 +232,54 @@ export function etapesDu(f: Faits): Etape[] {
   });
 }
 
+/**
+ * Ce qu'une demande du site sans dossier dit d'elle-même : sa réception et
+ * son statut (public.requests.status, tel qu'enregistré).
+ */
+export type FaitsDemande = { le: string; source: string | null; statut: string; qualifieLe: string | null };
+
+const SOUS_ETAPE: Record<string, string> = { new: "Nouvelle", analyzing: "En analyse", qualified: "Qualifiée", quoted: "Qualifiée", won: "Qualifiée", lost: "Perdue", archived: "Archivée" };
+
+/**
+ * Le parcours d'une demande qui n'est pas encore un dossier : les mêmes treize
+ * étapes que celui d'un dossier, la première faite (la demande est reçue), la
+ * qualification en cours — son détail dit où en est la demande : nouvelle, en
+ * analyse, qualifiée —, tout le reste à venir. Les statuts « Devis envoyé » et
+ * « Gagnée » d'une demande sont des étapes du dossier : ils se lisent ici
+ * « Qualifiée » (demandes-commun.ts, sousStatut). Une demande perdue ou
+ * archivée n'a plus d'étape en cours.
+ */
+export function etapesDeLaDemande(f: FaitsDemande): Etape[] {
+  const close = f.statut === "lost" || f.statut === "archived";
+  const base = etapesDu({
+    statut: "prospect",
+    segment: "particulier",
+    aujourdhui: f.le.slice(0, 10),
+    demande: { le: f.le, site: true, source: f.source },
+    qualifieLe: null,
+    commercial: null,
+    visite: { faite: null, prevue: null, mode: null, par: null },
+    devis: { premierEnvoi: null, brouillons: 0, envoyes: 0, signe: null },
+    paiements: { n: 0, premier: null, total: 0 },
+    commandeLe: null,
+    planifieLe: null,
+    chargement: null,
+    livraison: null,
+    lettres: { n: 0, livrees: 0, creeesLe: null },
+    factures: { n: 0, payees: 0, premiere: null, derniereReglee: null, total: 0, impaye: 0 },
+    sav: { ouverts: 0, clos: 0, le: null },
+    avisLe: null,
+  });
+  return base.map((e): Etape => {
+    if (e.cle === "demande") return e;
+    if (e.cle === "qualification") {
+      const detail = SOUS_ETAPE[f.statut] ?? f.statut;
+      return { ...e, etat: close ? "avenir" : "encours", date: close ? null : f.qualifieLe, detail };
+    }
+    return { ...e, etat: "avenir", date: null, detail: "" };
+  });
+}
+
 /** Les huit étapes de la bande : faites, en cours ou à venir. */
 export function groupesDu(etapes: Etape[]): { label: string; etat: "fait" | "encours" | "avenir" }[] {
   return GROUPES.map((label, g) => {

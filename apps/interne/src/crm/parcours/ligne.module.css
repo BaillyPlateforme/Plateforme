@@ -406,3 +406,11 @@
     margin-left: 0;
   }
 }
+
+/* Le pied d'une demande du site, à la place des faits : la décision (DecisionDemande). */
+.pied {
+  margin: 0 -22px;
+  padding: 14px 22px 16px;
+  border-top: 1px solid #efedf5;
+  background: linear-gradient(180deg, #faf9fd, #f6f4fc);
+}

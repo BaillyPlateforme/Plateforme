@@ -1,0 +1,150 @@
+/*
+ * La décision sur une demande du site, au pied de la carte du parcours (page
+ * de la demande) : à gauche, où en est la demande — ses trois sous-étapes en
+ * pastilles, ou l'état de la décision déjà prise ; à droite, les gestes.
+ * Indigo : l'étape courante et « Accepter » ; vert : fait ; rose : refusée.
+ */
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+}
+.gauche {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.libelle {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8b88a0;
+}
+.segments {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e8e6ef;
+  box-shadow: 0 6px 16px -14px rgba(46, 31, 158, 0.6);
+}
+.segments button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px 0 5px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #6f6c80;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.segments button i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f1eff8;
+  color: #8b88a0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.segments button[data-fait] {
+  color: #3b3753;
+}
+.segments button[data-fait] i {
+  background: #14c27d;
+  color: #fff;
+}
+.segments button:hover:not([aria-checked="true"]):not(:disabled) {
+  background: #f6f4fd;
+  color: #2e1f9e;
+}
+.segments button[aria-checked="true"] {
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(75, 47, 224, 0.9);
+  cursor: default;
+}
+.segments button[aria-checked="true"] i {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.segments button:disabled {
+  cursor: progress;
+}
+.segments button:focus-visible {
+  outline: 2px solid #7a52ff;
+  outline-offset: 2px;
+}
+
+.boutons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.boutons a {
+  text-decoration: none;
+}
+
+/* La décision déjà prise : une pastille, deux lignes. */
+.pastille {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  color: #fff;
+  background: linear-gradient(135deg, #10a86b, #14c27d);
+  box-shadow: 0 10px 20px -12px rgba(20, 194, 125, 0.9);
+}
+.pastille[data-ton="rose"] {
+  background: linear-gradient(135deg, #be123c, #fb7185);
+  box-shadow: 0 10px 20px -12px rgba(190, 18, 60, 0.8);
+}
+.textes {
+  min-width: 0;
+}
+.textes b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #14121f;
+}
+.textes small {
+  display: block;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: #6f6c80;
+}
+
+/* Le formulaire d'une fenêtre de confirmation : ses boutons se rangent dans le pied de la fenêtre. */
+.formPied {
+  display: contents;
+}
+
+@media (max-width: 760px) {
+  .gauche {
+    flex-wrap: wrap;
+  }
+  .segments {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

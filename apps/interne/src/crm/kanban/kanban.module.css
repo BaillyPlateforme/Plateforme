@@ -847,9 +847,93 @@
   background: #ece8ff;
   color: #3a22c4;
 }
-.statutDemande[data-statut="won"] {
-  background: #e3f8ee;
-  color: #0e7a50;
+/* Le libellé du parcours (« Particulier · express ») cède la place plutôt que de déborder de la carte. */
+.carteDemande .segment {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Le nom du client est le lien de la carte : il la couvre tout entière, sous les boutons de la décision. */
+.lienCarte {
+  color: inherit;
+  text-decoration: none;
+}
+.lienCarte::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.lienCarte:focus-visible {
+  outline: none;
+}
+.carteDemande:has(.lienCarte:focus-visible) {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+/* La décision, au bas de la carte : refuser, accepter. */
+.decision {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 1px;
+  padding-left: 28px;
+}
+.incomplete {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #fff4e0;
+  color: #a4560a;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.refuser,
+.accepter {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.2s;
+}
+.refuser {
+  background: transparent;
+  color: var(--gris);
+}
+.refuser:hover {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: var(--rose);
+}
+.accepter {
+  background: var(--violet-doux);
+  color: #3a22c4;
+}
+.accepter:hover {
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px rgba(75, 47, 224, 0.9);
+}
+.refuser:focus-visible,
+.accepter:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
 }
 
 /* ───────── La fenêtre du dépôt ───────── */

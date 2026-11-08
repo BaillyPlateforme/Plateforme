@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Focus est devenu un sous-onglet de Demandes.
+/* Focus est devenu le filtre « Fort potentiel » de Parcours › Analyse des demandes (unification du 08/11/2026). */
 export default function FocusPage() {
-  redirect("/dashboard?vue=focus");
+  redirect("/parcours?vue=demandes&potentiel=fort&tri=potentiel");
 }
