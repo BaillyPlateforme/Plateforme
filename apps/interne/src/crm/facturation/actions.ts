@@ -57,10 +57,11 @@ const SaisieReglement = z.object({
 });
 export type SaisieReglement = z.input<typeof SaisieReglement>;
 
-function libelleReglement(s: z.output<typeof SaisieReglement>, facture?: string | null) {
+/** Le libellé d'un règlement (repris dans l'espace client). Sans numéro de facture : un règlement se réaffecte, l'affectation se lit à part. */
+function libelleReglement(s: z.output<typeof SaisieReglement>) {
   const tete = s.nature === "arrhes" ? "Arrhes" : s.nature === "remboursement" ? "Remboursement" : "Règlement";
   const detail = s.mode === "cheque" ? `chèque${s.numeroCheque ? ` n° ${s.numeroCheque}` : ""}${s.banque ? ` (${s.banque})` : ""}` : MODE[s.mode].toLowerCase();
-  return `${tete} · ${detail}${facture ? ` · facture ${facture}` : ""}`;
+  return `${tete} · ${detail}`;
 }
 
 /** La facture à laquelle on affecte un montant : du même dossier, ni avoir, ni annulée, ni soldée, et assez de reste. */
@@ -95,7 +96,7 @@ export async function encaisser(saisie: SaisieReglement): Promise<Issue> {
   const r = await q1<{ id: number }>(
     `insert into paiements(dossier_id, libelle, montant, recu_le, mode, nature, banque, numero_cheque, titulaire, compte_encaissement, date_prevue, commentaire, facture_id, saisi_par)
      values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
-    [s.dossierId, libelleReglement(s, numero), montant, s.recuLe, s.mode, s.nature, s.banque, s.numeroCheque, s.titulaire, s.compte, s.datePrevue ?? null, s.commentaire, s.factureId ?? null, u.id],
+    [s.dossierId, libelleReglement(s), montant, s.recuLe, s.mode, s.nature, s.banque, s.numeroCheque, s.titulaire, s.compte, s.datePrevue ?? null, s.commentaire, s.factureId ?? null, u.id],
   );
   const tete = s.nature === "arrhes" ? "Arrhes" : s.nature === "remboursement" ? "Remboursement" : "Règlement";
   await noter(s.dossierId, `${tete} de ${fr(s.montant)} enregistré${s.nature === "arrhes" ? "es" : ""} · ${MODE[s.mode].toLowerCase()}${numero ? ` · facture ${numero}` : ""}`);
@@ -130,7 +131,7 @@ export async function modifierReglement(id: number, saisie: SaisieReglement): Pr
   }
   await q(`update paiements set libelle=$2, montant=$3, recu_le=$4, mode=$5, nature=$6, banque=$7, numero_cheque=$8, titulaire=$9, compte_encaissement=$10,
       date_prevue=$11, commentaire=$12, facture_id=$13 where id=$1`,
-    [id, libelleReglement(s, numero), s.nature === "remboursement" ? -s.montant : s.montant, s.recuLe, s.mode, s.nature, s.banque, s.numeroCheque, s.titulaire, s.compte, s.datePrevue ?? null, s.commentaire, s.factureId ?? null]);
+    [id, libelleReglement(s), s.nature === "remboursement" ? -s.montant : s.montant, s.recuLe, s.mode, s.nature, s.banque, s.numeroCheque, s.titulaire, s.compte, s.datePrevue ?? null, s.commentaire, s.factureId ?? null]);
   await noter(s.dossierId, `Règlement du ${dateFr(s.recuLe)} modifié (${fr(s.montant)})`);
   await apres(s.dossierId);
   return { ok: true };

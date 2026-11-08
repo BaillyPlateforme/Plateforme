@@ -272,7 +272,7 @@ drop trigger if exists facture_reglee_en_ligne on crm.factures;
 create trigger facture_reglee_en_ligne after update of statut on crm.factures for each row
   when (new.statut is distinct from old.statut or old.statut = 'annulee') execute function crm.facture_reglee_en_ligne();
 -- La part factures et règlements de l'espace client (voir plus haut).
-create or replace function crm.projeter_factures_espace(p_crm int) returns void language plpgsql as $f$
+create or replace function crm.projeter_factures_espace(p_crm int) returns void language plpgsql security definer set search_path = '' as $f$
 declare v_ec uuid; v_devis uuid;
 begin
   if p_crm is null or to_regclass('public.ec_factures') is null or to_regclass('public.ec_dossiers') is null then return; end if;
@@ -317,7 +317,7 @@ begin
              select p.id from crm.paiements p where p.dossier_id = p_crm
                 and not exists (select 1 from crm.factures_soldes s where s.id = p.facture_id and s.statut = 'payee' and s.genre <> 'avoir'))));
 end $f$;
-create or replace function crm.facturation_projeter() returns trigger language plpgsql as $f$
+create or replace function crm.facturation_projeter() returns trigger language plpgsql security definer set search_path = '' as $f$
 declare v_dossier int;
 begin
   v_dossier := case when tg_op = 'DELETE' then old.dossier_id else new.dossier_id end;
@@ -327,6 +327,9 @@ exception when others then
   raise warning 'BaillyCRM : projection des factures du dossier % vers l''espace client impossible (%)', v_dossier, sqlerrm;
   return null;
 end $f$;
+-- Le déclencheur différé passe au commit, hors des fonctions « security definer » de l'espace client (sous le
+-- rôle de l'API, sans accès au schéma crm) : la projection s'exécute donc avec les droits de son propriétaire.
+revoke all on function crm.projeter_factures_espace(int) from public;
 drop trigger if exists facturation_projeter on crm.paiements;
 create constraint trigger facturation_projeter after insert or update or delete on crm.paiements
   deferrable initially deferred for each row execute function crm.facturation_projeter();
