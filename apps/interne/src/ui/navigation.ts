@@ -53,6 +53,8 @@ export const GROUPES: Groupe[] = [
       { href: "/devis", label: "Devis", icone: "devis" },
       { href: "/factures", label: "Factures", icone: "facture" },
       { href: "/relances", label: "Relances", icone: "horloge" },
+      { href: "/statistiques/commerciales", label: "Statistiques", icone: "stats" },
+      { href: "/archives", label: "Archivage", icone: "archive" },
     ],
   },
   {
@@ -66,6 +68,9 @@ export const GROUPES: Groupe[] = [
       { href: "/conteneurs/dispatch", label: "Dispatch international", icone: "dispatch" },
       // Les comptes des déménageurs pour l'outil terrain (/terrain).
       { href: "/demenageurs", label: "Déménageurs", icone: "badge" },
+      { href: "/sous-traitants", label: "Sous-traitants", icone: "partenaires" },
+      { href: "/litiges", label: "Litiges", icone: "litige" },
+      { href: "/statistiques/exploitation", label: "Statistiques", icone: "stats" },
     ],
   },
   {

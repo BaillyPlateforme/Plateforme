@@ -1,0 +1,261 @@
+/*
+ * L'annuaire des sous-traitants et partenaires : les cartes des sociétés, la
+ * fiche, et le champ « prestataire » des lettres de voiture.
+ */
+.grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+}
+.societe {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 20px 20px 18px;
+  border: 1px solid #eeecf5;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 54px -38px rgba(46, 31, 158, 0.5);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.18s, box-shadow 0.2s, border-color 0.15s;
+}
+.societe:hover {
+  transform: translateY(-3px);
+  border-color: #d9cfff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 30px 60px -34px rgba(75, 47, 224, 0.55);
+}
+.societe[data-inactif] {
+  opacity: 0.6;
+}
+.haut {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.monogramme {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  font-style: normal;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  box-shadow: 0 14px 24px -16px rgba(75, 47, 224, 0.95);
+}
+.monogramme[data-ton="violet"] {
+  background: linear-gradient(135deg, #7e22ce, #b46cff);
+}
+.monogramme[data-ton="vert"] {
+  background: linear-gradient(135deg, #0ea06a, #14c27d);
+}
+.monogramme[data-ton="ciel"] {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+}
+.monogramme[data-ton="ambre"] {
+  background: linear-gradient(135deg, #f59e0b, #ffbe4d);
+}
+.monogramme[data-ton="gris"] {
+  background: linear-gradient(135deg, #6f6c80, #a7a3b8);
+}
+.nom {
+  min-width: 0;
+  flex: 1;
+}
+.nom b {
+  display: block;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.nom small {
+  display: block;
+  margin-top: 4px;
+  color: #6f6c80;
+  font-size: 12.5px;
+}
+.contact {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #faf9fe;
+  border: 1px solid #f0edf8;
+  font-size: 13px;
+}
+.contact i {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #ece8ff;
+  color: #4b2fe0;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+.contact span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contact small {
+  display: block;
+  color: #6f6c80;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bas {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #ebe8f4;
+  font-size: 12.5px;
+  color: #6f6c80;
+}
+.bas b {
+  color: #14121f;
+  font-weight: 750;
+}
+.bas em {
+  margin-left: auto;
+  font-style: normal;
+}
+.alerte {
+  color: #be123c !important;
+}
+.etendu {
+  color: inherit;
+  text-decoration: none;
+}
+.etendu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+}
+.zones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.zones a {
+  position: relative;
+  z-index: 1;
+}
+
+/* La fiche : les contacts. */
+.contacts {
+  display: grid;
+  gap: 10px;
+}
+.contactLigne {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #f0edf8;
+  border-radius: 16px;
+  background: #fff;
+}
+.contactLigne > i {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ece8ff, #f6f3ff);
+  color: #4b2fe0;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 800;
+}
+.contactLigne b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.contactLigne small {
+  display: block;
+  color: #6f6c80;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.contactLigne a {
+  color: #4b2fe0;
+  text-decoration: none;
+}
+.coordonnees {
+  display: grid;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.coordonnees a {
+  color: #4b2fe0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* Le champ « prestataire » d'une lettre de voiture. */
+.saisie {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.saisie input {
+  width: 100%;
+  padding-right: 82px !important;
+}
+.lienAnnuaire {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.lienAnnuaire[data-lie="oui"] {
+  background: #dcf7ea;
+  color: #0b7f50;
+}
+.lienAnnuaire[data-lie="non"] {
+  background: #f1f0f5;
+  color: #6f6c80;
+}
+
+/* Le choix du prestataire dans la liste des lettres. */
+.choix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.choix select {
+  min-width: 190px;
+  height: 36px;
+  padding: 0 30px 0 10px;
+  border: 1px solid #e3e0ee;
+  border-radius: 11px;
+  background-color: #fff;
+  font: inherit;
+  font-size: 13px;
+}

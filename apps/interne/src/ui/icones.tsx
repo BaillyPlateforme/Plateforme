@@ -40,6 +40,14 @@ const P: Record<string, string> = {
   kanban: '<rect x="3" y="3.5" width="18" height="17" rx="3"/><path d="M9 3.5v17M15 3.5v17M5.3 7.5h1.4M5.3 10.5h1.4M11.3 7.5h1.4M17.3 7.5h1.4M17.3 10.5h1.4M17.3 13.5h1.4"/>',
   parcours: '<circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="5.5" r="2.5"/><path d="M8 18.5h7a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h7"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  // Exploitation et gestion (08/11/2026) : annuaire, litiges, statistiques, archivage, caisses.
+  partenaires: '<path d="M3 21V7.5L9 4v17M9 9h12v12H3"/><path d="M12.5 12.5h2M17 12.5h1.5M12.5 16h2M17 16h1.5M5.5 9.5h1M5.5 13h1"/>',
+  litige: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="M12 8v4.5M12 16h.01"/>',
+  stats: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+  archive: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/>',
+  caisse: '<path d="m21 8-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.5 12 12l8.7-4.5M12 22V12"/>',
+  imprimer: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
+  restaurer: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
 };
 
 export type NomIcone = keyof typeof P;

@@ -16,6 +16,7 @@ import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 import SectionVisite from "@/crm/visites/composants/SectionVisite";
+import ChampPrestataire from "@/crm/partenaires/ChampPrestataire";
 
 export const dynamic = "force-dynamic";
 
@@ -250,7 +251,7 @@ export default async function Fiche({ params, searchParams }: { params: Promise<
               <form key={l.id} action={A.majLettre.bind(null, id, l.id)} className="lv">
                 <div className="lv-top">
                   <div><div className="t">{l.numero}</div><div className="sub">{l.trajet}</div><div className="sub">{l.montant > 0 ? `Montant porté : ${eur(l.montant)}` : "Montant à 0 € (déjà compté sur la 1ʳᵉ lettre)"}</div></div>
-                  <div className="fld"><label>Prestataire / agent</label><input type="text" name="prestataire" defaultValue={l.prestataire} /></div>
+                  <div className="fld"><label>Prestataire / agent</label><ChampPrestataire valeur={l.prestataire} /></div>
                   <div className="fld"><label>Prix sous-traitant (€)</label><input type="number" step="1" name="prix_sous_traitance" defaultValue={l.prix_sous_traitance ?? ""} /></div>
                 </div>
                 <div className="lv-top">
