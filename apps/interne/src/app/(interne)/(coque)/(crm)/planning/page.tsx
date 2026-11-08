@@ -12,6 +12,10 @@ import s from "@/crm/planning/planning.module.css";
 import { etatsRdv } from "@/crm/rdv/sms";
 // Le numéro de semaine ISO, le même que le planning d'exploitation (l'ancien calcul donnait 45 pour la semaine 46).
 import { semaineIso } from "@/crm/exploitation/planning";
+import { BarreBas } from "@/crm/exploitation/ui/Bas";
+import VuesPlanning, { vuePlanning } from "@/crm/planning/Vues";
+import VueVisites from "@/crm/visites/VueVisites";
+import VueDates from "@/crm/planning/VueDates";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +26,21 @@ export const dynamic = "force-dynamic";
  * modifié ou supprimé ; chaque visite montre où elle en est de son cycle.
  * Les fiches de visite s'impriment par journée (en tête de chaque jour) ou
  * pour la semaine du commercial choisi.
+ *
+ * Un seul planning commercial (simplification du 08/11/2026) : la semaine,
+ * les visites techniques (?vue=visites, l'ancienne page /visites) et les
+ * dates souhaitées par les clients du site (?vue=dates, l'ancien agenda des
+ * questionnaires), en pilules dans la rangée du bas du bandeau.
  */
 
 const NOMS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const OK: Record<string, string> = { modifie: "Rendez-vous enregistré.", supprime: "Rendez-vous supprimé." };
 
-export default async function Planning({ searchParams }: { searchParams: Promise<{ semaine?: string; com?: string; ok?: string }> }) {
+export default async function Planning({ searchParams }: { searchParams: Promise<{ semaine?: string; com?: string; ok?: string; vue?: string }> }) {
   const sp = await searchParams;
+  const vue = vuePlanning(sp.vue);
+  if (vue === "visites") return <VueVisites />;
+  if (vue === "dates") return <VueDates />;
   const lun = sp.semaine ? lundiDe(new Date(sp.semaine)) : semaineCourante();
   const com = sp.com ? Number(sp.com) : null;
   const [{ jours, evenements, creneaux }, coms] = await Promise.all([planningSemaine(lun, com), commerciaux()]);
@@ -55,13 +67,16 @@ export default async function Planning({ searchParams }: { searchParams: Promise
         texte={com ? coms.find((c) => c.id === com)?.nom : "Toute l’équipe commerciale"}
         action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}
         bas={
-          <Pilules
-            label="Commercial"
-            items={[
-              { href: `/planning?semaine=${lundi}`, label: "Tous", actif: !com },
-              ...coms.map((c) => ({ href: `/planning?semaine=${lundi}&com=${c.id}`, label: c.nom.split(" ")[0], actif: com === c.id })),
-            ]}
-          />
+          <BarreBas>
+            <VuesPlanning actif="semaine" separateur />
+            <Pilules
+              label="Commercial"
+              items={[
+                { href: `/planning?semaine=${lundi}`, label: "Tous", actif: !com },
+                ...coms.map((c) => ({ href: `/planning?semaine=${lundi}&com=${c.id}`, label: c.nom.split(" ")[0], actif: com === c.id })),
+              ]}
+            />
+          </BarreBas>
         }
       >
         <Link href={nav(-7)} data-ton="fleche" aria-label="Semaine précédente"><Ic n="left" /></Link>

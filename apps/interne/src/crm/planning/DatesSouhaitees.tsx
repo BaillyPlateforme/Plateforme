@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 
-type Ev = { id: string; date: string; client: string; trajet: string; volume: number | null };
+/*
+ * Les dates de déménagement souhaitées par les clients du site, au mois : la
+ * vue « Dates souhaitées » du planning commercial. C'était l'« Agenda » des
+ * questionnaires (/dashboard/agenda) jusqu'à la simplification du 08/11/2026.
+ * Écrit avec Tailwind : posé dans un conteneur `.vue-equipe`.
+ */
+export type Ev = { id: string; date: string; client: string; trajet: string; volume: number | null };
 
 const MONTHS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -11,7 +17,7 @@ const MONTHS = [
 ];
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-export default function AgendaClient({ events }: { events: Ev[] }) {
+export default function DatesSouhaitees({ events }: { events: Ev[] }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());

@@ -373,6 +373,15 @@
   background: var(--line, #e4e2ee);
 }
 
+/* La rangée du bas du bandeau (BarreBas) : les vues, un filet, puis les commerciaux. */
+.separateurBas {
+  flex: none;
+  width: 1px;
+  height: 26px;
+  margin: 0 2px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
 /* Le petit calendrier */
 .miniCal {
   position: relative;

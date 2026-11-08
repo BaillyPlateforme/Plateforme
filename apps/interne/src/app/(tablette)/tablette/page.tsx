@@ -145,7 +145,7 @@ export default async function Tablette({ searchParams }: { searchParams: Promise
                 </Link>
               </>
             )}
-            <Link href="/visites">
+            <Link href="/planning?vue=visites">
               <Picto nom="bureau" taille={18} /> CRM
             </Link>
             <span className={s.monogramme} title={u.nom} style={{ background: "rgba(255,255,255,.16)", color: "#fff", fontSize: 14 }}>
