@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Icone, type NomIcone } from "@/ui/icones";
 import type { Evenement } from "./donnees";
 import { GROUPES, groupesDu, jourFr, resume, type Etape } from "./etapes";
+import type { Prochaine } from "./prochaine";
 import Frise from "./Frise";
 import s from "./ligne.module.css";
 
@@ -51,6 +52,7 @@ export default function LigneParcours({
   titre = "Parcours du dossier",
   perduTexte = "Dossier perdu",
   pied,
+  prochaine,
 }: {
   etapes: Etape[];
   perdu: boolean;
@@ -64,6 +66,8 @@ export default function LigneParcours({
   perduTexte?: string;
   /** Le bas de la carte, à la place des faits : la décision sur une demande du site. */
   pied?: React.ReactNode;
+  /** Ce qu'il faut faire maintenant, en tête de la carte (prochaine.ts). */
+  prochaine?: Prochaine;
 }) {
   const [chronologie, setChronologie] = useState(false);
   // La chronologie dépliée ou non, gardée dans ce navigateur (lue après le premier rendu).
@@ -123,6 +127,7 @@ export default function LigneParcours({
             </button>
           )}
         </header>
+        {prochaine && <BandeProchaine p={prochaine} />}
 
         <ol className={s.stations}>
           {GROUPES.map((nom, g) => {
@@ -232,5 +237,35 @@ export default function LigneParcours({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * La prochaine étape, en tête du parcours : ce qu'il faut faire maintenant et le bouton qui le fait.
+ * Une ancre de la fiche (#…) passe par un lien ordinaire : la fiche suit le changement d'ancre.
+ */
+function BandeProchaine({ p }: { p: Prochaine }) {
+  const lien = (a: { label: string; href: string; principal?: boolean }) =>
+    a.href.includes("#") || a.href.includes("?encaisser") ? (
+      <a key={a.href} href={a.href} className={a.principal ? s.prochainePrincipal : s.prochaineSecondaire}>
+        {a.label}
+      </a>
+    ) : (
+      <Link key={a.href} href={a.href} className={a.principal ? s.prochainePrincipal : s.prochaineSecondaire}>
+        {a.label}
+      </Link>
+    );
+  return (
+    <div className={s.prochaine} data-ton={p.ton} role="status">
+      <span className={s.prochaineIcone} aria-hidden>
+        <Icone nom={p.ton === "fini" ? "coche" : p.ton === "attendre" ? "horloge" : p.ton === "perdu" ? "sortie" : "fleche"} taille={18} />
+      </span>
+      <div className={s.prochaineTexte}>
+        <small>{p.ton === "fini" ? "Terminé" : p.ton === "perdu" ? "Arrêté" : "Prochaine étape"}</small>
+        <b>{p.titre}</b>
+        <span>{p.detail}</span>
+      </div>
+      {p.actions.length > 0 && <div className={s.prochaineActions}>{p.actions.map(lien)}</div>}
+    </div>
   );
 }

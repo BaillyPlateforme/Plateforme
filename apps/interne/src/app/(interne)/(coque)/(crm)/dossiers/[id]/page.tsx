@@ -111,6 +111,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
 
       {parcours && (
         <LigneParcours
+          prochaine={parcours.prochaine}
           etapes={parcours.etapes}
           perdu={d.statut === "perdu"}
           evenements={parcours.evenements}

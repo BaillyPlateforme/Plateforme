@@ -1,4 +1,5 @@
 import "server-only";
+import { prochaineEtape } from "./prochaine";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { RDV_TYPES } from "@/crm/lib/format";
 import { getRequestDetail, type RequestDetail } from "@/lib/requests";
@@ -524,6 +525,8 @@ export async function parcoursDossier(id: number) {
     distance: devis.find((v) => v.distance_km)?.distance_km ?? null,
     prochainRdv: prochainRdv ? { debut: ISO(prochainRdv.debut)!, titre: prochainRdv.titre, commercial: prochainRdv.commercial, type: prochainRdv.type } : null,
     signe: signe ? { numero: signe.numero, formule: FORMULE[signe.formule] ?? signe.formule, montant: signe.montant } : null,
+    // Ce qu'il faut faire maintenant, et le bouton qui le fait (prochaine.ts).
+    prochaine: prochaineEtape(faits, { id, reste: argent.reste, espaceId: espace?.id ?? null }),
   };
 }
 
