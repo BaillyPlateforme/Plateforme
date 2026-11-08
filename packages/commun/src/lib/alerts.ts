@@ -224,6 +224,8 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
             html,
             expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
             piecesJointes: pdf && est ? [{ nom: `estimation-${est.reference}.pdf`, base64: pdf }] : undefined,
+            // Le suivi des ouvertures et des clics (lib/suivi-envois) : vers le client seulement, jamais une adresse de l'équipe.
+            suivi: versClient,
           });
         }
       } catch (e) {

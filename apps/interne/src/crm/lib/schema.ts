@@ -25,6 +25,8 @@ import { SCHEMA_APPELS } from "@/crm/appels/schema";
 import { SCHEMA_DISCUSSION } from "@/lib/espace-client/discussion-schema";
 // Les tutoriels vus par chaque client (public.ec_tutos_vus) : même principe, posée aussi par l'app externe au premier « vu ».
 import { SCHEMA_TUTOS_VUS } from "@/lib/espace-client/tutos-vus-schema";
+// Le suivi des e-mails aux clients (public.envois_evenements, public.envois_liens) : même principe, posé aussi par l'app externe au premier événement.
+import { SCHEMA_SUIVI } from "@/lib/suivi-envois/schema";
 
 export const SCHEMA = `
 create schema if not exists crm;
@@ -475,4 +477,5 @@ ${SCHEMA_JOURNAL}
 ${SCHEMA_PRESTIGE}
 ${SCHEMA_APPELS}
 ${SCHEMA_DISCUSSION}
-${SCHEMA_TUTOS_VUS}`;
+${SCHEMA_TUTOS_VUS}
+${SCHEMA_SUIVI}`;

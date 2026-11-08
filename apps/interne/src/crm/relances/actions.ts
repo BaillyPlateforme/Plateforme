@@ -12,6 +12,8 @@ import { remplir, type ContexteEmail } from "@/crm/messages/rendu";
 import { decider, duesPourLaVeille, envoyerRelance, liensRelance, reglesRelances, simulerRegle } from "./moteur";
 import { elementsChoisis, surtitreRelance, varsRelance, type LiensRelance } from "./courrier";
 import { etatsCanaux, relanceParCle, type CanalEnvoi } from "./envoi";
+import { suiviParCles } from "@/crm/suivi/donnees";
+import type { SuiviEnvoi } from "@/crm/suivi/etapes";
 import {
   CANAUX, canalEnClair, creneauEnClair, defRelance, HEURE_VEILLE_UTC, JOURS, libelleCanal, plus, repereDe, SEGMENTS, validerRegle,
   type Canal, type Colonne, type ReglageRegle, type Regle, type RelanceCourrier, type TypeRelance,
@@ -154,6 +156,8 @@ export interface PreparationEnvoi {
   destinataire: { email: string | null; telephone: string | null; fictif: boolean };
   /** Ce que deviendra le message, d'après ENVOI_MODE. */
   envoi: { mode: string; phrase: string };
+  /** Les e-mails déjà partis pour cette relance (ses rangs précédents), avec leur suivi (src/crm/suivi). */
+  historique: { rang: number; suivi: SuiviEnvoi }[];
 }
 
 /** Prépare l'écran d'envoi d'une relance (ou son aperçu) : rien n'est envoyé ni écrit. */
@@ -164,7 +168,12 @@ export async function preparerEnvoi(cle: string): Promise<{ ok: true; preparatio
   const { r } = trouvee;
   const [c, contexte, liens] = await Promise.all([destinataire(r.dossierId), contexteEmail(), liensRelance(r.type, r.demande)]);
   if (!c) return { ok: false, erreur: "Dossier introuvable." };
-  const [fictif, canaux] = await Promise.all([dossierFictif(r.dossierId, c), etatsCanaux(r, trouvee.canaux, c)]);
+  const [fictif, canaux, deja] = await Promise.all([
+    dossierFictif(r.dossierId, c),
+    etatsCanaux(r, trouvee.canaux, c),
+    // Les e-mails de cette relance (« relance:<type>:<objet>: »), tous rangs, avec leur piste.
+    suiviParCles([`relance:${r.cle.split(":").slice(0, 2).join(":")}:`]),
+  ]);
   const partira = canaux.some((k) => !k.optionnel && (k.etat === "pret" || k.etat === "vide"));
   const envoyable = r.colonne !== "envoyee" && !r.bloquee && partira;
   const mode = etatEnvois().mode;
@@ -188,6 +197,7 @@ export async function preparerEnvoi(cle: string): Promise<{ ok: true; preparatio
       canaux, vars, contexte, liens, surtitre: surtitreRelance(r.ref),
       destinataire: { email: c.email, telephone: c.telephone, fictif },
       envoi: { mode, phrase },
+      historique: deja.map(({ cle, ...suivi }) => ({ rang: Number(cle.split(":")[3]) || 1, suivi })),
     },
   };
 }

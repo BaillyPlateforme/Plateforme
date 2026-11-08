@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { brevoConfigure, posterEmail, posterSms, type ReponseBrevo } from "./brevo";
 import { decider, lireReglage, MOTIFS, type Canal, type ModeEnvoi, type ReglageEnvois } from "./garde-fous";
 import { conclure, reserver, type LigneEnvoi, type OrigineEnvoi, type StatutEnvoi } from "./journal";
+import { equiperEmail } from "@/lib/suivi-envois";
 
 /*
  * Le module d'envoi de la plateforme : TOUT e-mail et TOUT SMS passe par
@@ -11,6 +12,9 @@ import { conclure, reserver, type LigneEnvoi, type OrigineEnvoi, type StatutEnvo
  *
  *   1. sa clé d'idempotence est réservée au journal (public.envois) : une
  *      clé déjà prise ne repart pas — jamais deux envois pour la même clé ;
+ *   1 bis. un e-mail au client est équipé pour le suivi (lib/suivi-envois : pixel
+ *      d'ouverture, liens suivis), avec l'identifiant de sa ligne — même s'il
+ *      ne part pas ; un échec du suivi le laisse partir tel quel ;
  *   2. les garde-fous décident (garde-fous.ts) : destinataire fictif, envoi
  *      désactivé, recette et liste blanche, bac à sable ;
  *   3. s'il a le droit de partir, Brevo est appelé, et sa réponse (son
@@ -53,6 +57,12 @@ export interface EmailSortant extends Commun {
   expediteur?: { nom?: string | null; email?: string | null };
   repondreA?: string | null;
   piecesJointes?: { nom: string; base64: string }[];
+  /**
+   * Le suivi de l'e-mail (lib/suivi-envois : pixel d'ouverture, liens suivis). Par
+   * défaut, tout e-mail au client ; jamais les alertes de l'équipe, les
+   * messages à l'équipe ou au bailleur, ni les tests des Paramètres.
+   */
+  suivi?: boolean;
 }
 
 export interface SmsSortant extends Commun {
@@ -100,7 +110,18 @@ function signalerBlocage(b: { cle: string; modele: string | null; reference: str
     .catch(() => undefined);
 }
 
-async function envoyer(canal: Canal, m: Commun & { a: string; sujet: string | null; apercu: string | null }, appeler: (bacASable: boolean) => Promise<ReponseBrevo>): Promise<ResultatEnvoi> {
+/** Un e-mail est-il suivi par défaut ? Seulement s'il va au client. */
+const HORS_CLIENT = /(_equipe$|^avarie_bailleur$|^Alerte équipe)/;
+const suiviParDefaut = (m: Pick<EmailSortant, "origine" | "cle" | "modele">) =>
+  m.origine !== "test" && !String(m.cle ?? "").startsWith("alerte:") && !HORS_CLIENT.test(m.modele ?? "");
+
+async function envoyer(
+  canal: Canal,
+  m: Commun & { a: string; sujet: string | null; apercu: string | null },
+  appeler: (bacASable: boolean) => Promise<ReponseBrevo>,
+  /** Juste après la réservation, avant tout : l'e-mail est équipé pour le suivi avec l'identifiant de sa ligne (lib/suivi-envois). */
+  preparer?: (envoiId: string) => Promise<void>,
+): Promise<ResultatEnvoi> {
   const reglage = reglageEnvois();
   const cle = cleDe(m.cle);
   const destinataire = m.a.trim();
@@ -119,6 +140,9 @@ async function envoyer(canal: Canal, m: Commun & { a: string; sujet: string | nu
   if (!r.reservee) {
     return { ...base, statut: r.ligne.statut, motif: r.ligne.motif, brevoId: r.ligne.brevo_id, doublon: true, journalId: r.ligne.id, bacASable: r.ligne.bac_a_sable };
   }
+
+  // Même journalisé ou retenu, l'e-mail est équipé : ses liens se retrouvent, et le suivi s'éprouve sans rien envoyer.
+  if (preparer) await preparer(r.ligne.id);
 
   const finir = async (statut: Exclude<StatutEnvoi, "en_cours">, motif: string | null, brevoId: string | null = null): Promise<ResultatEnvoi> => {
     try {
@@ -148,17 +172,28 @@ async function envoyer(canal: Canal, m: Commun & { a: string; sujet: string | nu
 
 export function envoyerEmail(m: EmailSortant): Promise<ResultatEnvoi> {
   const defaut = expediteurParDefaut();
-  return envoyer("email", { ...m, sujet: m.sujet, apercu: null }, (bacASable) =>
-    posterEmail({
-      a: m.a.trim(),
-      sujet: m.sujet,
-      html: m.html,
-      texte: m.texte,
-      expediteur: { nom: m.expediteur?.nom || defaut.nom, email: m.expediteur?.email || defaut.email },
-      repondreA: m.repondreA,
-      piecesJointes: m.piecesJointes,
-      bacASable,
-    }),
+  // Le corps qui part : celui de l'appelant, équipé pour le suivi une fois la ligne du journal réservée (lib/suivi-envois).
+  let html = m.html;
+  const equiper = (m.suivi ?? suiviParDefaut(m))
+    ? async (envoiId: string) => {
+        html = await equiperEmail(envoiId, m.html);
+      }
+    : undefined;
+  return envoyer(
+    "email",
+    { ...m, sujet: m.sujet, apercu: null },
+    (bacASable) =>
+      posterEmail({
+        a: m.a.trim(),
+        sujet: m.sujet,
+        html,
+        texte: m.texte,
+        expediteur: { nom: m.expediteur?.nom || defaut.nom, email: m.expediteur?.email || defaut.email },
+        repondreA: m.repondreA,
+        piecesJointes: m.piecesJointes,
+        bacASable,
+      }),
+    equiper,
   );
 }
 

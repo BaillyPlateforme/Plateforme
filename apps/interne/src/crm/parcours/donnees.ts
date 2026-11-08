@@ -7,6 +7,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import type { NomIcone } from "@/ui/icones";
 import { etapesDu, type Faits } from "./etapes";
 import { soldeDossier } from "@/crm/facturation/donnees";
+import { suiviDesEnvois, visitesDuDossier } from "@/crm/suivi/donnees";
+import { libellePage, type SuiviEnvoi } from "@/crm/suivi/etapes";
 
 /*
  * Le parcours d'un dossier : tout ce que les trois faces de Bailly savent de
@@ -43,6 +45,8 @@ export type Evenement = {
   lien?: string;
   avenir: boolean;
   ton?: "ok" | "alerte";
+  /** Un e-mail au client : sa piste (envoyé, ouvert, cliqué, sur le portail), lib/suivi-envois. */
+  suivi?: SuiviEnvoi;
 };
 
 export type Document = { cle: string; titre: string; meta: string; href: string; icone: NomIcone };
@@ -361,7 +365,10 @@ export async function parcoursDossier(id: number) {
     const a = absorber(/^Devis générés/i, t);
     pousser({ id: `devis-cree-${lot[0].id}`, quand: t, jour: false, titre: lot.length > 1 ? `${lot.length} formules établies` : `Devis ${lot[0].numero} établi`, detail: listeFormules(lot), auteur: auteurDe(a, "CRM"), famille: "devis", icone: "devis", href: lot.length > 1 ? fiche : `${fiche}/devis/${lot[0].id}`, lien: lot.length > 1 ? "Voir les devis" : "Voir le devis" });
   }
+  // Les devis de chaque ligne « Devis envoyé » : l'e-mail d'un devis y pose sa piste (plus bas).
+  const lotsEnvoyes = new Map<string, number[]>();
   for (const lot of parGeste("envoye_le")) {
+    lotsEnvoyes.set(`devis-envoi-${lot[0].id}`, lot.map((v) => Number(v.id)));
     const t = ISO(lot[0].envoye_le)!;
     const a = absorber(/^Devis.*envoy/i, t);
     pousser({ id: `devis-envoi-${lot[0].id}`, quand: t, jour: false, titre: lot.length > 1 ? `${lot.length} devis envoyés` : `Devis ${lot[0].numero} envoyé`, detail: a && /signature/i.test(a.libelle) ? `${listeFormules(lot)} · avec lien de signature` : listeFormules(lot), auteur: auteurDe(a, "CRM"), famille: "devis", icone: "fleche", href: lot.length > 1 ? fiche : `${fiche}/devis/${lot[0].id}`, lien: lot.length > 1 ? "Voir les devis" : "Voir le devis" });
@@ -450,6 +457,82 @@ export async function parcoursDossier(id: number) {
     for (const c of ec.conditions.filter((x) => x.valide_at && !conditionsAcceptees)) pousser({ ...commun, id: `ec-c-${c.id}`, quand: c.valide_at, titre: "Conditions de livraison renseignées", auteur: "Client", icone: "camion" });
     for (const s of ec.sav) pousser({ ...commun, id: `ec-sav-${s.id}`, quand: s.created_at, titre: `Déclaration SAV ${s.numero ?? ""}`.trim(), detail: [s.objets, SAV_EC[s.statut] ?? s.statut].filter(Boolean).join(" · "), auteur: "Client", icone: "cloche", ton: s.statut === "cloturee" ? undefined : "alerte" });
     if (ec.dossier.avis_demande_le) pousser({ ...commun, id: "ec-avis", quand: ec.dossier.avis_demande_le, titre: "Avis demandé au client", auteur: "Espace client", icone: "etoile" });
+  }
+
+  /* ── Le suivi des e-mails au client (lib/suivi-envois) : chacun porte sa piste ── */
+  // Le journal des envois du dossier (sa référence, celle de son espace, sa demande), e-mails seulement, sans les alertes de l'équipe.
+  const references = [d.ref, espace?.reference, d.request_id ? String(d.request_id) : null].filter(Boolean);
+  const emails = await q<{ id: string; cle: string; origine: string; modele: string | null; sujet: string | null; notification_id: string | null; cree_le: Date }>(
+    `select id::text, cle, origine, modele, sujet, notification_id::text, cree_le from public.envois
+      where canal = 'email' and cle not like 'alerte:%' and (reference = any($1::text[]) or notification_id = any($2::uuid[])) order by cree_le`,
+    [references, (ec?.notifications ?? []).map((n) => n.id)],
+  ).catch(() => [] as { id: string; cle: string; origine: string; modele: string | null; sujet: string | null; notification_id: string | null; cree_le: Date }[]);
+  const suivis = await suiviDesEnvois(emails.map((m) => m.id));
+  const parId = new Map(ev.map((e) => [e.id, e]));
+  for (const m of emails) {
+    const suivi = suivis.get(m.id);
+    if (!suivi) continue;
+    // L'e-mail d'un devis (« Signer le devis ») : sur la ligne « Devis envoyé », le plus récent s'il y en a plusieurs.
+    const devisId = Number(/^crm:devis:(\d+):/.exec(m.cle)?.[1]);
+    const ligneDevis = devisId ? [...lotsEnvoyes].find(([, ids]) => ids.includes(devisId))?.[0] : undefined;
+    const surDevis = ligneDevis ? parId.get(ligneDevis) : undefined;
+    if (surDevis) {
+      if (!surDevis.suivi || surDevis.suivi.envoyeLe < suivi.envoyeLe) surDevis.suivi = suivi;
+      continue;
+    }
+    // Un message de l'espace client : sur sa ligne.
+    const surNotif = m.notification_id ? parId.get(`ec-n-${m.notification_id}`) : undefined;
+    if (surNotif) {
+      surNotif.suivi = suivi;
+      continue;
+    }
+    // Un message des questionnaires : sur sa ligne de l'historique de la demande, à deux minutes près.
+    const surDemande = m.origine === "questionnaires" ? ev.find((x) => x.id.startsWith("req-") && x.icone === "courrier" && !x.suivi && Math.abs(+new Date(x.quand) - +m.cree_le) < 120_000) : undefined;
+    if (surDemande) {
+      surDemande.suivi = suivi;
+      continue;
+    }
+    // Les autres (relances, veille, rappels…) : une ligne à eux, qui reprend celle du fil qui les annonce.
+    const a = absorber(/(relance|e-mail|rappel|message|veille|courrier|lien)/i, ISO(m.cree_le), { minutes: 2 });
+    pousser({
+      id: `envoi-${m.id}`,
+      quand: ISO(m.cree_le)!,
+      jour: false,
+      titre: `E-mail${m.sujet ? ` « ${m.sujet} »` : m.modele ? ` « ${m.modele} »` : ""}`,
+      detail: a?.libelle ?? m.modele ?? undefined,
+      auteur: auteurDe(a, m.origine === "veille" ? "Automatique" : m.origine === "espace_client" ? "Espace client" : "CRM"),
+      famille: m.origine === "espace_client" ? "espace" : "crm",
+      icone: "courrier",
+      suivi,
+      href: fiche,
+      lien: "Fiche du dossier",
+    });
+  }
+
+  // Le portail : une ligne par jour de visite (espace client, page de signature), avec les pages vues et les gestes clés.
+  for (const j of await visitesDuDossier(id, espace?.id ?? null)) {
+    const cles = [...j.pages, ...j.gestes];
+    const titre = j.gestes.includes("pdf_devis")
+      ? "A téléchargé le PDF du devis"
+      : cles.includes("devis") || cles.includes("signature")
+        ? "A consulté son devis"
+        : cles.includes("paiement")
+          ? "A ouvert la page de paiement"
+          : "A consulté son espace client";
+    pousser({
+      id: `portail-${j.jour}`,
+      quand: j.premiere,
+      jour: false,
+      titre,
+      detail: [j.pages.length ? `Pages vues : ${j.pages.map(libellePage).join(", ")}` : null, j.gestes.length ? j.gestes.map(libellePage).join(" · ") : null, j.envois.length ? "venu depuis un e-mail" : null]
+        .filter(Boolean)
+        .join(" · "),
+      auteur: "Client",
+      famille: "espace",
+      icone: "connexion",
+      ton: titre === "A consulté son espace client" ? undefined : "ok",
+      ...(espace ? { href: `/dashboard/espace-client/dossiers/${espace.id}`, lien: "Fiche de l'espace" } : { href: fiche, lien: "Fiche du dossier" }),
+    });
   }
 
   // Le reste du fil d'activité, tel qu'il a été écrit.

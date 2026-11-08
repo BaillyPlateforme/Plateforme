@@ -17,6 +17,9 @@ import { Colonnes, type Point } from "@/crm/relances/Graphiques";
 import Kanban, { BoutonExclusion } from "@/crm/relances/Kanban";
 import { dossierDuFiltre, IconeCanal, lienRelances } from "@/crm/relances/Section";
 import s from "@/crm/relances/relances.module.css";
+import { suiviDesEnvois } from "@/crm/suivi/donnees";
+import Piste from "@/crm/suivi/Piste";
+import type { SuiviEnvoi } from "@/crm/suivi/etapes";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +101,9 @@ export default async function Relances({
         )
       : [];
   const lignes = avantIssue.filter((l) => !sp.issue || l.famille === sp.issue);
+  // La piste de chaque e-mail de relance affiché : envoyé, ouvert, cliqué, sur le portail (src/crm/suivi).
+  const suivisHisto =
+    vue === "historique" ? await suiviDesEnvois(lignes.slice(0, LIMITE).flatMap((l) => l.canaux.filter((c) => c.canal === "email" && c.envoiId).map((c) => c.envoiId!))) : new Map<string, SuiviEnvoi>();
   const tentatives = histo.flatMap((l) => l.canaux.map((c) => ({ ...c, date: l.date })));
   const effets = vue === "historique" ? await mesurerEffet(histo) : [];
 
@@ -195,7 +201,7 @@ export default async function Relances({
           {vue === "previsions" && <Previsions relances={relances} regles={regles} tentatives={tentatives} type={type} horizon={horizon} aujourdhui={aujourdhui} />}
           {vue === "historique" && (
             <>
-              <TableHistorique lignes={lignes} filtre={!!(sp.type || sp.canal || sp.issue || sp.origine || periode)} />
+              <TableHistorique lignes={lignes} suivis={suivisHisto} filtre={!!(sp.type || sp.canal || sp.issue || sp.origine || periode)} />
               <div className={s.grille}>
                 <EnvoisTrenteJours tentatives={tentatives} aujourdhui={aujourdhui} />
                 <section className={`${s.carte} ${s.c4}`}>
@@ -377,7 +383,7 @@ function EnvoisTrenteJours({ tentatives, aujourdhui }: { tentatives: Tentative[]
 }
 
 /** L'historique : une ligne par relance partie ou tentée, avec l'issue de chaque canal. */
-function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof historiqueRelances>>; filtre: boolean }) {
+function TableHistorique({ lignes, suivis, filtre }: { lignes: Awaited<ReturnType<typeof historiqueRelances>>; suivis: Map<string, SuiviEnvoi>; filtre: boolean }) {
   return (
     <section className={s.carte} style={{ padding: 0, overflow: "hidden" }}>
       {lignes.length === 0 ? (
@@ -432,12 +438,21 @@ function TableHistorique({ lignes, filtre }: { lignes: Awaited<ReturnType<typeof
                   </td>
                   <td>
                     <div className={s.issues}>
-                      {l.canaux.map((c) => (
-                        <span key={c.canal} className={s.issue} data-famille={c.famille} title={c.motif ?? undefined}>
-                          <IconeCanal canal={c.canal} />
-                          {libelleCanal(c.canal)} · {STATUT_ENVOI[c.statut]?.libelle ?? c.statut}
-                        </span>
-                      ))}
+                      {l.canaux.map((c) => {
+                        // Un e-mail suivi : sa piste, de l'envoi au portail (src/crm/suivi) ; un SMS, son issue.
+                        const suivi = c.canal === "email" && c.envoiId ? suivis.get(c.envoiId) : undefined;
+                        return suivi ? (
+                          <span key={c.canal} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <IconeCanal canal={c.canal} />
+                            <Piste suivi={suivi} compacte />
+                          </span>
+                        ) : (
+                          <span key={c.canal} className={s.issue} data-famille={c.famille} title={c.motif ?? undefined}>
+                            <IconeCanal canal={c.canal} />
+                            {libelleCanal(c.canal)} · {STATUT_ENVOI[c.statut]?.libelle ?? c.statut}
+                          </span>
+                        );
+                      })}
                     </div>
                     {l.canaux.find((c) => c.motif) && <small style={{ marginTop: 4 }}>{l.canaux.find((c) => c.motif)!.motif}</small>}
                   </td>

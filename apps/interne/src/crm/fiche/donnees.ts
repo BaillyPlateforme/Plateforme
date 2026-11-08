@@ -3,6 +3,7 @@ import { q, type Row } from "@/crm/lib/db";
 import { lienFichier } from "@/lib/espace-client/fichiers";
 import { lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
+import { suiviDesDevis, suiviDesEnvois } from "@/crm/suivi/donnees";
 
 /*
  * Ce que la fiche du dossier lit en plus de getDossier (lib/data.ts) : les
@@ -78,6 +79,11 @@ export async function ficheDossier(d: Row) {
        from public.envois where reference = any($1::text[]) order by cree_le desc limit 200`,
     [references],
   ).catch(() => [] as Row[]);
+  // Le suivi des e-mails (src/crm/suivi) : la piste de chacun, et pour chaque devis son e-mail et ses consultations.
+  const [suivis, suiviDevis] = await Promise.all([
+    suiviDesEnvois(envois.filter((e) => e.canal === "email").map((e) => e.id as string)),
+    suiviDesDevis(devis.map((v) => ({ id: v.id as number, dossier_id: id }))),
+  ]);
 
   // Les documents déposés dans l'espace client (pièces du client, documents de l'équipe).
   const documents: Row[] = ec
@@ -96,7 +102,7 @@ export async function ficheDossier(d: Row) {
   // Le pourcentage d'arrhes de chaque devis, sinon celui des Paramètres du devis : le même que l'éditeur et la facturation.
   const arrhesDefaut = effectifs(parametresDevis).arrhesPct;
   const arrhesPct = new Map(devis.map((v) => [v.id as number, Number(v.arrhes_pct ?? arrhesDefaut)]));
-  return { rdvs, visitesSansRdv, devisCreeLe: creeLe, arrhesPct, arrhesDefaut, contacts, services, gm, facturesGm, idsGmFactures, activite, espace: ec, envois, documents };
+  return { rdvs, visitesSansRdv, devisCreeLe: creeLe, arrhesPct, arrhesDefaut, contacts, services, gm, facturesGm, idsGmFactures, activite, espace: ec, envois, suivis, suiviDevis, documents };
 }
 
 export type FicheDonnees = Awaited<ReturnType<typeof ficheDossier>>;

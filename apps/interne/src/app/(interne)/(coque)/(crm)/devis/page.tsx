@@ -10,6 +10,9 @@ import { creerDevis, retirerDevis } from "@/crm/devis/actions";
 import { nomDevis } from "@/crm/devis/modele";
 import NouveauDevis from "@/crm/devis/composants/NouveauDevis";
 import { euros } from "@/crm/devis/format";
+import { suiviDesDevis } from "@/crm/suivi/donnees";
+import { ResumeSuivi } from "@/crm/suivi/Piste";
+import { MESURE_INDICATIVE } from "@/crm/suivi/etapes";
 import s from "@/crm/devis/liste.module.css";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +53,8 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
     return `/devis${t ? `?${t}` : ""}`;
   };
   const nouveau = ["libre", "formules", "copie"].includes(sp.nouveau ?? "") ? (sp.nouveau as "libre" | "formules" | "copie") : null;
+  // Le suivi de l'e-mail de chaque devis envoyé : « Envoyé le … · ouvert 3× · consulté sur le portail le … » (src/crm/suivi).
+  const suivis = await suiviDesDevis(rows.filter((r) => r.statut !== "brouillon").map((r) => ({ id: Number(r.id), dossier_id: Number(r.did) })));
 
   return (
     <div className="view">
@@ -112,7 +117,10 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
                       return (
                         <tr key={r.id} data-retire={r.retire_le ? "" : undefined}>
                           <td><Link href={lien} className={s.numero}>{r.numero}</Link></td>
-                          <td><i className={s.etat} data-ton={ton}>{libelle}</i></td>
+                          <td>
+                            <i className={s.etat} data-ton={ton}>{libelle}</i>
+                            {suivis.get(Number(r.id)) && <ResumeSuivi texte={suivis.get(Number(r.id))!.texte} chaud={suivis.get(Number(r.id))!.chaud} titre={MESURE_INDICATIVE} />}
+                          </td>
                           {!d && <td><Link href={`/devis?dossier=${r.did}`} className={s.client}>{nomClient(r)}<small>{r.ref}</small></Link></td>}
                           <td>{dateFr(r.date_devis, { day: "2-digit", month: "2-digit", year: "2-digit" })}</td>
                           <td>{r.com ?? "—"}</td>

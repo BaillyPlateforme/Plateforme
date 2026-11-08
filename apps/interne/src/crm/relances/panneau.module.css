@@ -678,3 +678,28 @@ a.puce:hover {
 @keyframes lueur {
   to { background-position: -200% 0; }
 }
+
+/* Les e-mails déjà partis pour cette relance, chacun avec sa piste (src/crm/suivi/Piste.tsx). */
+.historique {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.historique > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #faf9fe;
+  border: 1px solid #efedf5;
+}
+.historique > li > b {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #17142b;
+  white-space: nowrap;
+}

@@ -1,0 +1,110 @@
+/*
+ * La piste d'un e-mail (Piste.tsx) : des étapes courtes, reliées par un
+ * chevron, chacune son icône. Couleurs de la charte Fusion (theme-fusion.css),
+ * avec un repli quand la page ne la charge pas.
+ */
+.piste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.piste li {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.piste li + li::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin: 0 4px 0 2px;
+  border-top: 1.5px solid var(--color-line-strong, #cfd2da);
+  border-right: 1.5px solid var(--color-line-strong, #cfd2da);
+  transform: rotate(45deg);
+}
+
+.etape {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 3px 6px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  font-weight: 600;
+  cursor: help;
+}
+
+.etape svg {
+  flex: none;
+}
+
+.etape[data-etat="ok"] {
+  color: var(--color-good, #10a86b);
+  background: var(--color-good-soft, #e6f6ee);
+}
+
+.etape[data-etat="neutre"] {
+  color: var(--color-ink-mid, #48445f);
+  background: var(--color-subtle, #f3f4f6);
+}
+
+.etape[data-etat="attente"] {
+  color: var(--color-ink-soft, #77738f);
+  background: transparent;
+  border-color: var(--color-line, #e5e7eb);
+  border-style: dashed;
+  font-weight: 500;
+}
+
+.etape[data-etat="probable"] {
+  color: var(--color-warn, #b45309);
+  background: var(--color-warn-soft, #fff6e5);
+  border-color: color-mix(in srgb, var(--color-warn, #b45309) 35%, transparent);
+  border-style: dashed;
+}
+
+.etape[data-etat="alerte"] {
+  color: var(--color-danger, #be123c);
+  background: var(--color-danger-soft, #fff1f3);
+}
+
+/* Le premier pas (Envoyé, Journalisé) : neutre et discret quand rien n'est parti. */
+.etape[data-cle="depart"][data-etat="ok"] {
+  color: var(--color-accent, #3a22c4);
+  background: var(--color-accent-soft, #ece8ff);
+}
+
+.compacte .etape {
+  padding: 2px 7px 2px 5px;
+  font-size: 11.5px;
+}
+
+/* Une ligne de texte sous un devis : « ouvert 3× · consulté sur le portail le 9 nov. ». */
+.resume {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--color-ink-soft, #6b7280);
+  white-space: normal;
+}
+
+.resume b {
+  font-weight: 600;
+  color: var(--color-good, #10a86b);
+}
+
+.resume i {
+  font-style: normal;
+  color: var(--color-warn, #b45309);
+}

@@ -515,6 +515,60 @@ export const SOURCES: Source[] = [
       jsonb_build_object('libelle', p.libelle, 'montant', p.montant, 'statut', p.statut, 'reference', ed.reference)
     from public.ec_sessions_paiement p join public.ec_dossiers ed on ed.id = p.dossier_id join public.ec_clients c on c.id = ed.client_id`,
   },
+  // ── Le suivi des e-mails au client (src/crm/suivi, public.envois_evenements), regroupé pour ne pas noyer le fil :
+  // une ligne à la PREMIÈRE ouverture de chaque e-mail (certaine, sinon probable), une par lien cliqué et par jour,
+  // et une par jour de visite du portail (pages vues et gestes clés). Le client en est l'auteur.
+  {
+    cle: "ouverture",
+    cotes: ["client"],
+    genres: ["message"],
+    acteurs: ["client"],
+    sql: `select 'ouverture', 'o-' || x.envoi_id::text, x.quand, false, 'client', array['message'], 'client', null::text, dd.nom, null::int,
+      dd.id, coalesce(dd.request_id, ${DEMANDE_DE_REFERENCE("v.reference")}), null::uuid,
+      concat_ws(' ', v.destinataire, v.sujet, v.modele, v.reference, dd.nom),
+      jsonb_build_object('sujet', v.sujet, 'modele', v.modele, 'destinataire', v.destinataire, 'reference', v.reference, 'automatique', x.auto, 'n', x.n)
+    from (select e.envoi_id, coalesce(min(e.cree_le) filter (where not e.automatique), min(e.cree_le)) as quand, bool_and(e.automatique) as auto,
+                 count(*) filter (where not e.automatique)::int as n
+            from public.envois_evenements e where e.type = 'ouverture' and e.envoi_id is not null group by e.envoi_id) x
+    join public.envois v on v.id = x.envoi_id
+    left join lateral (select d.id, d.request_id, ${NOM_CRM("c")} as nom from crm.dossiers d join crm.clients c on c.id = d.client_id where d.ref = v.reference limit 1) dd on true`,
+  },
+  {
+    cle: "clic",
+    cotes: ["client"],
+    genres: ["message"],
+    acteurs: ["client"],
+    sql: `select 'clic', 'c-' || x.envoi_id::text || '-' || x.lien_indice || '-' || x.jour, x.quand, false, 'client', array['message'], 'client', null::text, dd.nom, null::int,
+      dd.id, coalesce(dd.request_id, ${DEMANDE_DE_REFERENCE("v.reference")}), null::uuid,
+      concat_ws(' ', v.destinataire, v.sujet, x.libelle, v.reference, dd.nom),
+      jsonb_build_object('sujet', v.sujet, 'modele', v.modele, 'lien', x.libelle, 'destination', x.destination, 'reference', v.reference, 'automatique', x.auto, 'n', x.n)
+    from (select e.envoi_id, e.lien_indice, to_char(e.cree_le at time zone 'Europe/Paris', 'YYYYMMDD') as jour, min(e.cree_le) as quand,
+                 max(e.lien_libelle) as libelle, max(e.lien_url) as destination, count(*)::int as n, bool_and(e.automatique) as auto
+            from public.envois_evenements e where e.type = 'clic' and e.envoi_id is not null group by 1, 2, 3) x
+    join public.envois v on v.id = x.envoi_id
+    left join lateral (select d.id, d.request_id, ${NOM_CRM("c")} as nom from crm.dossiers d join crm.clients c on c.id = d.client_id where d.ref = v.reference limit 1) dd on true`,
+  },
+  {
+    cle: "portail",
+    cotes: ["client"],
+    genres: ["espace"],
+    acteurs: ["client"],
+    sql: `select 'portail', 'p-' || x.cle || '-' || x.jour, x.quand, false, 'client', array['espace'], 'client', null::text,
+      coalesce(dd.nom, ${NOM_EC("ec")}), null::int,
+      coalesce(x.crm_dossier_id, ed.crm_dossier_id), coalesce(dd.request_id, ed.request_id), x.ec_dossier_id,
+      concat_ws(' ', x.reference, dd.nom, ec.nom, ec.prenom, ec.societe, ec.email),
+      jsonb_build_object('pages', x.pages, 'gestes', x.gestes, 'reference', x.reference, 'depuis_email', x.depuis_email)
+    from (select coalesce(e.crm_dossier_id::text, e.ec_dossier_id::text) as cle, to_char(e.cree_le at time zone 'Europe/Paris', 'YYYYMMDD') as jour,
+                 min(e.cree_le) as quand, max(e.crm_dossier_id) as crm_dossier_id, (array_agg(e.ec_dossier_id) filter (where e.ec_dossier_id is not null))[1] as ec_dossier_id,
+                 max(e.reference) as reference, coalesce(array_agg(distinct e.page) filter (where e.type = 'portail'), '{}') as pages,
+                 coalesce(array_agg(distinct e.page) filter (where e.type = 'action'), '{}') as gestes, bool_or(e.envoi_id is not null) as depuis_email
+            from public.envois_evenements e where e.type in ('portail', 'action') and coalesce(e.crm_dossier_id::text, e.ec_dossier_id::text) is not null
+           group by 1, 2) x
+    left join public.ec_dossiers ed on ed.id = x.ec_dossier_id
+    left join public.ec_clients ec on ec.id = ed.client_id
+    left join lateral (select d.id, d.request_id, ${NOM_CRM("c")} as nom from crm.dossiers d join crm.clients c on c.id = d.client_id
+                        where d.id = coalesce(x.crm_dossier_id, ed.crm_dossier_id) limit 1) dd on true`,
+  },
 ];
 
 // ── La requête ─────────────────────────────────────────────────────────────────────────────────

@@ -27,7 +27,8 @@ export interface LigneHistorique {
   date: string;
   par: string | null;
   origine: "veille" | "equipe";
-  canaux: { canal: Canal; statut: string; famille: string; motif: string | null }[];
+  /** envoiId : la ligne du journal des envois, pour la piste d'un e-mail (src/crm/suivi). */
+  canaux: { canal: Canal; statut: string; famille: string; motif: string | null; envoiId?: string | null }[];
   /** La meilleure issue des canaux : réussi, sinon retenu par les garde-fous, sinon échec. */
   famille: "reussi" | "garde_fou" | "echec" | "en_cours";
   /** Inscrite comme envoyée dans crm.relances (un échec partout ne l'est pas). */
@@ -44,8 +45,8 @@ const ORDRE_FAMILLE = ["reussi", "garde_fou", "en_cours", "echec"] as const;
 export async function historiqueRelances(depuis?: string): Promise<LigneHistorique[]> {
   const [envois, decisions] = await Promise.all([
     // Lecture seule du journal des envois de la plateforme.
-    q<{ cle: string; canal: Canal; origine: string; reference: string | null; statut: string; motif: string | null; cree_le: string }>(
-      `select cle, canal, origine, reference, statut, motif, cree_le::text from public.envois
+    q<{ id: string; cle: string; canal: Canal; origine: string; reference: string | null; statut: string; motif: string | null; cree_le: string }>(
+      `select id::text, cle, canal, origine, reference, statut, motif, cree_le::text from public.envois
         where cle like 'relance:%' ${depuis ? "and cree_le >= $1::date" : ""} order by cree_le desc limit 3000`,
       depuis ? [depuis] : [],
     ).catch((e) => {
@@ -90,7 +91,7 @@ export async function historiqueRelances(depuis?: string): Promise<LigneHistoriq
       lignes.set(cle, l);
       if (e.reference) orphelins.push(e.reference);
     }
-    if (!l.canaux.some((c) => c.canal === e.canal)) l.canaux.push({ canal: e.canal, statut: e.statut, famille: familleDe(e.statut), motif: e.motif });
+    if (!l.canaux.some((c) => c.canal === e.canal)) l.canaux.push({ canal: e.canal, statut: e.statut, famille: familleDe(e.statut), motif: e.motif, envoiId: e.id });
   }
   // Les envois sans décision (en échec partout) : le dossier se retrouve par sa référence.
   if (orphelins.length) {

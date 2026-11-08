@@ -16,6 +16,8 @@ import { estVisite, etatVisite, ETATS_VISITE } from "@/crm/visites/cycle";
 import { libelleStatut, type StatutEnvoi } from "@/lib/envois";
 import { hhmmParis, jourParis, plageVisite } from "@/lib/visite/regles";
 import GalerieChantier from "@/terrain/composants/GalerieChantier";
+import Piste, { ResumeSuivi } from "@/crm/suivi/Piste";
+import { MESURE_INDICATIVE } from "@/crm/suivi/etapes";
 import * as F from "./actions";
 import CarteFacturation from "@/crm/facturation/CarteFacturation";
 import type { FicheDonnees } from "./donnees";
@@ -412,7 +414,15 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       ton: v.statut === "refuse" ? "attenue" : undefined,
       cellules: [
         <Ref key="n">{v.numero}</Ref>,
-        <Etat key="e" v={DEVIS_ST[v.statut] ?? [v.statut, "i"]} />,
+        // L'état, et dessous le suivi de l'e-mail du devis : « Envoyé le … · ouvert 3× · consulté sur le portail le … » (src/crm/suivi).
+        data.suiviDevis.get(v.id) ? (
+          <span key="e">
+            <Etat v={DEVIS_ST[v.statut] ?? [v.statut, "i"]} />
+            <ResumeSuivi texte={data.suiviDevis.get(v.id)!.texte} chaud={data.suiviDevis.get(v.id)!.chaud} titre={MESURE_INDICATIVE} />
+          </span>
+        ) : (
+          <Etat key="e" v={DEVIS_ST[v.statut] ?? [v.statut, "i"]} />
+        ),
         jj(date),
         <span key="f">
           <b>{formule(v.formule)}</b>
@@ -1107,7 +1117,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
     cle: "envois",
     libelle: "E-mails et SMS",
     compte: data.envois.length,
-    colonnes: [{ libelle: "Date" }, { libelle: "Canal" }, { libelle: "Message" }, { libelle: "Destinataire" }, { libelle: "Objet" }, { libelle: "Statut" }],
+    colonnes: [{ libelle: "Date" }, { libelle: "Canal" }, { libelle: "Message" }, { libelle: "Destinataire" }, { libelle: "Objet" }, { libelle: "Statut et suivi" }],
     lignes: data.envois.map((e) => ({
       id: `e${e.id}`,
       tri: ms(e.cree_le),
@@ -1123,9 +1133,14 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
         <Long key="o" titre={e.sujet ?? e.apercu ?? ""}>
           {e.sujet ?? e.apercu ?? "—"}
         </Long>,
-        <i key="s" className={`st ${ENVOI_TON[e.statut] ?? "i"}`} title={e.motif ?? undefined}>
-          {maj(libelleStatut({ statut: e.statut as StatutEnvoi, doublon: false }))}
-        </i>,
+        // Un e-mail : sa piste (envoyé, délivré, ouvert, cliqué, sur le portail), src/crm/suivi. Un SMS : son statut.
+        data.suivis.get(e.id) ? (
+          <Piste key="s" suivi={data.suivis.get(e.id)!} compacte />
+        ) : (
+          <i key="s" className={`st ${ENVOI_TON[e.statut] ?? "i"}`} title={e.motif ?? undefined}>
+            {maj(libelleStatut({ statut: e.statut as StatutEnvoi, doublon: false }))}
+          </i>
+        ),
       ],
       detail:
         e.apercu || e.motif ? (
