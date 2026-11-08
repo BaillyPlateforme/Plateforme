@@ -4,6 +4,7 @@ import * as B from "@/crm/actions2";
 import { emballages } from "@/crm/lib/tarif";
 import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
 import { commencerVisite } from "@/crm/visites/actions";
+import ChampPrestataire from "@/crm/partenaires/ChampPrestataire";
 import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
@@ -392,7 +393,8 @@ export function FenetreLettre({ d, l }: { d: Row; l: Row }) {
           </select>
         </Champ>
         <Champ l={8} titre="Prestataire / agent">
-          <input type="text" name="prestataire" defaultValue={l.prestataire} />
+          {/* L'annuaire des sous-traitants et partenaires (src/crm/partenaires) ; le texte libre reste accepté. */}
+          <ChampPrestataire valeur={l.prestataire} />
         </Champ>
         <Champ l={4} titre="Prix sous-traitant (€)">
           <input type="number" step="1" name="prix_sous_traitance" defaultValue={l.prix_sous_traitance ?? ""} />

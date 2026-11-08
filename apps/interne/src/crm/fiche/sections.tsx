@@ -802,9 +802,9 @@ function gardeMeubles(c: Contexte): SectionFiche {
         ),
       ],
       gestes: {
-        // EMPLACEMENT · CONTRAT GM : la fenêtre de modification du contrat (module garde-meuble) se branche ici à la fusion.
-        modifier: off("La modification d'un contrat arrive avec le formulaire des contrats de garde-meuble."),
-        copier: off("La copie d'un contrat arrive avec le formulaire des contrats de garde-meuble."),
+        // Le contrat (caisses une par une, photos, loyer, clôture) se modifie sur sa page, module garde-meuble.
+        modifier: { lien: `/garde-meuble/${g.id}` },
+        copier: off("Un contrat ne se copie pas : « Nouveau » en ouvre un autre, prérempli avec le dossier."),
         transfert: g.afacturer
           ? { action: B.facturerGardeMeuble.bind(null, g.id, g.montant), confirmer: `Facturer ${eur(g.montant)} ?` }
           : off(g.actif ? `Prochaine échéance le ${jj(g.echeance)}.` : "Contrat terminé."),
@@ -825,7 +825,7 @@ function gardeMeubles(c: Contexte): SectionFiche {
     libelles: { transfert: "Facturer", imprimer: "Devis" },
     extras: [{ cle: "liste", libelle: "Tous les contrats", picto: "entrepot" }],
     apres: (
-      // EMPLACEMENT · CONTRAT GM : le formulaire de création des contrats (construit à part) ; voir LIEN_NOUVEAU_CONTRAT_GM.
+      // Le formulaire de création des contrats (module garde-meuble), prérempli avec le dossier.
       <div className={s.emplacement} data-emplacement="contrat-gm">
         <div>
           <b>Nouveau contrat de garde-meuble</b>

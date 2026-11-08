@@ -33,6 +33,8 @@ export const GROUPES: Groupe[] = [
       { href: "/", label: "Pilotage", icone: "bord", actif: (c) => c === "/" },
       { href: "/tableau-de-bord", label: "Tableau de bord", icone: "accueil" },
       { href: "/copilote", label: "Copilote", icone: "copilote" },
+      // Commerciales et d'exploitation, au menu vertical de la page.
+      { href: "/statistiques/commerciales", label: "Statistiques", icone: "stats", actif: sous("/statistiques") },
     ],
   },
   {
@@ -59,19 +61,24 @@ export const GROUPES: Groupe[] = [
     titre: "Exploitation",
     entrees: [
       { href: "/commandes", label: "Commandes", icone: "commande" },
-      { href: "/exploitation", label: "Planning d'exploitation", icone: "grille" },
+      { href: "/exploitation", label: "Planning", icone: "grille" },
       { href: "/lettres-de-voiture", label: "Lettres de voiture", icone: "camion" },
       { href: "/garde-meuble", label: "Garde-meuble", icone: "entrepot" },
       { href: "/conteneurs", label: "Conteneurs", icone: "bateau", actif: (c) => sous("/conteneurs")(c) && !sous("/conteneurs/dispatch")(c) },
-      { href: "/conteneurs/dispatch", label: "Dispatch international", icone: "dispatch" },
+      { href: "/conteneurs/dispatch", label: "Dispatch", icone: "dispatch" },
       // Les comptes des déménageurs pour l'outil terrain (/terrain).
       { href: "/demenageurs", label: "Déménageurs", icone: "badge" },
+      { href: "/sous-traitants", label: "Sous-traitants", icone: "partenaires" },
+      { href: "/litiges", label: "Litiges", icone: "litige" },
     ],
   },
   {
     titre: "Réglages",
     entrees: [
       { href: "/modeles", label: "Courriers et SMS", icone: "courrier" },
+      // Les dossiers perdus ou terminés à ranger, et ceux déjà rangés.
+      { href: "/archives", label: "Archivage", icone: "archive" },
+      // Toujours en dernier : REGLAGES ci-dessous la désigne par sa place.
       {
         href: "/dashboard/parametres",
         label: "Paramètres",

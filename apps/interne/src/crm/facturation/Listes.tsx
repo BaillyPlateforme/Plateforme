@@ -100,7 +100,7 @@ export function TableReglements({ rows, arrhes }: { rows: LigneListeReglement[];
       <table>
         <thead>
           <tr>
-            <th>Reçu le</th><th>Client</th>{!arrhes && <th>Nature</th>}<th>Mode</th><th>Banque · chèque · titulaire</th><th>Compte</th><th>Encaissement prévu</th>
+            <th>Reçu le</th><th>Client</th>{!arrhes && <th>Nature</th>}<th>Mode</th><th>Références</th><th>Compte</th><th>Prévu le</th>
             <th>{arrhes ? "Facture d'arrhes" : "Affecté à"}</th><th className={s.num}>Montant</th>
           </tr>
         </thead>

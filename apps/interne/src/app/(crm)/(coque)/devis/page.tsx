@@ -89,10 +89,10 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
                 <table className={s.table}>
                   <thead>
                     <tr>
-                      <th>Devis</th><th>État</th>{!d && <th>Client</th>}<th>Date</th><th>Type</th><th>Com.</th><th>Catégorie</th>
+                      <th>Devis</th><th>État</th>{!d && <th>Client</th>}<th>Date</th><th>Com.</th><th>Catégorie</th>
                       <th className={s.num}>HT</th><th className={s.num}>TTC</th><th className={s.num}>Vol.</th>
-                      {signatures ? <><th>Envoyé</th><th>Signé</th></> : <><th>Chargement</th><th>Livraison</th></>}
-                      <th>Réf. interne</th><th aria-label="Actions" />
+                      {signatures ? <><th>Envoyé</th><th>Signé</th></> : <th>Dates</th>}
+                      <th>Réf.</th><th aria-label="Actions" />
                     </tr>
                   </thead>
                   <tbody>
@@ -105,16 +105,15 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
                           <td><i className={s.etat} data-ton={ton}>{libelle}</i></td>
                           {!d && <td><Link href={`/devis?dossier=${r.did}`} className={s.client}>{nomClient(r)}<small>{r.ref}</small></Link></td>}
                           <td>{dateFr(r.date_devis, { day: "2-digit", month: "2-digit", year: "2-digit" })}</td>
-                          <td><span className={s.type}>{r.mode === "forfait" ? "Forfait" : "5 P"}</span></td>
                           <td>{r.com ?? "—"}</td>
-                          <td className={s.categorie}>{nomDevis(r)}</td>
+                          <td className={s.categorie}>{nomDevis(r)} <span className={s.type}>{r.mode === "forfait" ? "Forfait" : "5 P"}</span></td>
                           <td className={s.num}>{euros(htDe(r))}</td>
                           <td className={s.num}><b>{euros(Number(r.montant))}</b></td>
                           <td className={s.num}>{m3(r.volume)}</td>
                           {signatures ? (
                             <><td>{r.envoye_le ? dateFr(r.envoye_le, { day: "2-digit", month: "short" }) : "—"}</td><td>{r.signe_le ? dateFr(r.signe_le, { day: "2-digit", month: "short" }) : "—"}</td></>
                           ) : (
-                            <><td className={s.court} title={r.periode ?? undefined}>{r.date_chargement ? dateFr(r.date_chargement, { day: "2-digit", month: "2-digit" }) : r.periode ?? "—"}</td><td className={s.court} title={r.arrivee ?? undefined}>{r.date_livraison ? dateFr(r.date_livraison, { day: "2-digit", month: "2-digit" }) : r.arrivee ?? "—"}</td></>
+                            <td className={s.court} title={[r.periode, r.arrivee].filter(Boolean).join(" · ") || undefined}>{r.date_chargement ? dateFr(r.date_chargement, { day: "2-digit", month: "2-digit" }) : r.periode ?? "—"}{" → "}{r.date_livraison ? dateFr(r.date_livraison, { day: "2-digit", month: "2-digit" }) : "—"}</td>
                           )}
                           <td className={s.court} title={r.ref_interne ?? undefined}>{r.ref_interne ?? "—"}</td>
                           <td>

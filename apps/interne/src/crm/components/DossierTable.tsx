@@ -14,7 +14,7 @@ export function DossierTable({ rows }: { rows: Row[] }) {
             <tr key={r.id} className="row">
               <td><Link className="name" href={`/dossiers/${r.id}`}><i className="thumb" style={{ backgroundImage: `url(${photoPour(r.arrivee, r.id)})` }} /><span><b>{nomClient(r)}</b><small>{r.ref}</small></span></Link></td>
               <td><i className="ty">{TYPES[r.type]}</i></td>
-              <td>{r.depart ?? "—"} → {r.arrivee ?? "—"}</td>
+              <td className="trajet">{r.depart ?? "—"} → {r.arrivee ?? "—"}</td>
               <td className="num">{m3(r.volume)}</td>
               <td>{r.commercial ?? "—"}</td>
               <td><i className={`st ${STATUTS[r.statut].cls}`}>{STATUTS[r.statut].label}</i></td>

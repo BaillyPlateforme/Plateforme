@@ -1,0 +1,363 @@
+/*
+ * Le garde-meuble : la création d'un contrat (formulaire et récapitulatif
+ * collant), les caisses une par une avec leurs photos, la liste des contrats.
+ */
+.creation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 1180px) {
+  .creation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.creation > .erreur,
+.creation > p[role="alert"],
+.creation > p[role="status"] {
+  grid-column: 1 / -1;
+}
+
+/* Le récapitulatif, collant à droite. */
+.recap {
+  position: sticky;
+  top: 120px;
+  display: grid;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 24px;
+  color: #fff;
+  background:
+    radial-gradient(420px 220px at 110% -10%, rgba(196, 160, 255, 0.55), transparent 60%),
+    linear-gradient(150deg, #1d1170 0%, #3a26c4 55%, #6a45f5 100%);
+  box-shadow: 0 34px 60px -34px rgba(46, 31, 158, 0.9);
+}
+.recap p:first-child {
+  color: #d9ceff;
+}
+.recap h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.recapRef {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.recap dl {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0;
+}
+.recap dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 13.5px;
+}
+.recap dt {
+  color: rgba(255, 255, 255, 0.7);
+}
+.recap dd {
+  margin: 0;
+  font-weight: 750;
+  text-align: right;
+}
+.recap > button {
+  background: #fff !important;
+  color: #2e1f9e !important;
+  box-shadow: 0 14px 26px -14px rgba(10, 4, 50, 0.8) !important;
+}
+.recap > p:last-child {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+/* La saisie des caisses. */
+.generateur {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #faf9fe;
+  border: 1px dashed #dcd5f5;
+}
+.lignes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ligne {
+  display: grid;
+  grid-template-columns: 30px minmax(110px, 0.9fr) minmax(0, 1.6fr) minmax(0, 1fr) auto 34px;
+  align-items: end;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #efecf7;
+  border-radius: 16px;
+  background: #fff;
+}
+.ligne[data-doublon] {
+  border-color: #ffc2cf;
+  background: #fff7f9;
+}
+@media (max-width: 860px) {
+  .ligne {
+    grid-template-columns: 30px minmax(0, 1fr) 34px;
+  }
+  .ligne > :nth-child(3),
+  .ligne > :nth-child(4),
+  .ligne > :nth-child(5) {
+    grid-column: 2 / 3;
+  }
+}
+.rang {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 44px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #a7a3b8;
+}
+.photos {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px dashed #cfc5f7;
+  border-radius: 13px;
+  background: #faf8ff;
+  color: #4b2fe0;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.photos:hover {
+  background: #f1edff;
+}
+.photos input,
+.depot input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.vignettes {
+  display: flex;
+  align-items: center;
+}
+.vignettes img {
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.vignettes img:first-child {
+  margin-left: 0;
+}
+.vignettes em {
+  margin-left: 4px;
+  font-style: normal;
+  font-size: 12px;
+}
+.retirer {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 44px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: #a7a3b8;
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+.retirer:hover {
+  background: #ffe9ee;
+  color: #be123c;
+}
+
+/* Les caisses d'un contrat. */
+.caisses {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.caisse {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid #efecf7;
+  border-radius: 18px;
+  background: linear-gradient(#fff, #fcfbff);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.2s;
+}
+.caisse:hover {
+  transform: translateY(-2px);
+  border-color: #d9cfff;
+  box-shadow: 0 20px 34px -26px rgba(75, 47, 224, 0.7);
+}
+.caisse[data-sortie] {
+  opacity: 0.62;
+  background: #f8f7fb;
+}
+.caisseTete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.caisseTete b {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.caisseContenu {
+  font-size: 13px;
+  color: #4a475c;
+  line-height: 1.4;
+}
+.caissePied {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+  color: #8a86a0;
+}
+.caissePied span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.caissePhotos {
+  display: flex;
+  gap: 6px;
+}
+.caissePhotos img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #efecf8;
+}
+.caissePhotos em {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f1eefe;
+  color: #4b2fe0;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+.sansDetail {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fffaf0;
+  border: 1px solid #fde9c3;
+}
+.sansDetail > i {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #fff1d6;
+  color: #b45309;
+}
+.sansDetail p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+}
+.galerie {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.galerie figure {
+  position: relative;
+  margin: 0;
+}
+.galerie img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #efecf8;
+}
+.galerie button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(20, 18, 31, 0.6);
+  color: #fff;
+  cursor: pointer;
+  transform: rotate(45deg);
+}
+.depot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 1.5px dashed #cfc5f7;
+  border-radius: 16px;
+  background: #faf8ff;
+  color: #4b2fe0;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.depot:hover {
+  background: #f1edff;
+}
+
+/* La liste des contrats. */
+.client b {
+  display: block;
+  font-weight: 750;
+}
+.montant {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.reglage {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}

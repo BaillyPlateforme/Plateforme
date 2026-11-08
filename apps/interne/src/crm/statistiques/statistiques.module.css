@@ -1,0 +1,554 @@
+/*
+ * Les pages de statistiques : tuiles de chiffres, graphiques en HTML et SVG
+ * (méthode dataviz : tracés fins, filets clairs, bulles au survol ou au
+ * clavier) et tableaux. Le cadre (cartes, états, tableaux) vient du socle des
+ * modules d'exploitation, src/crm/exploitation/ui/ui.module.css.
+ */
+
+/* ───────── Mise en page ───────── */
+.duo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.duoEgal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+@media (max-width: 1280px) {
+  .duo,
+  .duoEgal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6f6c80;
+}
+.note b {
+  color: #14121f;
+}
+
+/* ───────── Tuiles ───────── */
+.tuiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+.tuile {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid #eeecf5;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 20px 44px -34px rgba(46, 31, 158, 0.55);
+}
+.tuile small {
+  font-size: 12px;
+  font-weight: 650;
+  color: #6f6c80;
+}
+.tuile b {
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #14121f;
+}
+.tuile span {
+  font-size: 12px;
+  color: #6f6c80;
+}
+.tuile[data-ton="vert"] span {
+  color: #0b7f50;
+}
+.tuile[data-ton="ambre"] span {
+  color: #a35b00;
+}
+.tuile[data-ton="rose"] span {
+  color: #be123c;
+}
+/* Le chiffre de tête : un seul par page. */
+.heros {
+  grid-column: span 2;
+  position: relative;
+  overflow: hidden;
+  border-color: transparent;
+  background:
+    radial-gradient(320px 160px at 100% 0%, rgba(122, 82, 255, 0.55), transparent 70%),
+    linear-gradient(125deg, #2e1f9e, #4b2fe0 55%, #6a45f5);
+  box-shadow: 0 26px 50px -30px rgba(46, 31, 158, 0.9);
+}
+.heros small,
+.heros span {
+  color: rgba(255, 255, 255, 0.78);
+}
+.heros b {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: #fff;
+}
+@media (max-width: 760px) {
+  .heros {
+    grid-column: auto;
+  }
+}
+
+/* ───────── Légende ───────── */
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #4a475c;
+}
+.legende li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.legende i {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+/* ───────── État vide ───────── */
+.vide {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 20px;
+  border-radius: 16px;
+  background: repeating-linear-gradient(0deg, transparent 0 39px, #f3f1f9 39px 40px), #fdfcff;
+  color: #8a86a0;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.vide svg {
+  color: #c9c2ef;
+}
+
+/* ───────── Bulle (survol ou clavier) ───────── */
+.cible {
+  position: relative;
+  outline: 0;
+}
+.bulle {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #14121f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 18px 36px -16px rgba(20, 14, 52, 0.7);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.12s, transform 0.12s;
+}
+.bulle b {
+  font-size: 12.5px;
+  font-weight: 750;
+}
+.cible:hover > .bulle,
+.cible:focus-visible > .bulle {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.cible:focus-visible {
+  box-shadow: 0 0 0 3px rgba(75, 47, 224, 0.25);
+  border-radius: 10px;
+}
+.bulleLigne {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bulleLigne i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.bulleLigne em {
+  margin-left: auto;
+  padding-left: 14px;
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── Barres horizontales ───────── */
+.barres {
+  display: grid;
+  gap: 10px;
+}
+.barre {
+  display: grid;
+  grid-template-columns: minmax(110px, 170px) minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 34px;
+  padding: 0 4px;
+  border-radius: 10px;
+}
+.barre:hover {
+  background: #faf8ff;
+}
+.barre > .bulle {
+  left: auto;
+  right: 0;
+  transform: translate(0, 4px);
+}
+.barre:hover > .bulle,
+.barre:focus-visible > .bulle {
+  transform: translate(0, 0);
+}
+.barreNom {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #14121f;
+}
+.piste {
+  position: relative;
+  display: block;
+  height: 20px;
+  margin-right: 86px;
+}
+.piste > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 0 4px 4px 0;
+}
+.piste > em {
+  position: absolute;
+  top: 50%;
+  padding-left: 8px;
+  transform: translateY(-50%);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: #14121f;
+  white-space: nowrap;
+}
+/* Une pile (barres empilées) : 2 px de blanc entre les parts, l'extrémité arrondie. */
+.pile {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  gap: 2px;
+}
+.pile i {
+  display: block;
+  min-width: 3px;
+  height: 100%;
+}
+.pile i:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+/* ───────── Entonnoirs ───────── */
+.entonnoirs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
+}
+.entonnoir {
+  display: grid;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border: 1px solid #f0edf8;
+  border-radius: 16px;
+  background: #fcfbff;
+}
+.entonnoirTete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  font-weight: 750;
+}
+.entonnoirTete i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.etape {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.etape .piste {
+  height: 14px;
+  margin-right: 0;
+}
+.etape b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.etapeNom {
+  color: #6f6c80;
+  font-weight: 600;
+}
+
+/* ───────── Courbes et colonnes : le plan ───────── */
+.courbes,
+.colonnes {
+  padding: 8px 4px 0 0;
+}
+.plan {
+  position: relative;
+  height: 230px;
+  margin: 10px 0 0 58px;
+}
+.grille {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid #efedf6;
+}
+.grille em {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #8a86a0;
+  white-space: nowrap;
+}
+.retenu {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(#f5f2ff, #faf8ff);
+  border-radius: 6px;
+}
+.traits {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.point {
+  position: absolute;
+  z-index: 2;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff;
+  transform: translate(-50%, 50%);
+  pointer-events: none;
+}
+.colonneSurvol {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  cursor: crosshair;
+}
+.visee {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid #c9bfff;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.visee i {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff;
+  transform: translate(-50%, 50%);
+}
+.colonneSurvol:hover .visee,
+.colonneSurvol:focus-visible .visee {
+  opacity: 1;
+}
+.colonneSurvol > .bulle {
+  top: 6px;
+  bottom: auto;
+  transform: translate(8px, 4px);
+  left: 50%;
+}
+.colonneSurvol > .bulle[data-cote="gauche"] {
+  left: auto;
+  right: 50%;
+  transform: translate(-8px, 4px);
+}
+.colonneSurvol:hover > .bulle,
+.colonneSurvol:focus-visible > .bulle {
+  transform: translate(8px, 0);
+}
+.colonneSurvol:hover > .bulle[data-cote="gauche"],
+.colonneSurvol:focus-visible > .bulle[data-cote="gauche"] {
+  transform: translate(-8px, 0);
+}
+.axeX {
+  position: relative;
+  height: 28px;
+  margin-left: 58px;
+}
+.axeX span {
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8a86a0;
+  white-space: nowrap;
+}
+
+/* Les colonnes mensuelles. */
+.rangee {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 2px;
+}
+.colonne {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  border-radius: 8px;
+  cursor: default;
+}
+.colonne:hover {
+  background: #faf8ff;
+}
+.colonne > i {
+  position: relative;
+  display: block;
+  width: min(22px, 62%);
+  border-radius: 4px 4px 0 0;
+  background: #cdc4ff;
+}
+.colonne[data-retenu] > i {
+  background: #4b2fe0;
+}
+.colonne > i em {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 750;
+  color: #14121f;
+  white-space: nowrap;
+}
+.colonne > .bulle {
+  bottom: auto;
+  top: 6px;
+  left: 50%;
+  transform: translate(8px, 4px);
+}
+.colonne > .bulle[data-cote="gauche"] {
+  left: auto;
+  right: 50%;
+  transform: translate(-8px, 4px);
+}
+.colonne:hover > .bulle,
+.colonne:focus-visible > .bulle {
+  transform: translate(8px, 0);
+}
+.colonne:hover > .bulle[data-cote="gauche"],
+.colonne:focus-visible > .bulle[data-cote="gauche"] {
+  transform: translate(-8px, 0);
+}
+.axeColonnes {
+  display: flex;
+  gap: 2px;
+  margin: 8px 0 0 58px;
+}
+.axeColonnes span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8a86a0;
+  white-space: nowrap;
+}
+
+/* ───────── Jauge de remplissage ───────── */
+.jauge {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 90px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ece8ff;
+  overflow: hidden;
+}
+.jauge i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: #4b2fe0;
+}
+.jauge[data-depasse] {
+  background: #ffe4ea;
+}
+.jauge[data-depasse] i {
+  background: #e1306c;
+}
+
+/* ───────── Tableaux de chiffres ───────── */
+.pastilleSerie {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+.total td {
+  background: #fbfaff;
+  font-weight: 750;
+}

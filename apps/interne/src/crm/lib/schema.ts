@@ -327,6 +327,130 @@ do $$ begin
 end $$;
 create index if not exists idx_modeles_dossier_usage on crm.modeles_dossier(utilisations desc, dernier_usage desc);
 alter table crm.modeles_dossier enable row level security;
+-- ── Exploitation et gestion (audit Créagidem, 08/11/2026) : src/crm/exploitation,
+-- garde-meuble, conteneurs, partenaires, litiges, archivage. Colonnes ajoutées
+-- facultatives ou avec une valeur par défaut : le code d'avant écrit encore.
+-- Les réglages du module (tarif par caisse, délai d'archivage) : vides tant que Bailly ne les donne pas.
+create table if not exists crm.reglages_exploitation (cle text primary key, valeur text, maj_le timestamptz not null default now(), maj_par text);
+-- L'annuaire des sous-traitants et partenaires (sociétés, contacts, zones, notes).
+create table if not exists crm.sous_traitants (id serial primary key, nom text not null, categorie text not null default 'sous_traitant');
+alter table crm.sous_traitants add column if not exists siret text;
+alter table crm.sous_traitants add column if not exists adresse text;
+alter table crm.sous_traitants add column if not exists code_postal text;
+alter table crm.sous_traitants add column if not exists ville text;
+alter table crm.sous_traitants add column if not exists pays text;
+alter table crm.sous_traitants add column if not exists telephone text;
+alter table crm.sous_traitants add column if not exists email text;
+alter table crm.sous_traitants add column if not exists site text;
+alter table crm.sous_traitants add column if not exists zones text[] not null default '{}';
+alter table crm.sous_traitants add column if not exists notes text;
+alter table crm.sous_traitants add column if not exists actif boolean not null default true;
+alter table crm.sous_traitants add column if not exists demo boolean not null default false;
+alter table crm.sous_traitants add column if not exists cree_le timestamptz not null default now();
+alter table crm.sous_traitants add column if not exists maj_le timestamptz not null default now();
+create unique index if not exists idx_sous_traitants_nom on crm.sous_traitants(lower(btrim(nom)));
+create table if not exists crm.sous_traitant_contacts (
+  id serial primary key, sous_traitant_id int not null references crm.sous_traitants(id) on delete cascade,
+  nom text not null, fonction text, telephone text, email text, principal boolean not null default false
+);
+create index if not exists idx_sous_traitant_contacts on crm.sous_traitant_contacts(sous_traitant_id);
+-- Le prestataire d'une lettre de voiture : un nom de l'annuaire, ou un texte libre (l'existant).
+-- Le lien suit le nom : un déclencheur le pose quand le prestataire est celui d'une fiche de l'annuaire.
+alter table crm.lettres_voiture add column if not exists sous_traitant_id int references crm.sous_traitants(id) on delete set null;
+create or replace function crm.lv_lier_sous_traitant() returns trigger language plpgsql as $f$
+begin
+  if tg_op = 'INSERT' or new.prestataire is distinct from old.prestataire or new.sous_traitant_id is null then
+    select id into new.sous_traitant_id from crm.sous_traitants where lower(btrim(nom)) = lower(btrim(new.prestataire)) limit 1;
+  end if;
+  return new;
+end $f$;
+create or replace trigger lettres_voiture_sous_traitant before insert or update of prestataire on crm.lettres_voiture
+  for each row execute function crm.lv_lier_sous_traitant();
+create index if not exists idx_lettres_sous_traitant on crm.lettres_voiture(sous_traitant_id);
+-- Contrats de garde-meuble : prochaine échéance, clôture, notes ; les caisses une par une, et leurs photos.
+alter table crm.garde_meuble add column if not exists echeance date;
+alter table crm.garde_meuble add column if not exists fin date;
+alter table crm.garde_meuble add column if not exists notes text;
+alter table crm.garde_meuble add column if not exists cree_le timestamptz default now();
+alter table crm.garde_meuble add column if not exists maj_le timestamptz;
+create table if not exists crm.garde_meuble_caisses (
+  id serial primary key, contrat_id int not null references crm.garde_meuble(id) on delete cascade,
+  numero text not null, contenu text, emplacement text, entree_le date, sortie_le date,
+  ordre int not null default 0, cree_le timestamptz not null default now()
+);
+create index if not exists idx_gm_caisses_contrat on crm.garde_meuble_caisses(contrat_id, ordre);
+create table if not exists crm.garde_meuble_photos (
+  id serial primary key, caisse_id int not null references crm.garde_meuble_caisses(id) on delete cascade,
+  chemin text not null, type text not null, taille int not null, auteur text, cree_le timestamptz not null default now()
+);
+create index if not exists idx_gm_photos_caisse on crm.garde_meuble_photos(caisse_id);
+-- Conteneurs : voyage, navire, intervenants, références, lieux, jalons, coûts, commentaires, historique.
+alter table crm.conteneurs add column if not exists voyage text;
+alter table crm.conteneurs add column if not exists navire text;
+alter table crm.conteneurs add column if not exists compagnie text;
+alter table crm.conteneurs add column if not exists transitaire text;
+alter table crm.conteneurs add column if not exists degroupeur text;
+alter table crm.conteneurs add column if not exists ref_groupeur text;
+alter table crm.conteneurs add column if not exists ref_compagnie text;
+alter table crm.conteneurs add column if not exists ref_transitaire text;
+alter table crm.conteneurs add column if not exists ref_interne text;
+alter table crm.conteneurs add column if not exists lieu_depart text;
+alter table crm.conteneurs add column if not exists depart_heure time;
+alter table crm.conteneurs add column if not exists arrivee_heure time;
+alter table crm.conteneurs add column if not exists cree_le timestamptz default now();
+alter table crm.conteneurs add column if not exists maj_le timestamptz;
+alter table crm.conteneur_dossiers add column if not exists rang int not null default 0;
+alter table crm.conteneur_dossiers add column if not exists numero_fe text;
+create table if not exists crm.conteneur_jalons (
+  conteneur_id int not null references crm.conteneurs(id) on delete cascade, jalon text not null,
+  prevu date, reel date, maj_le timestamptz not null default now(), primary key (conteneur_id, jalon)
+);
+create table if not exists crm.conteneur_couts (
+  id serial primary key, conteneur_id int not null references crm.conteneurs(id) on delete cascade,
+  libelle text not null, fournisseur text, ordre int not null default 0,
+  revient_prevu numeric(10,2), revient_reel numeric(10,2), vente_prevue numeric(10,2), vente_reelle numeric(10,2)
+);
+create index if not exists idx_conteneur_couts on crm.conteneur_couts(conteneur_id, ordre);
+create table if not exists crm.conteneur_commentaires (
+  id serial primary key, conteneur_id int not null references crm.conteneurs(id) on delete cascade,
+  utilisateur_id int references crm.utilisateurs(id) on delete set null, auteur text not null,
+  texte text not null, cree_le timestamptz not null default now()
+);
+create index if not exists idx_conteneur_commentaires on crm.conteneur_commentaires(conteneur_id, cree_le desc);
+create table if not exists crm.conteneur_historique (
+  id serial primary key, conteneur_id int not null references crm.conteneurs(id) on delete cascade,
+  utilisateur_id int references crm.utilisateurs(id) on delete set null, libelle text not null,
+  cree_le timestamptz not null default now()
+);
+create index if not exists idx_conteneur_historique on crm.conteneur_historique(conteneur_id, cree_le desc);
+-- Opérations manuelles du planning d'exploitation : demi-journée, véhicule, notes, auteur.
+alter table crm.operations add column if not exists moment text not null default 'journee' check (moment in ('journee','matin','apres_midi'));
+alter table crm.operations add column if not exists vehicule text;
+alter table crm.operations add column if not exists notes text;
+alter table crm.operations add column if not exists cree_par int references crm.utilisateurs(id) on delete set null;
+alter table crm.operations add column if not exists cree_le timestamptz default now();
+alter table crm.operations add column if not exists maj_le timestamptz;
+create index if not exists idx_operations_jour on crm.operations(jour);
+-- Litiges : origine, description, sous-traitant en cause, clôture.
+alter table crm.litiges add column if not exists origine text;
+alter table crm.litiges add column if not exists description text;
+alter table crm.litiges add column if not exists sous_traitant_id int references crm.sous_traitants(id) on delete set null;
+alter table crm.litiges add column if not exists clos_le date;
+alter table crm.litiges add column if not exists maj_le timestamptz;
+create index if not exists idx_litiges_dossier on crm.litiges(dossier_id);
+-- Archivage : un dossier clos (terminé, perdu) rangé à part, et restaurable.
+alter table crm.dossiers add column if not exists archive_le timestamptz;
+alter table crm.dossiers add column if not exists archive_par int references crm.utilisateurs(id) on delete set null;
+create index if not exists idx_dossiers_archive on crm.dossiers(archive_le) where archive_le is not null;
+alter table crm.reglages_exploitation enable row level security;
+alter table crm.sous_traitants enable row level security;
+alter table crm.sous_traitant_contacts enable row level security;
+alter table crm.garde_meuble_caisses enable row level security;
+alter table crm.garde_meuble_photos enable row level security;
+alter table crm.conteneur_jalons enable row level security;
+alter table crm.conteneur_couts enable row level security;
+alter table crm.conteneur_commentaires enable row level security;
+alter table crm.conteneur_historique enable row level security;
 ${SCHEMA_VISITES}
 ${SCHEMA_FICHE}
 ${SCHEMA_RELANCES}

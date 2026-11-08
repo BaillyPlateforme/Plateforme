@@ -61,10 +61,10 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 13px;
 }
 .table th {
-  padding: 0 8px 10px;
+  padding: 0 6px 10px;
   color: #8a87a0;
   font-size: 10.5px;
   font-weight: 750;
@@ -74,7 +74,7 @@
   white-space: nowrap;
 }
 .table td {
-  padding: 11px 8px;
+  padding: 11px 6px;
   border-top: 1px solid #f1eff7;
   white-space: nowrap;
   vertical-align: middle;
@@ -98,6 +98,8 @@
 .client {
   display: grid;
   font-weight: 650;
+  white-space: normal;
+  min-width: 120px;
 }
 .client small {
   color: #8a87a0;
@@ -125,26 +127,27 @@
   font-weight: 700;
 }
 .categorie {
-  max-width: 170px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 110px;
+  white-space: normal !important;
 }
 .court {
-  max-width: 110px;
+  min-width: 50px;
+  max-width: 150px;
+  white-space: normal !important;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 4px;
+  gap: 2px;
 }
 .actions a,
 .actions button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 9px;
   color: #6f6c80;
 }

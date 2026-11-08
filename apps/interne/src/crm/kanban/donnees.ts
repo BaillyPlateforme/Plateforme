@@ -88,7 +88,7 @@ async function espacesOuverts(ids: number[]) {
 
 /** Tous les dossiers, du plus récemment modifié au plus ancien. */
 export async function cartesKanban(): Promise<Carte[]> {
-  const rows = await q(`${SQL} order by d.maj_le desc, d.id desc`);
+  const rows = await q(`${SQL} where d.archive_le is null order by d.maj_le desc, d.id desc`); // sans les dossiers archivés
   const espaces = await espacesOuverts(rows.map((r) => r.id as number));
   return rows.map((r) => versCarte(r, espaces));
 }
