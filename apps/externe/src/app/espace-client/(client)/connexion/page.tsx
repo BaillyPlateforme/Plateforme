@@ -18,6 +18,15 @@ const ERREURS: Record<string, string> = {
   inconnu: "Ce lien n'est pas valide. Demandez-en un nouveau ci-dessous.",
 };
 
+/** L'aperçu de l'équipe, ouvert depuis le CRM (lib/espace-client/apercu.ts). Textes provisoires, à valider. */
+const VUE_EQUIPE: Record<string, { ton: "ko" | "info"; texte: string }> = {
+  invalide: {
+    ton: "ko",
+    texte: "Cet aperçu n'est pas valable ou a expiré : il s'ouvre dans les deux minutes. Rouvrez l'espace du client depuis le CRM, bouton « Voir son espace ».",
+  },
+  terminee: { ton: "info", texte: "Aperçu de l'équipe terminé. Vous pouvez fermer cet onglet." },
+};
+
 type Params = Record<string, string | string[] | undefined>;
 const lu = (sp: Params, k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
 
@@ -32,6 +41,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
   const email = lu(sp, "email") ?? "";
   const apercu = lu(sp, "apercu");
   const erreur = lu(sp, "erreur");
+  const vueEquipe = VUE_EQUIPE[lu(sp, "vue-equipe") ?? ""];
   // Les raccourcis des profils fictifs : en démonstration, ou en développement sur le jeu semé en base.
   const demo = profilsDemoOuverts();
 
@@ -95,6 +105,11 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
               <h2>Bonjour !</h2>
               <p className="lede">Saisissez l&apos;adresse e-mail que vous avez donnée à votre conseiller Bailly : nous vous envoyons un lien de connexion.</p>
               {lu(sp, "au-revoir") && <p className="flash ok">Vous êtes déconnecté. À bientôt !</p>}
+              {vueEquipe && (
+                <p className={`flash ${vueEquipe.ton}`} role={vueEquipe.ton === "ko" ? "alert" : "status"}>
+                  {vueEquipe.texte}
+                </p>
+              )}
               {estDemo() && lu(sp, "reinitialise") && <p className="flash info">La démonstration est revenue à son état de départ.</p>}
               {erreur && ERREURS[erreur] && (
                 <p className="flash ko" role="alert">

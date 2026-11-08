@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { COOKIE_APERCU, lireCookieApercu } from "@/lib/espace-client/apercu";
 import { lireSession } from "@/lib/supabase/session-proxy";
 
 /*
@@ -24,11 +25,18 @@ import { lireSession } from "@/lib/supabase/session-proxy";
  *   et elle vérifie elle-même la session), et la boîte de réception de
  *   démonstration (profils fictifs seulement). La tâche de la veille vit
  *   désormais dans l'app interne (/api/taches/veille).
+ *
+ *   L'aperçu de l'équipe (lib/espace-client/apercu.ts) : son arrivée
+ *   (/apercu, qui vérifie elle-même le jeton) est ouverte ; ensuite, son
+ *   cookie, dont la signature et l'heure sont vérifiées ici, tient lieu de
+ *   session — sans rien ouvrir de plus : les pages le relisent, et les
+ *   actions refusent toute écriture pendant l'aperçu.
  */
 
 const PUBLIQUES_ESPACE_CLIENT = [
   "/espace-client/connexion",
   "/espace-client/acces",
+  "/espace-client/apercu",
   "/espace-client/deconnexion",
   "/espace-client/paiement/webhook",
   "/espace-client/fichier/",
@@ -47,6 +55,7 @@ export async function proxy(request: NextRequest) {
     if (process.env.ESPACE_CLIENT_DONNEES === "demo") return NextResponse.next();
     const s = await lireSession(request);
     if (estPublique(chemin)) return s.reponse();
+    if (lireCookieApercu(request.cookies.get(COOKIE_APERCU)?.value)) return s.reponse();
     if (!s.valide || s.role !== "client") return s.vers("/espace-client/connexion");
     return s.reponse();
   }
