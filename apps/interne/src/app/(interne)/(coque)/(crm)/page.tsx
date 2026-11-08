@@ -6,7 +6,8 @@ import { aEncaisser } from "@/crm/facturation/donnees";
 import { compterNouvelles, listRequests } from "@/lib/requests";
 import { listRappels } from "@/lib/rappels";
 import type { RequestStatus } from "@/lib/types";
-import { STATUS_META, sourceLabel } from "@/app/(interne)/(coque)/dashboard/status";
+import { sourceLabel } from "@/app/(interne)/(coque)/dashboard/status";
+import { libelleDemande, sousStatut } from "@/crm/parcours/demandes-commun";
 import Bandeau from "@/ui/Bandeau";
 import { Icone, type NomIcone } from "@/ui/icones";
 import s from "@/crm/accueil/accueil.module.css";
@@ -56,7 +57,7 @@ export default async function Accueil() {
 
   const ecart = j.ca.prec ? Math.round(((j.ca.cur - j.ca.prec) / j.ca.prec) * 100) : null;
   const nombres: Nombre[] = [
-    { libelle: "Demandes du site à ouvrir", valeur: String(nouvelles), href: "/dashboard?statut=new", icone: "questionnaires", ton: s.violet },
+    { libelle: "Demandes du site à ouvrir", valeur: String(nouvelles), href: "/parcours?vue=demandes&statut=new", icone: "questionnaires", ton: s.violet },
     { libelle: "Visites aujourd’hui", valeur: String(j.visitesDuJour), href: "/planning", icone: "oeil", ton: s.ciel },
     { libelle: "Déménagements · 7 jours", valeur: String(j.nombreChantiers), href: "/exploitation", icone: "camion", ton: s.vert },
     { libelle: "Devis à relancer", valeur: String(j.nombreRelances), href: "/devis", icone: "devis", ton: s.ambre },
@@ -173,7 +174,7 @@ export default async function Accueil() {
         <section className={`card ${s.carte} ${s.large}`}>
           <div className="card-h">
             <h3>Dernières demandes du site</h3>
-            <Link className={s.lien} href="/dashboard">Toutes les demandes</Link>
+            <Link className={s.lien} href="/parcours?vue=demandes">Toutes les demandes</Link>
           </div>
           {demandes.length === 0 ? (
             <div className="empty">Aucune demande pour l’instant.</div>
@@ -191,7 +192,8 @@ export default async function Accueil() {
                       </small>
                     </span>
                     <span className={s.trajet}>{r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}</span>
-                    <i className={`st ${TON_DEMANDE[r.status] ?? ""}`}>{STATUS_META[r.status]?.label ?? r.status}</i>
+                    {/* Le statut du Parcours : « Devis envoyé » et « Gagnée » sont des étapes du dossier, pas d'une demande. */}
+                    <i className={`st ${TON_DEMANDE[sousStatut(r.status)] ?? ""}`}>{libelleDemande(r.status)}</i>
                     <span className={s.quand}>{ilYa(r.created_at)}</span>
                   </Link>
                 </li>
