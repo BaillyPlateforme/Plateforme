@@ -370,7 +370,29 @@ body.printpage{background:#eee;overflow:auto;height:auto}
 
 /* ── « Quantum » modernisé (07/11/2026, demande de David) : indigo profond,
    accents verts, fond gris neutre ; l'en-tête est la bande de src/ui/Bandeau. ── */
-:root{--bg:#f4f4f7;--ink:#14121f;--muted:#6f6c80;--line:#e8e6ef;--accent:#4b2fe0;--soft:#ece8ff;--c2:#14c27d;--c3:#f5a524;--phys:#4b2fe0;--visio:#14c27d;--tache:#f5a524;--ok:#10a86b}
+:root{--bg:#f4f4f7;--ink:#14121f;--muted:#6f6c80;--line:#e8e6ef;--accent:#4b2fe0;--soft:#ece8ff;--c2:#14c27d;--c3:#f5a524;--ok:#10a86b}
+/* ── Les couleurs du planning (08/11/2026, réunion du 23/09) : la visio se distingue de la visite sur
+   place, une visite faite change d'habit, et le vert est réservé au petit ticket « devis établi ».
+   Le planning, sa légende, le planificateur de visite et les visites d'un dossier les partagent
+   (src/crm/planning/types-rdv.ts). --*-ink : le texte sur fond clair, lisible (contraste AA). ── */
+:root{--phys:#4b2fe0;--phys-ink:#3a20c2;--visio:#0ea5e9;--visio-ink:#0369a1;--tache:#f59e0b;--tache-ink:#a8550a;--perso:#9a96b0;--perso-ink:#55526b;--devis:#14c27d;--devis-ink:#0b7f50}
+.t-phys{--ci:var(--phys-ink)}.t-visio{--ci:var(--visio-ink)}.t-tache{--ci:var(--tache-ink)}.t-perso{--ci:var(--perso-ink)}
+.ev-ty{color:var(--ci,var(--c))}.ev .ev-ty .ic{width:12px;height:12px}
+/* Une règle perso : du temps réservé, hachuré. */
+.ev.t-perso{background:repeating-linear-gradient(135deg,#f3f2f7 0 6px,#e9e7f0 6px 12px);border-left-style:dashed}
+/* Une visite faite : blanche, le type en filet pâle, et une coche. */
+.ev.fait{background:#fff;border:1px solid var(--line);border-left:4px solid color-mix(in srgb,var(--c) 45%,#fff);color:#5d5a73}
+.ev.fait .ev-n{color:#4a475e}.ev.fait .ev-ty{color:#6f6c80}
+.ev.sans-suite .ev-n{text-decoration:line-through;text-decoration-color:#be123c99}
+/* Le petit ticket vert « devis établi », dans le coin du bloc. */
+.ticket-devis{position:absolute;top:4px;right:4px;z-index:1;display:grid;place-items:center;width:16px;height:16px;border-radius:5px;background:var(--devis);color:#fff;box-shadow:0 2px 6px -2px #0b7f5099}
+.ticket-devis .ic{width:11px;height:11px;stroke-width:3}
+.ev.devis .ev-top{padding-right:18px}
+/* Une pastille neutre : une visite effectuée (ETATS_VISITE, src/crm/visites/cycle.ts). */
+.st.n{background:#f1f0f6;color:#55526b}
+/* Le type d'un rendez-vous dans une liste : un point de sa couleur et son nom. */
+.type-rdv{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--ci,var(--ink));white-space:nowrap}
+.type-rdv::before{content:"";width:9px;height:9px;border-radius:3px;background:var(--c)}
 .accueil .tiles{grid-template-columns:repeat(6,minmax(0,1fr))}
 @media(max-width:1200px){.accueil .tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.accueil .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}

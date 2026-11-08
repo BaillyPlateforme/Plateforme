@@ -198,10 +198,37 @@
   outline: 2px solid var(--accent, #4b2fe0);
   outline-offset: 1px;
 }
+/*
+ * L'heure et le nom du client ne rétrécissent jamais : dans un bloc court, le
+ * nom (coupé à « overflow: hidden ») tombait à zéro de haut et disparaissait ;
+ * ce sont le lieu et les pastilles du bas qui sont coupés.
+ */
+.bloc :global(.ev-top),
+.bloc :global(.ev-n) {
+  flex-shrink: 0;
+}
+.bloc :global(.ev-top) {
+  white-space: nowrap;
+}
+.bloc :global(.ev-ty) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Dans un bloc étroit, le type se dit par sa couleur et son icône : son nom laisse la place à l'heure. */
+.bloc {
+  container-type: inline-size;
+}
+@container (max-width: 170px) {
+  .typeTexte {
+    display: none;
+  }
+}
 .bloc .ev-n,
 .bloc :global(.ev-n) {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .glisse {
   z-index: 8 !important;
@@ -299,6 +326,9 @@
 .point[data-ton="r"] {
   background: #c2352b;
 }
+.point[data-ton="n"] {
+  background: #9a96b0;
+}
 .compact .complet {
   display: none;
 }
@@ -372,6 +402,52 @@
   width: 1px;
   height: 16px;
   background: var(--line, #e4e2ee);
+}
+/* Les pastilles de la légende : l'habit des blocs de la grille, en miniature. */
+.pastille {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 14px;
+  border-radius: 4px;
+  border-left: 3px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, #fff);
+}
+.pastille[data-type="perso"] {
+  border-left-style: dashed;
+  background: repeating-linear-gradient(135deg, #f3f2f7 0 3px, #e3e1ec 3px 6px);
+}
+.pastilleFaite {
+  --c: #b9b6c9;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line, #e4e2ee);
+  color: #6f6c80;
+}
+.pastilleFaite :global(.ic),
+.pastilleDevis :global(.ic) {
+  width: 10px;
+  height: 10px;
+  stroke-width: 3;
+}
+.pastilleDevis {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--devis, #14c27d);
+  color: #fff;
+}
+.pastilleProposee {
+  width: 16px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px dashed var(--accent, #4b2fe0);
+  background: rgba(75, 47, 224, 0.06);
+}
+.sansSuite {
+  color: #9a96b0;
+  text-decoration-color: #be123c99;
 }
 
 /* La rangée du bas du bandeau : les commerciaux (les vues sont au menu de gauche) ; elle défile sur un écran étroit. */

@@ -4,8 +4,8 @@ import { AvecMenu } from "@/ui/MenuVertical";
 import { commerciaux, lundiDe, semaineCourante } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { dateFr } from "@/crm/lib/format";
-import { ETATS_VISITE } from "@/crm/visites/cycle";
 import { planningSemaine } from "@/crm/planning/donnees";
+import LegendePlanning from "@/crm/planning/Legende";
 import GrillePlanning from "@/crm/planning/GrillePlanning";
 import MiniCalendrier from "@/crm/planning/MiniCalendrier";
 import { jourParis } from "@/lib/visite/regles";
@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
  */
 
 const NOMS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const OK: Record<string, string> = { modifie: "Rendez-vous enregistré.", supprime: "Rendez-vous supprimé." };
+const OK: Record<string, string> = { cree: "Rendez-vous ajouté au planning.", modifie: "Rendez-vous enregistré.", supprime: "Rendez-vous supprimé." };
 
 export default async function Planning({ searchParams }: { searchParams: Promise<{ semaine?: string; com?: string; ok?: string; vue?: string }> }) {
   const sp = await searchParams;
@@ -67,7 +67,8 @@ export default async function Planning({ searchParams }: { searchParams: Promise
         // Un seul titre pour les trois vues du planning ; la semaine passe dans le texte.
         titre="Planning"
         texte={`Semaine ${semaineIso(lundi)} · du ${dateFr(lun, { day: "numeric", month: "long" })} · ${com ? coms.find((c) => c.id === com)?.nom : "toute l’équipe commerciale"}`}
-        action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}
+        // Le planificateur s'ouvre sur la semaine affichée, et sur le commercial choisi s'il y en a un.
+        action={{ label: "Nouveau RDV", href: `/planning/nouveau?semaine=${lundi}${suffixe}`, icone: "plus" }}
         bas={
           <BasPlanning>
             <Pilules
@@ -92,34 +93,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
       </Bandeau>
       <AvecMenu menu={<MenuPlanning actif="semaine" />}>
         {sp.ok && OK[sp.ok] && <p className={`${s.message} ${s.messageOk}`}>{OK[sp.ok]}</p>}
-        <div className={s.legende}>
-          <span>
-            <i className="dot t-phys" />
-            Visite physique
-          </span>
-          <span>
-            <i className="dot t-visio" />
-            Visio
-          </span>
-          <span>
-            <i className="dot t-tache" />
-            Tâche
-          </span>
-          <span>
-            <i className="dot t-perso" />
-            Perso / règle
-          </span>
-          <span>
-            <i className="dot" style={{ border: "1.5px dashed var(--accent)", background: "transparent" }} />
-            Créneau proposé au client
-          </span>
-          <i className={s.sep} />
-          {(["planifiee", "effectuee", "devis", "sans_suite"] as const).map((k) => (
-            <span key={k}>
-              <i className={`st ${ETATS_VISITE[k].ton}`}>{ETATS_VISITE[k].libelle}</i>
-            </span>
-          ))}
-        </div>
+        <LegendePlanning />
         <GrillePlanning jours={grilleJours} evenements={evenements} creneaux={creneaux} filtre={com} etatsSms={etatsSms} />
       </AvecMenu>
     </div>

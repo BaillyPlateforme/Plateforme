@@ -9,10 +9,12 @@
 
 export type EtatVisite = "a_planifier" | "planifiee" | "effectuee" | "devis" | "sans_suite";
 
-export const ETATS_VISITE: Record<EtatVisite, { libelle: string; ton: "i" | "w" | "g" | "p" | "r" }> = {
+// Les tons des pastilles (classes .st de crm.css). Une visite effectuée est neutre (n), comme son bloc blanc au
+// planning ; le vert reste au devis établi (réunion du 23/09 : couleurs des visites finies, ticket vert du devis).
+export const ETATS_VISITE: Record<EtatVisite, { libelle: string; ton: "i" | "w" | "g" | "p" | "r" | "n" }> = {
   a_planifier: { libelle: "À planifier", ton: "w" },
   planifiee: { libelle: "Planifiée", ton: "i" },
-  effectuee: { libelle: "Effectuée", ton: "p" },
+  effectuee: { libelle: "Effectuée", ton: "n" },
   devis: { libelle: "Devis établi", ton: "g" },
   sans_suite: { libelle: "Sans suite", ton: "r" },
 };
