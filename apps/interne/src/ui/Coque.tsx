@@ -74,9 +74,9 @@ export default function Coque({
           <Icone nom="plus" taille={17} />
           <span>Nouveau dossier</span>
         </Link>
-        <Applications rond />
-        {/* Les appels à passer (src/crm/appels) : à côté de la cloche, un panneau à droite. */}
+        {/* Les appels à passer (src/crm/appels) : juste à côté de « Nouveau dossier » (David, 08/11/2026), un panneau à droite. */}
         <BoutonAppels />
+        <Applications rond />
         <Cloche alertes={alertes} />
         <Compte utilisateur={utilisateur} />
       </Entete>
