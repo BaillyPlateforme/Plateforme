@@ -19,9 +19,8 @@ export async function POST(req: Request) {
     const r = await creerRappel(body.request_id, body.creneau);
     return NextResponse.json(r, { status: r.deja ? 200 : 201 });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Erreur inconnue" },
-      { status: 500 },
-    );
+    const message = e instanceof Error ? e.message : "Erreur inconnue";
+    // Un lien de rappel vers une demande qui n'existe pas (ou plus) : 404, pas une erreur du serveur.
+    return NextResponse.json({ error: message }, { status: message === "Demande introuvable" ? 404 : 500 });
   }
 }
