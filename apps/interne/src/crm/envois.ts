@@ -209,6 +209,13 @@ export async function envoyerCarte(
     /** Le bloc composé par la plateforme (la liste d'une relance), posé au jeton {elements}. */
     bloc?: BlocEmail;
     surtitre?: string;
+    /**
+     * Le texte de CET envoi, à la place de celui de la carte : personnalisé
+     * par l'équipe, ou proposé par la plateforme et relu (carte encore vide).
+     * Une carte vide ne retient alors plus le message ; une carte désactivée
+     * alors qu'elle a un texte, si : c'est un choix de Bailly.
+     */
+    texte?: { objet: string | null; corps: string } | null;
   },
 ): Promise<{ resultat: ResultatEnvoi | null; libelle: string }> {
   const m = await modeleDe(carte);
@@ -216,14 +223,16 @@ export async function envoyerCarte(
   if (!c) return { resultat: null, libelle: "dossier introuvable" };
   const vars = variablesDossier(c, o.vars);
   const fictif = await dossierFictif(dossierId, c);
-  const commun = { cle: o.cle, origine: o.origine ?? ("veille" as const), modele: m?.nom ?? carte, reference: c.ref, fictif, retenu: raisonDeNePasEnvoyer(m) };
+  const texte = o.texte?.corps.trim() ? o.texte : null;
+  const retenu = texte && m && !m.corps.trim() ? null : raisonDeNePasEnvoyer(m);
+  const commun = { cle: o.cle, origine: o.origine ?? ("veille" as const), modele: m?.nom ?? carte, reference: c.ref, fictif, retenu };
   if (m?.canal === "sms") {
     if (!c.telephone) return { resultat: null, libelle: "pas de numéro de téléphone : rien n'est parti" };
-    const resultat = await envoyerSms({ ...commun, a: c.telephone, texte: remplir(m.corps, vars), expediteur: (await getSettings()).sms_sender });
+    const resultat = await envoyerSms({ ...commun, a: c.telephone, texte: remplir(texte?.corps ?? m.corps, vars), expediteur: (await getSettings()).sms_sender });
     return { resultat, libelle: libelleStatut(resultat) };
   }
   if (!c.email) return { resultat: null, libelle: "pas d'adresse e-mail : rien n'est parti" };
-  const r = await rendreEmailCrm(m ?? { objet: null, corps: "" }, vars, "", undefined, { bloc: o.bloc, surtitre: o.surtitre });
+  const r = await rendreEmailCrm(texte ?? m ?? { objet: null, corps: "" }, vars, "", undefined, { bloc: o.bloc, surtitre: o.surtitre });
   const resultat = await envoyerEmail({ ...commun, a: c.email, sujet: r.sujet, html: r.html, texte: r.texte, expediteur: r.expediteur, repondreA: c.commercial_email && !estAdresseFictive(c.commercial_email) ? c.commercial_email : null });
   return { resultat, libelle: libelleStatut(resultat) };
 }

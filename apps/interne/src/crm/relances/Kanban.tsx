@@ -168,6 +168,12 @@ export default function Kanban({
       </>
     ) : col === "desactivee" ? (
       <>
+        {/* Désactivée pour la seule raison qu'une carte n'a pas de texte : elle part de l'écran d'envoi, texte proposé relu. */}
+        {r.aRediger && (
+          <Action ton="principal" disabled={enCours} onClick={() => setPanneau({ cle: r.cle, mode: "envoi" })} title="Envoyer avec le texte proposé, après l’avoir relu">
+            Préparer l’envoi
+          </Action>
+        )}
         {r.motif === "Annulée par l'équipe." && (
           <Action disabled={enCours} onClick={() => agir(() => reactiver(r.cle))}>
             Réactiver

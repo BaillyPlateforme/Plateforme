@@ -1,35 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Icone } from "@/ui/icones";
 import { Telephone } from "@/crm/messages/elements";
 import { composerEmailCrm, remplir } from "@/crm/messages/rendu";
 import { envoyerMaintenant, preparerEnvoi, type PreparationEnvoi, type Retour } from "./actions";
-import { blocRelance, elementsChoisis, varsRelance } from "./courrier";
-import { defRelance, libelleCanal, type Canal } from "./regles";
+import type { CanalEnvoi } from "./envoi";
+import { blocRelance, elementsChoisis, MARQUE_LISTE, texteAEnvoyer, texteLisible, varsRelance, versTexteCarte } from "./courrier";
+import { canalEnClair, defCourrier, libelleCanal, type Canal } from "./regles";
 import { IconeCanal } from "./Section";
 import s from "./panneau.module.css";
 
 /*
  * L'écran d'envoi d'une relance (David, 08/11/2026 : « on doit pouvoir voir un
  * mail ultra design qui s'affiche en dessous, et cocher les demandes que l'on
- * intègre dans la relance, ou si l'on met tout »). Un volet à droite :
+ * intègre dans la relance, ou si l'on met tout » ; puis « la possibilité de
+ * personnaliser la relance »). Un volet à droite :
  *
  *   1. en haut, ce que la relance demande, élément par élément, à cocher —
- *      « Tout inclure » par défaut, comme la veille ;
+ *      tout par défaut, comme la veille, sauf ce qui est facultatif ;
  *   2. dessous, le message tel que le client le recevra, recomposé dans le
- *      navigateur à chaque case (messages/rendu.ts et courrier.ts, le code
- *      même de l'envoi), en e-mail et, si la règle le prévoit, en SMS ;
- *   3. en pied, ce que deviendra l'envoi (ENVOI_MODE) et « Envoyer », qui
- *      n'envoie que les éléments cochés.
+ *      navigateur à chaque case et à chaque lettre (messages/rendu.ts et
+ *      courrier.ts, le code même de l'envoi), en e-mail et en SMS ;
+ *      « Personnaliser » rend l'objet et le texte modifiables pour CET envoi,
+ *      tels que le client les lit ; la liste y garde sa place, marquée
+ *      « [Ce que nous vous demandons] », et suit les cases ;
+ *   3. en pied, ce que deviendra l'envoi (ENVOI_MODE) et « Envoyer ».
  *
- * En aperçu (« Aperçu » sur la carte), rien ne se coche ni ne part : on
- * regarde avant de décider ; « Préparer l'envoi » passe à l'écran d'envoi
- * quand la relance peut partir.
+ * Une carte sans texte ne bloque plus un envoi à la main : le volet s'ouvre
+ * sur le texte proposé par la plateforme, « à relire avant l'envoi », et
+ * n'envoie qu'une fois chaque texte proposé affiché. Ce qui bloque vraiment
+ * (dossier « ne pas relancer », règle désactivée, carte désactivée par
+ * Bailly, pas d'adresse ou de numéro) est dit, et rien ne part.
+ *
+ * En aperçu (l'œil d'une carte du Kanban), rien ne se coche ni ne part ;
+ * « Préparer l'envoi » passe à l'écran d'envoi quand la relance peut partir.
  */
 
 const jourLong = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+type Texte = { objet: string; corps: string };
 
 export default function PanneauEnvoi({
   cle,
@@ -48,9 +58,15 @@ export default function PanneauEnvoi({
   const [mode, setMode] = useState(modeInitial);
   const [choix, setChoix] = useState<string[]>([]);
   const [onglet, setOnglet] = useState<Canal>("email");
+  const [vus, setVus] = useState<Canal[]>([]);
+  const [optionnels, setOptionnels] = useState<Canal[]>([]);
+  /** Le texte de cet envoi, par canal, tel que le client le lit ; absent : celui de la carte. */
+  const [textes, setTextes] = useState<Partial<Record<Canal, Texte>>>({});
+  const [enregistrer, setEnregistrer] = useState<Partial<Record<Canal, boolean>>>({});
   const [retour, setRetour] = useState<Retour | null>(null);
   const [enCours, demarrer] = useTransition();
   const fermerRef = useRef<HTMLButtonElement>(null);
+  const zone = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     let vivant = true;
@@ -58,9 +74,16 @@ export default function PanneauEnvoi({
       .then((r) => {
         if (!vivant) return;
         if (!r.ok) return setErreur(r.erreur);
-        setPrep(r.preparation);
-        setChoix(r.preparation.relance.demande.elements.map((e) => e.id));
-        setOnglet(r.preparation.canaux[0]?.canal ?? "email");
+        const p = r.preparation;
+        setPrep(p);
+        const choisis = p.relance.demande.elements.filter((e) => !e.facultatif);
+        setChoix(choisis.map((e) => e.id));
+        const premier = p.canaux.find((c) => !c.optionnel)?.canal ?? p.canaux[0]?.canal ?? "email";
+        setOnglet(premier);
+        setVus([premier]);
+        // Une carte sans texte : le volet s'ouvre sur le texte proposé, déjà en « Personnaliser ».
+        const vars = choisis.length ? varsRelance(p.relance.type, p.vars, choisis) : p.vars;
+        setTextes(Object.fromEntries(p.canaux.filter((c) => c.etat === "vide").map((c) => [c.canal, lisible(c, vars)])));
       })
       .catch(() => vivant && setErreur("La relance ne se lit pas. Réessayez dans un instant."));
     return () => {
@@ -81,40 +104,123 @@ export default function PanneauEnvoi({
   }, [fermer]);
 
   const r = prep?.relance;
-  const def = r ? defRelance(r.type) : null;
+  const def = r ? defCourrier(r.type) : null;
   const elements = useMemo(() => r?.demande.elements ?? [], [r]);
-  // En aperçu, tout ce que la relance demande : c'est ce que la veille enverrait.
-  const choisis = useMemo(() => (mode === "apercu" || !r ? elements : elementsChoisis(r.demande, choix)), [mode, r, elements, choix]);
-  const tout = choisis.length === elements.length;
-  // Des éléments à demander, et aucun de coché : la relance ne peut pas partir.
+  const requis = elements.filter((e) => !e.facultatif);
+  // En aperçu, ce que la veille enverrait : tout, sauf le facultatif.
+  const choisis = useMemo(() => (!r ? [] : mode === "apercu" ? elements.filter((e) => !e.facultatif) : elementsChoisis(r.demande, choix)), [mode, r, elements, choix]);
+  const toutRequis = requis.every((e) => choisis.some((x) => x.id === e.id));
   const rienCoche = mode === "envoi" && elements.length > 0 && choisis.length === 0;
+  const vars = useMemo(() => (prep && r && choisis.length ? varsRelance(r.type, prep.vars, choisis) : (prep?.vars ?? {})), [prep, r, choisis]);
 
-  // Le message, recomposé à chaque case : le même code que l'envoi.
-  const messages = useMemo(() => {
-    if (!prep || !r) return null;
-    const vars = choisis.length ? varsRelance(r.type, prep.vars, choisis) : prep.vars;
-    const bloc = choisis.length ? blocRelance(r.type, r.demande, choisis, prep.liens) : undefined;
-    return prep.canaux.map((c) =>
-      c.canal === "email"
-        ? { ...c, ...composerEmailCrm({ objet: c.objet, corps: c.corps }, vars, prep.contexte, { bloc, surtitre: prep.surtitre }) }
-        : { ...c, sujet: null, html: null, texte: remplir(c.corps, vars) },
+  // Ce qui dépend des cases ({montant}, {pieces}) suit aussi dans un texte personnalisé : l'ancienne valeur y est remplacée.
+  const precedentes = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const avant = precedentes.current;
+    precedentes.current = { montant: vars.montant ?? "", pieces: vars.pieces ?? "" };
+    const changees = (["montant", "pieces"] as const).filter((k) => avant[k] && vars[k] && avant[k] !== vars[k]);
+    if (!changees.length) return;
+    setTextes((t) =>
+      Object.fromEntries(
+        Object.entries(t).map(([k, x]) => [k, changees.reduce((y, v) => ({ objet: y.objet.split(avant[v]).join(vars[v]), corps: y.corps.split(avant[v]).join(vars[v]) }), x as Texte)]),
+      ),
     );
-  }, [prep, r, choisis]);
-  const message = messages?.find((m) => m.canal === onglet) ?? messages?.[0] ?? null;
+  }, [vars]);
 
+  const canal = prep?.canaux.find((c) => c.canal === onglet) ?? prep?.canaux[0] ?? null;
+  const texteDe = useCallback(
+    (c: CanalEnvoi) => {
+      const t = textes[c.canal];
+      return t ? { objet: t.objet, corps: texteAEnvoyer(t.corps) } : { objet: c.objet, corps: c.corps };
+    },
+    [textes],
+  );
+  const initial = (c: CanalEnvoi) => lisible(c, vars);
+  const modifie = (c: CanalEnvoi) => {
+    const t = textes[c.canal];
+    if (!t) return false;
+    const i = initial(c);
+    return t.corps.trim() !== i.corps.trim() || t.objet.trim() !== i.objet.trim();
+  };
+
+  // Le message de l'onglet, recomposé à chaque case et à chaque lettre : le même code que l'envoi.
+  const textesDiffere = useDeferredValue(textes);
+  const message = useMemo(() => {
+    if (!prep || !r || !canal) return null;
+    const t = textesDiffere[canal.canal];
+    const m = t ? { objet: t.objet, corps: texteAEnvoyer(t.corps) } : { objet: canal.objet, corps: canal.corps };
+    if (canal.canal === "sms") return { sujet: null, html: null, texte: remplir(m.corps, vars) };
+    const bloc = choisis.length ? blocRelance(r.type, r.demande, choisis, prep.liens) : undefined;
+    return composerEmailCrm(m, vars, prep.contexte, { bloc, surtitre: prep.surtitre });
+  }, [prep, r, canal, textesDiffere, vars, choisis]);
+
+  const choisir = (k: Canal) => {
+    setOnglet(k);
+    setVus((v) => (v.includes(k) ? v : [...v, k]));
+  };
   const basculer = (id: string) => setChoix((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
-  const toutInclure = () => setChoix(tout ? [] : elements.map((e) => e.id));
+  const toutInclure = () => setChoix(toutRequis ? [] : [...new Set([...choix, ...requis.map((e) => e.id)])]);
+  const personnaliser = (c: CanalEnvoi) => setTextes((t) => ({ ...t, [c.canal]: initial(c) }));
+  const revenir = (c: CanalEnvoi) => {
+    setEnregistrer((x) => ({ ...x, [c.canal]: false }));
+    setTextes((t) => {
+      // Une carte vide revient au texte proposé ; une carte prête, à son propre texte.
+      if (c.etat === "vide") return { ...t, [c.canal]: initial(c) };
+      const { [c.canal]: _retire, ...reste } = t;
+      void _retire;
+      return reste;
+    });
+  };
+  const modifier = (k: Canal, champ: keyof Texte, v: string) => setTextes((t) => ({ ...t, [k]: { ...(t[k] as Texte), [champ]: v } }));
+  const insererListe = (k: Canal) => {
+    const t = textes[k];
+    const z = zone.current;
+    if (!t) return;
+    const pos = z?.selectionStart ?? t.corps.length;
+    const morceau = k === "email" ? `\n\n${MARQUE_LISTE}\n\n` : ` ${MARQUE_LISTE} `;
+    modifier(k, "corps", `${t.corps.slice(0, pos)}${morceau}${t.corps.slice(pos)}`.replace(/\n{3,}/g, "\n\n"));
+  };
 
-  const prets = prep?.canaux.filter((c) => c.pret) ?? [];
-  const peutEnvoyer = !!prep?.envoyable && !rienCoche && !enCours;
-  const envoyer = () =>
+  // Les canaux de cet envoi : prêts, ou vides avec leur texte relu ; le SMS de « Ce qui manque » s'il est coché.
+  const canauxEnvoi = (prep?.canaux ?? []).filter((c) => (!c.optionnel || optionnels.includes(c.canal)) && (c.etat === "pret" || (c.etat === "vide" && !!textes[c.canal])));
+  const aRelire = canauxEnvoi.filter((c) => c.etat === "vide" && !vus.includes(c.canal));
+  const personnalisee = canauxEnvoi.some(modifie);
+  const analyses = Object.fromEntries(
+    (prep?.canaux ?? []).filter((c) => textes[c.canal]).map((c) => [c.canal, versTexteCarte({ objet: textes[c.canal]!.objet, corps: textes[c.canal]!.corps }, { objet: c.objet, corps: c.corps }, vars, c.carte.variables, c.canal)]),
+  ) as Partial<Record<Canal, ReturnType<typeof versTexteCarte>>>;
+  const peutEnvoyer = !!prep?.envoyable && !rienCoche && canauxEnvoi.length > 0 && !enCours;
+
+  const envoyer = () => {
+    if (aRelire.length) return choisir(aRelire[0].canal);
     demarrer(async () => {
-      const x = await envoyerMaintenant(cle, elements.length ? choix : null);
+      const aGarder = canauxEnvoi.filter((c) => textes[c.canal]);
+      const x = await envoyerMaintenant(cle, elements.length ? choix : null, {
+        textes: Object.fromEntries(aGarder.map((c) => [c.canal, texteDe(c)])),
+        optionnels,
+        personnalisee,
+        enregistrer: Object.fromEntries(
+          aGarder.flatMap((c) => {
+            const a = analyses[c.canal];
+            return enregistrer[c.canal] && a?.ok ? [[c.canal, { objet: a.objet, corps: a.corps }]] : [];
+          }),
+        ),
+      });
       if (x.ok) {
         envoye?.(x);
         fermer();
       } else setRetour(x);
     });
+  };
+
+  const libelleEnvoyer = enCours
+    ? "Envoi…"
+    : aRelire.length
+      ? `Relire ${aRelire[0].canal === "sms" ? "le SMS" : "l’e-mail"} avant l’envoi`
+      : toutRequis && choisis.length >= requis.length
+        ? canauxEnvoi.length > 1
+          ? "Envoyer e-mail et SMS"
+          : "Envoyer la relance"
+        : `Envoyer ${choisis.length} élément${choisis.length > 1 ? "s" : ""} sur ${elements.length}`;
 
   return (
     <div className={s.voile} onClick={fermer} role="presentation">
@@ -132,7 +238,7 @@ export default function PanneauEnvoi({
             <p className={s.surtitre}>
               <i />
               {mode === "apercu" ? "Aperçu · " : ""}
-              {r ? `${r.libelle} · relance ${r.rang} sur ${r.sur}` : "Relance"}
+              {r ? `${r.libelle} · ${r.type === "espace" ? `relance n° ${r.rang}` : `relance ${r.rang} sur ${r.sur}`}` : "Relance"}
             </p>
             <h2>{r ? r.client || r.ref : "Préparation…"}</h2>
             {r && prep && (
@@ -153,10 +259,17 @@ export default function PanneauEnvoi({
                     {prep.destinataire.telephone}
                   </span>
                 )}
-                <span className={s.puce} data-ton={r.colonne}>
-                  <Icone nom="horloge" taille={12} />
-                  {r.colonne === "desactivee" ? "Désactivée" : r.reportee ? `Repoussée au ${jourLong(r.prevue)}` : `Prévue le ${jourLong(r.prevue)}`}
-                </span>
+                {r.type === "espace" || r.horsSuite ? (
+                  <span className={s.puce} data-ton="main" title={r.horsSuite ?? "La veille ne l’envoie jamais : elle part à la main, depuis la fiche de l’espace client."}>
+                    <Icone nom="envoyer" taille={12} />
+                    {r.horsSuite ? "Hors calendrier de la veille" : "À la main"}
+                  </span>
+                ) : (
+                  <span className={s.puce} data-ton={r.colonne}>
+                    <Icone nom="horloge" taille={12} />
+                    {r.colonne === "desactivee" ? (r.aRediger ? "Carte sans texte : à relire ici" : "Désactivée") : r.reportee ? `Repoussée au ${jourLong(r.prevue)}` : `Prévue le ${jourLong(r.prevue)}`}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -168,7 +281,7 @@ export default function PanneauEnvoi({
         <div className={s.defile}>
           {erreur ? (
             <p className={s.erreur}>{erreur}</p>
-          ) : !prep || !r || !messages ? (
+          ) : !prep || !r || !canal || !message ? (
             <div className={s.chargement} aria-busy="true">
               <span />
               <span />
@@ -176,6 +289,15 @@ export default function PanneauEnvoi({
             </div>
           ) : (
             <>
+              {r.bloquee && (
+                <p className={s.bandeau} data-ton="retenu">
+                  <Icone nom="alerte" taille={15} />
+                  <span>
+                    <b>Cette relance ne peut pas partir.</b> {r.bloquee}
+                  </span>
+                </p>
+              )}
+
               {/* ── 1 · Ce que la relance demande ── */}
               <section className={s.section} aria-labelledby="relance-demande">
                 <div className={s.sectionTete}>
@@ -183,12 +305,12 @@ export default function PanneauEnvoi({
                     <h3 id="relance-demande">Ce que la relance demande</h3>
                     <p>
                       {mode === "apercu"
-                        ? `${elements.length} élément${elements.length > 1 ? "s" : ""}, tout ce que la veille enverrait`
+                        ? `${choisis.length} élément${choisis.length > 1 ? "s" : ""}, ce que la relance demanderait`
                         : `${choisis.length} sur ${elements.length} retenu${choisis.length > 1 ? "s" : ""}`}
                     </p>
                   </div>
                   {mode === "envoi" && elements.length > 0 && (
-                    <button type="button" role="switch" aria-checked={tout} className={s.interrupteur} onClick={toutInclure}>
+                    <button type="button" role="switch" aria-checked={toutRequis && choisis.length > 0} className={s.interrupteur} onClick={toutInclure} title={requis.length < elements.length ? "Tout ce qui est demandé ; le facultatif se coche à part" : undefined}>
                       Tout inclure
                       <span />
                     </button>
@@ -206,21 +328,24 @@ export default function PanneauEnvoi({
                             {mode === "envoi" && coche && <Icone nom="coche" taille={13} />}
                           </span>
                           <span className={s.elementTexte}>
-                            <b>{e.titre}</b>
+                            <b>
+                              {e.titre}
+                              {e.facultatif && <em className={s.facultatif}>Facultatif</em>}
+                            </b>
                             {e.detail && <small>{e.detail}</small>}
                           </span>
                           {e.valeur && <span className={s.valeur}>{e.valeur}</span>}
                         </>
                       );
                       return (
-                        <li key={e.id} data-coche={coche}>
+                        <li key={e.id} data-coche={mode === "envoi" ? coche : undefined}>
                           {mode === "envoi" ? (
                             <label>
                               <input type="checkbox" checked={coche} onChange={() => basculer(e.id)} />
                               {contenu}
                             </label>
                           ) : (
-                            <div>{contenu}</div>
+                            <div data-pale={!coche || undefined}>{contenu}</div>
                           )}
                         </li>
                       );
@@ -235,72 +360,117 @@ export default function PanneauEnvoi({
                   <div>
                     <h3 id="relance-message">Le message, tel que le client le recevra</h3>
                     <p>
-                      {prets.length
-                        ? `Partira par ${prets.map((c) => libelleCanal(c.canal).toLowerCase()).join(" et ")}`
-                        : "Aucun canal prêt dans « Courriers et SMS »"}
+                      {canauxEnvoi.length
+                        ? `Partira par ${canauxEnvoi.map((c) => canalEnClair(c.canal)).join(" et ")}`
+                        : "Aucun canal ne peut partir"}
                     </p>
                   </div>
-                  {messages.length > 1 && (
+                  {prep.canaux.length > 1 && (
                     <div className={s.onglets} role="tablist" aria-label="Canal">
-                      {messages.map((m) => (
-                        <button key={m.canal} type="button" role="tab" aria-selected={m.canal === message?.canal} onClick={() => setOnglet(m.canal)}>
-                          <IconeCanal canal={m.canal} taille={13} />
-                          {libelleCanal(m.canal)}
-                          <i data-pret={m.pret} />
+                      {prep.canaux.map((c) => (
+                        <button key={c.canal} type="button" role="tab" aria-selected={c.canal === canal.canal} onClick={() => choisir(c.canal)}>
+                          <IconeCanal canal={c.canal} taille={13} />
+                          {libelleCanal(c.canal)}
+                          <i data-etat={c.optionnel && !optionnels.includes(c.canal) ? "non" : c.etat === "pret" || (c.etat === "vide" && vus.includes(c.canal)) ? "pret" : c.etat === "vide" ? "relire" : "non"} />
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {message && (
-                  <>
-                    {!message.pret && (
-                      <p className={s.bandeau} data-ton={message.propose ? "propose" : "retenu"}>
-                        <Icone nom="alerte" taille={15} />
+                {/* Un canal en plus, que l'équipe coche : le SMS de « Ce qui manque ». Cocher l'ouvre, pour le relire. */}
+                {mode === "envoi" &&
+                  prep.canaux
+                    .filter((c) => c.optionnel)
+                    .map((c) => (
+                      <label key={c.canal} className={s.option} data-actif={optionnels.includes(c.canal) || undefined}>
+                        <input
+                          type="checkbox"
+                          checked={optionnels.includes(c.canal)}
+                          disabled={c.etat === "sans_contact" || c.etat === "desactivee"}
+                          onChange={(e) => {
+                            setOptionnels((l) => (e.target.checked ? [...l, c.canal] : l.filter((x) => x !== c.canal)));
+                            if (e.target.checked) choisir(c.canal);
+                          }}
+                        />
                         <span>
-                          {message.propose ? (
-                            <>
-                              <b>Texte proposé par la plateforme, à valider.</b> La carte « {def?.libelle} » ({libelleCanal(message.canal).toLowerCase()}) n&apos;a pas encore de texte dans{" "}
-                              <Link href="/modeles" onClick={fermer}>Courriers et SMS</Link> : ce canal ne part pas tant qu&apos;il n&apos;est pas validé.
-                            </>
-                          ) : (
-                            <>
-                              <b>Ce canal ne partira pas.</b> {message.raison}
-                            </>
-                          )}
+                          <b>Envoyer aussi par {canalEnClair(c.canal)}</b>
+                          <small>{c.raison ?? (prep.destinataire.telephone ? `Au ${prep.destinataire.telephone}, en plus de l’e-mail.` : "")}</small>
                         </span>
-                      </p>
-                    )}
-                    {rienCoche && (
-                      <p className={s.bandeau} data-ton="retenu">
-                        <Icone nom="alerte" taille={15} />
-                        <span>Rien n&apos;est coché : cochez au moins un élément pour envoyer la relance.</span>
-                      </p>
-                    )}
-                    {message.canal === "email" ? (
-                      <div className={s.enveloppe} data-vide={rienCoche}>
-                        <dl>
-                          <div>
-                            <dt>À</dt>
-                            <dd>{prep.destinataire.email || "pas d’adresse e-mail sur la fiche client"}</dd>
-                          </div>
-                          <div>
-                            <dt>Objet</dt>
-                            <dd>
-                              <b>{message.sujet}</b>
-                            </dd>
-                          </div>
-                        </dl>
-                        <CadreEmail html={message.html ?? ""} />
+                      </label>
+                    ))}
+
+                {(canal.etat === "desactivee" || canal.etat === "sans_contact") && !canal.optionnel && (
+                  <p className={s.bandeau} data-ton="retenu">
+                    <Icone nom="alerte" taille={15} />
+                    <span>
+                      <b>Ce canal ne partira pas.</b> {canal.raison}
+                    </span>
+                  </p>
+                )}
+                {canal.etat === "vide" && mode === "apercu" && (
+                  <p className={s.bandeau} data-ton="propose">
+                    <Icone nom="alerte" taille={15} />
+                    <span>
+                      <b>Texte proposé par la plateforme, à valider.</b> La carte « {canal.carte.titre} » n&apos;a pas encore de texte dans{" "}
+                      <Link href="/modeles" onClick={fermer}>Courriers et SMS</Link>. Il peut partir d&apos;ici, une fois relu.
+                    </span>
+                  </p>
+                )}
+                {rienCoche && (
+                  <p className={s.bandeau} data-ton="retenu">
+                    <Icone nom="alerte" taille={15} />
+                    <span>Rien n&apos;est coché : cochez au moins un élément pour envoyer la relance.</span>
+                  </p>
+                )}
+
+                {/* « Personnaliser » : le texte de cet envoi, tel que le client le lit. */}
+                {mode === "envoi" && prep.envoyable && (canal.etat === "pret" || canal.etat === "vide") && (
+                  textes[canal.canal] ? (
+                    <Editeur
+                      c={canal}
+                      t={textes[canal.canal]!}
+                      modifie={modifie(canal)}
+                      zone={zone}
+                      analyse={analyses[canal.canal] ?? null}
+                      enregistrer={!!enregistrer[canal.canal]}
+                      setEnregistrer={(v) => setEnregistrer((x) => ({ ...x, [canal.canal]: v }))}
+                      modifier={(champ, v) => modifier(canal.canal, champ, v)}
+                      revenir={() => revenir(canal)}
+                      insererListe={() => insererListe(canal.canal)}
+                    />
+                  ) : (
+                    <div className={s.personnaliser}>
+                      <button type="button" onClick={() => personnaliser(canal)}>
+                        <Icone nom="crayon" taille={15} />
+                        Personnaliser {canal.canal === "sms" ? "ce SMS" : "cet e-mail"}
+                      </button>
+                      <small>Pour cet envoi seulement : la carte de « Courriers et SMS » ne change pas.</small>
+                    </div>
+                  )
+                )}
+
+                {canal.canal === "email" ? (
+                  <div className={s.enveloppe} data-vide={rienCoche}>
+                    <dl>
+                      <div>
+                        <dt>À</dt>
+                        <dd>{prep.destinataire.email || "pas d’adresse e-mail sur la fiche client"}</dd>
                       </div>
-                    ) : (
-                      <div className={s.sms}>
-                        <p className={s.smsA}>À {prep.destinataire.telephone || "pas de numéro sur la fiche client"}</p>
-                        <Telephone texte={message.texte} />
+                      <div>
+                        <dt>Objet</dt>
+                        <dd>
+                          <b>{message.sujet}</b>
+                        </dd>
                       </div>
-                    )}
-                  </>
+                    </dl>
+                    <CadreEmail html={message.html ?? ""} />
+                  </div>
+                ) : (
+                  <div className={s.sms}>
+                    <p className={s.smsA}>À {prep.destinataire.telephone || "pas de numéro sur la fiche client"}</p>
+                    <Telephone texte={message.texte} />
+                  </div>
                 )}
               </section>
             </>
@@ -325,9 +495,16 @@ export default function PanneauEnvoi({
               Fermer
             </button>
             {mode === "envoi" ? (
-              <button type="button" className={s.principal} disabled={!peutEnvoyer} onClick={envoyer} title={choisis.length === 0 ? "Cochez au moins un élément" : prep?.motif ?? undefined}>
-                <Icone nom="envoyer" taille={16} />
-                {enCours ? "Envoi…" : tout ? "Envoyer la relance" : `Envoyer ${choisis.length} élément${choisis.length > 1 ? "s" : ""} sur ${elements.length}`}
+              <button
+                type="button"
+                className={s.principal}
+                data-relire={aRelire.length ? "" : undefined}
+                disabled={!peutEnvoyer}
+                onClick={envoyer}
+                title={rienCoche ? "Cochez au moins un élément" : (prep?.motif ?? undefined)}
+              >
+                <Icone nom={aRelire.length ? "oeil" : "envoyer"} taille={16} />
+                {libelleEnvoyer}
               </button>
             ) : (
               prep?.envoyable && (
@@ -340,6 +517,99 @@ export default function PanneauEnvoi({
           </div>
         </footer>
       </aside>
+    </div>
+  );
+}
+
+/** Le texte d'une carte (ou proposé), tel que le client le lit pour ces variables. */
+function lisible(c: CanalEnvoi, vars: Record<string, string>): Texte {
+  const { elements: _liste, ...autres } = vars;
+  void _liste;
+  return { objet: c.objet ? remplir(c.objet, autres) : "", corps: texteLisible(c.corps, vars, c.canal) };
+}
+
+/** L'éditeur du texte de cet envoi : objet, message, la marque de la liste, et l'enregistrement facultatif dans la carte. */
+function Editeur({
+  c,
+  t,
+  modifie,
+  zone,
+  analyse,
+  enregistrer,
+  setEnregistrer,
+  modifier,
+  revenir,
+  insererListe,
+}: {
+  c: CanalEnvoi;
+  t: Texte;
+  modifie: boolean;
+  zone: React.RefObject<HTMLTextAreaElement | null>;
+  analyse: ReturnType<typeof versTexteCarte> | null;
+  enregistrer: boolean;
+  setEnregistrer: (v: boolean) => void;
+  modifier: (champ: keyof Texte, v: string) => void;
+  revenir: () => void;
+  insererListe: () => void;
+}) {
+  const marque = t.corps.includes(MARQUE_LISTE);
+  return (
+    <div className={s.editeur} data-propose={c.etat === "vide" || undefined}>
+      <div className={s.editeurTete}>
+        <span className={s.etiquette} data-ton={c.etat === "vide" && !modifie ? "propose" : "perso"}>
+          <Icone nom={c.etat === "vide" && !modifie ? "alerte" : "crayon"} taille={13} />
+          {c.etat === "vide" ? (modifie ? "Texte proposé, modifié pour cet envoi" : "Texte proposé, à relire avant l’envoi") : modifie ? "Personnalisé pour cet envoi" : "Personnaliser : le texte de cet envoi"}
+        </span>
+        {modifie && (
+          <button type="button" className={s.lien} onClick={revenir}>
+            <Icone nom="restaurer" taille={13} />
+            {c.etat === "vide" ? "Revenir au texte proposé" : "Revenir au texte de la carte"}
+          </button>
+        )}
+      </div>
+      {c.etat === "vide" && (
+        <p className={s.editeurNote}>
+          La carte « {c.carte.titre} » n&apos;a pas encore de texte validé dans Courriers et SMS : la plateforme propose celui-ci. Relisez-le, modifiez-le si besoin ; il ne part que de cet écran.
+        </p>
+      )}
+      {c.canal === "email" && (
+        <label className={s.champ}>
+          <span>Objet</span>
+          <input value={t.objet} onChange={(e) => modifier("objet", e.target.value)} />
+        </label>
+      )}
+      <label className={s.champ}>
+        <span>Message</span>
+        <textarea ref={zone} value={t.corps} rows={c.canal === "sms" ? 4 : 11} onChange={(e) => modifier("corps", e.target.value)} />
+      </label>
+      <p className={s.aideListe}>
+        <span className={s.marque}>{MARQUE_LISTE}</span>
+        {c.canal === "email"
+          ? marque
+            ? "pose ici la liste cochée ci-dessus, mise en page. Déplacez la ligne pour la déplacer."
+            : "est retiré : la liste se pose avant la signature."
+          : marque
+            ? "devient la liste cochée, en quelques mots."
+            : "est retiré : le SMS ne cite pas la liste."}
+        {!marque && (
+          <button type="button" className={s.lien} onClick={insererListe}>
+            Remettre la liste à l’endroit du curseur
+          </button>
+        )}
+      </p>
+      {modifie && (
+        <label className={s.enregistrer} data-indisponible={!analyse?.ok || undefined}>
+          <input type="checkbox" checked={enregistrer && !!analyse?.ok} disabled={!analyse?.ok} onChange={(e) => setEnregistrer(e.target.checked)} />
+          <span>
+            <b>Enregistrer aussi comme texte de la carte « {c.carte.titre} »</b>
+            <small>
+              {analyse?.ok
+                ? `Avec ses variables ({client}, {ref}…) à la place de ce client.${c.carte.active ? " Les prochaines relances de ce type, veille comprise, partiront avec ce texte." : " La carte reste désactivée : rien ne part de lui-même tant qu’elle n’est pas activée dans Courriers et SMS."}`
+                : `Impossible ici : ${analyse?.raison ?? "texte illisible."}`}
+            </small>
+          </span>
+        </label>
+      )}
     </div>
   );
 }
