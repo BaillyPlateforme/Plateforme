@@ -1,3 +1,4 @@
+import { ETATS_RELANCE, TEINTES } from "@/crm/kanban/etapes";
 import { TYPES } from "@/crm/lib/format";
 
 /*
@@ -111,14 +112,8 @@ export const RELANCES: DefRelance[] = [
 ];
 export const defRelance = (t: string) => RELANCES.find((r) => r.type === t) ?? null;
 
-/** Les colonnes du Kanban, avec leur couleur d'état (les mêmes sur le tableau de bord). */
-export const COLONNES: { cle: Colonne; titre: string; couleur: string; vide: string }[] = [
-  { cle: "avenir", titre: "À venir", couleur: "#4b2fe0", vide: "Rien de prévu." },
-  { cle: "aujourdhui", titre: "Aujourd'hui", couleur: "#7a52ff", vide: "Aucune relance aujourd'hui." },
-  { cle: "retard", titre: "En retard", couleur: "#e1306c", vide: "Aucun retard." },
-  { cle: "envoyee", titre: "Envoyées", couleur: "#14c27d", vide: "Aucune relance envoyée." },
-  { cle: "desactivee", titre: "Désactivées", couleur: "#a7a3b8", vide: "Aucune." },
-];
+/** Les colonnes du Kanban, avec leur couleur d'état (les mêmes sur le tableau de bord) : la définition commune à tous les tableaux (src/crm/kanban/etapes.ts). */
+export const COLONNES: { cle: Colonne; titre: string; couleur: string; vide: string }[] = ETATS_RELANCE.map((e) => ({ cle: e.cle, titre: e.label, couleur: TEINTES[e.teinte], vide: e.vide }));
 
 /** Les segments de client qu'une règle peut écarter (crm.clients.type). */
 export const SEGMENTS = Object.entries(TYPES).map(([cle, libelle]) => ({ cle, libelle }));

@@ -16,6 +16,9 @@
  * première étape au-delà du palier qui n'est pas faite est « en cours ».
  */
 
+import { GROUPES_PARCOURS } from "@/crm/kanban/etapes";
+import { libelleDemande } from "./demandes-commun";
+
 export type EtatEtape = "fait" | "encours" | "avenir" | "manque" | "sansobjet";
 export type CleEtape =
   | "demande"
@@ -34,8 +37,8 @@ export type CleEtape =
 
 export type Etape = { cle: CleEtape; label: string; groupe: number; etat: EtatEtape; date: string | null; jour: boolean; detail: string };
 
-/** Les huit étapes de la bande du haut. */
-export const GROUPES = ["Demande", "Visite", "Devis signé", "Commande", "Planification", "Déménagement", "Facture payée", "SAV et avis"];
+/** Les huit étapes de la bande du haut : la définition commune à tous les tableaux (src/crm/kanban/etapes.ts). */
+export const GROUPES = GROUPES_PARCOURS.map((g) => g.label);
 
 /** Ce que le parcours sait d'un dossier : des dates (ISO) et des comptes, rien d'autre. */
 export type Faits = {
@@ -238,7 +241,6 @@ export function etapesDu(f: Faits): Etape[] {
  */
 export type FaitsDemande = { le: string; source: string | null; statut: string; qualifieLe: string | null };
 
-const SOUS_ETAPE: Record<string, string> = { new: "Nouvelle", analyzing: "En analyse", qualified: "Qualifiée", quoted: "Qualifiée", won: "Qualifiée", lost: "Perdue", archived: "Archivée" };
 
 /**
  * Le parcours d'une demande qui n'est pas encore un dossier : les mêmes treize
@@ -273,7 +275,7 @@ export function etapesDeLaDemande(f: FaitsDemande): Etape[] {
   return base.map((e): Etape => {
     if (e.cle === "demande") return e;
     if (e.cle === "qualification") {
-      const detail = SOUS_ETAPE[f.statut] ?? f.statut;
+      const detail = libelleDemande(f.statut);
       return { ...e, etat: close ? "avenir" : "encours", date: close ? null : f.qualifieLe, detail };
     }
     return { ...e, etat: "avenir", date: null, detail: "" };

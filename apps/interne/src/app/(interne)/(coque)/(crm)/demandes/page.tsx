@@ -6,6 +6,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { activitesDe, dernieresActivites } from "@/crm/demandes/activites";
 import { araignees, lireDemandes } from "@/crm/demandes/donnees";
 import { estOuverte, etapeDe } from "@/crm/demandes/etapes";
+import { aDecider } from "@/crm/kanban/etapes";
 import FiltresDemandes from "@/crm/demandes/FiltresDemandes";
 import FiltresKanban from "@/crm/demandes/FiltresKanban";
 import KanbanDemandes from "@/crm/demandes/KanbanDemandes";
@@ -79,9 +80,15 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
 
   let contenu: React.ReactNode;
   let bas: React.ReactNode = undefined;
+  let texte = TEXTES[vue];
 
   if (vue === "kanban") {
     const demandes = await lireDemandes().catch(() => null);
+    // Le compte de la colonne « Demandes » du Parcours : la même lecture, la même règle (aDecider).
+    if (demandes) {
+      const n = demandes.filter(aDecider).length;
+      texte = `Kanban · ${n} demande${n > 1 ? "s" : ""} à accepter ou refuser, de la demande reçue au dossier`;
+    }
     contenu = demandes ? (
       <Suspense>
         <KanbanDemandes demandes={demandes} />
@@ -181,7 +188,7 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
   return (
     <div className="view">
       {/* Un seul titre pour toutes les vues (David : changer de vue ne change pas de page). */}
-      <Bandeau surtitre="Dossiers" titre="Demandes" texte={TEXTES[vue]} bas={bas} />
+      <Bandeau surtitre="Dossiers" titre="Demandes" texte={texte} bas={bas} />
       <AvecMenu menu={<MenuDemandes vue={vue} analyse={analyse} nombres={{ rappels: ouverts }} />}>{contenu}</AvecMenu>
     </div>
   );

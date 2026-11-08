@@ -7,13 +7,13 @@ import { Toast, type Message } from "@/crm/dispatch/composants/elements";
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { useGlisser } from "@/crm/dispatch/composants/useGlisser";
 import CarteDemande from "@/crm/kanban/CarteDemande";
+import TeteColonne, { Sens, styleEtape } from "@/crm/kanban/Colonne";
 import { FenetreAccepter, FenetreRefuser, type DemandeADecider } from "@/crm/parcours/DecisionDemande";
 import { updateStatus } from "@/lib/actions/requests";
 import type { RequestStatus } from "@/lib/types";
 import { ETAPES, etapeDe, NOM_ETAPE, verdict, type CleEtape, type DemandeVue } from "./etapes";
 import { lireFiltresKanban } from "./FiltresKanban";
 import k from "@/crm/kanban/kanban.module.css";
-import s from "./demandes.module.css";
 
 /*
  * Demandes › Kanban : un zoom sur le début du parcours (demande de David,
@@ -29,11 +29,14 @@ import s from "./demandes.module.css";
  * dit pendant le glisser, ou dit pourquoi elle refuse. On ne glisse jamais
  * vers « Dossier » : c'est « Accepter ».
  *
- * Une colonne vide se replie en ruban (elle reçoit quand même un dépôt).
+ * Une colonne vide se replie en ruban (elle reçoit quand même un dépôt),
+ * sauf « Dossier » : c'est le pont vers le Parcours (son en-tête y mène,
+ * avec la recherche en cours), le pendant de sa colonne « Demandes ». Les
+ * deux tableaux lisent les mêmes demandes (lireDemandes) et les comptent
+ * avec la même règle (aDecider, src/crm/kanban/etapes.ts) ; les cartes sont
+ * celles de tous les tableaux (Carte.tsx).
  */
 
-const MARQUE_RAPPEL: Record<string, string> = { a_rappeler: "Rappel : à rappeler", en_cours: "Rappel : en cours" };
-const MARQUE_DEVIS: Record<string, string> = { refuse: "Devis du site refusé", expire: "Devis du site expiré" };
 const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export default function KanbanDemandes({ demandes }: { demandes: DemandeVue[] }) {
@@ -103,21 +106,12 @@ export default function KanbanDemandes({ demandes }: { demandes: DemandeVue[] })
   const rangDe = (d: DemandeVue) => affichees.indexOf(d);
 
   const carte = (d: DemandeVue, etape: CleEtape) => {
-    const marque =
-      etape !== "rappel" && d.rappel && MARQUE_RAPPEL[d.rappel]
-        ? { libelle: MARQUE_RAPPEL[d.rappel], ton: "ambre" as const }
-        : etape === "rappel" && d.rappel
-          ? { libelle: MARQUE_RAPPEL[d.rappel] ?? "Rappel", ton: "ambre" as const }
-          : d.devisSite && MARQUE_DEVIS[d.devisSite]
-            ? { libelle: MARQUE_DEVIS[d.devisSite], ton: "rose" as const }
-            : null;
     const glissable = etape !== "dossier";
     return (
       <CarteDemande
         key={d.id}
         demande={d}
         etapeDite
-        marque={marque}
         decider={(genre) => setDecision({ genre, demande: { id: d.id, client: d.client } })}
         ligne={glissable ? rangDe(d) : undefined}
         fantome={glisse?.ligneId === rangDe(d)}
@@ -140,9 +134,21 @@ export default function KanbanDemandes({ demandes }: { demandes: DemandeVue[] })
     const v = tenue ? verdict(tenue, e.cle) : null;
     const etat = !tenue || !v ? undefined : v.ok ? "possible" : "interdit";
     const visee = glisse?.cible === e.cle;
-    if (liste.length === 0 && !(visee && v?.ok)) {
+    // « Dossier », le pont vers le Parcours : jamais repliée, elle y mène.
+    const pont = e.cle === "dossier";
+    if (liste.length === 0 && !(visee && v?.ok) && !pont) {
       return (
-        <section key={e.cle} className={k.repliee} data-colonne={e.cle} data-etape={e.cle} data-etat={etat} data-visee={visee || undefined} aria-label={`${e.label}, aucune demande`} title={e.aide}>
+        <section
+          key={e.cle}
+          className={k.repliee}
+          style={styleEtape(e.teinte)}
+          data-colonne={e.cle}
+          data-etape={e.cle}
+          data-etat={etat}
+          data-visee={visee || undefined}
+          aria-label={`${e.label}, aucune demande`}
+          title={e.aide}
+        >
           <div className={k.deplier}>
             <span className={k.verticale}>
               {e.label} <b>0</b>
@@ -151,16 +157,28 @@ export default function KanbanDemandes({ demandes }: { demandes: DemandeVue[] })
         </section>
       );
     }
+    const q = filtres.q.trim();
     return (
-      <section key={e.cle} className={k.colonne} data-colonne={e.cle} data-etape={e.cle} data-etat={etat} data-visee={visee || undefined} aria-label={`${e.label}, ${liste.length} demandes`}>
-        <header className={k.tete}>
-          <div className={k.teteHaut}>
-            <i className={k.pastille} aria-hidden />
-            <h2>{e.label}</h2>
-            <span className={k.nombre}>{liste.length}</span>
-          </div>
-          <p className={s.aide}>{e.aide}</p>
-        </header>
+      <section
+        key={e.cle}
+        className={`${k.colonne} ${pont ? k.pont : ""}`}
+        style={styleEtape(e.teinte)}
+        data-colonne={e.cle}
+        data-etape={e.cle}
+        data-etat={etat}
+        data-visee={visee || undefined}
+        aria-label={`${e.label}, ${liste.length} demandes`}
+      >
+        <TeteColonne
+          label={e.label}
+          nombre={liste.length}
+          lien={
+            pont
+              ? { href: q ? `/parcours?${new URLSearchParams({ q })}` : "/parcours", label: "Parcours", titre: "Les dossiers nés de ces demandes, à leur étape : le Tableau du Parcours" }
+              : null
+          }
+          sous={<Sens>{e.aide}</Sens>}
+        />
         <div className={k.corps}>
           {visee && v?.ok && (
             <div className={k.place} style={{ ["--h" as string]: `${hauteur}px` }} aria-hidden>
@@ -171,13 +189,19 @@ export default function KanbanDemandes({ demandes }: { demandes: DemandeVue[] })
             </div>
           )}
           {liste.map((d) => carte(d, e.cle))}
+          {liste.length === 0 && !(visee && v?.ok) && (
+            <div className={k.vide}>
+              <Icone nom="parcours" taille={20} />
+              <span>Aucune demande acceptée{filtres.q.trim() || filtres.origine !== "all" ? " pour ces filtres" : ""}</span>
+            </div>
+          )}
         </div>
       </section>
     );
   };
 
   return (
-    <div className={`${k.racine} ${s.kanban}`}>
+    <div className={k.racine}>
       <div ref={planche} className={`${k.planche} ${glisse ? k.glissement : ""}`}>
         {colonnes.map(colonne)}
       </div>

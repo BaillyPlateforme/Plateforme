@@ -1,6 +1,7 @@
 import { COLONNES, type Statut } from "@/crm/kanban/regles";
 import type { Carte } from "@/crm/kanban/donnees";
-import type { CarteDemande } from "./demandes-commun";
+import { ETAPE_DOSSIER, PONT_DEMANDES } from "@/crm/kanban/etapes";
+import type { DemandeVue } from "@/crm/demandes/etapes";
 
 /*
  * Les filtres du Parcours, communs aux colonnes et à la liste : recherche,
@@ -32,16 +33,16 @@ export const RANG_ETAPE: Record<string, number> = { demande: 0, prospect: 1, vis
  * page du même nom : devis signés, avec ou sans date).
  */
 export const ETAPES_FILTRE: { cle: string; label: string; statuts: Statut[] }[] = [
-  { cle: "demandes", label: "Demandes", statuts: [] },
-  { cle: "prospect", label: "Nouveau", statuts: ["prospect"] },
-  { cle: "visite", label: "Visite à faire", statuts: ["visite"] },
-  { cle: "devis", label: "Devis envoyé", statuts: ["devis"] },
+  { cle: "demandes", label: PONT_DEMANDES.label, statuts: [] },
+  { cle: "prospect", label: ETAPE_DOSSIER.prospect.label, statuts: ["prospect"] },
+  { cle: "visite", label: ETAPE_DOSSIER.visite.label, statuts: ["visite"] },
+  { cle: "devis", label: ETAPE_DOSSIER.devis.label, statuts: ["devis"] },
   // Le libellé le plus long fixe la largeur du choix dans la bande : le mot de l'ancien menu, sans plus.
   { cle: "commande", label: "Commandes", statuts: ["commande", "planifie"] },
-  { cle: "signe", label: "Signé", statuts: ["commande"] },
-  { cle: "planifie", label: "Planifié", statuts: ["planifie"] },
-  { cle: "termine", label: "Terminé", statuts: ["termine"] },
-  { cle: "perdu", label: "Perdu", statuts: ["perdu"] },
+  { cle: "signe", label: ETAPE_DOSSIER.commande.label, statuts: ["commande"] },
+  { cle: "planifie", label: ETAPE_DOSSIER.planifie.label, statuts: ["planifie"] },
+  { cle: "termine", label: ETAPE_DOSSIER.termine.label, statuts: ["termine"] },
+  { cle: "perdu", label: ETAPE_DOSSIER.perdu.label, statuts: ["perdu"] },
 ];
 
 export const estEtape = (v: string | null | undefined): v is string => !!v && ETAPES_FILTRE.some((e) => e.cle === v);
@@ -80,7 +81,7 @@ export function garderDossier(c: Carte, f: Filtres, statuts: Statut[]) {
  * commercial l'écarte ; un filtre de type ne garde que les particuliers, la
  * seule porte du site qui porte le même nom.
  */
-export function garderDemande(d: CarteDemande, f: Filtres) {
+export function garderDemande(d: Pick<DemandeVue, "parcours" | "client" | "societe" | "depart" | "arrivee" | "email" | "telephone">, f: Filtres) {
   return (
     avecDemandes(f.etape) &&
     !f.commercial &&

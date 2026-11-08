@@ -1,35 +1,12 @@
-import type { Parcours } from "@/lib/parcours";
+import { ETAPE_DEMANDE } from "@/crm/kanban/etapes";
 
 /*
- * Une demande du site pas encore entrée au CRM, telle que le Parcours la
- * montre (colonne « Demandes », lignes de la liste). Module pur :
- * le serveur le remplit (demandes.ts), le navigateur l'affiche.
+ * Le statut enregistré d'une demande du site, lu par le Parcours, la page
+ * d'une demande et l'accueil. Module pur. Une demande, telle que les deux
+ * tableaux la montrent (Demandes › Kanban, colonne « Demandes » du
+ * Parcours), est une DemandeVue (src/crm/demandes/etapes.ts) : la même
+ * lecture pour les deux, depuis le 08/11/2026.
  */
-
-export type CarteDemande = {
-  id: string;
-  recueLe: string;
-  source: "form" | "email";
-  /** Le statut enregistré de la demande (new, analyzing, qualified, quoted, won) ; se lit avec libelleDemande. */
-  statut: string;
-  /** Il manque le volume ou une adresse, ou le client n'a pas fini de la compléter. */
-  incomplete: boolean;
-  client: string;
-  email: string | null;
-  telephone: string | null;
-  depart: string | null;
-  arrivee: string | null;
-  volume: number | null;
-  /** L'estimation du site : seulement pour un particulier (les autres parcours n'ont pas de prix). */
-  estimation: number | null;
-  /** AAAA-MM-JJ. */
-  dateSouhaitee: string | null;
-  parcours: Parcours;
-  /** « Particulier · express », « Mutation », « Entreprise · petit transfert »… */
-  parcoursLabel: string;
-  /** La société, ou l'espace pro d'où vient la demande. */
-  societe: string | null;
-};
 
 /** Le dossier né d'une demande acceptée. */
 export type DossierDeDemande = { id: number; ref: string; statut: string };
@@ -51,11 +28,11 @@ export type DossierDeDemande = { id: number; ref: string; statut: string };
  */
 export type SousStatut = "new" | "analyzing" | "qualified" | "lost" | "archived";
 
-/** Les sous-étapes de « Demande » qu'on peut choisir à la main, dans l'ordre. */
+/** Les sous-étapes de « Demande » qu'on peut choisir à la main, dans l'ordre ; leurs noms sont ceux des colonnes de Demandes. */
 export const SOUS_ETAPES: { cle: "new" | "analyzing" | "qualified"; label: string }[] = [
-  { cle: "new", label: "Nouvelle" },
-  { cle: "analyzing", label: "En analyse" },
-  { cle: "qualified", label: "Qualifiée" },
+  { cle: "new", label: ETAPE_DEMANDE.nouvelle.label },
+  { cle: "analyzing", label: ETAPE_DEMANDE.analyse.label },
+  { cle: "qualified", label: ETAPE_DEMANDE.qualifiee.label },
 ];
 
 export function sousStatut(statut: string): SousStatut {
@@ -64,7 +41,13 @@ export function sousStatut(statut: string): SousStatut {
   return "new";
 }
 
-const LIBELLE: Record<SousStatut, string> = { new: "Nouvelle", analyzing: "En analyse", qualified: "Qualifiée", lost: "Perdue", archived: "Archivée" };
+const LIBELLE: Record<SousStatut, string> = {
+  new: ETAPE_DEMANDE.nouvelle.label,
+  analyzing: ETAPE_DEMANDE.analyse.label,
+  qualified: ETAPE_DEMANDE.qualifiee.label,
+  lost: ETAPE_DEMANDE.perdue.label,
+  archived: ETAPE_DEMANDE.archivee.label,
+};
 
 /** Le libellé d'une demande sans dossier : « Nouvelle », « En analyse », « Qualifiée », « Perdue », « Archivée ». */
 export const libelleDemande = (statut: string) => LIBELLE[sousStatut(statut)];

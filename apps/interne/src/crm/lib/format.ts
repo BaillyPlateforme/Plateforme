@@ -1,3 +1,5 @@
+import { ETAPES_DOSSIER } from "@/crm/kanban/etapes";
+
 export const eur = (n: number | string | null | undefined) =>
   n == null ? "—" : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(Number(n));
 export const m3 = (n: number | string | null | undefined) => `${String(Math.round(Number(n ?? 0) * 10) / 10).replace(".", ",")} m³`;
@@ -15,10 +17,8 @@ export const nomClient = (c: { societe?: string | null; prenom?: string | null; 
   c.societe || [c.prenom, c.nom].filter(Boolean).join(" ");
 export const initiales = (s: string) => s.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
-export const STATUTS: Record<string, { label: string; cls: string }> = {
-  prospect: { label: "Nouveau", cls: "i" }, visite: { label: "Visite à faire", cls: "i" }, devis: { label: "Devis envoyé", cls: "w" },
-  commande: { label: "Signé", cls: "g" }, planifie: { label: "Planifié", cls: "p" }, termine: { label: "Terminé", cls: "g" }, perdu: { label: "Perdu", cls: "r" },
-};
+/** Les étapes d'un dossier, leur nom et leur pastille : la définition commune à tous les tableaux (src/crm/kanban/etapes.ts). */
+export const STATUTS: Record<string, { label: string; cls: string }> = Object.fromEntries(ETAPES_DOSSIER.map((e) => [e.cle, { label: e.label, cls: e.ton }]));
 export const TYPES: Record<string, string> = { particulier: "Particulier", compte: "Compte", militaire: "Militaire", partenaire: "Partenaire", logement_social: "Logement social" };
 /** Les mêmes, au pluriel : « Logements sociaux » ne se forme pas en ajoutant un s. */
 export const TYPES_PLURIEL: Record<string, string> = { particulier: "Particuliers", compte: "Comptes", militaire: "Militaires", partenaire: "Partenaires", logement_social: "Logements sociaux" };

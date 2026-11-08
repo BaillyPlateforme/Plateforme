@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icone, type NomIcone } from "@/ui/icones";
+import { TEINTES, type Teinte } from "@/crm/kanban/etapes";
 import type { Evenement } from "./donnees";
 import { GROUPES, groupesDu, jourFr, resume, type Etape } from "./etapes";
 import type { Prochaine } from "./prochaine";
@@ -53,6 +54,7 @@ export default function LigneParcours({
   perduTexte = "Dossier perdu",
   pied,
   prochaine,
+  colonne,
 }: {
   etapes: Etape[];
   perdu: boolean;
@@ -68,6 +70,8 @@ export default function LigneParcours({
   pied?: React.ReactNode;
   /** Ce qu'il faut faire maintenant, en tête de la carte (prochaine.ts). */
   prochaine?: Prochaine;
+  /** La colonne du Tableau du Parcours où se trouve le dossier, et le lien qui l'y montre. */
+  colonne?: { label: string; teinte: Teinte; href: string };
 }) {
   const [chronologie, setChronologie] = useState(false);
   // La chronologie dépliée ou non, gardée dans ce navigateur (lue après le premier rendu).
@@ -127,7 +131,7 @@ export default function LigneParcours({
             </button>
           )}
         </header>
-        {prochaine && <BandeProchaine p={prochaine} />}
+        {prochaine && <BandeProchaine p={prochaine} colonne={colonne} />}
 
         <ol className={s.stations}>
           {GROUPES.map((nom, g) => {
@@ -243,8 +247,10 @@ export default function LigneParcours({
 /**
  * La prochaine étape, en tête du parcours : ce qu'il faut faire maintenant et le bouton qui le fait.
  * Une ancre de la fiche (#…) passe par un lien ordinaire : la fiche suit le changement d'ancre.
+ * À côté du mot « Prochaine étape », la colonne du Parcours où se trouve le dossier : son nom et sa
+ * couleur sont ceux du Tableau (src/crm/kanban/etapes.ts), et un clic l'y montre.
  */
-function BandeProchaine({ p }: { p: Prochaine }) {
+function BandeProchaine({ p, colonne }: { p: Prochaine; colonne?: { label: string; teinte: Teinte; href: string } }) {
   const lien = (a: { label: string; href: string; principal?: boolean }) =>
     a.href.includes("#") || a.href.includes("?encaisser") ? (
       <a key={a.href} href={a.href} className={a.principal ? s.prochainePrincipal : s.prochaineSecondaire}>
@@ -261,7 +267,14 @@ function BandeProchaine({ p }: { p: Prochaine }) {
         <Icone nom={p.ton === "fini" ? "coche" : p.ton === "attendre" ? "horloge" : p.ton === "perdu" ? "sortie" : "fleche"} taille={18} />
       </span>
       <div className={s.prochaineTexte}>
-        <small>{p.ton === "fini" ? "Terminé" : p.ton === "perdu" ? "Arrêté" : "Prochaine étape"}</small>
+        <small>
+          {p.ton === "fini" ? "Terminé" : p.ton === "perdu" ? "Arrêté" : "Prochaine étape"}
+          {colonne && (
+            <Link href={colonne.href} className={s.colonne} style={{ ["--s" as string]: TEINTES[colonne.teinte] }} title={`Dans le Parcours : colonne « ${colonne.label} »`}>
+              {colonne.label}
+            </Link>
+          )}
+        </small>
         <b>{p.titre}</b>
         <span>{p.detail}</span>
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Icone } from "@/ui/icones";
 import { eur, m3 } from "@/crm/lib/format";
 import { activitesDemande } from "./actions";
+import { ETAPE_DEMANDE, TEINTES } from "@/crm/kanban/etapes";
 import { NOM_ETAPE } from "./etapes";
 import type { Activite, LigneDemande, Tri } from "./liste-commun";
 import PanneauDemande from "./PanneauDemande";
@@ -105,7 +106,7 @@ export default function ListeDetail({
       </span>
     );
     const etape = (
-      <span className={s.etape} data-etape={l.etape}>
+      <span className={s.etape} data-etape={l.etape} style={{ ["--s" as string]: TEINTES[ETAPE_DEMANDE[l.etape].teinte] }}>
         {l.etape === "dossier" && d.dossier ? `Dossier ${d.dossier.ref}` : NOM_ETAPE[l.etape]}
       </span>
     );

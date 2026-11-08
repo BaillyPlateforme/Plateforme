@@ -14,6 +14,7 @@ import { ficheDossier } from "@/crm/fiche/donnees";
 import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sections";
 import Fiche from "@/crm/fiche/Fiche";
 import { parcoursDossier } from "@/crm/parcours/donnees";
+import { etapeDossier } from "@/crm/kanban/etapes";
 import LigneParcours from "@/crm/parcours/LigneParcours";
 import { estSuperAdmin } from "@/lib/droits";
 
@@ -112,6 +113,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       {parcours && (
         <LigneParcours
           prochaine={parcours.prochaine}
+          // La colonne du Tableau où il se trouve : le même nom, la même couleur (src/crm/kanban/etapes.ts) ; un clic l'y montre.
+          colonne={{ label: etapeDossier(d.statut).label, teinte: etapeDossier(d.statut).teinte, href: `/parcours?${new URLSearchParams({ q: d.ref })}` }}
           etapes={parcours.etapes}
           perdu={d.statut === "perdu"}
           evenements={parcours.evenements}

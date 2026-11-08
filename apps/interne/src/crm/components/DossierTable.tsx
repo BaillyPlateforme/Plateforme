@@ -6,6 +6,8 @@ import { Ic } from "@/crm/lib/icons";
 import { Icone } from "@/ui/icones";
 import { dateFr, eur, m3, nomClient, photoPour, STATUTS, TYPES } from "@/crm/lib/format";
 import { ville } from "@/crm/kanban/regles";
+import { Pastille } from "@/crm/kanban/Carte";
+import { etapeDossier, type Teinte } from "@/crm/kanban/etapes";
 import { RANG_ETAPE } from "@/crm/parcours/filtres";
 import type { Row } from "@/crm/lib/db";
 import s from "./table-dossiers.module.css";
@@ -32,7 +34,8 @@ export type LigneDossier = {
   arrivee: string | null;
   volume: number | null;
   commercial: string | null;
-  etape: { label: string; ton: string; rang: number };
+  /** L'étape : sa couleur commune à tous les tableaux (src/crm/kanban/etapes.ts) ; à défaut, la pastille `.st` de crm.css. */
+  etape: { label: string; ton: string; teinte?: Teinte; rang: number };
   montant: number | null;
   /** Un montant qui n'est pas un devis : l'estimation du site. */
   estimation?: boolean;
@@ -57,7 +60,7 @@ function ligneDe(r: Row): LigneDossier {
     arrivee: r.arrivee ?? null,
     volume: r.volume ?? null,
     commercial: r.commercial ?? null,
-    etape: { label: STATUTS[r.statut]?.label ?? r.statut, ton: STATUTS[r.statut]?.cls ?? "i", rang: RANG_ETAPE[r.statut] ?? 9 },
+    etape: { label: STATUTS[r.statut]?.label ?? r.statut, ton: STATUTS[r.statut]?.cls ?? "i", teinte: etapeDossier(r.statut).teinte, rang: RANG_ETAPE[r.statut] ?? 9 },
     montant: r.montant ?? null,
     date: chargement ? chargement.slice(0, 10) : null,
     dateTexte: chargement ? dateFr(chargement, { day: "numeric", month: "short", year: "numeric" }) : (r.periode ?? "—"),
@@ -143,7 +146,7 @@ export function DossierTable({ rows, lignes, vide = "Aucun dossier ne correspond
               <td className="num">{l.volume != null && l.volume > 0 ? m3(l.volume) : "—"}</td>
               <td className={s.texte}>{l.commercial ?? "—"}</td>
               <td>
-                <i className={`st ${l.etape.ton}`}>{l.etape.label}</i>
+                {l.etape.teinte ? <Pastille label={l.etape.label} teinte={l.etape.teinte} /> : <i className={`st ${l.etape.ton}`}>{l.etape.label}</i>}
               </td>
               <td className="num">
                 {l.montant == null ? (

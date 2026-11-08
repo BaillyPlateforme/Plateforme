@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/crm/lib/auth";
 import { TYPES } from "@/crm/lib/format";
 import { cartesKanban, commerciauxKanban } from "@/crm/kanban/donnees";
-import { archivesTrouves, demandesSansDossier } from "@/crm/parcours/demandes";
+import { archivesTrouves, demandesADecider } from "@/crm/parcours/demandes";
 import { estVueAnalyse, lireFiltres } from "@/crm/parcours/filtres";
 import Hub from "@/crm/parcours/Hub";
 
@@ -47,7 +47,7 @@ export default async function Parcours({ searchParams }: { searchParams: Promise
     cartesKanban(),
     commerciauxKanban(),
     // Jamais bloquant : sans les demandes du site, les dossiers restent lisibles.
-    demandesSansDossier().catch((e) => {
+    demandesADecider().catch((e) => {
       console.error("Parcours : lecture des demandes du site impossible", e instanceof Error ? e.message : e);
       return [];
     }),

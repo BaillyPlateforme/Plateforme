@@ -545,94 +545,56 @@
   color: #8b889c;
 }
 
-/* ── Le Kanban ───────────────────────────────────────────────────────── */
-/* Cinq colonnes à côté du menu de gauche (232 px) : elles tiennent dans la largeur à 1280 px. */
-.kanban {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(172px, 1fr));
-  gap: 12px;
-  align-items: start;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-.colonne {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-  min-height: 200px;
-  padding: 12px;
-  border-radius: 20px;
-  background: #efeef4;
-  border: 1px solid #e8e6ef;
-}
-.colTete {
+/*
+ * ── Le Kanban ──
+ * Ses colonnes et ses cartes sont celles de tous les tableaux du CRM
+ * (src/crm/kanban : kanban.module.css, carte.module.css). Ici, seulement ce
+ * qu'une relance ajoute à la carte de son dossier : son type (le lien vers
+ * les relances du dossier), son objet.
+ */
+.typeLigne {
   position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: inset 0 3px 0 var(--c);
-}
-.colTete i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--c);
-}
-.colTete span {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #14121f;
-}
-.colTete b {
-  min-width: 26px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--c) 14%, #fff);
-  color: #14121f;
-  font-size: 12px;
-  font-weight: 800;
-  text-align: center;
-}
-.colTete small {
-  grid-column: 1 / -1;
-  font-size: 11.5px;
-  color: #8b889c;
-}
-.colVide {
-  padding: 22px 8px;
-  border: 1.5px dashed #d9d6e3;
-  border-radius: 14px;
-  font-size: 12.5px;
-  color: #a7a3b8;
-  text-align: center;
-}
-.relance {
-  display: grid;
-  /* La carte suit la largeur de sa colonne : le type s'abrège, les gestes passent à la ligne. */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 7px;
-  padding: 13px 14px;
-  border-radius: 15px;
-  background: #fff;
-  border: 1px solid #ecebf2;
-  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 10px 22px -18px rgba(46, 31, 158, 0.5);
-  scroll-margin-top: 190px;
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-.relance:target {
-  border-color: #7a52ff;
-  box-shadow: 0 0 0 3px rgba(122, 82, 255, 0.22), 0 14px 26px -18px rgba(46, 31, 158, 0.6);
-}
-.relanceHaut {
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--c) 7%, #fff);
+  border: 1px solid color-mix(in srgb, var(--c) 18%, #fff);
+  color: #3b3753;
+  text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.typeLigne:hover {
+  background: color-mix(in srgb, var(--c) 12%, #fff);
+  border-color: color-mix(in srgb, var(--c) 34%, #fff);
+}
+.typeLigne i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--c);
+}
+.typeNom {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.objet {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6f6c80;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .typeBadge {
   display: inline-flex;
@@ -658,9 +620,9 @@
   margin-left: auto;
   padding: 1px 7px;
   border-radius: 999px;
-  background: #f1eff8;
+  background: #fff;
   color: #6f6c80;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -674,48 +636,11 @@
   width: 15px;
   height: 15px;
 }
-.relance h4 {
-  margin: 0;
-  font-size: 14.5px;
-  font-weight: 680;
-  line-height: 1.25;
+.typeLigne .icCanaux svg {
+  width: 13px;
+  height: 13px;
 }
-.relance h4 a {
-  color: #14121f;
-  text-decoration: none;
-}
-.relance h4 a:hover {
-  color: #4b2fe0;
-}
-.relance p {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.4;
-  color: #6f6c80;
-}
-.quand {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #4a475c;
-}
-.motif {
-  padding: 7px 9px;
-  border-radius: 10px;
-  background: #f8f7fb;
-  font-size: 12px !important;
-  color: #4a475c !important;
-}
-.gestes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding-top: 4px;
-  border-top: 1px solid #f3f2f7;
-}
+
 .bouton {
   display: inline-flex;
   align-items: center;

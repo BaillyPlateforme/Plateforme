@@ -3,15 +3,29 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Icone } from "@/ui/icones";
+import CarteKanban, { Action, Note, type Signal } from "@/crm/kanban/Carte";
+import CarteDossier from "@/crm/kanban/CarteDossier";
+import TeteColonne, { Sens, styleEtape } from "@/crm/kanban/Colonne";
+import type { Carte } from "@/crm/kanban/donnees";
+import { ETATS_RELANCE } from "@/crm/kanban/etapes";
 import { annuler, envoyerMaintenant, exclureDossier, reactiver, repousser, retirerExclusion, type Retour } from "./actions";
-import { COLONNES, defRelance, ecart, libelleCanal, STATUT_ENVOI, type Relance } from "./regles";
-import { IconeCanal } from "./Section";
+import { defRelance, ecart, libelleCanal, STATUT_ENVOI, type Relance } from "./regles";
+import { IconeCanal, lienRelances } from "./Section";
+import k from "@/crm/kanban/kanban.module.css";
 import s from "./relances.module.css";
 
 /*
  * Le Kanban des relances : à venir, aujourd'hui, en retard, envoyées,
  * désactivées. Chaque carte se repousse, s'annule ou part tout de suite. Les
  * règles se règlent dans Réglages › Règles des relances.
+ *
+ * Les colonnes et les cartes sont celles de tous les tableaux du CRM
+ * (src/crm/kanban : Colonne, Carte) : une relance est la carte de son
+ * dossier — un clic ouvre /dossiers/<id> —, avec, dans son contenu, la
+ * relance (son type, qui mène aux relances du dossier ; son objet ; sa date)
+ * et, dans son pied, où elle en est et ses gestes. Les couleurs des colonnes
+ * viennent de la définition commune (etapes.ts, ETATS_RELANCE).
  */
 
 const jourFr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
@@ -62,120 +76,138 @@ export function Toast({ retour, fermer }: { retour: Retour | null; fermer: () =>
 /** Les désactivées et les envoyées s'accumulent : on n'en montre d'abord que quelques-unes. */
 const REPLIEES = 6;
 
-export default function Kanban({ relances, aujourdhui, borneRattrapage }: { relances: Relance[]; aujourdhui: string; borneRattrapage: string }) {
+export default function Kanban({
+  relances,
+  dossiers,
+  aujourdhui,
+  borneRattrapage,
+}: {
+  relances: Relance[];
+  /** Les dossiers des relances, en cartes (les mêmes qu'au Parcours). */
+  dossiers: Record<number, Carte>;
+  aujourdhui: string;
+  borneRattrapage: string;
+}) {
   const { retour, setRetour, enCours, agir } = useGestes();
   const [deplie, setDeplie] = useState<Record<string, boolean>>({});
+
+  const carte = (r: Relance, col: Relance["colonne"]) => {
+    const def = defRelance(r.type)!;
+    const ouverte = col === "avenir" || col === "aujourdhui" || col === "retard";
+    const contenu = (
+      <>
+        {/* Le type mène aux relances du dossier, celle-ci en vue. */}
+        <Link href={`${lienRelances("/relances", r.dossierId)}#${encodeURIComponent(r.cle)}`} className={s.typeLigne} style={{ ["--c" as string]: def.couleur }} data-geste="" draggable={false} title="Les relances de ce dossier">
+          <i />
+          <span className={s.typeNom}>{r.libelle}</span>
+          <span className={s.rang} title="Rang dans la suite de relances">
+            {r.rang}/{r.sur}
+          </span>
+          <span className={s.icCanaux} title={r.canaux.map(libelleCanal).join(", ") || "Aucun canal prêt"}>
+            {r.canaux.map((c) => (
+              <IconeCanal key={c} canal={c} taille={13} />
+            ))}
+          </span>
+        </Link>
+        <p className={s.objet}>{r.objet}</p>
+        {r.motif && col !== "envoyee" && <Note>{r.motif}</Note>}
+      </>
+    );
+    const signaux: Signal[] =
+      col === "envoyee"
+        ? [
+            ...(r.envoyeeLe ? [{ texte: `Partie le ${jourFr(r.envoyeeLe.slice(0, 10))}`, teinte: "vert" as const, icone: "coche" as const }] : []),
+            { texte: STATUT_ENVOI[r.envoiStatut ?? ""]?.libelle ?? r.envoiStatut ?? "—", teinte: r.envoiStatut === "envoye" ? "vert" : "ambre" },
+          ]
+        : [
+            {
+              texte: ouverte ? relatif(aujourdhui, r.prevue) : `${r.reportee ? "Repoussée au" : "Prévue le"} ${jourFr(r.prevue)}`,
+              teinte: col === "retard" ? "rose" : col === "aujourdhui" ? "violet" : col === "avenir" ? "indigo" : "gris",
+              icone: "horloge",
+              titre: `${r.reportee ? "Repoussée au" : "Prévue le"} ${jourFr(r.prevue)}`,
+            },
+            ...(col === "retard" && r.prevue < borneRattrapage
+              ? [{ texte: "À décider", teinte: "ambre" as const, titre: "En retard de plus de trois jours : la veille ne l'enverra pas d'elle-même. Envoyer, repousser ou annuler." }]
+              : []),
+          ];
+    const actions = ouverte ? (
+      <>
+        <Action ton="principal" disabled={enCours} onClick={() => agir(() => envoyerMaintenant(r.cle), `Envoyer maintenant la relance à ${r.client || r.ref} ?`)}>
+          Envoyer
+        </Action>
+        <Action disabled={enCours} onClick={() => agir(() => repousser(r.cle, 3))} title="Repousser de 3 jours">
+          +3 j
+        </Action>
+        <Action disabled={enCours} onClick={() => agir(() => repousser(r.cle, 7))} title="Repousser de 7 jours">
+          +7 j
+        </Action>
+        <Action
+          ton="danger"
+          seul
+          disabled={enCours}
+          onClick={() => agir(() => annuler(r.cle), `Annuler les relances « ${r.libelle} » de ${r.client || r.ref} ?`)}
+          title="Annuler cette relance"
+          aria-label="Annuler cette relance"
+        >
+          <Icone nom="sortie" taille={14} />
+        </Action>
+      </>
+    ) : col === "desactivee" && r.motif === "Annulée par l'équipe." ? (
+      <Action disabled={enCours} onClick={() => agir(() => reactiver(r.cle))}>
+        Réactiver
+      </Action>
+    ) : undefined;
+    const c = dossiers[r.dossierId];
+    if (c) return <CarteDossier key={r.cle} carte={c} extra={{ id: r.cle, contenu, signaux, actions }} />;
+    // Un dossier qui ne se relit pas : la carte, sans ce qu'il en dirait.
+    return (
+      <CarteKanban key={r.cle} id={r.cle} titre={r.client || r.ref} reference={r.ref} href={`/dossiers/${r.dossierId}`} contenu={contenu} responsable={null} signaux={signaux} actions={actions} />
+    );
+  };
+
   return (
-    <>
+    <div className={k.racine}>
       <Toast retour={retour} fermer={() => setRetour(null)} />
-      <div className={s.kanban}>
-        {COLONNES.map((col) => {
+      <div className={k.planche}>
+        {ETATS_RELANCE.map((col) => {
           const toutes = relances.filter((r) => r.colonne === col.cle);
           const pliable = (col.cle === "desactivee" || col.cle === "envoyee") && toutes.length > REPLIEES && !deplie[col.cle];
-          // Les cartes du mini-Kanban mènent ici filtrées sur leur dossier : la carte visée n'est pas repliée.
+          // Les cartes visées par une ancre (relances d'un dossier) ne sont jamais repliées : la page est alors filtrée sur lui.
           const liste = pliable ? toutes.slice(0, REPLIEES) : toutes;
           const parVeille = col.cle === "aujourdhui" || col.cle === "retard" ? liste.filter((r) => r.prevue >= borneRattrapage).length : 0;
+          const decision = liste.length - parVeille;
           return (
-            <section key={col.cle} id={`col-${col.cle}`} className={s.colonne} style={{ ["--c" as string]: col.couleur }} aria-label={col.titre}>
-              <header className={s.colTete}>
-                <i />
-                <span>{col.titre}</span>
-                <b>{toutes.length}</b>
-                {(col.cle === "aujourdhui" || col.cle === "retard") && liste.length > 0 && (
-                  <small>
-                    {parVeille} partira{parVeille > 1 ? "ont" : ""} avec la veille{liste.length - parVeille ? ` · ${liste.length - parVeille} attend${liste.length - parVeille > 1 ? "ent" : ""} une décision` : ""}
-                  </small>
+            <section key={col.cle} id={`col-${col.cle}`} className={k.colonne} style={styleEtape(col.teinte)} aria-label={`${col.label}, ${toutes.length} relances`}>
+              <TeteColonne
+                label={col.label}
+                nombre={toutes.length}
+                sous={
+                  <Sens>
+                    {(col.cle === "aujourdhui" || col.cle === "retard") && liste.length > 0
+                      ? `${parVeille} partira${parVeille > 1 ? "ont" : ""} avec la veille${decision ? ` · ${decision} attend${decision > 1 ? "ent" : ""} une décision` : ""}`
+                      : col.aide}
+                  </Sens>
+                }
+              />
+              <div className={k.corps}>
+                {liste.map((r) => carte(r, col.cle))}
+                {liste.length === 0 && (
+                  <div className={k.vide}>
+                    <Icone nom="horloge" taille={20} />
+                    <span>{col.vide}</span>
+                  </div>
                 )}
-              </header>
-              {liste.length === 0 && <p className={s.colVide}>{col.vide}</p>}
-              {liste.map((r) => {
-                const def = defRelance(r.type)!;
-                const ouverte = ["avenir", "aujourdhui", "retard"].includes(col.cle);
-                return (
-                  <article key={r.cle} id={r.cle} className={s.relance}>
-                    <div className={s.relanceHaut}>
-                      <span className={s.typeBadge} style={{ ["--c" as string]: def.couleur }}>
-                        <i />
-                        {r.libelle}
-                      </span>
-                      <span className={s.rang} title="Rang dans la suite de relances">
-                        {r.rang}/{r.sur}
-                      </span>
-                      <span className={s.icCanaux} title={r.canaux.map(libelleCanal).join(", ") || "Aucun canal prêt"}>
-                        {r.canaux.map((c) => (
-                          <IconeCanal key={c} canal={c} />
-                        ))}
-                      </span>
-                    </div>
-                    <h4>
-                      <Link href={`/dossiers/${r.dossierId}`}>{r.client || r.ref}</Link>
-                    </h4>
-                    <p>
-                      {r.ref} · {r.objet}
-                    </p>
-                    <div className={s.quand}>
-                      {col.cle === "envoyee" ? (
-                        <>
-                          {r.envoyeeLe && <span>Partie le {jourFr(r.envoyeeLe.slice(0, 10))}</span>}
-                          <span className={s.puce} data-ton={r.envoiStatut === "envoye" ? "ok" : "attention"}>
-                            {STATUT_ENVOI[r.envoiStatut ?? ""]?.libelle ?? r.envoiStatut ?? "—"}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span>
-                            {r.reportee ? "Repoussée au" : "Prévue le"} {jourFr(r.prevue)}
-                          </span>
-                          {ouverte && (
-                            <span className={s.puce} data-ton={col.cle === "retard" ? "danger" : col.cle === "aujourdhui" ? "info" : "neutre"}>
-                              {relatif(aujourdhui, r.prevue)}
-                            </span>
-                          )}
-                          {col.cle === "retard" && r.prevue < borneRattrapage && (
-                            <span className={s.puce} data-ton="attention">
-                              Attend une décision
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    {r.motif && col.cle !== "envoyee" && <p className={s.motif}>{r.motif}</p>}
-                    {ouverte && (
-                      <div className={s.gestes}>
-                        <button className={s.bouton} data-ton="principal" disabled={enCours} onClick={() => agir(() => envoyerMaintenant(r.cle), `Envoyer maintenant la relance à ${r.client || r.ref} ?`)}>
-                          Envoyer
-                        </button>
-                        <button className={s.bouton} disabled={enCours} onClick={() => agir(() => repousser(r.cle, 3))}>
-                          +3 j
-                        </button>
-                        <button className={s.bouton} disabled={enCours} onClick={() => agir(() => repousser(r.cle, 7))}>
-                          +7 j
-                        </button>
-                        <button className={s.bouton} data-ton="danger" disabled={enCours} onClick={() => agir(() => annuler(r.cle), `Annuler les relances « ${r.libelle} » de ${r.client || r.ref} ?`)}>
-                          Annuler
-                        </button>
-                      </div>
-                    )}
-                    {col.cle === "desactivee" && r.motif === "Annulée par l'équipe." && (
-                      <div className={s.gestes}>
-                        <button className={s.bouton} disabled={enCours} onClick={() => agir(() => reactiver(r.cle))}>
-                          Réactiver
-                        </button>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-              {pliable && (
-                <button type="button" className={s.bouton} onClick={() => setDeplie({ ...deplie, [col.cle]: true })}>
-                  Afficher les {toutes.length - liste.length} autres
-                </button>
-              )}
+                {pliable && (
+                  <button type="button" className={s.bouton} onClick={() => setDeplie({ ...deplie, [col.cle]: true })}>
+                    Afficher les {toutes.length - liste.length} autres
+                  </button>
+                )}
+              </div>
             </section>
           );
         })}
       </div>
-    </>
+    </div>
   );
 }
 

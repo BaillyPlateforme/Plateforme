@@ -1,14 +1,18 @@
 "use client";
 
+import CarteKanban, { Action, Note } from "@/crm/kanban/Carte";
 import { m3 } from "../outils";
 import type { Ligne } from "../types";
 import { Picto } from "./Picto";
-import s from "./dispatch.module.css";
 
 /**
- * Un client du plan, en bulle : nom, destination (pastille de la couleur du
- * pays), volume, remarques, dossier rattaché. La poignée à gauche sert au
- * glisser-déposer tactile ; à la souris, toute la bulle se saisit.
+ * Un client du plan, en carte : la carte de tous les tableaux du CRM
+ * (src/crm/kanban/Carte), pas une autre. Le nom et la référence de son
+ * dossier ; sa destination (pastille et liseré de la couleur du pays) ; sa
+ * remarque ; son volume. Rattaché à un dossier du CRM, un clic ouvre le
+ * dossier (/dossiers/<id>), et « Fiche » sa fiche dans le plan ; sinon, le
+ * clic ouvre la fiche. La poignée sert au glisser-déposer tactile ; à la
+ * souris, toute la carte se saisit.
  */
 export default function Bulle({
   ligne,
@@ -17,7 +21,8 @@ export default function Bulle({
   fantome,
   flottante,
   style,
-  onPointerDown,
+  saisir,
+  apresGlisser,
   onOuvrir,
 }: {
   ligne: Ligne;
@@ -27,44 +32,41 @@ export default function Bulle({
   fantome?: boolean;
   flottante?: boolean;
   style?: React.CSSProperties;
-  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  saisir?: (e: React.PointerEvent<HTMLElement>) => void;
+  apresGlisser?: () => boolean;
+  /** La fiche du client dans le plan. */
   onOuvrir?: () => void;
 }) {
-  const classes = [s.bulle, figee && s.figee, fantome && s.fantome, flottante && s.flottante].filter(Boolean).join(" ");
+  const lieu = [ligne.ville, ligne.pays].filter(Boolean).join(", ");
   return (
-    <div
-      className={classes}
-      style={{ ...style, ["--c" as string]: couleur }}
-      data-ligne={flottante ? undefined : ligne.id}
-      role={flottante ? undefined : "button"}
-      tabIndex={flottante ? -1 : 0}
-      aria-label={flottante ? undefined : `${ligne.client}, ${[ligne.ville, ligne.pays].filter(Boolean).join(", ")}, ${m3(ligne.volume)}${figee ? ", colonne verrouillée" : ""}`}
-      onPointerDown={onPointerDown}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOuvrir?.();
-        }
-      }}
-    >
-      <span className={s.prise} data-prise="" title={figee ? "Colonne verrouillée" : "Glisser pour déplacer"}>
-        <Picto nom={figee ? "cadenas" : "prise"} taille={figee ? 12 : 14} />
-      </span>
-      <span className={s.nom}>{ligne.client}</span>
-      <span className={s.volume}>{m3(ligne.volume)}</span>
-      <span className={s.lieu}>
-        <i />
-        {[ligne.ville, ligne.pays].filter(Boolean).join(", ") || "Destination à préciser"}
-      </span>
-      {ligne.remarques && <span className={s.remarque}>{ligne.remarques}</span>}
-      {ligne.dossierRef && (
-        <span className={s.etiquettes}>
-          <span className={s.etiquette} title="Dossier du CRM rattaché">
-            <Picto nom="lien" taille={11} />
-            {ligne.dossierRef}
-          </span>
-        </span>
-      )}
-    </div>
+    <CarteKanban
+      titre={ligne.client}
+      reference={ligne.dossierRef}
+      referenceTitre="Dossier du CRM rattaché"
+      href={ligne.dossierId ? `/dossiers/${ligne.dossierId}` : null}
+      ouvrir={ligne.dossierId ? undefined : onOuvrir}
+      libelle={`${ligne.client}, ${lieu || "destination à préciser"}, ${m3(ligne.volume)}${figee ? ", colonne verrouillée" : ""}. ${ligne.dossierId ? "Ouvrir le dossier" : "Ouvrir la fiche"}`}
+      lieu={lieu || null}
+      contenu={ligne.remarques ? <Note ton="ambre">{ligne.remarques}</Note> : undefined}
+      puces={[{ genre: "volume", valeur: ligne.volume }]}
+      // Rattachée, un clic ouvre le dossier : la fiche du plan garde son bouton. Sinon, le clic l'ouvre déjà.
+      actions={
+        onOuvrir && ligne.dossierId && !flottante ? (
+          <Action onClick={onOuvrir} title="La fiche de ce client dans le plan : volume, colonne, dossier, remarques">
+            <Picto nom="crayon" taille={13} />
+            Fiche
+          </Action>
+        ) : undefined
+      }
+      accent={couleur}
+      lisere
+      ligne={ligne.id}
+      saisir={figee ? undefined : saisir}
+      apresGlisser={apresGlisser}
+      figee={figee}
+      fantome={fantome}
+      flottante={flottante}
+      style={style}
+    />
   );
 }
