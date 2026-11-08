@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icone, type NomIcone } from "./icones";
 import s from "./bandeau.module.css";
+import BoutonRetour from "./BoutonRetour";
 
 /**
  * L'en-tête d'une page, posé sur la bande indigo du design « Quantum » :
@@ -56,7 +57,10 @@ export default function Bandeau({
       <div className={s.decor} aria-hidden />
       <div className={s.tete}>
         <div className={s.gauche}>
-          <p className={s.surtitre}>{surtitre}</p>
+          <p className={s.surtitre}>
+            <BoutonRetour />
+            {surtitre}
+          </p>
           <h1 className={s.titre}>{titre}</h1>
           {(texte || (etiquettes && etiquettes.some(Boolean))) && (
             <div className={s.ligne}>

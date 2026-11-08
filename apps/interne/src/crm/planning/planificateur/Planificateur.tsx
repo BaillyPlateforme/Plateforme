@@ -14,7 +14,6 @@ import { chargerSemaine, planifierRdv } from "./actions";
 import type { DossierPlanif, SemainePlanif, SourcePlanif } from "./donnees";
 import { dureeParDefaut, titreParDefaut, verifierCreneau } from "./regles";
 import SemaineChoix, { type Choix } from "./SemaineChoix";
-import bandeau from "@/ui/bandeau.module.css";
 import s from "./planificateur.module.css";
 
 /*
@@ -205,26 +204,6 @@ export default function Planificateur({
         }
         etiquettes={[dossier?.segment]}
         secondaire={retour}
-        bas={
-          <nav className={bandeau.pilules} aria-label="Commercial">
-            {commerciaux.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`${bandeau.pilule} ${c.id === commercialId ? s.piluleActive : ""}`}
-                aria-pressed={c.id === commercialId}
-                title={`Planning de ${c.nom}`}
-                onClick={() => {
-                  if (c.id === commercialId) return;
-                  setCommercialId(c.id);
-                  recharger({ commercialId: c.id });
-                }}
-              >
-                {c.nom.split(" ")[0]}
-              </button>
-            ))}
-          </nav>
-        }
       />
 
       <form action={envoyer} className={s.mise}>
@@ -288,9 +267,44 @@ export default function Planificateur({
             </div>
           )}
 
+          {/* Qui fait la visite : en tête, bien visible (David : « je dois pouvoir facilement changer de personne »). */}
+          <section className={s.carte} aria-labelledby="planif-qui">
+            <h2 className={s.titreCarte} id="planif-qui">
+              <i>1</i>
+              {dossier ? "Qui fait la visite ?" : "Pour qui ?"}
+            </h2>
+            <div className={s.personnes} role="radiogroup" aria-labelledby="planif-qui">
+              {commerciaux.map((c) => {
+                const initiales = c.nom.split(/\s+/).filter(Boolean).map((m) => m[0]).slice(0, 2).join("").toUpperCase();
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={c.id === commercialId}
+                    className={s.personne}
+                    onClick={() => {
+                      if (c.id === commercialId) return;
+                      setCommercialId(c.id);
+                      recharger({ commercialId: c.id });
+                    }}
+                  >
+                    <span className={s.avatar} aria-hidden>
+                      {initiales}
+                    </span>
+                    <span className={s.personneNom}>
+                      <b>{c.nom}</b>
+                      {dossier?.commercialId === c.id && <small>Commercial du dossier</small>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
           <section className={s.carte} aria-labelledby="planif-type">
             <h2 className={s.titreCarte} id="planif-type">
-              <i>1</i>
+              <i>2</i>
               {dossier ? "Sur place ou en visio ?" : "Quel rendez-vous ?"}
             </h2>
             <div className={s.types} role="radiogroup" aria-labelledby="planif-type">
@@ -327,7 +341,7 @@ export default function Planificateur({
 
           <section className={s.carte} aria-labelledby="planif-ou">
             <h2 className={s.titreCarte} id="planif-ou">
-              <i>2</i>
+              <i>3</i>
               {type === "phys" ? "Où a lieu la visite ?" : type === "visio" ? "Joindre le client" : "Où ?"}
             </h2>
 
@@ -425,7 +439,7 @@ export default function Planificateur({
 
           <section className={s.carte} aria-labelledby="planif-pour">
             <h2 className={s.titreCarte} id="planif-pour">
-              <i>3</i>
+              <i>4</i>
               Pour {prenom || "le commercial"}
             </h2>
             <div className={s.champ}>
