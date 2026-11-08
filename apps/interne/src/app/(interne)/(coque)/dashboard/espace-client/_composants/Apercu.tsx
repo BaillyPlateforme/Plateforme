@@ -72,9 +72,12 @@ export function Apercu() {
                 ))}
               </select>
             )}
-            <LienBouton href={`${racine}/nouveau`} variante="noir">
-              {porte.demo ? "+ Nouveau dossier" : "+ Ouvrir un espace"}
-            </LienBouton>
+            {/* Dans le CRM, « Ouvrir un espace » est le bouton du bandeau (EnTeteEspace). */}
+            {porte.demo && (
+              <LienBouton href={`${racine}/nouveau`} variante="noir">
+                + Nouveau dossier
+              </LienBouton>
+            )}
           </div>
         }
       >

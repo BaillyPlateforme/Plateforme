@@ -14,6 +14,7 @@ import { TYPES_DOCUMENTS, verifierFichier } from "@/lib/espace-client/schemas";
 import type { StatutDevis } from "@/lib/espace-client/types";
 import { LISTE_SEGMENTS } from "@/lib/espace-client/segments";
 import type { vueDossier } from "@/lib/espace-client/vues-equipe";
+import MenuActions from "@/ui/MenuActions";
 import EnTeteSection from "../../EnTeteSection";
 import { BandeauMode, Bouton, Carte, Champ, LienBouton, Pastille, Retour, champ, dateFr, dateHeureFr, euro, useAction, usePorte, zoneTexte } from "./socle";
 
@@ -79,14 +80,21 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
               Dossier du CRM
             </Link>
           )}
-          <button type="button" data-ton="contour" disabled={action.enCours} onClick={() => confirm("Couper toutes les sessions ouvertes de ce client ?") && action.lancer(() => revoquerSessions(id))}>
-            Couper les sessions
-          </button>
-          {!termine && (
-            <button type="button" data-ton="contour" disabled={action.enCours} onClick={() => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id))}>
-              Fin de chantier signée
+          {/* Le retour à la liste des espaces (simplification du 08/11/2026). */}
+          <Link href={porte.racine} data-ton="contour">
+            Tous les espaces
+          </Link>
+          {/* Les gestes plus rares, derrière « ⋯ » : le bandeau garde ses boutons sur une ligne. */}
+          <MenuActions>
+            <button type="button" disabled={action.enCours} onClick={() => confirm("Couper toutes les sessions ouvertes de ce client ?") && action.lancer(() => revoquerSessions(id))}>
+              Couper les sessions
             </button>
-          )}
+            {!termine && (
+              <button type="button" disabled={action.enCours} onClick={() => confirm("Marquer le déménagement comme réalisé ? La demande d'avis partira au client.") && action.lancer(() => marquerRealise(id))}>
+                Fin de chantier signée
+              </button>
+            )}
+          </MenuActions>
         </EnTeteSection>
         <BandeauMode mode={donnees.mode} />
       </div>
