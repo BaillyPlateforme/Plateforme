@@ -242,6 +242,8 @@ export interface DeclarationValeursContenu {
   lieu: string;
   date: string;
   objets: ObjetDeclare[];
+  /** Saisie par l'équipe, en édition de l'espace du client (espace-client/edition.ts) : qui, et quand. */
+  saisie_equipe?: { par: string; email: string; le: string };
 }
 
 export interface DeclarationValeurs {

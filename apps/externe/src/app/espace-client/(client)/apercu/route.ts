@@ -8,10 +8,12 @@ export const dynamic = "force-dynamic";
 /*
  * L'arrivée d'un aperçu de l'équipe (lib/espace-client/apercu.ts).
  *
- * L'app interne a vérifié l'équipe et noté l'ouverture ; elle envoie ici, par
- * un formulaire POST, un jeton signé de deux minutes, lié à un client. S'il
- * tient, le cookie d'aperçu (une heure, httpOnly, limité à /espace-client)
- * est posé et l'on rejoint le dossier ; sinon, la page de connexion le dit.
+ * L'app interne a vérifié l'équipe (et pour l'édition, le super admin) et
+ * noté l'ouverture ; elle envoie ici, par un formulaire POST, un jeton signé
+ * de deux minutes, lié à un client et à un mode. S'il tient, le cookie
+ * d'aperçu (httpOnly, limité à /espace-client ; une heure en lecture, trente
+ * minutes en édition) est posé et l'on rejoint le dossier ; sinon, la page de
+ * connexion le dit. Le droit d'éditer est relu à chaque requête (session.ts).
  *
  * Rien n'est écrit en base, aucune session du client n'est ouverte, aucun
  * lien d'accès n'est émis ni consommé. Le jeton ne passe jamais par une
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
   if (!client) return refus();
 
   const r = versChemin(`/espace-client/${encodeURIComponent(jeton.r)}`);
-  r.cookies.set(COOKIE_APERCU, scellerCookieApercu(jeton), optionsCookieApercu());
+  r.cookies.set(COOKIE_APERCU, scellerCookieApercu(jeton), optionsCookieApercu(jeton.m));
   return r;
 }
 

@@ -6,7 +6,7 @@ import EquipeClient from "./EquipeClient";
 import type { TeamMemberRow } from "@/lib/types";
 
 export default function EquipePage() {
-  const { donnees, erreur, recharger } = useRessource<{ members: TeamMemberRow[] }>(
+  const { donnees, erreur, recharger } = useRessource<{ members: TeamMemberRow[]; moi: { id: string; role: string } | null; superAdminsActifs: number }>(
     "/api/data/equipe",
   );
 
@@ -17,7 +17,7 @@ export default function EquipePage() {
       ) : !donnees ? (
         <Squelette titre={false} lignes={4} />
       ) : (
-        <EquipeClient members={donnees.members} />
+        <EquipeClient members={donnees.members} moi={donnees.moi} superAdminsActifs={donnees.superAdminsActifs} recharger={recharger} />
       )}
     </div>
   );

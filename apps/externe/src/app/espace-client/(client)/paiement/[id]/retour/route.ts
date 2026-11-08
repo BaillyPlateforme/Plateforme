@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { depot } from "@/lib/espace-client/depot";
-import { exigerClientPourAgir, lireDonneesClient } from "@/lib/espace-client/session";
+import { exigerClient, lireDonneesClient, refuserEnApercu } from "@/lib/espace-client/session";
 import { retourDeStripe } from "@/lib/espace-client/stripe";
 import { stripeConfigure } from "@/lib/espace-client/stripe-config";
 
@@ -15,12 +15,13 @@ export const dynamic = "force-dynamic";
  *   - après un paiement, la page de son paiement, dans son espace ;
  *   - après une annulation, ses devis, avec « Paiement annulé : aucun
  *     montant n'a été débité. ».
- * Elle écrit (la synchronisation avec Stripe) : refusée pendant un aperçu de
- * l'équipe, comme les actions du client.
+ * Elle écrit (la synchronisation avec Stripe) et touche à un paiement :
+ * refusée pendant tout aperçu de l'équipe, en lecture comme en édition.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const client = await exigerClientPourAgir();
+  await refuserEnApercu();
+  const client = await exigerClient();
   const d = await lireDonneesClient();
   const session = d.sessions_paiement.find((s) => s.id === id);
   const dossier = session && d.dossiers.find((x) => x.id === session.dossier_id && x.client_id === client.id);

@@ -11,7 +11,7 @@ export function FormulaireMessage({ reference, prenom }: { reference: string; pr
     return r.success ? {} : erreursDe(r.error);
   });
   return (
-    <form className="card apparait" noValidate onSubmit={onSubmit} onChange={() => effacer("message")}>
+    <form className="card apparait" noValidate onSubmit={onSubmit} onChange={() => effacer("message")} data-reserve-client>
       <ResumeErreurs erreurs={erreurs} message={etat.message} essai={essai} />
       <Champ id="msg" label="Votre message" erreur={erreurs.message || undefined}>
         <textarea id="msg" name="message" className="textarea" rows={6} placeholder="Une question sur votre dossier ?" />

@@ -46,7 +46,7 @@ export default async function Acces({ searchParams }: { searchParams: Promise<Re
 
   return (
     <div className="gate">
-      <form className="inner" action={entrerAvecJeton}>
+      <form className="inner" action={entrerAvecJeton} data-reserve-client>
         <input type="hidden" name="token_hash" value={jeton} />
         <div className="ok">
           <Icone nom="check" />

@@ -29,7 +29,7 @@ export function FormulaireCgv({ reference }: { reference: string }) {
     return r.success ? {} : erreursDe(r.error);
   });
   return (
-    <form className="card apparait" noValidate onSubmit={onSubmit} onChange={onChange}>
+    <form className="card apparait" noValidate onSubmit={onSubmit} onChange={onChange} data-reserve-client>
       <ResumeErreurs erreurs={erreurs} message={etat.message} essai={essai} />
       <TexteJuridique titre={`Conditions générales de vente · ${VERSIONS.cgv}`} sections={CGV} />
       <Champ erreur={erreurs.cgv || undefined} className="mt-s" >

@@ -37,6 +37,8 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
   const { donnees, erreur, recharger } = useRessource<Donnees>(`${base}/dossier/${id}`);
   const cree = useSearchParams().get("cree");
   const action = useAction(recharger);
+  // Le droit de super admin, pour montrer « Modifier son espace » (la route d'ouverture le revérifie côté serveur).
+  const { donnees: droits } = useRessource<{ superAdmin: boolean }>(porte.demo ? null : "/api/data/droits");
 
   if (erreur)
     return (
@@ -81,6 +83,12 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
           {!porte.demo && (
             <a href={`/espace-client-apercu/${id}`} target="_blank" rel="noopener" data-ton="contour">
               Voir comme le client
+            </a>
+          )}
+          {/* L'espace en édition, au nom du client : les super admins seuls (lib/droits.ts). */}
+          {!porte.demo && droits?.superAdmin && (
+            <a href={`/espace-client-apercu/${id}?mode=edition`} target="_blank" rel="noopener" data-ton="contour" title="Modifier l'espace au nom du client : chaque geste est noté à votre nom">
+              Modifier son espace
             </a>
           )}
           {donnees.crm != null && !porte.demo && (
