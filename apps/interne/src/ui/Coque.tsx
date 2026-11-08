@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Applications from "@/composants/Applications";
+import BoutonAppels from "@/crm/appels/BoutonAppels";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
 import { GROUPES, dossierDe, estActif, groupeDe, hrefPour, type Entree } from "./navigation";
@@ -14,8 +15,9 @@ import s from "./coque.module.css";
  * La coque de l'app interne, dans le design « Quantum » modernisé : en haut,
  * deux étages blancs. Le premier porte le logo, les rubriques (un repère
  * glisse sous celle qu'on regarde), la recherche, « Nouveau dossier », les
- * applications, la cloche et le compte. Le second aligne les pages de la
- * rubrique, à l'horizontale : celle de la page courante, ou celle qu'on
+ * applications, les appels à passer, la cloche et le compte. Le second
+ * aligne les pages de la rubrique, à l'horizontale : celle de la page
+ * courante, ou celle qu'on
  * survole, avec un fondu. Puis la page, dont l'en-tête se pose sur une bande
  * indigo (voir Bandeau). Sur un écran étroit, les rubriques passent dans un
  * tiroir et le second étage défile.
@@ -73,6 +75,8 @@ export default function Coque({
           <span>Nouveau dossier</span>
         </Link>
         <Applications rond />
+        {/* Les appels à passer (src/crm/appels) : à côté de la cloche, un panneau à droite. */}
+        <BoutonAppels />
         <Cloche alertes={alertes} />
         <Compte utilisateur={utilisateur} />
       </Entete>

@@ -20,6 +20,7 @@ import { SCHEMA_DEVIS } from "@/crm/devis/schema";
 import { SCHEMA_FACTURATION } from "@/crm/facturation/schema";
 import { SCHEMA_JOURNAL } from "@/crm/feed/schema";
 import { SCHEMA_PRESTIGE } from "@/crm/demandes/schema";
+import { SCHEMA_APPELS } from "@/crm/appels/schema";
 
 export const SCHEMA = `
 create schema if not exists crm;
@@ -460,4 +461,5 @@ ${SCHEMA_ALERTES}
 ${SCHEMA_DEVIS}
 ${SCHEMA_FACTURATION}
 ${SCHEMA_JOURNAL}
-${SCHEMA_PRESTIGE}`;
+${SCHEMA_PRESTIGE}
+${SCHEMA_APPELS}`;
