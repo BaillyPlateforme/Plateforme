@@ -56,6 +56,23 @@ async function geocoder(cp: string | null, ville: string): Promise<{ code: strin
   return undefined;
 }
 
+/**
+ * L'arrondissement de Paris, Lyon ou Marseille, lu dans le code postal quand
+ * la ville est bien celle-là : 75016 Paris → 75116, 69003 Lyon → 69383,
+ * 13008 Marseille → 13208 (les codes INSEE des arrondissements suivent leur
+ * numéro). Le géocodeur, lui, rend Paris entière pour « 75001 Paris ».
+ */
+function arrondissement(cp: string | null, ville: string): string | null {
+  if (!cp) return null;
+  const v = aplatir(ville);
+  const n = Number(cp.slice(3));
+  if (/^750(0[1-9]|1\d|20)$/.test(cp) && v.startsWith("paris")) return `751${String(n).padStart(2, "0")}`;
+  if (cp === "75116" && v.startsWith("paris")) return "75116";
+  if (/^6900[1-9]$/.test(cp) && v.startsWith("lyon")) return `6938${n}`;
+  if (/^130(0[1-9]|1[0-6])$/.test(cp) && v.startsWith("marseille")) return `132${String(n).padStart(2, "0")}`;
+  return null;
+}
+
 /** Les communes des couples « code postal, ville » : du cache, sinon du géocodeur (le cache est complété). */
 async function communes(adresses: { cp: string | null; ville: string | null }[]): Promise<Map<string, string | null>> {
   const uniques = new Map<string, { cp: string | null; ville: string }>();
@@ -65,8 +82,16 @@ async function communes(adresses: { cp: string | null; ville: string | null }[])
     const cp = a.cp?.replace(/\s+/g, "") || null;
     uniques.set(cleCommune(cp, ville), { cp: cp && /^\d{5}$/.test(cp) ? cp : null, ville });
   }
-  const cles = [...uniques.keys()];
   const out = new Map<string, string | null>();
+  // Paris, Lyon, Marseille : le code postal dit l'arrondissement, sans géocodeur.
+  for (const [cle, a] of uniques) {
+    const code = arrondissement(a.cp, a.ville);
+    if (code) {
+      out.set(cle, code);
+      uniques.delete(cle);
+    }
+  }
+  const cles = [...uniques.keys()];
   if (!cles.length) return out;
   const connues = await q<{ cle: string; code_insee: string | null; vieux: boolean }>(
     `select cle, code_insee, resolu_le < now() - make_interval(days => $2) as vieux from communes_demandes where cle = any($1::text[])`,
