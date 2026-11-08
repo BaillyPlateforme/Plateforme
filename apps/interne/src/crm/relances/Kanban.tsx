@@ -53,21 +53,28 @@ export function Toast({ retour, fermer }: { retour: Retour | null; fermer: () =>
   );
 }
 
+/** Les désactivées et les envoyées s'accumulent : on n'en montre d'abord que quelques-unes. */
+const REPLIEES = 6;
+
 export default function Kanban({ relances, aujourdhui, borneRattrapage }: { relances: Relance[]; aujourdhui: string; borneRattrapage: string }) {
   const { retour, setRetour, enCours, agir } = useGestes();
+  const [deplie, setDeplie] = useState<Record<string, boolean>>({});
   return (
     <>
       <Toast retour={retour} fermer={() => setRetour(null)} />
       <div className={s.kanban}>
         {COLONNES.map((col) => {
-          const liste = relances.filter((r) => r.colonne === col.cle);
+          const toutes = relances.filter((r) => r.colonne === col.cle);
+          const pliable = (col.cle === "desactivee" || col.cle === "envoyee") && toutes.length > REPLIEES && !deplie[col.cle];
+          // Les cartes du mini-Kanban mènent ici filtrées sur leur dossier : la carte visée n'est pas repliée.
+          const liste = pliable ? toutes.slice(0, REPLIEES) : toutes;
           const parVeille = col.cle === "aujourdhui" || col.cle === "retard" ? liste.filter((r) => r.prevue >= borneRattrapage).length : 0;
           return (
             <section key={col.cle} id={`col-${col.cle}`} className={s.colonne} style={{ ["--c" as string]: col.couleur }} aria-label={col.titre}>
               <header className={s.colTete}>
                 <i />
                 <span>{col.titre}</span>
-                <b>{liste.length}</b>
+                <b>{toutes.length}</b>
                 {(col.cle === "aujourdhui" || col.cle === "retard") && liste.length > 0 && (
                   <small>
                     {parVeille} partira{parVeille > 1 ? "ont" : ""} avec la veille{liste.length - parVeille ? ` · ${liste.length - parVeille} attend${liste.length - parVeille > 1 ? "ent" : ""} une décision` : ""}
@@ -153,6 +160,11 @@ export default function Kanban({ relances, aujourdhui, borneRattrapage }: { rela
                   </article>
                 );
               })}
+              {pliable && (
+                <button type="button" className={s.bouton} onClick={() => setDeplie({ ...deplie, [col.cle]: true })}>
+                  Afficher les {toutes.length - liste.length} autres
+                </button>
+              )}
             </section>
           );
         })}

@@ -239,8 +239,13 @@ export const creneauOuvert = (r: Pick<ReglageRegle, "jours_envoi" | "heure_debut
  */
 export const HEURE_VEILLE_UTC = 16;
 export function heureVeilleParis(jour: string) {
-  const d = new Date(`${jour}T${String(HEURE_VEILLE_UTC).padStart(2, "0")}:00:00Z`);
-  return Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", hourCycle: "h23" }).format(d));
+  return heureParis(new Date(`${jour}T${String(HEURE_VEILLE_UTC).padStart(2, "0")}:00:00Z`));
+}
+
+/** L'heure qu'il est à Paris (0 à 23). Par les parties de la date : en français, l'heure s'écrit « 17 h ». */
+export function heureParis(d = new Date()) {
+  const h = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "numeric", hourCycle: "h23" }).formatToParts(d).find((p) => p.type === "hour");
+  return Number(h?.value ?? 0);
 }
 
 /** Une relance du Kanban, telle que le moteur la range. */

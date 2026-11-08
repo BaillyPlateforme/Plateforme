@@ -7,7 +7,7 @@ import { eur, nomClient, TYPES } from "@/crm/lib/format";
 import { envoyerCarte, jourParis } from "@/crm/envois";
 import { lignesCatalogue, raisonDeNePasEnvoyer, type LigneModele } from "@/crm/messages/catalogue";
 import {
-  CANAUX, creneauOuvert, defRelance, jourPermis, libelleCanal, plus, RELANCES, repereDe,
+  CANAUX, creneauOuvert, defRelance, heureParis, jourPermis, libelleCanal, plus, RELANCES, repereDe,
   type Canal, type Colonne, type Regle, type Relance, type TypeRelance,
 } from "./regles";
 
@@ -376,8 +376,6 @@ export async function decider(cle: string, decision: { statut: "reportee"; au: s
  */
 export const RATTRAPAGE_JOURS = 3;
 
-/** L'heure qu'il est à Paris (0 à 23). */
-export const heureParis = (d = new Date()) => Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", hourCycle: "h23" }).format(d));
 
 /** Les relances que la veille enverrait maintenant : du jour, ou en retard de trois jours au plus, aux jours et heures permis. */
 export function duesPourLaVeille(relances: Relance[], regles: Map<TypeRelance, Regle>, maintenant = new Date()) {

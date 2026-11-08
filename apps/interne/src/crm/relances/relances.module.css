@@ -752,7 +752,7 @@
 /* ── Le Kanban ───────────────────────────────────────────────────────── */
 .kanban {
   display: grid;
-  grid-template-columns: repeat(5, minmax(220px, 1fr));
+  grid-template-columns: repeat(5, minmax(186px, 1fr));
   gap: 14px;
   align-items: start;
   overflow-x: auto;
@@ -1284,6 +1284,8 @@
   color: #8b889c;
 }
 .choix {
+  width: auto;
+  max-width: 100%;
   height: 38px;
   padding: 0 34px 0 12px;
   border-radius: 11px;
@@ -1744,6 +1746,8 @@
   overflow-x: auto;
 }
 .filtre {
+  flex: 0 0 auto;
+  width: auto;
   height: 34px;
   padding: 0 32px 0 14px;
   border: 0;
