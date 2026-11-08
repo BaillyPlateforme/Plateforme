@@ -76,5 +76,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Les photos de public/espace-client (page de connexion, e-mails) restent hors du proxy : elles sont publiques.
-  matcher: ["/rh", "/rh/:path*", "/api/rh/:path*", "/espace-client", "/espace-client/((?!.*\\.(?:jpe?g|png|webp|svg|gif|ico)$).*)"],
+  // Les images, et les vidéos des tutos de Bailly avec leurs sous-titres (public/espace-client/tutos), passent sans session :
+  // ce sont des fichiers de la marque, sans donnée de client.
+  matcher: ["/rh", "/rh/:path*", "/api/rh/:path*", "/espace-client", "/espace-client/((?!.*\\.(?:jpe?g|png|webp|svg|gif|ico|mp4|vtt)$).*)"],
 };

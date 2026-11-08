@@ -849,7 +849,8 @@ html.ec-anim .ec .apparait.vu { opacity: 1; transform: none; }
 .ec details.tuto-d[open] .plus { transform: rotate(45deg); background: var(--ink); color: #fff; border-color: var(--ink); }
 .ec details.tuto-d .corps { padding: 6px 24px 26px 170px; }
 .ec details.tuto-d .video-cadre { aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: var(--night); margin-bottom: 18px; }
-.ec details.tuto-d .video-cadre iframe { width: 100%; height: 100%; border: 0; }
+.ec details.tuto-d .video-cadre iframe,
+.ec details.tuto-d .video-cadre video { width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
 
 /* Services : la ligne de la micro démo, avec son bouton */
 .ec .svc .svc-act { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }

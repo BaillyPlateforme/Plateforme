@@ -140,7 +140,17 @@ export const tutoSchema = z.object({
   resume: texte(3, 160, "Le résumé"),
   categorie: texte(2, 40, "La catégorie"),
   etapes: z.string().transform((s) => s.split("\n").map((x) => x.trim()).filter(Boolean)).pipe(z.array(z.string()).min(1, { error: "Une étape au moins, une par ligne." })),
-  url_video: z.string().trim().transform((v) => v || null).pipe(z.url({ protocol: /^https$/, error: "Un lien https (par exemple https://www.youtube-nocookie.com/embed/…)." }).nullable()),
+  // Un lien https (une vidéo intégrée), ou une vidéo hébergée par la plateforme : /espace-client/tutos/<nom>.mp4.
+  url_video: z
+    .string()
+    .trim()
+    .transform((v) => v || null)
+    .pipe(
+      z.union([
+        z.string().regex(/^\/espace-client\/tutos\/[a-z0-9-]+\.mp4$/),
+        z.url({ protocol: /^https$/, error: "Un lien https (par exemple https://www.youtube-nocookie.com/embed/…), ou /espace-client/tutos/<nom>.mp4." }),
+      ]).nullable(),
+    ),
 });
 
 export const serviceSchema = z.object({

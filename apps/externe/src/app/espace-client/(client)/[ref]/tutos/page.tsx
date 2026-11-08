@@ -34,7 +34,15 @@ export default async function Tutos({ params }: { params: Promise<{ ref: string 
               <div className="corps">
                 {t.url_video && (
                   <div className="video-cadre">
-                    <iframe src={t.url_video} title={t.titre} allow="encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
+                    {t.url_video.endsWith(".mp4") ? (
+                      // Une vidéo de Bailly, hébergée par la plateforme : son affiche et ses sous-titres portent le même nom.
+                      <video controls playsInline preload="none" poster={t.url_video.replace(/\.mp4$/, "-affiche.jpg")} aria-label={t.titre}>
+                        <source src={t.url_video} type="video/mp4" />
+                        <track kind="subtitles" src={t.url_video.replace(/\.mp4$/, ".vtt")} srcLang="fr" label="Français" default />
+                      </video>
+                    ) : (
+                      <iframe src={t.url_video} title={t.titre} allow="encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
+                    )}
                   </div>
                 )}
                 <p className="muted" style={{ marginBottom: 16 }}>
