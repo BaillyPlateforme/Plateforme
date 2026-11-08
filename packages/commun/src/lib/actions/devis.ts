@@ -76,7 +76,7 @@ export async function createDevisFromRequest(requestId: string) {
     req,
   ));
 
-  revalidatePath("/dashboard/devis");
+  revalidatePath("/dashboard");
   revalidatePath(`/dashboard/${req.id}`);
 }
 
@@ -98,12 +98,12 @@ export async function updateDevisStatus(id: string, status: DevisStatus) {
       await fireEvent(event, devisCtx(d as never, req as RequestRow | null));
     }
   }
-  revalidatePath("/dashboard/devis");
+  revalidatePath("/dashboard");
 }
 
 export async function deleteDevis(id: string) {
   await exigerEquipe();
   const supabase = createServiceClient();
   await supabase.from("devis").delete().eq("id", id);
-  revalidatePath("/dashboard/devis");
+  revalidatePath("/dashboard");
 }

@@ -1,27 +1,10 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useRessource } from "@/lib/donnees";
-import { Echec, Squelette } from "@/components/Squelette";
-import DevisTable from "./DevisTable";
-import type { DevisRow } from "@/lib/types";
-
-export default function DevisPage() {
-  const { donnees, erreur, recharger } = useRessource<{ devis: DevisRow[] }>("/api/data/devis");
-
-  return (
-    <div>
-      {erreur ? (
-        <Echec message={erreur} onRetry={recharger} />
-      ) : !donnees ? (
-        <Squelette />
-      ) : (
-        <Contenu devis={donnees.devis} />
-      )}
-    </div>
-  );
+/*
+ * « Devis du site » a quitté les menus (simplification du 08/11/2026) : le
+ * devis d'une demande se lit, change de statut et se supprime dans l'onglet
+ * Devis de sa fiche ; la liste des demandes donne l'estimation et le statut.
+ */
+export default function AnciensDevisDuSite() {
+  redirect("/dashboard");
 }
-
-function Contenu({ devis }: { devis: DevisRow[] }) {
-  return <DevisTable devis={devis} />;
-}
-

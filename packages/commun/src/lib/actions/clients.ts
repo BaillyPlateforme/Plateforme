@@ -30,6 +30,5 @@ export async function saveClientProfile(input: ClientProfileInput) {
     },
     { onConflict: "email" },
   );
-  revalidatePath("/dashboard/clients");
   revalidatePath(`/dashboard/clients/${encodeURIComponent(input.email)}`);
 }

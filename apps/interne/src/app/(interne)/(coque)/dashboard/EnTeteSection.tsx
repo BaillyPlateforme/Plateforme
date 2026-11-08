@@ -121,7 +121,8 @@ const ICONES: Record<string, NomIcone> = {
 export function MenuDeSection() {
   const chemin = usePathname();
   const section = sectionDe(chemin);
-  if (!section) return null;
+  // Une section sans onglets (Demandes, Espace client) n'a pas de menu : la colonne reste vide et la page prend toute la largeur.
+  if (!section || (section.onglets.length === 0 && !section.plus?.length)) return null;
   const item = (o: Onglet) => ({ href: o.href, label: o.label, icone: ICONES[o.href], actif: ongletActif(o, chemin) });
   return (
     <MenuVertical
