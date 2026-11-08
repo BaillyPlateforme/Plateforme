@@ -54,6 +54,12 @@ export type EntreeCatalogue = {
   depart?: { objet: string | null; corps: string };
   /** Le texte vient du code, et n'est pas modifiable ici (le lien d'accès). */
   texteCode?: boolean;
+  /**
+   * Un texte de départ proposé par la plateforme, que Bailly n'a pas encore
+   * validé : la carte entre active, avec ce texte, marquée « texte à valider »
+   * jusqu'à ce que l'équipe l'enregistre.
+   */
+  aValider?: boolean;
   variables: string[];
   /** La carte ne se désactive pas, pour cette raison. */
   verrouillee?: string;
@@ -94,6 +100,8 @@ export const CATALOGUE: EntreeCatalogue[] = [
     declencheur: "Des pièces à fournir manquent avant le déménagement : relance par la tâche de la veille." },
   { cle: "relance_conditions", titre: "Conditions de livraison", etape: "commande", canal: "email", regle: "conditions", variables: VARIABLES_CRM, journal: ["relance_conditions"],
     declencheur: "Les conditions de livraison ne sont pas validées avant le déménagement : relance par la tâche de la veille." },
+  { cle: "ec_reponse_conseiller", titre: "Réponse du conseiller", etape: "commande", canal: "email", ...espace("ec_reponse_conseiller"), aValider: true,
+    declencheur: "Quand l'équipe répond au client dans la discussion de son espace (depuis le CRM).", delai: "Aussitôt · un e-mail au plus par 10 minutes" },
   // ── Cartons ─────────────────────────────────────────────────────────────
   { cle: "ec_creneau_cartons_sms", titre: "Cartons : créneau de la veille", etape: "cartons", canal: "sms", ...espace("ec_creneau_cartons_sms"),
     declencheur: "La veille du samedi de livraison des cartons, par la tâche de la veille.", delai: "J−1" },
@@ -177,12 +185,13 @@ export function assurerCatalogue(): Promise<void> {
           if (r) continue;
         }
         // Un texte d'origine (espace client) entre actif ; sans texte, la carte attend : désactivée, à valider.
+        // Un texte proposé (aValider) entre actif lui aussi, mais marqué à valider.
         const texte = e.depart?.corps ?? "";
-        const aValider = !e.texteCode && !texte;
+        const sansTexte = !e.texteCode && !texte;
         await q(
           `insert into modeles_messages(canal, nom, objet, corps, cle, etape, actif, a_valider) values($1,$2,$3,$4,$5,$6,$7,$8)
            on conflict (cle) where cle is not null do nothing`,
-          [e.canal, e.titre, e.depart?.objet ?? null, texte, e.cle, e.etape, !aValider, aValider],
+          [e.canal, e.titre, e.depart?.objet ?? null, texte, e.cle, e.etape, !sansTexte, sansTexte || !!e.aValider],
         );
       }
     })().catch((err) => {

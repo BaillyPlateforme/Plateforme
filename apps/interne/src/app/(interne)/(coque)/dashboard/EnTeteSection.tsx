@@ -115,6 +115,7 @@ function Confier({ contenu }: { contenu: Contenu }) {
 const ICONES: Record<string, NomIcone> = {
   "/dashboard/espace-client": "dossierClient",
   "/dashboard/espace-client/nouveau": "plus",
+  "/dashboard/espace-client/messages": "boite",
   "/dashboard/espace-client/cartons": "caisse",
   "/dashboard/espace-client/sav": "cloche",
   "/dashboard/espace-client/destinations": "grille",

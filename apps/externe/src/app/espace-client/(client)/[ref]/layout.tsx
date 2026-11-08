@@ -1,23 +1,31 @@
+import { nonLusParClient } from "@/lib/espace-client/discussion";
 import { chargerEspace } from "@/lib/espace-client/espace";
 import { apercuEquipe } from "@/lib/espace-client/session";
 import { BoutonDemo } from "../../_ui/BoutonDemo";
+import { BulleDiscussion } from "../../_ui/BulleDiscussion";
 import { PiedDePage } from "../../_ui/Cadre";
+import "../../_ui/discussion.css";
 
 /**
  * Le cadre d'un dossier : chaque page pose son propre bandeau, celui-ci
- * ajoute le pied de page et, pour un profil fictif, le bouton des profils —
- * sauf pendant un aperçu de l'équipe, qui ne change pas d'identité.
- * `chargerEspace` vérifie la session et la propriété du dossier : un dossier
- * qui n'est pas au client connecté répond 404.
+ * ajoute le pied de page, la bulle « Une question ? » (la discussion avec le
+ * conseiller, en lecture seule pendant un aperçu de l'équipe) et, pour un
+ * profil fictif, le bouton des profils — sauf pendant un aperçu de l'équipe,
+ * qui ne change pas d'identité. `chargerEspace` vérifie la session et la
+ * propriété du dossier : un dossier qui n'est pas au client connecté répond
+ * 404.
  */
 export default async function DossierLayout({ children, params }: { children: React.ReactNode; params: Promise<{ ref: string }> }) {
   const { ref } = await params;
   const e = await chargerEspace(ref);
   const apercu = await apercuEquipe();
+  // La pastille de la bulle : les réponses pas encore lues. Illisible, rien — la bulle se relit d'elle-même.
+  const nonLus = await nonLusParClient(e.dossier.id, apercu ? "service" : "session").catch(() => 0);
   return (
     <>
       {children}
       <PiedDePage e={e} />
+      <BulleDiscussion reference={e.dossier.reference} conseiller={{ prenom: e.conseiller.prenom, nom: e.conseiller.nom }} nonLusInitial={nonLus} lectureSeule={!!apercu} />
       {!apercu && <BoutonDemo reference={e.dossier.reference} email={e.client.email} fictif={e.client.demo} />}
     </>
   );

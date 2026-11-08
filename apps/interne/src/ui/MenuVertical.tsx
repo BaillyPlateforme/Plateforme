@@ -14,13 +14,13 @@ import s from "./menu-vertical.module.css";
  * pas en haut (scroll={false}) et la vue cliquée s'allume tout de suite, sans
  * attendre la réponse du serveur ; le bandeau, lui, reste celui de la page.
  *
- * Deux ou trois vues seulement (David, 08/11/2026 : « quand il n'y a que 2 ou
+ * Quatre vues au plus (David, 08/11/2026 : « quand il n'y a que 2 ou
  * 3 choix, ça prend juste de la place pour rien ») : plus de colonne, un
  * sélecteur compact au-dessus du contenu, qui reprend toute la largeur.
  */
 
 /** Au-delà, le menu garde sa colonne à gauche. */
-export const MAX_COMPACT = 3;
+export const MAX_COMPACT = 4;
 
 export type ItemMenu = {
   href: string;

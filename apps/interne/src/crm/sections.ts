@@ -24,8 +24,9 @@ export type Section = {
 /*
  * Les vues d'une page vont dans le menu vertical à gauche, jamais dans le
  * bandeau (décision de David du 08/11/2026) ; le bandeau ne garde que les
- * filtres. Celles de l'espace client sont trois pages : les dossiers, les
- * cartons du samedi et le SAV. Tout ce qui règle l'outil est dans Réglages,
+ * filtres. Celles de l'espace client sont quatre pages : les dossiers, les
+ * messages des clients (leur boîte de réception), les cartons du samedi et
+ * le SAV. Tout ce qui règle l'outil est dans Réglages,
  * un seul menu vertical.
  *
  * Les vues des demandes du site sont une page du CRM, Demandes (/demandes,
@@ -46,6 +47,7 @@ export const SECTIONS: Section[] = [
     accueil: "/dashboard/espace-client",
     onglets: [
       { href: "/dashboard/espace-client", label: "Dossiers" },
+      { href: "/dashboard/espace-client/messages", label: "Messages" },
       { href: "/dashboard/espace-client/cartons", label: "Cartons du samedi" },
       { href: "/dashboard/espace-client/sav", label: "SAV" },
     ],

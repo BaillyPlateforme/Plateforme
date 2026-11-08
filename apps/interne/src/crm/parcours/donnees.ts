@@ -168,6 +168,7 @@ const MODELE_EC: Record<string, string> = {
   document_depose: "document déposé",
   message_conseiller: "message du conseiller",
   paiement_confirme: "paiement confirmé",
+  reponse_conseiller: "réponse du conseiller dans la discussion",
   recap_cartons_equipe: "récapitulatif des cartons (équipe)",
 };
 const ACCEPTATION: Record<string, string> = {

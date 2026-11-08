@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { clientParEmail, consommerLien, envoyerLienAuClient, estClientDemo } from "@/lib/espace-client/acces";
 import { AdresseDejaPrise } from "@/lib/espace-client/comptes";
 import { bornesCartons, CAPACITE_SAMEDI } from "@/lib/espace-client/cartons";
-import { emailEquipe, estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
+import { estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
 import { depot, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { cheminFichier, deposerFichier, octets } from "@/lib/espace-client/fichiers";
 import { aujourdhui, dateLongue, jourLong, joursRestants, nomClient, salutation } from "@/lib/espace-client/format";
@@ -23,7 +23,7 @@ import { segmentDe } from "@/lib/espace-client/segments";
 import { occupationSamedis } from "@/lib/espace-client/samedi";
 import {
   acceptationsSchema, avarieSchema, conditionsLivraisonSchema, connexionSchema, declarationValeursSchema, erreursDe,
-  ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons, messageSchema,
+  ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons,
   TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
 } from "@/lib/espace-client/schemas";
 import { marqueEquipe, tracerEdition } from "@/lib/espace-client/edition";
@@ -56,7 +56,8 @@ import { TEL_AGENCE } from "@/lib/messaging";
  *     règlement dans le CRM, elle ne paie pas au nom du client), la
  *     signature d'un devis et l'acceptation des CGV et du RGPD (un
  *     consentement ne se donne pas pour autrui), et les messages écrits au
- *     conseiller au nom du client.
+ *     conseiller au nom du client (la discussion, actions/discussion.ts :
+ *     l'équipe y répond en son nom, depuis le CRM).
  */
 
 export type EtatFormulaire = { ok?: boolean; erreurs?: Erreurs; message?: string };
@@ -516,19 +517,7 @@ export async function issuePaiementSimule(sessionId: string, fd: FormData) {
 }
 
 // --- Contact -----------------------------------------------------------------------------------
-
-export async function ecrireAuConseiller(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
-  // Un message signé du client : l'équipe ne l'écrit pas à sa place.
-  await refuserEnApercu();
-  const { client, dossier, conseiller } = await contexte(reference);
-  const r = messageSchema.safeParse({ message: fd.get("message") });
-  if (!r.success) return { erreurs: erreursDe(r.error) };
-  await notifier.envoyer({
-    dossier_id: dossier.id, canal: "email", modele: "message_conseiller", destinataire: conseiller.email || emailEquipe(conseiller.email),
-    payload: { client: nomClient(client), email: client.email, reference: dossier.reference, message: r.data.message, signature: { nom: "Espace client", role: "Message automatique", telephone: conseiller.telephone } },
-  });
-  redirect(`/espace-client/${reference}/conseiller?ok=message`);
-}
+// Écrire au conseiller : la discussion (actions/discussion.ts), qui a remplacé le formulaire d'un seul message.
 
 export async function demanderService(reference: string, serviceId: string) {
   const { client, dossier, conseiller, d } = await contexte(reference);
