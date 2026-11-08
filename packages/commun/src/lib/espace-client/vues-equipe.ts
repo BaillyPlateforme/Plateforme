@@ -45,6 +45,11 @@ function mode() {
 }
 
 export function vueApercu(d: Donnees) {
+  // Un client, un espace : les dossiers de chaque espace, pour dire sur chaque ligne qu'il en réunit plusieurs.
+  const parClient = new Map<string, { id: string; reference: string }[]>();
+  for (const x of [...d.dossiers].sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""))) {
+    parClient.set(x.client_id, [...(parClient.get(x.client_id) ?? []), { id: x.id, reference: x.reference }]);
+  }
   const lignes = d.dossiers
     .map((dossier) => {
       const s = snapshotDe(d, dossier.id);
@@ -62,7 +67,17 @@ export function vueApercu(d: Donnees) {
         statut: dossier.statut,
         crm: dossier.crm_dossier_id ?? null,
         conseiller: { id: conseiller.id, nom: `${conseiller.prenom} ${conseiller.nom}`.trim() },
-        client: { nom: nomClient(s.client), societe: s.client.societe, type: s.client.type, email: s.client.email, masquage: s.client.masquer_devis || s.client.masquer_factures, demo: s.client.demo },
+        client: {
+          id: s.client.id,
+          nom: nomClient(s.client),
+          societe: s.client.societe,
+          type: s.client.type,
+          email: s.client.email,
+          masquage: s.client.masquer_devis || s.client.masquer_factures,
+          demo: s.client.demo,
+          /** Les autres dossiers de son espace (un client, un espace) : vide quand il n'en a qu'un. */
+          autres: (parClient.get(s.client.id) ?? []).filter((x) => x.id !== dossier.id),
+        },
         depart: dossier.ville_depart,
         arrivee: dossier.ville_arrivee,
         portee: dossier.portee,

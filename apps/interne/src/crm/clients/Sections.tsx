@@ -5,9 +5,11 @@ import { Avatar, Pastille } from "@/crm/kanban/Carte";
 import { ETAPE_DEMANDE, TEINTES, etapeDossier, type CleEtapeDemande, type Teinte } from "@/crm/kanban/etapes";
 import { Icone, type NomIcone } from "@/ui/icones";
 import { ajouterContactClient, majClient, supprimerContactClient } from "./actions";
-import { Confirmer, Enregistrer } from "./Boutons";
+import { Confirmer, Enregistrer, Geste } from "./Boutons";
+import { ajouterAEspaceDepuisClient, renvoyerLienDepuisClient } from "@/crm/actions-espace";
+import type { DossierDeLEspace } from "@/lib/espace-client/crm";
 import { emailValide, lienTelephone, telephoneLisible, TEINTE_TYPE } from "./commun";
-import { villeDe, type DossierClient, type EspaceClient, type FicheClient } from "./donnees";
+import { villeDe, type DossierClient, type FicheClient } from "./donnees";
 import type { Entreprise } from "./entreprises";
 import PuceEntreprise from "./PuceEntreprise";
 import s from "./clients.module.css";
@@ -678,82 +680,201 @@ export function Argent({ f }: { f: FicheClient }) {
 
 /* ─────────── Espace client ─────────── */
 
-export function Espaces({ f }: { f: FicheClient }) {
+const STATUT_ESPACE: Record<DossierDeLEspace["statut"], string> = { en_preparation: "En préparation", planifie: "Planifié", en_cours: "En cours", termine: "Terminé" };
+
+/** Le retour d'un geste de la section (« Ajouter à son espace », « Renvoyer le lien »). */
+const FLASH_ESPACE: Record<string, { ton: "ok" | "info" | "ko"; texte: (ref?: string) => string }> = {
+  ajoute: { ton: "ok", texte: (ref) => `${ref ?? "Le dossier"} est dans son espace client. Aucun nouveau lien d’accès : l’avis « Un nouveau dossier a été ajouté à votre espace » est au journal.` },
+  deja: { ton: "info", texte: (ref) => `${ref ?? "Ce dossier"} était déjà dans son espace client.` },
+  ouvert: { ton: "ok", texte: (ref) => `Espace client ouvert pour ${ref ?? "ce dossier"} : le lien d’accès est au journal.` },
+  avertissement: { ton: "info", texte: (ref) => `Espace client ouvert pour ${ref ?? "ce dossier"}, mais le lien d’accès n’est pas parti.` },
+  "lien-journalise": { ton: "ok", texte: () => "Nouveau lien d’accès journalisé (l’envoi réel des e-mails n’est pas activé) : il mène au choix de ses déménagements." },
+  "lien-envoye": { ton: "ok", texte: () => "Nouveau lien d’accès envoyé : il mène au choix de ses déménagements." },
+  erreur: { ton: "ko", texte: (ref) => (ref ? `${ref} n’a pas rejoint son espace.` : "Le geste n’a pas abouti.") },
+};
+
+export function Espaces({ f, clientId, retour }: { f: FicheClient; clientId: number; retour?: { espace?: string; ref?: string; m?: string } }) {
   const propres = f.dossiers.filter((d) => !d.payeurSeulement);
-  const parDossier = new Map<number, EspaceClient[]>();
-  for (const e of f.espaces) parDossier.set(e.dossierId, [...(parDossier.get(e.dossierId) ?? []), e]);
-  const ouverts = f.espaces.length;
+  const dehors = propres.filter((d) => f.horsEspace[d.id]);
+  const espaces = f.espaceClient;
+  const dedans = espaces.reduce((n, e) => n + e.dossiers.length, 0);
+  const flash = retour?.espace ? FLASH_ESPACE[retour.espace] : null;
   return (
     <Section
       id="espace"
       titre="Espace client"
       icone="dossierClient"
-      sous={ouverts ? `${pluriel(ouverts, "espace ouvert", "espaces ouverts")} sur ${pluriel(propres.length, "dossier")}` : "Aucun espace client ouvert"}
+      sous={
+        espaces.length
+          ? `${espaces.length > 1 ? `${espaces.length} espaces` : "Un espace"} · ${pluriel(dedans, "dossier")} dedans${dehors.length ? ` · ${pluriel(dehors.length, "dossier")} pas encore` : ""}`
+          : "Aucun espace client ouvert"
+      }
     >
-      {propres.length === 0 ? (
+      {flash && (
+        <p className={s.flashEspace} data-ton={flash.ton} role="status">
+          {flash.texte(retour?.ref)}
+          {retour?.m && <small>{retour.m}</small>}
+        </p>
+      )}
+      {propres.length === 0 && !espaces.length ? (
         <Vide icone="dossierClient">Un espace client s’ouvre depuis un dossier.</Vide>
+      ) : espaces.length === 0 ? (
+        <>
+          <Vide icone="dossierClient">
+            Pas encore d’espace client : il s’ouvre depuis un de ses dossiers (« Ouvrir l’espace client »), ou à l’acceptation de sa demande du site. Ses autres dossiers le
+            rejoindront ensuite d’eux-mêmes.
+          </Vide>
+          <ul className={s.espaceDossiers}>
+            {dehors.map((d) => (
+              <LigneHorsEspace key={d.id} d={d} hors={f.horsEspace[d.id]} clientId={clientId} espaceExiste={false} />
+            ))}
+          </ul>
+        </>
       ) : (
-        <ul className={s.espaces}>
-          {propres.map((d) => {
-            const es = parDossier.get(d.id) ?? [];
-            if (!es.length)
-              return (
-                <li key={d.id} className={s.espaceLigne} data-etat="aucun">
-                  <span className={s.espaceEtat}>
-                    <i />
-                  </span>
-                  <span className={s.espaceTexte}>
-                    <b>{d.ref}</b>
-                    <small>Pas d’espace client pour ce dossier</small>
-                  </span>
-                  <span />
-                  <span className={s.espaceActions}>
-                    <Link href={`/dossiers/${d.id}#commun-espace`} className={s.boutonClair} prefetch={false}>
-                      Ouvrir depuis le dossier
-                    </Link>
-                  </span>
-                </li>
-              );
-            return es.map((e) => (
-              <li key={e.id} className={s.espaceLigne} data-etat={e.derniereConnexion ? "vu" : "jamais"}>
+        espaces.map((e) => {
+          // « Voir comme le client » : son dossier en cours, le premier de son choix (le client y passe d'un dossier à l'autre).
+          const vitrine = e.dossiers[0];
+          return (
+            <article key={e.clientId} className={s.espaceCarte} data-etat={e.dernierAcces ? "vu" : "jamais"}>
+              <header className={s.espaceTete}>
                 <span className={s.espaceEtat}>
                   <i />
                 </span>
-                <span className={s.espaceTexte}>
-                  <b>
-                    {d.ref} <em>· espace {e.reference}</em>
-                  </b>
+                <div className={s.espaceQui}>
+                  <b>Son espace client</b>
                   <small>
-                    Ouvert le {jour(e.creeLe)}
-                    {e.email ? ` · se connecte avec ${e.email}` : ""}
+                    Se connecte avec{" "}
+                    <a href={`mailto:${e.email}`} className={s.lienDoux}>
+                      {e.email}
+                    </a>
                   </small>
-                </span>
-                <span className={s.espaceVu}>
-                  <b>{e.derniereConnexion ? `Vu le ${jour(e.derniereConnexion)}` : "Jamais connecté"}</b>
-                  <small>{e.connexions ? pluriel(e.connexions, "connexion") : "aucune connexion"}</small>
-                </span>
-                <span className={s.espaceActions}>
-                  <Link href={`/dashboard/espace-client/dossiers/${e.id}`} className={s.boutonClair} prefetch={false}>
-                    Suivi de l’espace
-                  </Link>
+                </div>
+                <dl className={s.espaceFaits}>
+                  <div>
+                    <dt>Dernière connexion</dt>
+                    <dd data-ton={e.dernierAcces ? undefined : "jamais"}>{e.dernierAcces ? jour(e.dernierAcces) : "Jamais connecté"}</dd>
+                  </div>
+                  <div>
+                    <dt>Connexions</dt>
+                    <dd>{e.sessions || "Aucune"}</dd>
+                  </div>
+                  <div>
+                    <dt>Dernier lien</dt>
+                    <dd>
+                      {e.dernierLien ? `${jour(e.dernierLien.le)} · ${e.dernierLien.statut === "envoyee" ? "envoyé" : e.dernierLien.statut === "echec" ? "échec" : "journalisé"}` : "Aucun"}
+                    </dd>
+                  </div>
+                </dl>
+                <div className={s.espaceActions}>
                   {/* Un <a> et jamais un <Link> : un préchargement noterait une ouverture de l'aperçu. */}
-                  <a
-                    href={`/espace-client-apercu/${e.id}`}
-                    target="_blank"
-                    rel="noopener"
-                    className={s.boutonIcone}
-                    title="L'espace tel que le client le voit, en lecture seule (nouvel onglet)"
-                    aria-label="Voir comme le client"
-                  >
-                    <Icone nom="oeil" taille={16} />
+                  <a href={`/espace-client-apercu/${vitrine.id}`} target="_blank" rel="noopener" className={s.boutonClair} title="Son espace tel qu'il le voit, en lecture seule (nouvel onglet) : il passe d'un dossier à l'autre par « Mes déménagements »">
+                    <Icone nom="oeil" taille={15} />
+                    Voir comme le client
                   </a>
-                </span>
-              </li>
-            ));
-          })}
-        </ul>
+                  <form action={renvoyerLienDepuisClient.bind(null, clientId, e.clientId)}>
+                    <Geste attente="Envoi…" titre="Un lien d'accès à son espace (journalisé tant que l'envoi réel n'est pas activé) : il mène au choix de ses déménagements">
+                      <Icone nom="envoyer" taille={15} />
+                      Renvoyer le lien
+                    </Geste>
+                  </form>
+                </div>
+              </header>
+              <p className={s.espaceSous}>
+                {e.dossiers.length > 1
+                  ? `${pluriel(e.dossiers.length, "dossier")} dans son espace : une seule connexion, il passe de l’un à l’autre par « Mes déménagements ».`
+                  : "Un dossier dans son espace. Ses prochains dossiers le rejoindront d’eux-mêmes, sans nouveau lien d’accès."}
+              </p>
+              <ul className={s.espaceDossiers}>
+                {e.dossiers.map((x) => (
+                  <li key={x.id} className={s.espaceDossier} data-etat="dedans">
+                    <span className={s.espacePuce} aria-hidden>
+                      <Icone nom="coche" taille={13} />
+                    </span>
+                    <span className={s.espaceTexte}>
+                      <b>
+                        {x.crmDossierId ? (
+                          <Link href={`/dossiers/${x.crmDossierId}`} prefetch={false}>
+                            {x.reference}
+                          </Link>
+                        ) : (
+                          x.reference
+                        )}{" "}
+                        <em>· {STATUT_ESPACE[x.statut] ?? x.statut}</em>
+                      </b>
+                      <small>
+                        {x.trajet} · {x.periode}
+                      </small>
+                    </span>
+                    <span className={s.espaceAvance} title={`Dossier complété à ${x.pourcent} % (les points du client faits)`}>
+                      <span className={s.barre}>
+                        <i style={{ width: `${x.pourcent}%` }} data-plein={x.pourcent >= 100 ? "" : undefined} />
+                      </span>
+                      <b>{x.pourcent} %</b>
+                      <small>{x.prochaine ? `Ensuite : ${x.prochaine.toLowerCase()}` : x.statut === "termine" ? "Déménagement réalisé" : "Tout est fait"}</small>
+                    </span>
+                    <span className={s.espaceActions}>
+                      <Link href={`/dashboard/espace-client/dossiers/${x.id}`} className={s.boutonClair} prefetch={false}>
+                        Suivi
+                      </Link>
+                    </span>
+                  </li>
+                ))}
+                {/* Ses dossiers du CRM pas encore dans l'espace : à ajouter (ou ce qui leur manque). */}
+                {dehors.map((d) => (
+                  <LigneHorsEspace key={d.id} d={d} hors={f.horsEspace[d.id]} clientId={clientId} espaceExiste />
+                ))}
+              </ul>
+            </article>
+          );
+        })
       )}
     </Section>
+  );
+}
+
+/** Un dossier du CRM qui n'est pas dans l'espace : « Pas encore dans son espace », et le geste qui l'y met — ou ce qui manque. */
+function LigneHorsEspace({ d, hors, clientId, espaceExiste }: { d: DossierClient; hors: { manque: string[]; horsCours: boolean }; clientId: number; espaceExiste: boolean }) {
+  const perdu = d.statut === "perdu";
+  const pret = !hors.manque.length;
+  return (
+    <li className={s.espaceDossier} data-etat="dehors">
+      <span className={s.espacePuce} aria-hidden />
+      <span className={s.espaceTexte}>
+        <b>
+          <Link href={`/dossiers/${d.id}`} prefetch={false}>
+            {d.ref}
+          </Link>{" "}
+          <em>· {espaceExiste ? "Pas encore dans son espace" : "Pas d’espace client"}</em>
+        </b>
+        <small>{[villeDe(d.depart) && villeDe(d.arrivee) ? `${villeDe(d.depart)} → ${villeDe(d.arrivee)}` : null, periodeDe(d)].filter(Boolean).join(" · ") || "Trajet et période à préciser"}</small>
+      </span>
+      <span className={s.espaceManque}>
+        {perdu ? (
+          <small>Dossier perdu : il ne rejoint pas l’espace.</small>
+        ) : pret ? (
+          <small>{hors.horsCours ? "Terminé ou archivé : il ne le rejoint pas de lui-même." : espaceExiste ? "Tout est renseigné : prêt à le rejoindre." : "Tout est renseigné : l’espace peut s’ouvrir."}</small>
+        ) : (
+          <>
+            <b>Manque</b>
+            <small>{hors.manque.map((m) => m.toLowerCase()).join(", ")}</small>
+          </>
+        )}
+      </span>
+      <span className={s.espaceActions}>
+        {perdu ? null : espaceExiste && pret ? (
+          <form action={ajouterAEspaceDepuisClient.bind(null, clientId, d.id)}>
+            <Geste plein attente="Ajout…" titre="Le dossier rejoint son espace, sans nouveau lien d'accès : le client reçoit l'avis « nouveau dossier » (journalisé)">
+              <Icone nom="plus" taille={15} />
+              Ajouter à son espace
+            </Geste>
+          </form>
+        ) : (
+          <Link href={`/dossiers/${d.id}${espaceExiste ? "?espace=a-ajouter" : ""}#espace-client`} className={s.boutonClair} prefetch={false}>
+            {espaceExiste ? "Compléter et ajouter" : "Ouvrir depuis le dossier"}
+          </Link>
+        )}
+      </span>
+    </li>
   );
 }
 

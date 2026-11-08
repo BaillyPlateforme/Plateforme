@@ -19,6 +19,16 @@ export function Enregistrer({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Un geste de la fiche (« Ajouter à son espace », « Renvoyer le lien ») : grisé, son libellé d'attente pendant l'envoi. */
+export function Geste({ children, plein, attente, titre }: { children: React.ReactNode; plein?: boolean; attente: string; titre?: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" className={plein ? s.boutonPlein : s.boutonClair} disabled={pending} aria-busy={pending || undefined} title={titre}>
+      {pending ? attente : children}
+    </button>
+  );
+}
+
 export function Confirmer({ question, children, icone, titre }: { question: string; children?: React.ReactNode; icone?: NomIcone; titre?: string }) {
   const { pending } = useFormStatus();
   return (

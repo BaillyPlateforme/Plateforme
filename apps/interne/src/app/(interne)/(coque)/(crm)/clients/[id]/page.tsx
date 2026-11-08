@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
  * tête, discrètement, avec leurs liens : la fusion n'existe pas encore.
  */
 
-type Params = { modifier?: string; contact?: string; erreur?: string; enregistre?: string };
+type Params = { modifier?: string; contact?: string; erreur?: string; enregistre?: string; espace?: string; ref?: string; m?: string };
 
 /** L'instant du rendu (hors du composant : un rendu reste pur). */
 const instant = () => Date.now();
@@ -74,7 +74,9 @@ export default async function PageClient({ params, searchParams }: { params: Pro
   const email = emailValide(c.email) ? String(c.email).trim() : null;
   const tel = lienTelephone(c.telephone);
   const tel2 = lienTelephone(c.telephone2);
-  const espaceOuvert = f.espaces.length > 0;
+  // Un client, un espace : son espace client (par son adresse e-mail ou par un de ses dossiers), tous ses dossiers dedans.
+  const espaceOuvert = f.espaceClient.length > 0 || f.espaces.length > 0;
+  const dansSonEspace = f.espaceClient.reduce((n, e) => n + e.dossiers.length, 0);
   const nonLus = f.espaces.reduce((n, e) => n + e.nonLus, 0);
   const reste = f.dossiers.reduce((a, d) => a + Math.max(0, d.reste), 0);
   const contact = c.societe && (c.prenom || c.nom) ? [c.civilite, c.prenom, c.nom].filter(Boolean).join(" ") : null;
@@ -83,7 +85,7 @@ export default async function PageClient({ params, searchParams }: { params: Pro
     { id: "identite", label: "Identité et contacts", icone: "clients", nombre: f.contacts.length || undefined },
     { id: "dossiers", label: "Dossiers", icone: "parcours", nombre: f.dossiers.length },
     { id: "argent", label: "Devis et factures", icone: "euro", nombre: f.factures.filter((x) => x.reste > 0).length || undefined, ton: reste > 0.5 ? "alerte" : undefined },
-    { id: "espace", label: "Espace client", icone: "dossierClient", nombre: f.espaces.length || undefined },
+    { id: "espace", label: "Espace client", icone: "dossierClient", nombre: dansSonEspace || undefined },
     { id: "messages", label: "Messages", icone: "boite", nombre: nonLus || undefined, ton: nonLus ? "alerte" : undefined },
     { id: "rdv", label: "Rendez-vous", icone: "calendrier", nombre: f.rdvs.length || undefined },
     { id: "demandes", label: "Demandes du site", icone: "globe", nombre: f.demandes.length || undefined },
@@ -155,7 +157,7 @@ export default async function PageClient({ params, searchParams }: { params: Pro
             />
             <Dossiers f={f} clientId={id} />
             <Argent f={f} />
-            <Espaces f={f} />
+            <Espaces f={f} clientId={id} retour={{ espace: sp.espace, ref: sp.ref, m: sp.m }} />
 
             <Section
               id="messages"
@@ -163,18 +165,18 @@ export default async function PageClient({ params, searchParams }: { params: Pro
               icone="boite"
               sous={
                 espaceOuvert
-                  ? `La discussion de ${f.espaces.length > 1 ? "chaque espace" : "son espace"} client${nonLus ? ` · ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : ""}`
+                  ? `La discussion de ${f.espaces.length > 1 ? "chaque dossier de son espace" : "son espace"} client${nonLus ? ` · ${nonLus} non lu${nonLus > 1 ? "s" : ""}` : ""}`
                   : "La discussion passe par l’espace client"
               }
               actions={
-                espaceOuvert && (
+                f.espaces.length > 0 && (
                   <Link href={`/dashboard/espace-client/messages?dossier=${f.espaces[0].id}`} className={s.boutonClair} prefetch={false}>
                     Boîte de réception
                   </Link>
                 )
               }
             >
-              {espaceOuvert ? (
+              {f.espaces.length > 0 ? (
                 <div className={s.fils}>
                   {f.espaces.map((e) => (
                     <FilClient

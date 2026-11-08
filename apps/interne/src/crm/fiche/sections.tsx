@@ -101,6 +101,8 @@ export type Contexte = {
   litiges: Row[];
   etatsSms: Map<number, EtatAffiche>;
   espaceOuvert: boolean;
+  /** Son client a déjà un espace client, où ce dossier n'est pas encore : « à ajouter à son espace ». */
+  aAjouter?: boolean;
   /** Les espaces pro auxquels le client peut être rattaché (fenêtre « Fiche ») ; vide si la liste ne se lit pas. */
   entreprises?: { id: string; nom: string; actif: boolean }[];
   /**
@@ -155,7 +157,7 @@ export function construireFiche(c: Contexte) {
       // L'état se lit à la couleur (vert : ouvert, ambre : inactif) : le libellé reste court pour tenir sur une ligne.
       libelle: "Espace client",
       picto: "espace",
-      titre: c.espaceOuvert ? "Espace client ouvert" : "Espace client inactif",
+      titre: c.espaceOuvert ? "Espace client ouvert" : c.aAjouter ? "Son espace client existe : ce dossier est à y ajouter" : "Espace client inactif",
       geste: { aller: { section: "commun", onglet: "espace" } },
       accent: c.espaceOuvert ? "ok" : "attente",
     },
@@ -1262,7 +1264,9 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
     lignes: [],
     vide: null,
     gestes: {
-      nouveau: c.espaceOuvert ? off("L'espace client est déjà ouvert.") : off("L'espace s'ouvre depuis le formulaire ci-dessous."),
+      nouveau: c.espaceOuvert
+        ? off("L'espace client est déjà ouvert.")
+        : off(c.aAjouter ? "Le dossier s'ajoute à son espace depuis le formulaire ci-dessous." : "L'espace s'ouvre depuis le formulaire ci-dessous."),
       imprimer: off("Sans objet ici."),
     },
     avant: (

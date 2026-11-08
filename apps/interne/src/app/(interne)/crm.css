@@ -365,6 +365,9 @@ body.printpage{background:#eee;overflow:auto;height:auto}
 .ec-flash{padding:10px 14px;border-radius:12px;margin-bottom:14px;font-weight:500;font-size:13.5px}
 .ec-flash small{display:block;font-weight:400;margin-top:2px;color:inherit;opacity:.85;font-size:12.5px}
 .ec-flash.ok{background:#dcfce7;color:#14532d}.ec-flash.info{background:#fef3c7;color:#78350f}.ec-flash.ko{background:#ffe4e6;color:#9f1239}
+/* Un client, un espace : les autres dossiers de son espace, ou l'espace qu'il a déjà. */
+.ec-multi{display:grid;gap:3px;padding:11px 14px;margin:0 0 14px;border-radius:12px;background:#f4f1ff;border:1px solid #e3dcff;font-size:13px;color:#2e1f9e}
+.ec-multi b{font-size:13.5px}.ec-multi span{color:#4b4668}.ec-multi a{color:#2e1f9e;font-weight:600;text-decoration:underline;text-decoration-color:#c9bdfb;text-underline-offset:2px}
 @media(max-width:1200px){.ec-grid{grid-template-columns:1fr}.ec-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.ec-pre li{grid-template-columns:26px 1fr}.ec-pre li>input,.ec-pre li>select{grid-column:1/-1}}
 

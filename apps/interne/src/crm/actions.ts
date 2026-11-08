@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { formules, type Formule, prestationsPour } from "@/crm/lib/tarif";
-import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
+import { espaceDuDossier, projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { envoyerConfirmationRdv } from "@/crm/rdv/sms";
 import { randomBytes } from "node:crypto";
@@ -91,9 +91,13 @@ export async function creerDossier(f: FormData) {
     if (o) depuis = ` à partir du dossier ${o.ref}`;
   }
   oublierCandidats();
+  // Le fil, puis la projection : un client qui a déjà son espace client y retrouve ce dossier dès sa création,
+  // si tout ce qu'il faut est renseigné (crm/lib/espace.ts, rattacherAEspaceExistant).
   await log(id, `Dossier créé${depuis}`);
   refresh();
-  redirect(`/dossiers/${id}`);
+  // Ce client a déjà un espace : la fiche s'ouvre sur l'onglet Espace client, qui dit si le dossier y est ou ce qui manque.
+  const espace = await espaceDuDossier(id);
+  redirect(espace ? `/dossiers/${id}?espace=${espace.dedans ? "ajoute" : "a-ajouter"}#espace-client` : `/dossiers/${id}`);
 }
 
 export async function majFiche(id: number, f: FormData) {
