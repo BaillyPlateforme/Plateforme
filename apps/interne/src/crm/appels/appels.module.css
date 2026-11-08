@@ -1017,12 +1017,12 @@ button > .pastilleAppels {
   border-color: #0fa86b !important;
   background: #0fa86b !important;
 }
-.geste.fermer {
+.geste.gesteFermer {
   border-color: rgba(245, 158, 11, 0.55) !important;
   background: #fff7e8 !important;
   color: #b45309 !important;
 }
-.geste.fermer:hover {
+.geste.gesteFermer:hover {
   border-color: #f59e0b !important;
   background: #f59e0b !important;
   color: #fff !important;

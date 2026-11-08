@@ -195,7 +195,7 @@ function Carte({
         )}
         <button
           type="button"
-          className={`${s.geste} ${s.fermer}`}
+          className={`${s.geste} ${s.gesteFermer}`}
           disabled={enCours}
           title={a.source === "rappel" ? "Retirer de la liste sans appeler : le rappel passe à « clos »" : "Retirer de la liste sans appeler"}
           onClick={() => agir(() => fermerAppel(a.cle))}
