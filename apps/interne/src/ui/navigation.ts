@@ -108,7 +108,7 @@ export const GROUPES: Groupe[] = [
   {
     // Tout ce qui se fait, au fil du temps : les clients, l'équipe, les envois (demande de David, 08/11/2026).
     titre: "Feed",
-    entrees: [{ href: "/feed", label: "Feed", icone: "horloge" }],
+    entrees: [{ href: "/feed", label: "Feed", icone: "fil" }],
   },
   {
     titre: "Réglages",
