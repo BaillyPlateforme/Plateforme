@@ -59,8 +59,8 @@ export async function creerPartenaire(f: FormData): Promise<Resultat> {
   }
   // Les lettres de voiture déjà saisies à ce nom s'y relient d'elles-mêmes.
   await q("update lettres_voiture set prestataire = prestataire where sous_traitant_id is null and lower(btrim(prestataire)) = lower(btrim($1))", [c.nom]);
-  rafraichir("/sous-traitants");
-  if (f.get("ouvrir") === "1") redirect(`/sous-traitants/${id}`);
+  rafraichir("/partenaires");
+  if (f.get("ouvrir") === "1") redirect(`/partenaires/${id}`);
   return reussi(`${c.nom} ajouté à l'annuaire.`, id);
 }
 
@@ -86,7 +86,7 @@ export async function majPartenaire(id: number, f: FormData): Promise<Resultat> 
     if ((e as Error).message === "introuvable") return refuse("Cette fiche n'existe plus.");
     throw e;
   }
-  rafraichir("/sous-traitants", `/sous-traitants/${id}`);
+  rafraichir("/partenaires", `/partenaires/${id}`);
   return reussi("Fiche enregistrée.");
 }
 
@@ -94,8 +94,8 @@ export async function majPartenaire(id: number, f: FormData): Promise<Resultat> 
 export async function supprimerPartenaire(id: number): Promise<Resultat> {
   await currentUser();
   await q("delete from sous_traitants where id=$1", [id]);
-  rafraichir("/sous-traitants");
-  redirect("/sous-traitants?ok=supprime");
+  rafraichir("/partenaires");
+  redirect("/partenaires?ok=supprime");
 }
 
 /* ---------- contacts ---------- */
@@ -112,7 +112,7 @@ export async function ajouterContact(id: number, f: FormData): Promise<Resultat>
       id, nom, texte(f, "fonction", 80), texte(f, "telephone", 40), email, principal,
     ]);
   });
-  rafraichir(`/sous-traitants/${id}`);
+  rafraichir(`/partenaires/${id}`);
   return reussi(`${nom} ajouté.`);
 }
 
@@ -129,14 +129,14 @@ export async function majContact(id: number, contact: number, f: FormData): Prom
       id, contact, nom, texte(f, "fonction", 80), texte(f, "telephone", 40), email, principal,
     ]);
   });
-  rafraichir(`/sous-traitants/${id}`);
+  rafraichir(`/partenaires/${id}`);
   return reussi("Contact enregistré.");
 }
 
 export async function supprimerContact(id: number, contact: number): Promise<Resultat> {
   await currentUser();
   await q("delete from sous_traitant_contacts where id=$2 and sous_traitant_id=$1", [id, contact]);
-  rafraichir(`/sous-traitants/${id}`);
+  rafraichir(`/partenaires/${id}`);
   return reussi("Contact retiré.");
 }
 

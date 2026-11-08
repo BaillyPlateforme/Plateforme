@@ -57,13 +57,14 @@ export async function annuaire(f: { q?: string; categorie?: string; zone?: strin
   );
 }
 
-/** Les familles et les zones présentes, pour les filtres. */
+/** Les familles et les zones présentes, pour les filtres ; et le nombre de comptes de déménageurs actifs (annuaire unique). */
 export async function filtresAnnuaire() {
-  const [cats, zones] = await Promise.all([
+  const [cats, zones, agents] = await Promise.all([
     q<{ categorie: Categorie; n: number }>("select categorie, count(*)::int as n from sous_traitants where actif group by 1"),
     q<{ zone: string; n: number }>("select z as zone, count(*)::int as n from sous_traitants, unnest(zones) z where actif group by 1 order by 2 desc, 1 limit 12"),
+    q1<{ n: number }>("select count(*)::int as n from agents_terrain where actif"),
   ]);
-  return { categories: new Map(cats.map((c) => [c.categorie, c.n])), zones };
+  return { categories: new Map(cats.map((c) => [c.categorie, c.n])), zones, demenageurs: agents?.n ?? 0 };
 }
 
 export async function partenaire(id: number) {
