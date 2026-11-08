@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { conflit, occupation } from "@/crm/visites/creneaux";
 import { estVisite } from "@/crm/visites/cycle";
@@ -238,13 +239,18 @@ export async function copierLettre(dossierId: number, lettreId: number) {
  */
 export async function supprimerLettre(dossierId: number, lettreId: number) {
   await currentUser();
-  const l = await q1<{ numero: string; montant: number }>("delete from lettres_voiture where id=$1 and dossier_id=$2 returning numero, montant::float8 as montant", [lettreId, dossierId]);
+  const l = await q1<{ numero: string; montant: number; trajet: string; prestataire: string; statut: string }>(
+    "delete from lettres_voiture where id=$1 and dossier_id=$2 returning numero, montant::float8 as montant, trajet, prestataire, statut",
+    [lettreId, dossierId],
+  );
   if (!l) return;
   if (l.montant > 0) {
     await q("update lettres_voiture set montant=$2 where id=(select id from lettres_voiture where dossier_id=$1 order by id limit 1)", [dossierId, l.montant]);
   }
-  await noter(dossierId, `Lettre de voiture ${l.numero} supprimée`);
+  const libelle = `Lettre de voiture ${l.numero} supprimée`;
+  await noter(dossierId, libelle);
   rafraichir(dossierId);
+  await journaliser({ action: "lettre_voiture.supprime", libelle, objet: { type: "lettre_voiture", id: lettreId }, dossierId, details: { numero: l.numero, trajet: l.trajet, prestataire: l.prestataire, statut: l.statut, montant: l.montant }, activite: libelle });
 }
 
 const LV_STATUTS = ["a_planifier", "planifiee", "en_cours", "livree"];
@@ -309,9 +315,11 @@ export async function supprimerContact(dossierId: number, contactId: number) {
   await currentUser();
   const client = await clientDu(dossierId);
   if (!client) return;
-  const c = await q1<{ nom: string }>("delete from contacts where id=$1 and client_id=$2 returning coalesce(prenom || ' ', '') || nom as nom", [contactId, client]);
-  if (c) await noter(dossierId, `Contact supprimé : ${c.nom}`);
+  const c = await q1<{ nom: string; fonction: string | null }>("delete from contacts where id=$1 and client_id=$2 returning coalesce(prenom || ' ', '') || nom as nom, fonction", [contactId, client]);
+  const libelle = c ? `Contact supprimé : ${c.nom}` : null;
+  if (libelle) await noter(dossierId, libelle);
   rafraichir(dossierId);
+  if (c) await journaliser({ action: "contact.supprime", libelle: libelle!, objet: { type: "contact", id: contactId }, dossierId, details: { nom: c.nom, fonction: c.fonction }, activite: libelle });
 }
 
 /* ---------- Services (modèle provisoire, voir fiche/schema.ts) ---------- */
@@ -344,9 +352,11 @@ export async function copierService(dossierId: number, serviceId: number) {
 }
 export async function supprimerService(dossierId: number, serviceId: number) {
   await currentUser();
-  const r = await q1<{ libelle: string }>("delete from services where id=$1 and dossier_id=$2 returning libelle", [serviceId, dossierId]);
-  if (r) await noter(dossierId, `Service supprimé : ${r.libelle}`);
+  const r = await q1<{ libelle: string; statut: string; montant: number | null }>("delete from services where id=$1 and dossier_id=$2 returning libelle, statut, montant::float8 as montant", [serviceId, dossierId]);
+  const libelle = r ? `Service supprimé : ${r.libelle}` : null;
+  if (libelle) await noter(dossierId, libelle);
   rafraichir(dossierId);
+  if (r) await journaliser({ action: "service.supprime", libelle: libelle!, objet: { type: "service", id: serviceId }, dossierId, details: { libelle: r.libelle, statut: r.statut, montant: r.montant }, activite: libelle });
 }
 export async function statutService(dossierId: number, serviceId: number, statut: string) {
   await currentUser();

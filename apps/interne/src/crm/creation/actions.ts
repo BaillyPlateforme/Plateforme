@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { q, q1 } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { segmentValide, typeValide, type Champs } from "./commun";
 
 /*
@@ -73,8 +74,9 @@ export async function enregistrerModele(id: number | null, sourceDossierId: numb
 
 export async function supprimerModele(id: number): Promise<Issue> {
   await currentUser();
-  const r = await q1<{ id: number; nom: string }>("delete from modeles_dossier where id = $1 returning id, nom", [id]);
+  const r = await q1<{ id: number; nom: string; utilisations: number; demo: boolean }>("delete from modeles_dossier where id = $1 returning id, nom, utilisations, demo", [id]);
   if (!r) return { ok: false, erreur: "Ce modèle n'existe plus." };
   rafraichir();
+  await journaliser({ action: "modele_dossier.supprime", libelle: `Modèle de dossier « ${r.nom} » supprimé`, objet: { type: "modele_dossier", id }, details: { nom: r.nom, utilisations: r.utilisations, demo: r.demo } });
   return { ok: true, id: r.id, nom: r.nom };
 }

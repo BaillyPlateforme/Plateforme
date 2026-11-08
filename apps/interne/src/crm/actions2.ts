@@ -9,6 +9,7 @@ import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { enregistrerReponseRdv, envoyerConfirmationRdv, marquerVu } from "@/crm/rdv/sms";
 import { facturerPeriodeGardeMeuble } from "@/crm/facturation/actions";
+import { journaliser } from "@/crm/lib/journal";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -57,7 +58,16 @@ export async function ajouterAuConteneur(id: number, f: FormData) {
   await q("insert into conteneur_dossiers(conteneur_id,dossier_id,volume,ville_livraison) values($1,$2,$3,$4) on conflict do nothing", [id, dossierId, n(f, "volume") ?? 0, s(f, "ville")]);
   await log(dossierId, "Ajouté à un conteneur"); refresh(); revalidatePath(`/conteneurs/${id}`);
 }
-export async function retirerDuConteneur(id: number, ligne: number) { await exiger(); await q("delete from conteneur_dossiers where id=$1 and conteneur_id=$2", [ligne, id]); refresh(); revalidatePath(`/conteneurs/${id}`); }
+export async function retirerDuConteneur(id: number, ligne: number) {
+  await exiger();
+  const r = await q1<{ dossier_id: number; numero: string | null; ref: string | null }>(
+    `delete from conteneur_dossiers cd where cd.id=$1 and cd.conteneur_id=$2
+     returning cd.dossier_id, (select numero from conteneurs where id=cd.conteneur_id) as numero, (select ref from dossiers where id=cd.dossier_id) as ref`,
+    [ligne, id],
+  );
+  refresh(); revalidatePath(`/conteneurs/${id}`);
+  if (r) await journaliser({ action: "conteneur_client.retire", libelle: `Dossier ${r.ref ?? ""} retiré du conteneur ${r.numero ?? ""}`.replace(/\s+/g, " "), objet: { type: "conteneur", id }, dossierId: r.dossier_id, details: { conteneur: r.numero, dossier: r.ref } });
+}
 export async function majConteneur(id: number, f: FormData) {
   await exiger();
   await q("update conteneurs set statut=$2, plomb=$3, depart_prevu=$4, arrivee_prevue=$5 where id=$1", [id, s(f, "statut"), s(f, "plomb"), s(f, "depart_prevu"), s(f, "arrivee_prevue")]);

@@ -4,6 +4,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { currentUser, type User } from "@/crm/lib/auth";
 import { q, transaction, type Db } from "@/crm/lib/db";
+import { journaliser } from "@/crm/lib/journal";
 import { semerDemo } from "./demo";
 import { idValide, lignesEtColonnes } from "./donnees";
 import { lireFichier, TAILLE_MAX, type Feuille } from "./fichiers";
@@ -174,11 +175,28 @@ async function changerCapacites(db: Db, planId: number, avant: { c20: number; c4
 }
 
 export async function supprimerPlan(planId: number): Promise<Resultat> {
+  // Son historique (dispatch_historique) part avec lui : seul le journal des gestes garde la suppression.
+  let parti: { nom: string; sens: string; demo: boolean; lignes: number; colonnes: number } | undefined;
   const r = await sur(async () => {
     if (!idValide(planId)) throw new Refus("Plan introuvable.");
-    await q("delete from dispatch_plans where id = $1", [planId]);
+    parti = (
+      await q<{ nom: string; sens: string; demo: boolean; lignes: number; colonnes: number }>(
+        `delete from dispatch_plans p where p.id = $1
+         returning p.nom, p.sens, p.demo, (select count(*)::int from dispatch_lignes where plan_id = p.id) as lignes,
+                   (select count(*)::int from dispatch_colonnes where plan_id = p.id) as colonnes`,
+        [planId],
+      )
+    )[0];
   });
   if (!r.ok) return r;
+  if (parti) {
+    await journaliser({
+      action: "plan_dispatch.supprime",
+      libelle: `Plan de dispatch « ${parti.nom} » supprimé (${parti.lignes} client${parti.lignes > 1 ? "s" : ""}, ${parti.colonnes} colonne${parti.colonnes > 1 ? "s" : ""})`,
+      objet: { type: "plan_dispatch", id: planId },
+      details: { nom: parti.nom, sens: parti.sens, demo: parti.demo, lignes: parti.lignes, colonnes: parti.colonnes },
+    });
+  }
   rafraichir();
   redirect("/conteneurs/dispatch");
 }
@@ -343,17 +361,24 @@ export async function majLigne(planId: number, ligneId: number, champs: LigneSai
 }
 
 export async function supprimerLigne(planId: number, ligneId: number): Promise<Resultat> {
+  let trace: { libelle: string; client: string; plan: string; dossier: number | null; volume: number } | undefined;
   const r = await sur((u) =>
     transaction(async (db) => {
-      await exigerPlan(db, planId);
-      const a = (await db.query("select l.client, l.colonne_id, c.libelle as col, c.verrouillee_le from dispatch_lignes l left join dispatch_colonnes c on c.id = l.colonne_id where l.id = $1 and l.plan_id = $2", [ligneId, planId]))[0];
+      const p = await exigerPlan(db, planId);
+      const a = (await db.query("select l.client, l.colonne_id, l.dossier_id, l.volume::float8 as volume, c.libelle as col, c.verrouillee_le from dispatch_lignes l left join dispatch_colonnes c on c.id = l.colonne_id where l.id = $1 and l.plan_id = $2", [ligneId, planId]))[0];
       if (!a) throw new Refus("Ce client n'est plus dans le plan.");
       if (a.verrouillee_le) throw new Refus(`« ${a.col} » est verrouillée : déverrouillez-la pour retirer ce client.`);
       await db.query("delete from dispatch_lignes where id = $1 and plan_id = $2", [ligneId, planId]);
-      await journal(db, planId, u, "ligne", `« ${a.client} » retiré du plan${a.col ? ` (il était dans « ${a.col} »)` : ""}`, { colonne: a.colonne_id });
+      const libelle = `« ${a.client} » retiré du plan${a.col ? ` (il était dans « ${a.col} »)` : ""}`;
+      await journal(db, planId, u, "ligne", libelle, { colonne: a.colonne_id });
+      trace = { libelle, client: a.client, plan: p.nom, dossier: a.dossier_id ?? null, volume: a.volume };
     }),
   );
-  if (r.ok) rafraichir(planId);
+  if (r.ok) {
+    rafraichir(planId);
+    // Même phrase que l'historique du plan : le Feed peut n'en montrer qu'une.
+    if (trace) await journaliser({ action: "ligne_dispatch.supprime", libelle: trace.libelle, objet: { type: "ligne_dispatch", id: ligneId }, dossierId: trace.dossier, details: { plan_id: planId, plan: trace.plan, client: trace.client, volume: trace.volume } });
+  }
   return r;
 }
 
@@ -460,18 +485,25 @@ export async function majColonne(planId: number, colonneId: number, champs: Cham
 }
 
 export async function supprimerColonne(planId: number, colonneId: number): Promise<Resultat> {
+  let trace: { libelle: string; colonne: string; plan: string; rendus: number } | undefined;
   const r = await sur((u) =>
     transaction(async (db) => {
-      await exigerPlan(db, planId);
+      const p = await exigerPlan(db, planId);
       const c = await colonneOuverte(db, planId, colonneId);
       // Ses clients reviennent « à répartir », après ceux qui y sont déjà.
       const rendus = await db.query("update dispatch_lignes set colonne_id = null, rang = rang + 100000 where colonne_id = $1 and plan_id = $2 returning id", [colonneId, planId]);
       await db.query("delete from dispatch_colonnes where id = $1 and plan_id = $2", [colonneId, planId]);
       const n = rendus.length;
-      await journal(db, planId, u, "colonne", `Colonne supprimée : « ${c.libelle} »${n ? ` (${n} client${n > 1 ? "s" : ""} revien${n > 1 ? "nent" : "t"} à répartir)` : ""}`);
+      const libelle = `Colonne supprimée : « ${c.libelle} »${n ? ` (${n} client${n > 1 ? "s" : ""} revien${n > 1 ? "nent" : "t"} à répartir)` : ""}`;
+      await journal(db, planId, u, "colonne", libelle);
+      trace = { libelle, colonne: c.libelle, plan: p.nom, rendus: n };
     }),
   );
-  if (r.ok) rafraichir(planId);
+  if (r.ok) {
+    rafraichir(planId);
+    // Même phrase que l'historique du plan : le Feed peut n'en montrer qu'une.
+    if (trace) await journaliser({ action: "colonne_dispatch.supprime", libelle: trace.libelle, objet: { type: "colonne_dispatch", id: colonneId }, details: { plan_id: planId, plan: trace.plan, colonne: trace.colonne, clients_rendus: trace.rendus } });
+  }
   return r;
 }
 

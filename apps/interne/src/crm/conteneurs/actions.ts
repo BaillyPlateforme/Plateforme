@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { q, q1, transaction, type Db } from "@/crm/lib/db";
 import { currentUser, type User } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { heure, ident, jour, journal, nombre, rafraichir, texte } from "@/crm/exploitation/commun";
 import { refuse, reussi, type Resultat } from "@/crm/exploitation/ui/resultat";
 import { estStatut, JALONS, STATUTS, totaux } from "./regles";
@@ -300,10 +301,18 @@ export async function deplacerClient(id: number, ligne: number, sens: -1 | 1): P
 
 export async function retirerClient(id: number, ligne: number): Promise<Resultat> {
   const u = await currentUser();
-  const r = await q1<{ dossier_id: number }>("delete from conteneur_dossiers where id=$2 and conteneur_id=$1 returning dossier_id", [id, ligne]);
+  const r = await q1<{ dossier_id: number; volume: number; numero: string | null }>(
+    "delete from conteneur_dossiers cd where cd.id=$2 and cd.conteneur_id=$1 returning cd.dossier_id, cd.volume::float8 as volume, (select numero from conteneurs where id = cd.conteneur_id) as numero",
+    [id, ligne],
+  );
   if (r) {
-    await histo(null, id, u, `Client retiré : ${await nomDossier(r.dossier_id)}`);
+    const nom = await nomDossier(r.dossier_id);
+    await histo(null, id, u, `Client retiré : ${nom}`);
     await journal(r.dossier_id, u.id, "Retiré d'un conteneur");
+    await journaliser({
+      action: "conteneur_client.retire", libelle: `Client retiré du conteneur ${r.numero ?? ""} : ${nom}`, objet: { type: "conteneur", id }, dossierId: r.dossier_id,
+      details: { conteneur: r.numero, client: nom, volume: r.volume }, activite: "Retiré d'un conteneur",
+    });
   }
   rafraichir("/conteneurs", `/conteneurs/${id}`);
   return reussi("Client retiré.");
@@ -322,8 +331,13 @@ export async function commenter(id: number, f: FormData): Promise<Resultat> {
 
 export async function supprimerCommentaire(id: number, commentaire: number): Promise<Resultat> {
   await currentUser();
-  await q("delete from conteneur_commentaires where id=$2 and conteneur_id=$1", [id, commentaire]);
+  const c = await q1<{ auteur: string; numero: string | null; cree_le: Date }>(
+    "delete from conteneur_commentaires k where k.id=$2 and k.conteneur_id=$1 returning k.auteur, k.cree_le, (select numero from conteneurs where id = k.conteneur_id) as numero",
+    [id, commentaire],
+  );
   rafraichir(`/conteneurs/${id}`);
+  // Le texte du commentaire n'est pas recopié : seulement son auteur et sa date.
+  if (c) await journaliser({ action: "commentaire_conteneur.supprime", libelle: `Commentaire de ${c.auteur} supprimé (conteneur ${c.numero ?? ""})`, objet: { type: "commentaire_conteneur", id: commentaire }, details: { conteneur: c.numero, conteneur_id: id, auteur: c.auteur, ecrit_le: new Date(c.cree_le).toISOString() } });
   return reussi("Commentaire supprimé.");
 }
 
@@ -331,7 +345,12 @@ export async function supprimerCommentaire(id: number, commentaire: number): Pro
 
 export async function supprimerConteneur(id: number): Promise<Resultat> {
   await currentUser();
-  await q("delete from conteneurs where id=$1", [id]);
+  // Son historique (conteneur_historique) part avec lui : seul le journal des gestes garde la suppression.
+  const c = await q1<{ numero: string; sens: string; destination: string; statut: string; clients: number }>(
+    "delete from conteneurs k where k.id=$1 returning k.numero, k.sens, k.destination, k.statut, (select count(*)::int from conteneur_dossiers where conteneur_id = k.id) as clients",
+    [id],
+  );
+  if (c) await journaliser({ action: "conteneur.supprime", libelle: `Conteneur ${c.numero} (${c.destination}) supprimé`, objet: { type: "conteneur", id }, details: { numero: c.numero, sens: c.sens, destination: c.destination, statut: c.statut, clients: c.clients } });
   rafraichir("/conteneurs", "/conteneurs/dispatch");
   redirect("/conteneurs?ok=supprime");
 }

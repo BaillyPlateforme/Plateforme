@@ -8,6 +8,7 @@ import { alerteDe, ALERTES, CONSEILLER } from "@/lib/alertes-equipe/catalogue";
 import { TEL_AGENCE } from "@/lib/messaging";
 import { currentUser } from "@/crm/lib/auth";
 import { q, q1 } from "@/crm/lib/db";
+import { journaliser } from "@/crm/lib/journal";
 
 /*
  * Les gestes de la page « Alertes de l'équipe » : les destinataires (ajouter,
@@ -45,6 +46,7 @@ export async function retirerDestinataire(email: string): Promise<Retour> {
   await q("delete from alertes_abonnements where email=$1", [e]);
   await q("delete from alertes_destinataires where email=$1", [e]);
   rafraichir();
+  await journaliser({ action: "destinataire_alerte.retire", libelle: `Destinataire retiré des alertes de l'équipe : ${e}`, objet: { type: "destinataire_alerte", id: e }, details: { email: e } });
   return { ok: true, message: `${e} retirée de la liste.` };
 }
 

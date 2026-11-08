@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { currentUser } from "@/crm/lib/auth";
 import { q, q1 } from "@/crm/lib/db";
+import { journaliser } from "@/crm/lib/journal";
 import { jourParis } from "@/crm/envois";
 import { modeleDe, raisonDeNePasEnvoyer } from "@/crm/messages/catalogue";
 import { apercuCarte, type Apercu } from "@/crm/messages/actions";
@@ -231,7 +232,9 @@ export async function retirerExclusion(dossierId: number, type: string): Promise
   await q("insert into relances_journal(type, action, avant, resume, par) values($1,'exclusion',$2,$3,$4)", [
     type === "*" ? null : type, JSON.stringify({ dossier_id: dossierId, type }), `${d.ref} : relances rétablies (${quoi})`, u.nom,
   ]);
-  await q("insert into activite(dossier_id, libelle, utilisateur_id) values($1,$2,$3)", [dossierId, `Relances rétablies (${quoi})`, u.id]).catch(() => undefined);
+  const libelle = `Relances rétablies (${quoi})`;
+  await q("insert into activite(dossier_id, libelle, utilisateur_id) values($1,$2,$3)", [dossierId, libelle, u.id]).catch(() => undefined);
   rafraichir();
+  await journaliser({ action: "exclusion_relance.retire", libelle, objet: { type: "exclusion_relance", id: `${dossierId}:${type}` }, dossierId, details: { dossier: d.ref, type }, activite: libelle });
   return { ok: true, message: `${d.ref} : relances rétablies (${quoi}).` };
 }
