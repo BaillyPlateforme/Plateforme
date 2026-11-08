@@ -1,39 +1,12 @@
-import type { Metadata } from "next";
-import Bandeau from "@/ui/Bandeau";
-import { AvecMenu } from "@/ui/MenuVertical";
-import { currentUser } from "@/crm/lib/auth";
-import MenuParcours from "@/crm/parcours/MenuParcours";
-import WorkflowBuilder from "@/crm/parcours/WorkflowBuilder";
-import { listAlerts } from "@/lib/alerts";
-import { listTemplates } from "@/lib/templates";
-import h from "@/crm/parcours/hub.module.css";
-
-export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Workflow des demandes" };
+import { redirect } from "next/navigation";
 
 /*
- * Le workflow d'une demande du site : à chaque étape (formulaire, mail
- * complet ou incomplet, devis créé, envoyé, accepté, refusé), les actions
- * automatiques — un e-mail ou un SMS au client. Il était sous Demandes
- * (/dashboard/workflow) ; depuis la simplification du 08/11/2026, il s'ouvre
- * du Parcours, dont il règle la première étape : c'est la dernière entrée
- * de son menu de gauche.
+ * Le Workflow des demandes (l'ancienne page /dashboard/workflow) est supprimé
+ * (choix de David, 08/11/2026 : « elle n'a plus de sens ») : l'adresse mène
+ * au Parcours. Les règles d'envoi automatique restent dans Réglages, « Modèles
+ * et règles d'alerte » (/dashboard/messagerie), et partent toujours aux mêmes
+ * étapes (fireEvent, src/lib/alerts.ts).
  */
-export default async function Workflow() {
-  await currentUser();
-  const [rules, templates] = await Promise.all([listAlerts(), listTemplates()]);
-  return (
-    <div className="view">
-      <Bandeau
-        surtitre="Parcours · Demandes du site"
-        titre="Workflow"
-        texte="Le parcours d'une demande, étape par étape."
-      />
-      <AvecMenu menu={<MenuParcours page="workflow" />}>
-        <div className={`vue-equipe ${h.equipe}`}>
-          <WorkflowBuilder rules={rules} templates={templates} />
-        </div>
-      </AvecMenu>
-    </div>
-  );
+export default function AncienWorkflow() {
+  redirect("/parcours");
 }

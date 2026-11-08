@@ -177,7 +177,7 @@ export default function Hub({
         }
       />
 
-      <AvecMenu menu={<MenuParcours page={vue} filtres={filtres} choisir={setVue} />}>
+      <AvecMenu menu={<MenuParcours vue={vue} filtres={filtres} choisir={setVue} />}>
         {archives > 0 && filtres.q.trim() === initiaux.q.trim() && (
           <p className={h.archives}>
             <Icone nom="archive" taille={16} />

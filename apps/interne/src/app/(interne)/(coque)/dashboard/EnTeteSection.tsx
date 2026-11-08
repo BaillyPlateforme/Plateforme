@@ -95,7 +95,6 @@ function Confier({ contenu }: { contenu: Contenu }) {
 
 const ICONES: Record<string, NomIcone> = {
   "/dashboard/tableau-de-bord": "bord",
-  "/dashboard/leads": "tendance",
   "/dashboard": "boite",
   "/dashboard/rappels": "horloge",
   "/dashboard/statistiques": "tendance",
@@ -104,7 +103,6 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/devis": "devis",
   "/dashboard/clients": "clients",
   "/dashboard/agenda": "calendrier",
-  "/dashboard/workflow": "grille",
   "/dashboard/simulateur": "euro",
   "/dashboard/campagne": "etoile",
   "/dashboard/playground": "copilote",

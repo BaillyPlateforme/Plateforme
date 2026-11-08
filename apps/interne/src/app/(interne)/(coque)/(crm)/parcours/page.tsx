@@ -45,7 +45,7 @@ export default async function Parcours({ searchParams }: { searchParams: Promise
           texte="Chaque demande du site, du premier contact au chiffre d'affaires."
           action={{ label: "Nouveau dossier", href: "/dossiers/nouveau", icone: "plus" }}
         />
-        <AvecMenu menu={<MenuParcours page="leads" />}>
+        <AvecMenu menu={<MenuParcours vue="leads" />}>
           <div className={`vue-equipe ${h.equipe}`}>
             {leads ? <SuiviLeads leads={leads} /> : <div className="card empty">Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant.</div>}
           </div>
