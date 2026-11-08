@@ -34,10 +34,12 @@ export const TEINTES: Record<Couleur, string> = {
 };
 
 /**
- * Ce qui ouvre un onglet : un dossier du CRM (sa fiche, ses devis, son
- * parcours), un dossier de l'espace client, la fiche d'une demande du site.
+ * Ce qui ouvre un onglet : un dossier du CRM, et lui seul (sa page, ses
+ * devis). Ni les demandes du site, ni les pages de l'espace client, ni les
+ * listes : David veut voir ses dossiers ouverts, pas un mélange (08/11/2026).
+ * Les onglets d'autre sorte gardés par le navigateur sont écartés au chargement.
  */
-export const estDossier = (cle: string | null): cle is string => !!cle && /^(dossier|espace|demande):/.test(cle);
+export const estDossier = (cle: string | null): cle is string => !!cle && /^dossier:\d+$/.test(cle);
 
 /** La clé d'onglet d'une adresse, ou rien pour une adresse qui n'en a pas. */
 export function cleDe(chemin: string): string | null {

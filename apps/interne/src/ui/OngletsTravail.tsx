@@ -94,26 +94,31 @@ export default function OngletsTravail() {
     derniere.current = cleActive;
   }, [chemin, cleActive, pret]);
 
-  // Le titre d'un dossier, d'une demande ou d'un conteneur vient de sa page (le
-  // bandeau : référence et nom) ; une page du menu garde le nom du menu.
+  // Le titre de chaque onglet : la référence et le client, lus dans le CRM (/api/onglets) — jamais devinés
+  // depuis la page à l'écran, où un trajet ou un titre de devis se glissait. Relu quand un dossier s'ajoute.
+  const ids = etat.onglets.map((o) => o.cle.slice("dossier:".length)).sort().join(",");
   useEffect(() => {
-    if (!pret || !estDossier(cleActive)) return;
-    let essais = 0;
-    const id = setInterval(() => {
-      essais++;
-      if (essais > 12) clearInterval(id);
-      const h1 = document.querySelector("main section h1")?.textContent?.trim();
-      const sur = document.querySelector("main section h1")?.previousElementSibling?.textContent?.trim() ?? "";
-      if (!h1) return;
-      const ref = sur.match(/BD-\d{4}-\d{3,}/)?.[0];
-      // Un dossier ne prend son titre que sur sa fiche ou son parcours, dont le titre est le client :
-      // l'éditeur de devis porte aussi la référence, mais son titre est « Devis DV-… ».
-      if (cleActive.startsWith("dossier:") && (!ref || !/^\/(dossiers|parcours)\/\d+\/?$/.test(chemin))) return;
-      const titre = cleActive.startsWith("dossier:") ? `${ref} · ${h1}` : h1;
-      setEtat((e) => ({ ...e, onglets: e.onglets.map((o) => (o.cle === cleActive && o.titre !== titre ? { ...o, titre } : o)) }));
-    }, 160);
-    return () => clearInterval(id);
-  }, [chemin, cleActive, pret]);
+    if (!pret || !ids) return;
+    const ctrl = new AbortController();
+    fetch(`/api/onglets?ids=${ids}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { titres?: Record<string, string> } | null) => {
+        const titres = d?.titres;
+        if (!titres) return;
+        setEtat((e) => {
+          let change = false;
+          const onglets = e.onglets.map((o) => {
+            const t = titres[o.cle.slice("dossier:".length)];
+            if (!t || t === o.titre) return o;
+            change = true;
+            return { ...o, titre: t };
+          });
+          return change ? { ...e, onglets } : e;
+        });
+      })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [ids, pret]);
 
   const aller = useCallback((href: string) => router.push(href), [router]);
 
