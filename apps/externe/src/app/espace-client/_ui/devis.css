@@ -1,0 +1,250 @@
+/* ==========================================================================
+   « Mes devis » : la confirmation avant de signer (un bon pour accord), les
+   réponses du client (refuser, demander une modification ou un nouveau
+   devis) et la comparaison des formules ouvertes, côte à côte.
+   Sous .ec, comme toute la feuille de l'espace client, dont elle reprend les
+   couleurs, les polices et les rayons (espace-client.css).
+   ========================================================================== */
+
+/* ---------- La carte d'un devis : ses gestes, sur une seule rangée ---------- */
+.ec .dv-carte { scroll-margin-top: calc(96px + var(--apercu-h)); }
+/* Terne (refusé, expiré) : le contenu s'efface, pas les gestes encore possibles. */
+.ec .dv-carte.muted { opacity: 1; }
+.ec .dv-carte.muted > :not(.dv-actions) { opacity: .62; }
+.ec .dv-carte:target { box-shadow: 0 0 0 2px var(--accent), var(--shadow); }
+
+.ec .dv-actions { grid-column: 1 / -1; display: grid; gap: 14px; padding-top: 18px; border-top: 1px solid var(--line); }
+.ec .dv-carte .quote-lines + .dv-actions { border-top: 0; padding-top: 6px; }
+.ec .dv-rangee { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
+.ec .dv-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; }
+.ec .dv-principal { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-left: auto; }
+
+.ec .dv-geste {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 0; border: 0; background: none;
+  font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; cursor: pointer;
+  box-shadow: inset 0 -1.5px 0 transparent; transition: box-shadow .2s, color .2s;
+}
+.ec .dv-geste svg { width: 16px; height: 16px; flex: none; color: var(--accent-deep); }
+.ec .dv-geste:hover { box-shadow: inset 0 -1.5px 0 currentColor; }
+.ec .dv-geste-non { color: var(--muted); }
+.ec .dv-geste-non svg { color: currentColor; }
+.ec .dv-geste-non:hover { color: var(--danger); }
+
+/* Ce que le client a déjà répondu sur ce devis. */
+.ec .dv-etat { display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 13px 16px; border-radius: 14px; background: var(--accent-tint); font-size: 15px; line-height: 1.5; }
+.ec .dv-etat > svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--accent-deep); }
+.ec .dv-etat-refus, .ec .dv-etat-doux { background: var(--paper); }
+.ec .dv-etat-refus > svg, .ec .dv-etat-doux > svg { color: var(--muted); }
+.ec .dv-lien { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--accent-deep); text-decoration: none; white-space: nowrap; }
+.ec .dv-lien svg { width: 14px; height: 14px; transition: transform .3s var(--ease); }
+.ec .dv-lien:hover svg { transform: translateX(3px); }
+
+/* ---------- La fenêtre (dialog natif) ---------- */
+.ec .dv-dlg {
+  padding: 0; border: 0; margin: auto; width: min(560px, calc(100vw - 32px)); max-width: none;
+  max-height: min(92dvh, 940px); border-radius: 26px; background: var(--card); color: var(--ink);
+  box-shadow: 0 40px 120px -30px rgba(8, 12, 18, .6); overflow: hidden;
+  /* Ouverte depuis une cellule de la comparaison : rien n'en hérite (alignement, graisse, taille). */
+  text-align: left; font-weight: 400; font-size: 17px; line-height: 1.55;
+}
+.ec .dv-dlg[open] { display: flex; animation: dv-entree .5s var(--ease); }
+.ec .dv-dlg::backdrop { background: rgba(10, 11, 12, .64); animation: dv-voile .3s ease-out; }
+@keyframes dv-entree { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+@keyframes dv-voile { from { opacity: 0; } }
+.ec .dv-dlg-in { position: relative; width: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.ec .dv-dlg-x {
+  position: absolute; top: 16px; right: 16px; z-index: 3; width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center; border: 1px solid var(--line); background: #fff; color: var(--ink); transition: transform .3s var(--ease);
+}
+.ec .dv-dlg-x:hover { transform: rotate(90deg); }
+.ec .dv-dlg-x svg { width: 18px; height: 18px; }
+.ec .dv-dlg-signer .dv-dlg-x { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .24); color: #fff; }
+
+/* ---------- La confirmation : un bon pour accord ---------- */
+.ec .dv-billet { position: relative; padding: 32px 32px 40px; background: var(--ink); color: #fff; overflow: hidden; isolation: isolate; }
+.ec .dv-billet::after {
+  content: ""; position: absolute; z-index: -1; right: -110px; top: -120px; width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 208, 51, .34), transparent 68%);
+}
+/* Le bord perforé du billet. */
+.ec .dv-billet::before {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 9px;
+  background: radial-gradient(circle at 9px 9px, var(--card) 5.5px, transparent 6px) 0 0 / 18px 9px repeat-x;
+}
+.ec .dv-billet-k { margin: 0 0 14px; font-family: var(--display); font-size: 13.5px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--accent); }
+.ec .dv-billet h2 { margin: 0; padding-right: 48px; font-family: var(--display); font-size: clamp(46px, 9vw, 64px); font-weight: 600; line-height: .88; letter-spacing: -.01em; }
+.ec .dv-billet h2 span { display: block; margin-bottom: 6px; font-size: .36em; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .62); }
+.ec .dv-billet-ref { margin-top: 12px; font-size: 13.5px; letter-spacing: .03em; color: rgba(255, 255, 255, .66); }
+.ec .dv-billet-sommes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin: 26px 0 0; border-top: 1px solid rgba(255, 255, 255, .16); }
+.ec .dv-billet-sommes div { padding-top: 16px; }
+.ec .dv-billet-sommes div + div { padding-left: 22px; margin-left: 22px; border-left: 1px solid rgba(255, 255, 255, .16); }
+.ec .dv-billet-sommes dt { font-size: 11.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: rgba(255, 255, 255, .62); }
+.ec .dv-billet-sommes dd { margin: 8px 0 0; font-size: clamp(36px, 7vw, 46px); font-weight: 700; line-height: .9; letter-spacing: -.02em; }
+.ec .dv-billet-sommes .fort dd { color: var(--accent); }
+
+.ec .dv-corps { display: grid; gap: 18px; padding: 26px 32px 30px; }
+.ec .dv-recap { margin: 0; border: 1px solid var(--line); border-radius: 16px; }
+.ec .dv-recap div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; padding: 14px 18px; }
+.ec .dv-recap div + div { border-top: 1px solid var(--line); }
+.ec .dv-recap dt { padding-top: 3px; font-size: 11.5px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.ec .dv-recap dd { margin: 0; min-width: 0; }
+.ec .dv-recap b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 16.5px; font-weight: 600; }
+.ec .dv-recap b svg { width: 16px; height: 16px; color: var(--accent-deep); }
+.ec .dv-recap small { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
+
+.ec .dv-sous-titre { margin: 6px 0 -4px; font-family: var(--display); font-size: 13.5px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-deep); }
+.ec .dv-ensuite { list-style: none; margin: 0; padding: 0; counter-reset: dv; display: grid; gap: 12px; }
+.ec .dv-ensuite li { position: relative; padding-left: 42px; counter-increment: dv; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+.ec .dv-ensuite li::before {
+  content: counter(dv); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--paper); color: var(--ink); font-family: var(--display); font-size: 15px; font-weight: 700;
+}
+.ec .dv-ensuite b { display: block; color: var(--ink); font-size: 15.5px; }
+
+.ec .dv-cgv { border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.ec .dv-cgv summary { display: flex; align-items: center; gap: 12px; padding: 14px 16px; list-style: none; cursor: pointer; font-weight: 600; font-size: 15px; }
+.ec .dv-cgv summary::-webkit-details-marker { display: none; }
+.ec .dv-cgv summary > svg { width: 18px; height: 18px; flex: none; color: var(--accent-deep); }
+.ec .dv-cgv summary span { flex: 1; }
+.ec .dv-cgv summary em { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--paper); color: var(--muted); font-size: 12px; font-style: normal; font-weight: 600; letter-spacing: .04em; }
+.ec .dv-cgv summary::after { content: ""; width: 9px; height: 9px; margin-right: 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg) translateY(-3px); transition: transform .3s var(--ease); }
+.ec .dv-cgv[open] summary::after { transform: rotate(225deg) translate(-2px, -1px); }
+.ec .dv-cgv .legal-box { margin: 0 14px; max-height: 260px; }
+.ec .dv-cgv-lien { margin: 12px 16px 16px; font-size: 14px; }
+
+.ec .dv-case { border: 1.5px solid transparent; transition: background .2s, border-color .2s; }
+.ec .dv-case:has(input:checked) { background: #fff; border-color: var(--ink); }
+.ec .dv-case span { font-weight: 600; }
+.ec .dv-case small { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; color: var(--muted); }
+.ec .dv-corps .form-error-summary { margin-bottom: 0; }
+.ec .dv-corps .form-error-summary:not(.show) { display: none; }
+.ec .dv-valider { min-height: 58px; font-size: 17px; }
+.ec .dv-spinner { width: 18px; height: 18px; border-color: rgba(27, 26, 24, .22); border-top-color: var(--ink); }
+.ec .dv-mention { margin: -8px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+
+/* ---------- Les réponses : refuser, modifier, renouveler ---------- */
+.ec .dv-reponse { display: grid; gap: 16px; padding: 32px 32px 28px; }
+.ec .dv-reponse-k { margin: 0; padding-right: 52px; font-family: var(--display); font-size: clamp(34px, 6vw, 42px); font-weight: 600; line-height: .95; }
+.ec .dv-reponse-devis { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 14px 18px; border-radius: 14px; background: var(--paper); }
+.ec .dv-reponse-devis b { font-family: var(--display); font-size: 22px; font-weight: 600; }
+.ec .dv-reponse-devis span { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ec .dv-reponse-intro { color: var(--muted); font-size: 15.5px; }
+.ec .dv-reponse .form-error-summary { margin-bottom: 0; }
+.ec .dv-reponse .form-error-summary:not(.show) { display: none; }
+.ec .dv-reponse .textarea { min-height: 96px; }
+.ec .dv-reponse-pied { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+.ec .dv-fini { display: grid; justify-items: center; gap: 10px; padding: 52px 32px 34px; text-align: center; }
+.ec .dv-fini-rond { width: 76px; height: 76px; margin-bottom: 8px; border-radius: 50%; display: grid; place-items: center; background: var(--ok); color: #fff; animation: ec-popIn .6s var(--ease); }
+.ec .dv-fini-rond svg { width: 36px; height: 36px; stroke-width: 2.2; stroke-dasharray: 30; stroke-dashoffset: 30; animation: ec-draw .5s .25s forwards; }
+.ec .dv-fini h3 { margin: 0; font-family: var(--display); font-size: 40px; font-weight: 600; line-height: 1; }
+.ec .dv-fini p { max-width: 40ch; color: var(--muted); }
+.ec .dv-fini-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 14px; }
+
+/* ---------- Comparer les formules ---------- */
+.ec .cmp { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.ec .cmp table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+.ec .cmp th, .ec .cmp td { padding: 14px 16px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
+.ec .cmp [data-c] { transition: background-color .25s; }
+.ec .cmp-coin { width: 30%; text-align: left !important; vertical-align: bottom !important; }
+.ec .cmp-coin span { display: block; padding-bottom: 4px; font-family: var(--display); font-size: 14px; font-weight: 600; line-height: 1.3; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+
+.ec .cmp thead th { position: relative; padding: 30px 16px 22px; vertical-align: bottom; border-bottom-color: var(--line-strong); }
+.ec .cmp thead th::before { content: ""; position: absolute; top: 0; left: 16px; right: 16px; height: 4px; border-radius: 0 0 4px 4px; background: transparent; transition: background .25s; }
+/* Un filet entre les formules. */
+.ec .cmp [data-c] { border-left: 1px solid var(--line); }
+.ec .cmp-nom { display: block; font-family: var(--display); font-size: 25px; font-weight: 600; line-height: 1; letter-spacing: .05em; text-transform: uppercase; }
+.ec .cmp-prix { display: block; margin-top: 12px; font-size: clamp(34px, 3.4vw, 46px); font-weight: 700; line-height: .9; letter-spacing: -.02em; }
+.ec .cmp-ttc { display: block; margin-top: 8px; font-size: 12.5px; letter-spacing: .04em; color: var(--muted); }
+
+.ec .cmp tbody th[scope="row"] { text-align: left; font-size: 15px; font-weight: 500; line-height: 1.35; }
+.ec .cmp-chiffre td b { display: block; font-family: var(--display); font-size: 24px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.ec .cmp-chiffre td small { display: block; margin-top: 5px; font-size: 12.5px; color: var(--muted); }
+.ec .cmp-chiffre td small.cmp-bientot { color: var(--warn); font-weight: 600; }
+.ec .cmp tbody .cmp-section th { padding: 26px 16px 10px; text-align: left; font-family: var(--display); font-size: 13.5px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--accent-deep); border-bottom-color: var(--line-strong); }
+
+.ec .cmp-oui { display: inline-grid; justify-items: center; gap: 5px; }
+.ec .cmp-oui i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: #fff; }
+.ec .cmp-oui i svg { width: 15px; height: 15px; stroke-width: 2.4; }
+.ec .cmp-oui small { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+.ec .cmp-non { font-size: 20px; font-weight: 300; line-height: 1; color: var(--soft); }
+
+.ec .cmp tfoot td { padding: 22px 14px 24px; border-bottom: 0; }
+.ec .cmp-choisir { width: 100%; max-width: 220px; }
+.ec .cmp-detail { display: flex; width: max-content; align-items: center; gap: 6px; margin: 12px auto 0; font-size: 13.5px; font-weight: 600; color: var(--accent-deep); text-decoration: none; }
+.ec .cmp-detail svg { width: 13px; height: 13px; transform: rotate(90deg); }
+.ec .cmp-note { padding: 0 18px 18px; }
+
+/* La colonne survolée s'éclaire, sa formule prend le jaune. Jusqu'à six formules. */
+@media (hover: hover) {
+  .ec .cmp:has([data-c="0"]:hover) [data-c="0"], .ec .cmp:has([data-c="1"]:hover) [data-c="1"], .ec .cmp:has([data-c="2"]:hover) [data-c="2"],
+  .ec .cmp:has([data-c="3"]:hover) [data-c="3"], .ec .cmp:has([data-c="4"]:hover) [data-c="4"], .ec .cmp:has([data-c="5"]:hover) [data-c="5"] { background-color: #fcf9ef; }
+  .ec .cmp:has([data-c="0"]:hover) thead [data-c="0"]::before, .ec .cmp:has([data-c="1"]:hover) thead [data-c="1"]::before, .ec .cmp:has([data-c="2"]:hover) thead [data-c="2"]::before,
+  .ec .cmp:has([data-c="3"]:hover) thead [data-c="3"]::before, .ec .cmp:has([data-c="4"]:hover) thead [data-c="4"]::before, .ec .cmp:has([data-c="5"]:hover) thead [data-c="5"]::before { background: var(--accent); }
+}
+
+/* Plus de quatre formules : la table défile de côté plutôt que de s'écraser. */
+.ec .cmp-large .cmp-defile { overflow-x: auto; scroll-snap-type: x proximity; border-radius: inherit; }
+.ec .cmp-large table { min-width: calc(220px + var(--n) * 170px); }
+.ec .cmp-large thead th { scroll-snap-align: start; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 760px) {
+  /* Les formules restent côte à côte : le libellé de chaque rangée passe au-dessus de ses valeurs. */
+  .ec .cmp:not(.cmp-large) table, .ec .cmp:not(.cmp-large) thead, .ec .cmp:not(.cmp-large) tbody, .ec .cmp:not(.cmp-large) tfoot { display: block; }
+  .ec .cmp:not(.cmp-large) tr { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); }
+  .ec .cmp:not(.cmp-large) .cmp-coin { display: none; }
+  .ec .cmp:not(.cmp-large) tbody th[scope="row"], .ec .cmp:not(.cmp-large) tbody .cmp-section th { grid-column: 1 / -1; }
+  .ec .cmp:not(.cmp-large) tbody th[scope="row"] { padding: 14px 14px 0; border-bottom: 0; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+  .ec .cmp:not(.cmp-large) tbody td { padding: 8px 6px 12px; }
+  .ec .cmp:not(.cmp-large) [data-c="0"] { border-left: 0; }
+  .ec .cmp-oui i { width: 24px; height: 24px; }
+  .ec .cmp:not(.cmp-large) tbody .cmp-section th { padding: 22px 14px 10px; }
+  /* L'en-tête des formules reste en vue pendant la lecture, sous la barre des rubriques. */
+  .ec .cmp:not(.cmp-large) thead { position: sticky; top: calc(68px + var(--apercu-h)); z-index: 4; background: var(--card); border-radius: var(--radius) var(--radius) 0 0; box-shadow: 0 10px 18px -16px rgba(17, 24, 32, .5); }
+  .ec .cmp thead th { padding: 22px 6px 14px; }
+  .ec .cmp thead th::before { left: 8px; right: 8px; }
+  .ec .cmp-nom { font-size: 17px; letter-spacing: .06em; }
+  .ec .cmp-prix { margin-top: 8px; font-size: clamp(24px, 7.4vw, 30px); }
+  .ec .cmp-ttc { font-size: 11.5px; }
+  .ec .cmp-ttc .cmp-numero { display: none; }
+  .ec .cmp-chiffre td b { font-size: 20px; }
+  .ec .cmp-oui small { font-size: 11.5px; }
+  .ec .cmp tfoot td { padding: 16px 6px 20px; }
+  .ec .cmp-choisir { min-height: 44px; padding: 0 10px; font-size: 14px; }
+  .ec .cmp-detail { font-size: 12.5px; }
+}
+
+@media (max-width: 640px) {
+  /* Les gestes d'une carte : le principal en tête, sur toute la largeur ; les autres en deux colonnes. */
+  .ec .dv-rangee { flex-direction: column-reverse; align-items: stretch; }
+  .ec .dv-principal { margin-left: 0; }
+  .ec .dv-principal > *, .ec .dv-principal .btn { width: 100%; }
+  .ec .dv-principal .btn { white-space: normal; text-align: center; line-height: 1.2; padding-block: 10px; }
+  .ec .dv-sec { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .ec .dv-sec .dv-geste { justify-content: center; min-height: 48px; padding: 8px 14px; border: 1.5px solid var(--line-strong); border-radius: 999px; font-size: 15px; box-shadow: none; }
+  .ec .dv-sec .dv-geste:first-child { order: 3; min-height: 44px; border-color: transparent; }
+  .ec .dv-sec .dv-geste:only-child { justify-content: flex-start; padding-inline: 0; }
+
+  /* La fenêtre monte du bas, comme une feuille. */
+  .ec .dv-dlg { width: 100%; margin: auto 0 0; max-height: 94dvh; border-radius: 24px 24px 0 0; }
+  .ec .dv-dlg[open] { animation: dv-feuille .45s var(--ease); }
+  .ec .dv-dlg::after { content: ""; position: absolute; top: 8px; left: 50%; z-index: 4; width: 42px; height: 4px; margin-left: -21px; border-radius: 4px; background: var(--line-strong); }
+  .ec .dv-dlg-signer::after { background: rgba(255, 255, 255, .3); }
+  .ec .dv-dlg-in { padding-bottom: env(safe-area-inset-bottom); }
+  .ec .dv-billet { padding: 30px 20px 34px; }
+  .ec .dv-corps { padding: 22px 18px 24px; gap: 16px; }
+  .ec .dv-recap div { grid-template-columns: 1fr; gap: 4px; padding: 12px 14px; }
+  .ec .dv-billet-sommes div + div { padding-left: 16px; margin-left: 16px; }
+  .ec .dv-reponse { padding: 30px 18px 22px; }
+  .ec .dv-reponse-pied { flex-direction: column-reverse; }
+  .ec .dv-reponse-pied .btn { width: 100%; }
+  .ec .dv-fini { padding: 46px 20px 28px; }
+  .ec .dv-fini-actions { flex-direction: column; width: 100%; }
+  .ec .dv-fini-actions .btn { width: 100%; }
+}
+@keyframes dv-feuille { from { transform: translateY(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ec .dv-dlg[open], .ec .dv-dlg::backdrop { animation: none; }
+}

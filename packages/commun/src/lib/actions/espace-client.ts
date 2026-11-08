@@ -18,13 +18,13 @@ import { paiementSimule, traiterEvenement } from "@/lib/espace-client/paiement";
 import { prestataire } from "@/lib/espace-client/stripe";
 import { stripeConfigure } from "@/lib/espace-client/stripe-config";
 import { arrhesPayees, livraisonEffectuee, montantArrhes, requirementsApplicables } from "@/lib/espace-client/progression";
-import { noterDansLeCrm, signerDevisCrm } from "@/lib/espace-client/crm";
+import { noterDansLeCrm, signerDevisCrm, type IssueSignature } from "@/lib/espace-client/crm";
 import { segmentDe } from "@/lib/espace-client/segments";
 import { occupationSamedis } from "@/lib/espace-client/samedi";
 import {
   acceptationsSchema, avarieSchema, conditionsLivraisonSchema, connexionSchema, declarationValeursSchema, erreursDe,
-  ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons,
-  TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
+  ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons, lireSignatureDevis,
+  signatureDevisSchema, TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
 } from "@/lib/espace-client/schemas";
 import { marqueEquipe, tracerEdition } from "@/lib/espace-client/edition";
 import { editionEquipe, exigerClientPourAgir, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo, refuserEnApercu } from "@/lib/espace-client/session";
@@ -85,6 +85,32 @@ async function traces() {
 
 function acceptation(dossierId: string, type: Exclude<TypeAcceptation, "devis">, t: { ip: string; user_agent: string }): Acceptation {
   return { id: nouvelId(), dossier_id: dossierId, type, version_texte: VERSIONS[type], accepted_at: maintenant(), objet: null, ...t };
+}
+
+/**
+ * Les textes acceptés (CGV, RGPD) : une ligne par texte que le dossier n'a pas
+ * encore accepté dans sa version en vigueur. Le chemin de « Mes documents »,
+ * repris par la signature d'un devis, qui fait cocher les CGV.
+ */
+async function accepterTextes(dossierId: string, d: { acceptations: Acceptation[] }, types: ("cgv" | "rgpd")[], t: { ip: string; user_agent: string }) {
+  const nouvelles = types
+    .filter((type) => !d.acceptations.some((a) => a.dossier_id === dossierId && a.type === type && a.version_texte === VERSIONS[type]))
+    .map((type) => acceptation(dossierId, type, t));
+  await depot().inserer("acceptations", nouvelles);
+}
+
+/**
+ * L'acceptation d'un devis : le numéro du devis (objet) et la version des CGV
+ * acceptées avec lui (version_texte), cochées dans la confirmation.
+ */
+function acceptationDevis(dossierId: string, numero: string, t: { ip: string; user_agent: string }, quand = maintenant()): Acceptation {
+  return { id: nouvelId(), dossier_id: dossierId, type: "devis", version_texte: VERSIONS.cgv, objet: numero, accepted_at: quand, ...t };
+}
+
+/** La case des CGV de la confirmation, revérifiée ici : sans elle, ni signature ni paiement des arrhes. */
+function caseCgv(fd: FormData): EtatFormulaire | null {
+  const r = signatureDevisSchema.safeParse(lireSignatureDevis(fd));
+  return r.success ? null : { erreurs: erreursDe(r.error) };
 }
 
 const rafraichir = (reference: string) => revalidatePath(`/espace-client/${reference}`, "layout");
@@ -317,11 +343,7 @@ export async function accepterConditionsGenerales(reference: string, _: EtatForm
   const { dossier, d } = await contexte(reference);
   const r = acceptationsSchema.safeParse(lireAcceptations(fd));
   if (!r.success) return { erreurs: erreursDe(r.error) };
-  const t = await traces();
-  const nouvelles = (["cgv", "rgpd"] as const)
-    .filter((type) => !d.acceptations.some((a) => a.dossier_id === dossier.id && a.type === type && a.version_texte === VERSIONS[type]))
-    .map((type) => acceptation(dossier.id, type, t));
-  await depot().inserer("acceptations", nouvelles);
+  await accepterTextes(dossier.id, d, ["cgv", "rgpd"], await traces());
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=cgv#cgv`);
 }
@@ -426,57 +448,94 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
 
 // --- Paiements ---------------------------------------------------------------------------------
 
-export async function payerArrhes(reference: string, devisId: string) {
+/**
+ * Les arrhes d'un devis, réglées en ligne. Sur un devis en attente, payer,
+ * c'est aussi signer : la confirmation de la page « Mes devis » fait cocher
+ * les CGV, et sans la case, rien ne part — ni paiement, ni signature. Les CGV
+ * que le dossier n'avait pas encore acceptées le sont à cet instant (le
+ * chemin de « Mes documents ») ; leur version voyage avec le paiement et
+ * s'inscrit dans l'acceptation du devis, une fois le paiement confirmé
+ * (paiement.ts). Sur un devis déjà signé, ce n'est qu'un paiement.
+ */
+export async function payerArrhes(reference: string, devisId: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   // L'équipe enregistre un règlement dans le CRM ; elle ne paie jamais au nom du client.
   await refuserEnApercu();
   const { client, dossier, d } = await contexte(reference);
   // Grands comptes et militaires ne règlent rien en ligne (cahier des charges, §3.3).
-  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Paiement des arrhes indisponible pour ce compte.");
+  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) return { message: "Paiement des arrhes indisponible pour ce compte." };
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
-  const payable = !!devis && devis.arrhes_pourcentage > 0 && (devis.statut === "envoye" || (devis.statut === "accepte" && !arrhesPayees(devis, d.factures)));
+  const signature = devis?.statut === "envoye";
+  const payable =
+    !!devis && devis.arrhes_pourcentage > 0 && ((signature && devis.valide_jusqu_au >= aujourdhui()) || (devis.statut === "accepte" && !arrhesPayees(devis, d.factures)));
   if (!devis || !payable) redirect(`/espace-client/${reference}/devis`);
+  const t = await traces();
+  if (signature) {
+    const refus = caseCgv(fd);
+    if (refus) return refus;
+    await accepterTextes(dossier.id, d, ["cgv"], t);
+  }
   // Le montant vient de la base (le devis lu par la session du client), jamais du navigateur.
-  const { url } = await prestataire().creerPaiement({
-    cible: "devis_arrhes", cible_id: devis.id, dossier_id: dossier.id, montant: montantArrhes(devis),
-    libelle: `Arrhes ${devis.arrhes_pourcentage} % · devis ${devis.numero}`, trace: await traces(),
-    reference: dossier.reference, email: client.email,
-  });
+  let url: string;
+  try {
+    ({ url } = await prestataire().creerPaiement({
+      cible: "devis_arrhes", cible_id: devis.id, dossier_id: dossier.id, montant: montantArrhes(devis),
+      libelle: `Arrhes ${devis.arrhes_pourcentage} % · devis ${devis.numero}`, trace: signature ? { ...t, cgv: VERSIONS.cgv } : t,
+      reference: dossier.reference, email: client.email,
+    }));
+  } catch (e) {
+    return { message: e instanceof Error ? e.message : "Le paiement en ligne ne répond pas : réessayez dans un instant." };
+  }
   redirect(url);
 }
 
+/** Ce que dit la signature du CRM quand elle n'a pas eu lieu. */
+const SIGNATURE_IMPOSSIBLE: Record<Exclude<IssueSignature, "signe" | "deja_signe">, string> = {
+  autre_signe: "Un autre devis de votre dossier est déjà signé : votre conseiller peut vous en dire plus.",
+  ferme: "Ce devis n'est plus ouvert à la signature : rechargez la page.",
+  inconnu: "Ce devis est introuvable : rechargez la page, ou écrivez à votre conseiller.",
+};
+
 /**
- * Un devis sans arrhes s'accepte d'un clic : l'acceptation est horodatée
- * comme les autres. Un devis du CRM est signé dans le CRM, par la même règle
- * que la page /signature (un seul devis signé par dossier), puis revient ici
- * par la projection.
+ * Un devis sans arrhes se signe depuis la confirmation de la page « Mes
+ * devis » : la case des CGV est exigée ici, comme dans le navigateur.
+ * L'acceptation est horodatée avec la version des CGV acceptées, et les CGV
+ * que le dossier n'avait pas encore acceptées le sont en même temps. Un devis
+ * du CRM est signé dans le CRM, par la même règle que la page /signature (un
+ * seul devis signé par dossier), puis revient ici par la projection.
  */
-export async function accepterDevis(reference: string, devisId: string) {
+export async function accepterDevis(reference: string, devisId: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
   // Une signature est l'engagement du client : refusée pendant tout aperçu (l'équipe signe dans le CRM).
   await refuserEnApercu();
   const { client, dossier, d } = await contexte(reference);
-  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
+  if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) return { message: "Acceptation indisponible pour ce compte." };
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
-  if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0 && typeof devis.crm_devis_id === "number") {
-    const issue = await signerDevisCrm(devis.crm_devis_id, await traces());
+  if (!devis || devis.statut !== "envoye" || devis.arrhes_pourcentage !== 0 || devis.valide_jusqu_au < aujourdhui()) redirect(`/espace-client/${reference}/devis`);
+  const refus = caseCgv(fd);
+  if (refus) return refus;
+  const t = await traces();
+  if (typeof devis.crm_devis_id === "number") {
+    // Sans trace : l'acceptation (avec la version des CGV) s'inscrit ici, pas dans la fonction du CRM.
+    const issue = await signerDevisCrm(devis.crm_devis_id);
+    if (issue !== "signe" && issue !== "deja_signe") return { message: SIGNATURE_IMPOSSIBLE[issue] };
     if (issue === "signe") {
+      await depot().inserer("acceptations", acceptationDevis(dossier.id, devis.numero, t));
+      await accepterTextes(dossier.id, d, ["cgv"], t);
       await alerterEquipe("devis_signe", {
         evenement: `crm-devis-${devis.crm_devis_id}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseillerDe(d, client.conseiller_id).email],
         vars: { client: nomClient(client), reference: dossier.reference, numero: devis.numero, origine: "accepté depuis l'espace client" },
         lien: typeof dossier.crm_dossier_id === "number" ? { chemin: `/dossiers/${dossier.crm_dossier_id}`, libelle: "Ouvrir le dossier" } : null,
       });
     }
-  } else if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0) {
-    const t = await traces();
+  } else if (await depot().modifier("devis", devis.id, { statut: "accepte", accepte_le: aujourdhui() }, { statut: "envoye" })) {
     // Accepté une seule fois, même sur deux clics simultanés.
-    if (await depot().modifier("devis", devis.id, { statut: "accepte", accepte_le: aujourdhui() }, { statut: "envoye" })) {
-      for (const autre of d.devis) {
-        if (autre.dossier_id === dossier.id && autre.id !== devis.id && autre.statut === "envoye") await depot().modifier("devis", autre.id, { statut: "refuse" }, { statut: "envoye" });
-      }
-      await depot().inserer("acceptations", { id: nouvelId(), dossier_id: dossier.id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: maintenant(), ...t });
+    for (const autre of d.devis) {
+      if (autre.dossier_id === dossier.id && autre.id !== devis.id && autre.statut === "envoye") await depot().modifier("devis", autre.id, { statut: "refuse" }, { statut: "envoye" });
     }
+    await depot().inserer("acceptations", acceptationDevis(dossier.id, devis.numero, t));
+    await accepterTextes(dossier.id, d, ["cgv"], t);
   }
   rafraichir(reference);
-  redirect(`/espace-client/${reference}/devis`);
+  redirect(`/espace-client/${reference}/devis?ok=devis-signe`);
 }
 
 export async function payerFacture(reference: string, factureId: string) {

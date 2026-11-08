@@ -198,6 +198,32 @@ export function lireAcceptations(fd: FormData) {
 }
 
 // ---------------------------------------------------------------------------
+// Signer un devis — la case des CGV, cochée à chaque signature (sans elle, la
+// signature et le paiement des arrhes sont refusés, ici et dans l'action).
+
+export const signatureDevisSchema = z.object({
+  cgv: z.literal("on", { error: "Cochez la case : sans l'acceptation des conditions générales de vente, le devis ne peut pas être signé." }),
+});
+
+export function lireSignatureDevis(fd: FormData) {
+  return { cgv: lu(fd, "cgv") };
+}
+
+// ---------------------------------------------------------------------------
+// Répondre à un devis — ne pas le retenir (motif facultatif), demander une
+// modification (ce qu'il faut changer), ou un nouveau devis quand il a expiré.
+
+export const reponseDevisSchemas = {
+  refus: z.object({ texte: facultatif(600, "Le motif") }),
+  modification: z.object({ texte: texte(3, 1500, "Ce que vous souhaitez changer") }),
+  renouvellement: z.object({ texte: facultatif(600, "Votre précision") }),
+} as const;
+
+export function lireReponseDevis(fd: FormData) {
+  return { texte: (lu(fd, "texte") ?? "").replace(/\r\n/g, "\n") };
+}
+
+// ---------------------------------------------------------------------------
 // Livraison de cartons — la fiche, puis un samedi du calendrier.
 
 export function estSamedi(iso: string) {

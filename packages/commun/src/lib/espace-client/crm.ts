@@ -51,11 +51,13 @@ export type IssueSignature = "signe" | "deja_signe" | "autre_signe" | "ferme" | 
 
 /**
  * Le client accepte un devis du CRM depuis son espace : la règle de signature
- * du CRM s'applique (un seul devis signé par dossier), l'acceptation est
- * horodatée dans l'espace avec sa trace, et le dossier est projeté.
+ * du CRM s'applique (un seul devis signé par dossier) et le dossier est
+ * projeté. Avec une trace, la fonction du CRM horodate aussi l'acceptation
+ * dans l'espace (version : le numéro du devis) ; sans trace, l'appelant
+ * l'inscrit lui-même — la page « Mes devis » y met la version des CGV cochées.
  */
-export async function signerDevisCrm(crmDevisId: number, trace: { ip: string; user_agent: string }): Promise<IssueSignature> {
-  return rpc<IssueSignature>("ec_signer_devis_crm", { p_devis: crmDevisId, p_origine: "espace", p_ip: trace.ip, p_user_agent: trace.user_agent });
+export async function signerDevisCrm(crmDevisId: number, trace?: { ip: string; user_agent: string } | null): Promise<IssueSignature> {
+  return rpc<IssueSignature>("ec_signer_devis_crm", { p_devis: crmDevisId, p_origine: "espace", p_ip: trace?.ip ?? null, p_user_agent: trace?.user_agent ?? null });
 }
 
 /** Les arrhes réglées en ligne : devis signé s'il ne l'était pas, paiement inscrit au CRM une seule fois. */

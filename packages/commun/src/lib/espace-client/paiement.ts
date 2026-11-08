@@ -7,7 +7,7 @@ import { signer, verifier } from "./signature";
 import { stripeConfigure } from "./stripe-config";
 import { aujourdhui, euros, nomClient, salutation } from "./format";
 import { alerterEquipe } from "@/lib/alertes-equipe";
-import type { Dossier, Facture, SessionPaiement } from "./types";
+import type { Acceptation, Devis, Dossier, Facture, SessionPaiement } from "./types";
 
 /*
  * Le paiement en ligne, derrière une interface : la page est hébergée par le
@@ -91,6 +91,17 @@ export const prochainNumeroFacture = (annee = aujourdhui().slice(0, 4)) => depot
 export type IssueEvenement = { ok: boolean; message: string; /** Rien n'a changé : déjà traité, ou annulation d'une session close. */ deja?: boolean };
 
 /**
+ * L'acceptation d'un devis signé en payant ses arrhes : horodatée au moment
+ * où le client a lancé le paiement, depuis son adresse et son appareil, avec
+ * la version des CGV cochées dans la confirmation (une session d'avant la
+ * confirmation n'en porte pas : la version reste le numéro du devis).
+ */
+function acceptationParPaiement(devis: Pick<Devis, "dossier_id" | "numero">, session: SessionPaiement): Acceptation {
+  const { cgv, ip, user_agent } = session.trace!;
+  return { id: nouvelId(), dossier_id: devis.dossier_id, type: "devis", version_texte: cgv ?? devis.numero, objet: devis.numero, accepted_at: session.created_at, ip, user_agent };
+}
+
+/**
  * L'événement du prestataire simulé : signature vérifiée (clé du serveur),
  * puis le traitement commun. Fermé dès que Stripe est réglé : en production,
  * seul le webhook signé par Stripe fait passer un paiement.
@@ -143,11 +154,7 @@ export async function appliquerEvenement(ev: EvenementPaiement): Promise<IssueEv
         if (typeof devis?.crm_devis_id !== "number") throw new Error("Devis du CRM introuvable.");
         await arrhesCrm({ crmDevisId: devis.crm_devis_id, sessionId: session.id, montant: session.montant, pourcentage: devis.arrhes_pourcentage, reference: ev.reference });
         // L'acceptation horodatée, depuis l'endroit où le client a lancé le paiement.
-        if (devis.statut !== "accepte" && session.trace) {
-          await db.inserer("acceptations", {
-            id: nouvelId(), dossier_id: devis.dossier_id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: session.created_at, ...session.trace,
-          });
-        }
+        if (devis.statut !== "accepte" && session.trace) await db.inserer("acceptations", acceptationParPaiement(devis, session));
       }
     } catch (e) {
       await db.modifier("sessions_paiement", session.id, { statut: "ouverte", reference: null }, { statut: "payee" });
@@ -170,11 +177,7 @@ export async function appliquerEvenement(ev: EvenementPaiement): Promise<IssueEv
         for (const autre of d.devis) {
           if (autre.dossier_id === devis.dossier_id && autre.id !== devis.id && autre.statut === "envoye") await db.modifier("devis", autre.id, { statut: "refuse" }, { statut: "envoye" });
         }
-        if (session.trace) {
-          await db.inserer("acceptations", {
-            id: nouvelId(), dossier_id: devis.dossier_id, type: "devis", version_texte: devis.numero, objet: devis.numero, accepted_at: session.created_at, ...session.trace,
-          });
-        }
+        if (session.trace) await db.inserer("acceptations", acceptationParPaiement(devis, session));
       }
       const facture: Facture = {
         id: nouvelId(), dossier_id: session.dossier_id, devis_id: devis.id, numero: await prochainNumeroFacture(),

@@ -390,8 +390,12 @@ export interface SessionPaiement {
   libelle: string;
   statut: "ouverte" | "payee" | "annulee";
   reference: string | null;
-  /** D'où le client a lancé le paiement : l'acceptation du devis s'horodate avec. */
-  trace: { ip: string; user_agent: string } | null;
+  /**
+   * D'où le client a lancé le paiement : l'acceptation du devis s'horodate
+   * avec. `cgv` : la version des CGV cochées dans la confirmation, quand payer
+   * les arrhes signe le devis.
+   */
+  trace: { ip: string; user_agent: string; cgv?: string } | null;
   created_at: string;
 }
 
