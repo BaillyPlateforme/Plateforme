@@ -87,6 +87,19 @@ function expediteurParDefaut() {
 
 const cleDe = (cle: string | null | undefined) => (cle?.trim() || `auto:${randomUUID()}`).slice(0, 300);
 
+/**
+ * L'alerte de l'équipe « Envoi bloqué par les garde-fous » (recette, hors
+ * liste blanche), à ses abonnés. Jamais pour une alerte elle-même (pas de
+ * boucle), jamais bloquante ; chargée à la demande (le module des alertes
+ * envoie par celui-ci).
+ */
+function signalerBlocage(b: { cle: string; modele: string | null; reference: string | null; destinataire: string; motif: string }) {
+  if (b.cle.startsWith("alerte:")) return;
+  void import("@/lib/alertes-equipe")
+    .then((a) => a.alerterEquipe("envoi_bloque", { evenement: b.cle, reference: b.reference, vars: { modele: b.modele ?? "message", reference: b.reference ?? "—", destinataire: b.destinataire, motif: b.motif } }))
+    .catch(() => undefined);
+}
+
 async function envoyer(canal: Canal, m: Commun & { a: string; sujet: string | null; apercu: string | null }, appeler: (bacASable: boolean) => Promise<ReponseBrevo>): Promise<ResultatEnvoi> {
   const reglage = reglageEnvois();
   const cle = cleDe(m.cle);
@@ -118,7 +131,10 @@ async function envoyer(canal: Canal, m: Commun & { a: string; sujet: string | nu
   };
 
   const decision = decider(reglage, { canal, destinataire, fictif: m.fictif });
-  if (!decision.partir) return finir(decision.statut, decision.motif);
+  if (!decision.partir) {
+    if (decision.statut === "bloque") signalerBlocage({ cle, modele: m.modele ?? null, reference: m.reference ?? null, destinataire, motif: decision.motif });
+    return finir(decision.statut, decision.motif);
+  }
   if (m.retenu) return finir("journalise", m.retenu);
 
   // Le SMS en bac à sable ne quitte pas la plateforme.

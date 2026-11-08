@@ -72,7 +72,9 @@ export async function proxy(request: NextRequest) {
  *   session ; chaque route exige son secret (TACHES_SECRET), et n'existe pas
  *   sans lui (src/app/api/taches/veille/route.ts) ;
  * - /api/sms/…, le webhook des réponses SMS de Brevo : même principe, avec
- *   SMS_REPONSES_SECRET (src/app/api/sms/reponses/route.ts).
+ *   SMS_REPONSES_SECRET (src/app/api/sms/reponses/route.ts) ;
+ * - /desabonnement/…, le lien de désabonnement des alertes de l'équipe : le
+ *   jeton signé du lien en tient lieu (src/crm/alertes/actions.ts).
  *
  * Une adresse inconnue passe donc par le proxy : sans session, elle mène à la
  * connexion, et la 404 ne s'affiche qu'une fois connecté.
@@ -82,6 +84,6 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!login(?:/|$)|signature/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
+    "/((?!login(?:/|$)|signature/|desabonnement/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
   ],
 };

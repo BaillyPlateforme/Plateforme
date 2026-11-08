@@ -1,5 +1,7 @@
 import "server-only";
+import { alerterEquipe } from "@/lib/alertes-equipe";
 import { q1 } from "./db";
+import { nomClient } from "./format";
 
 /*
  * Le CRM et l'espace client : un dossier, deux faces (migration 0012).
@@ -43,5 +45,21 @@ export async function signerDevisUnique(
   const r = await q1<{ issue: IssueSignature }>("select public.ec_signer_devis_crm($1, $2, $3, $4, $5) as issue", [
     devisId, origine, options.utilisateurId ?? null, options.ip ?? null, options.userAgent ?? null,
   ]);
+  if (r?.issue === "signe") await alerterDevisSigne(devisId, origine);
   return r?.issue ?? "inconnu";
+}
+
+/** L'alerte de l'équipe « Devis signé », à ses abonnés (Relances › Alertes de l'équipe). */
+async function alerterDevisSigne(devisId: number, origine: "lien" | "equipe") {
+  const v = await q1<{ numero: string; dossier_id: number; ref: string; nom: string | null; prenom: string | null; societe: string | null; commercial: string | null }>(
+    `select v.numero, v.dossier_id, d.ref, c.nom, c.prenom, c.societe, u.email as commercial
+       from devis v join dossiers d on d.id = v.dossier_id join clients c on c.id = d.client_id left join utilisateurs u on u.id = d.commercial_id where v.id = $1`,
+    [devisId],
+  ).catch(() => undefined);
+  if (!v) return;
+  await alerterEquipe("devis_signe", {
+    evenement: `crm-devis-${devisId}`, reference: v.ref, conseillers: [v.commercial],
+    vars: { client: nomClient(v), reference: v.ref, numero: v.numero, origine: origine === "lien" ? "par le lien de signature" : "par l'équipe" },
+    lien: { chemin: `/dossiers/${v.dossier_id}`, libelle: "Ouvrir le dossier" },
+  });
 }

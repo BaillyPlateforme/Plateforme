@@ -1,4 +1,5 @@
 import "server-only";
+import { alerterEquipe } from "@/lib/alertes-equipe";
 import { lireDonnees } from "@/lib/espace-client/depot";
 import { snapshotDe } from "@/lib/espace-client/lectures";
 import { calculerFrise, piecesManquantes } from "@/lib/espace-client/progression";
@@ -349,6 +350,14 @@ export async function envoyerRelance(r: Relance, par: string): Promise<{ ok: boo
       [r.cle, r.type, r.dossierId, r.rang, statut, motif, par, parties.map((i) => i.canal)],
     );
     await q("insert into activite(dossier_id, libelle) values($1,$2)", [r.dossierId, `${r.libelle} (${r.rang}/${r.sur}) : ${libelle}`]).catch(() => undefined);
+  } else {
+    // Aucun canal n'est parti : l'alerte de l'équipe « Relance en échec », à ses abonnés.
+    const commercial = await q1<{ email: string | null }>("select u.email from dossiers d left join utilisateurs u on u.id = d.commercial_id where d.id = $1", [r.dossierId]).catch(() => undefined);
+    await alerterEquipe("relance_echec", {
+      evenement: `${r.cle}-${jourParis()}`, reference: r.ref, conseillers: [commercial?.email],
+      vars: { client: r.client || r.ref, reference: r.ref, relance: `${r.libelle} ${r.rang}/${r.sur}`, motif: libelle },
+      lien: { chemin: `/relances/kanban?dossier=${r.dossierId}`, libelle: "Ouvrir ses relances" },
+    });
   }
   return { ok: parties.length > 0, libelle };
 }

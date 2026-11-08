@@ -5,7 +5,8 @@ import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 import { signer, verifier } from "./signature";
 import { stripeConfigure } from "./stripe-config";
-import { aujourdhui, euros, salutation } from "./format";
+import { aujourdhui, euros, nomClient, salutation } from "./format";
+import { alerterEquipe } from "@/lib/alertes-equipe";
 import type { Dossier, Facture, SessionPaiement } from "./types";
 
 /*
@@ -206,5 +207,11 @@ async function confirmerAuClient(dossier: Dossier, session: SessionPaiement, ref
       chemin: `/espace-client/${dossier.reference}/devis#factures`,
       signature: signatureDe(conseillerDe(d, client.conseiller_id)),
     },
+  });
+  // L'alerte de l'équipe « Arrhes ou paiement reçus », à ses abonnés.
+  await alerterEquipe("paiement_recu", {
+    evenement: `session-${session.id}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseillerDe(d, client.conseiller_id).email],
+    vars: { client: nomClient(client), reference: dossier.reference, montant: euros(session.montant), libelle: session.libelle },
+    lien: typeof dossier.crm_dossier_id === "number" ? { chemin: `/dossiers/${dossier.crm_dossier_id}`, libelle: "Ouvrir le dossier" } : null,
   });
 }

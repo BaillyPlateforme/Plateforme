@@ -1,0 +1,484 @@
+/*
+ * La page « Alertes de l'équipe » : destinataires, catalogue, matrice des
+ * abonnements, journal. Les cartes et pastilles viennent de la section
+ * Relances (relances.module.css) ; ici, ce qui est propre aux alertes.
+ */
+
+.personnes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.personne {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  border: 1px solid #f0eef6;
+  background: #fff;
+}
+.personne[data-pause="true"] {
+  background: repeating-linear-gradient(135deg, #fbfbfd 0 8px, #f6f5fa 8px 16px);
+}
+.personne[data-pause="true"] .avatar {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.avatar[data-source="manuel"] { background: linear-gradient(135deg, #0f9488, #14c27d); }
+.avatar[data-source="variable"] { background: linear-gradient(135deg, #f59e0b, #ffb547); }
+.avatar[data-source="conseiller"] { background: linear-gradient(135deg, #2e1f9e, #4b2fe0); }
+.personne b {
+  display: block;
+  overflow: hidden;
+  font-size: 13.5px;
+  color: #14121f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.personne small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #8b889c;
+}
+.personneGestes {
+  display: flex;
+  gap: 5px;
+}
+.ajout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f0eef6;
+}
+.ajout input {
+  height: 38px;
+  min-width: 0;
+  padding: 0 12px;
+  border-radius: 11px;
+  border: 1px solid #e3e0ec;
+  background: #fbfaff;
+  font: inherit;
+  font-size: 13px;
+}
+.ajout input:focus {
+  outline: none;
+  border-color: #7a52ff;
+  box-shadow: 0 0 0 3px rgba(122, 82, 255, 0.15);
+}
+
+/* Le catalogue : une ligne par alerte, par groupe. */
+.groupe + .groupe {
+  margin-top: 16px;
+}
+.groupeTitre {
+  margin: 0 0 8px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a7a3b8;
+}
+.alertes {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.alerte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 13px 14px;
+  border-radius: 15px;
+  border: 1px solid #efedf5;
+  background: linear-gradient(180deg, #fff, #fcfbff);
+}
+.alerte[data-actif="false"] {
+  background: repeating-linear-gradient(135deg, #fbfbfd 0 8px, #f7f6fa 8px 16px);
+}
+.alerte h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #14121f;
+}
+.alerte p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #6f6c80;
+}
+.alertePuces {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.alertePuces .espace {
+  flex: 1;
+}
+.mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a475c;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.mini span {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #d9d6e3;
+  transition: background-color 0.2s;
+}
+.mini span::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(20, 18, 31, 0.25);
+  transition: transform 0.2s;
+}
+.mini[aria-checked="true"] span {
+  background: #14c27d;
+}
+.mini[aria-checked="true"] span::after {
+  transform: translateX(16px);
+}
+
+/* La matrice des abonnements. */
+.matriceCadre {
+  overflow-x: auto;
+  margin: 0 -22px -20px;
+  padding: 0 22px 20px;
+}
+.matrice {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.matrice th,
+.matrice td {
+  padding: 0;
+}
+.matrice thead th {
+  height: 150px;
+  vertical-align: bottom;
+}
+.entete {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 54px;
+  padding-bottom: 10px;
+}
+.entete span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  max-height: 136px;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #4a475c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entete[data-actif="false"] span {
+  color: #b8b5c6;
+  text-decoration: line-through;
+}
+.matrice thead th:first-child {
+  min-width: 250px;
+  text-align: left;
+  vertical-align: bottom;
+  padding: 0 12px 10px 0;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a7a3b8;
+}
+.matrice tbody tr td {
+  border-top: 1px solid #f0eef6;
+}
+.matrice tbody tr:hover td {
+  background: #fbfaff;
+}
+.ligneNom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px 9px 0;
+}
+.ligneNom > div {
+  flex: 1;
+  min-width: 0;
+}
+.ligneNom b {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  color: #14121f;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}
+.ligneNom small {
+  display: block;
+  overflow: hidden;
+  font-size: 11.5px;
+  color: #8b889c;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 170px;
+}
+.toutRien {
+  display: flex;
+  gap: 3px;
+}
+.toutRien button {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid #e8e6ef;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6f6c80;
+  cursor: pointer;
+}
+.toutRien button:hover {
+  border-color: #cfc3ff;
+  color: #2e1f9e;
+}
+.case {
+  text-align: center;
+}
+.coche {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin: 4px 12px;
+  border-radius: 10px;
+  border: 1.5px solid #dcd8e6;
+  background: #fff;
+  color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
+}
+.coche:hover {
+  border-color: #7a52ff;
+}
+.coche:active {
+  transform: scale(0.94);
+}
+.coche[aria-pressed="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 6px 12px -8px rgba(75, 47, 224, 0.9);
+}
+.coche[data-attenue="true"] {
+  opacity: 0.4;
+}
+.coche:disabled {
+  cursor: wait;
+}
+.legendeMatrice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #8b889c;
+}
+
+/* L'éditeur de texte d'une alerte. */
+.editeur {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  overflow: auto;
+}
+@media (max-width: 900px) {
+  .editeur { grid-template-columns: minmax(0, 1fr); }
+}
+.editeurForm {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px 20px;
+  border-right: 1px solid #f0eef6;
+}
+.editeurForm label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6f6c80;
+}
+.editeurForm input,
+.editeurForm textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid #e3e0ec;
+  background: #fbfaff;
+  font: inherit;
+  font-size: 13.5px;
+}
+.editeurForm textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+.jetons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.jetons button {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid #e3e0ec;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  color: #4b2fe0;
+  cursor: pointer;
+}
+.editeurApercu {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 520px;
+  background: #f4f4f7;
+}
+.editeurApercu p {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: #6f6c80;
+  border-bottom: 1px solid #ecebf2;
+  background: #fff;
+}
+.editeurApercu iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 480px;
+  border: 0;
+}
+
+/* La page de désabonnement, sans connexion. */
+.desabo {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(700px 360px at 85% -10%, rgba(196, 160, 255, 0.55), transparent 62%),
+    linear-gradient(160deg, #f7f5ff, #f4f4f7 60%);
+}
+.desaboCarte {
+  width: min(520px, 100%);
+  padding: 30px 30px 26px;
+  border-radius: 26px;
+  background: #fff;
+  border: 1px solid #efedf5;
+  box-shadow: 0 40px 80px -46px rgba(46, 31, 158, 0.6);
+}
+.desaboCarte img {
+  display: block;
+  height: 30px;
+  margin-bottom: 22px;
+}
+.desaboCarte h1 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #14121f;
+}
+.desaboCarte p {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: #4a475c;
+}
+.desaboCarte form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.desaboCarte button {
+  height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 22px -12px rgba(75, 47, 224, 0.9);
+}
+.desaboCarte button[data-ton="contour"] {
+  border: 1px solid #e3e0ec;
+  background: #fff;
+  color: #2e1f9e;
+  box-shadow: none;
+}
+.desaboOk {
+  margin-top: 16px !important;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #e3f8ee;
+  color: #0b7a4e !important;
+  font-weight: 650;
+}
+.desaboKo {
+  margin-top: 16px !important;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #ffe8f0;
+  color: #b0164d !important;
+  font-weight: 650;
+}

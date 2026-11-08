@@ -109,6 +109,12 @@ function cadre({ base, preheader, photo, pastille, corps, signature, mention = M
 
 const p = (html: string) => `<p style="margin:0 0 16px;">${html}</p>`;
 
+/** Le lien de désabonnement d'une alerte de l'équipe (Relances › Alertes de l'équipe), quand le message en porte un. */
+const desabo = (payload: Record<string, unknown>) =>
+  payload.desabonnement
+    ? `<p style="margin:18px 0 0;font-size:12px;line-height:18px;color:#999999;">Alerte de l'équipe Bailly. <a href="${esc(payload.desabonnement)}" style="color:#999999;">Ne plus recevoir cette alerte</a></p>`
+    : "";
+
 /** L'encadré gris du modèle : le lien en tête, quelques lignes, le bouton. */
 function encadre(url: string, libelle: string, lignes: string[] = []) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:${C.encadre};">
@@ -204,7 +210,7 @@ ${encadre(url, "Accéder à mon espace client", [
         texte: `${payload.client} demande une livraison de cartons le ${payload.jour} (${payload.adresse}). Nombre de cartons à saisir dans le back-office : ${lien(payload.chemin)}`,
         html: cadre({
           base, preheader: `${payload.client} · ${payload.jour}`, signature,
-          corps: `${p(payload.modification ? "Une livraison de cartons vient d'être modifiée par le client." : "Nouvelle demande de livraison de cartons.")}${p(`<b>${s("client")}</b> · dossier ${s("reference")}<br>${s("jour")}<br>${s("adresse")}<br>Personne présente : ${s("contact")} · ${s("telephone_contact")}`)}${encadre(lien(payload.chemin), "Saisir le nombre de cartons")}`,
+          corps: `${p(payload.modification ? "Une livraison de cartons vient d'être modifiée par le client." : "Nouvelle demande de livraison de cartons.")}${p(`<b>${s("client")}</b> · dossier ${s("reference")}<br>${s("jour")}<br>${s("adresse")}<br>Personne présente : ${s("contact")} · ${s("telephone_contact")}`)}${encadre(lien(payload.chemin), "Saisir le nombre de cartons")}${desabo(payload)}`,
         }),
       };
 
@@ -214,7 +220,7 @@ ${encadre(url, "Accéder à mon espace client", [
         texte: `${payload.client} déclare une avarie (${payload.numero}) : ${payload.objets}. ${payload.description}`,
         html: cadre({
           base, preheader: `${payload.client} · ${payload.objets}`, signature,
-          corps: `${p(`<b>${s("client")}</b> vient de déclarer une avarie sur le dossier ${s("reference")}.`)}${p(`Déclaration ${s("numero")} · ${payload.reserves ? "réserves émises à la livraison" : "<b>sans réserves</b> à la livraison"}<br>Constatée le ${s("date_constat")} · ${s("nb_photos")} photo(s)`)}${p(`<b>${s("objets")}</b><br>${s("description")}`)}${encadre(lien(payload.chemin), "Ouvrir le dossier")}`,
+          corps: `${p(`<b>${s("client")}</b> vient de déclarer une avarie sur le dossier ${s("reference")}.`)}${p(`Déclaration ${s("numero")} · ${payload.reserves ? "réserves émises à la livraison" : "<b>sans réserves</b> à la livraison"}<br>Constatée le ${s("date_constat")} · ${s("nb_photos")} photo(s)`)}${p(`<b>${s("objets")}</b><br>${s("description")}`)}${encadre(lien(payload.chemin), "Ouvrir le dossier")}${desabo(payload)}`,
         }),
       };
 
@@ -247,7 +253,7 @@ ${encadre(url, "Accéder à mon espace client", [
         texte: `${payload.client} est intéressé(e) par : ${payload.service}. Dossier ${payload.reference}.`,
         html: cadre({
           base, preheader: `${payload.client} · ${payload.service}`, signature,
-          corps: `${p(`<b>${s("client")}</b> est intéressé(e) par le service <b>${s("service")}</b> (dossier ${s("reference")}).`)}${p(`Rappelez-le au ${s("telephone_client")} ou écrivez-lui à ${s("email")}.`)}`,
+          corps: `${p(`<b>${s("client")}</b> est intéressé(e) par le service <b>${s("service")}</b> (dossier ${s("reference")}).`)}${p(`Rappelez-le au ${s("telephone_client")} ou écrivez-lui à ${s("email")}.`)}${desabo(payload)}`,
         }),
       };
 
@@ -266,7 +272,7 @@ ${lignes.map((l) => `<tr><td style="${td}font-weight:700;">${l.ordre ?? "–"}</
         html: cadre({
           base, preheader: `${payload.total} cartons à préparer · ${lignes.length} livraison(s)`, signature,
           mention: "Message automatique de la plateforme Bailly : récapitulatif de la tournée de cartons, la veille.",
-          corps: `${p(`Tournée des cartons du <b>${s("jour")}</b> : <b>${lignes.length} livraison${lignes.length > 1 ? "s" : ""}</b>, <b>${s("total")} cartons à préparer</b>, dans l'ordre de passage calculé.`)}${tableau}${Number(payload.incomplets) > 0 ? p(`<b>${s("incomplets")} livraison(s) sans créneau ou sans nombre de cartons</b> : ces clients ne reçoivent pas le message de la veille.`) : ""}${p("Les bons de livraison sont joints en PDF : la page récapitulative, puis un bon par client.")}${encadre(lien(payload.chemin), "Ouvrir les cartons du samedi")}`,
+          corps: `${p(`Tournée des cartons du <b>${s("jour")}</b> : <b>${lignes.length} livraison${lignes.length > 1 ? "s" : ""}</b>, <b>${s("total")} cartons à préparer</b>, dans l'ordre de passage calculé.`)}${tableau}${Number(payload.incomplets) > 0 ? p(`<b>${s("incomplets")} livraison(s) sans créneau ou sans nombre de cartons</b> : ces clients ne reçoivent pas le message de la veille.`) : ""}${p("Les bons de livraison sont joints en PDF : la page récapitulative, puis un bon par client.")}${encadre(lien(payload.chemin), "Ouvrir les cartons du samedi")}${desabo(payload)}`,
         }),
       };
     }

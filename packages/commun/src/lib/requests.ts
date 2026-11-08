@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
+import { alerterEquipe } from "@/lib/alertes-equipe";
 import { contexteDemande } from "@/lib/messaging";
 import { getEspaceParCodeOuJeton } from "@/lib/espaces-pro";
 import { instantane } from "@/lib/espaces";
@@ -198,6 +199,13 @@ export async function createRequest(
       manque_depart,
       manque_arrivee,
     };
+
+    // L'alerte de l'équipe « Nouvelle demande du site », à ses abonnés (Relances › Alertes de l'équipe).
+    await alerterEquipe("demande_recue", {
+      evenement: created.id, reference: created.id, origine: "questionnaires",
+      vars: { client: created.client_nom || "Sans nom", trajet: `${created.depart_ville ?? "?"} → ${created.arrivee_ville ?? "?"}` },
+      lien: { chemin: `/dashboard/${created.id}`, libelle: "Ouvrir la demande" },
+    });
 
     if (sansPrix) {
       // Ni estimation ni devis automatique : l'équipe chiffre après sa visite.
