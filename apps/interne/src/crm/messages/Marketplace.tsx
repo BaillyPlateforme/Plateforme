@@ -49,6 +49,12 @@ export default function Marketplace({
   lienSansFenetre: string;
 }) {
   const [ouverte, setOuverte] = useState<CarteVue | "nouveau" | null>(creer ? "nouveau" : null);
+  // Une règle de plus pour le modèle d'une carte (ouverte depuis l'éditeur de cette carte).
+  const [nouvelleRegle, setNouvelleRegle] = useState<CarteVue | null>(null);
+  const autreRegle = (g: GabaritVue) => {
+    if (ouverte && ouverte !== "nouveau") setNouvelleRegle({ ...ouverte, gabarit: g, modeleId: g.id });
+    setOuverte(null);
+  };
   const [test, setTest] = useState<DepartTest | null>(testLibre ? { canal: "email", sujet: "", corps: "" } : null);
   const [erreur, setErreur] = useState<{ id: string; texte: string } | null>(null);
   const [enCours, demarrer] = useTransition();
@@ -187,12 +193,25 @@ export default function Marketplace({
           modeles={modeles}
           autresRegles={ouverte.modeleId ? (partages[ouverte.modeleId] ?? []).filter((n) => n !== ouverte.regle?.name) : []}
           tester={setTest}
+          autreRegle={autreRegle}
           bloquee={!!test}
           fermer={fermerEditeur}
         />
       ) : ouverte ? (
         <Editeur key={ouverte.id} carte={ouverte} tester={setTest} bloquee={!!test} fermer={fermerEditeur} />
       ) : null}
+      {nouvelleRegle && (
+        <EditeurModele
+          key={`nouvelle-regle:${nouvelleRegle.modeleId}`}
+          carte={nouvelleRegle}
+          regleNeuve
+          modeles={modeles}
+          autresRegles={partages[nouvelleRegle.modeleId!] ?? []}
+          tester={setTest}
+          bloquee={!!test}
+          fermer={() => setNouvelleRegle(null)}
+        />
+      )}
       {test && <TestEnvoi modeles={modeles} depart={test} fermer={fermerTest} />}
     </>
   );

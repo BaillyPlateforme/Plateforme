@@ -28,23 +28,29 @@ const versSaisie = (g: GabaritVue): SaisieModele => ({ name: g.name, channel: g.
 
 export default function EditeurModele({
   carte,
+  regleNeuve = false,
   modeles,
   autresRegles,
   tester,
+  autreRegle,
   bloquee,
   fermer,
 }: {
   /** La carte ouverte ; rien pour un nouveau modèle. */
   carte: CarteVue | null;
+  /** Une règle de plus pour le modèle de la carte (comme « Nouvelle alerte » dans l'ancien onglet Alertes, qui laissait choisir n'importe quel modèle). */
+  regleNeuve?: boolean;
   modeles: GabaritVue[];
   /** Les autres règles qui envoient le même modèle (son texte vaut pour elles aussi). */
   autresRegles: string[];
   tester: (d: DepartTest) => void;
+  /** Ouvre une règle de plus pour ce modèle. */
+  autreRegle?: (g: GabaritVue) => void;
   /** Une fenêtre est ouverte par-dessus (le test d'envoi). */
   bloquee: boolean;
   fermer: () => void;
 }) {
-  const regleInitiale = carte?.regle;
+  const regleInitiale = regleNeuve ? null : carte?.regle;
   const [modeleId, setModeleId] = useState<string | null>(carte?.gabarit?.id ?? null);
   const [m, setM] = useState<SaisieModele>(carte?.gabarit ? versSaisie(carte.gabarit) : { ...NOUVEAU_MODELE, channel: carte?.canal ?? "email" });
   const [r, setR] = useState<SaisieRegle | null>(
@@ -54,7 +60,9 @@ export default function EditeurModele({
           condition_champ: regleInitiale.condition_champ ?? "volume", condition_source: regleInitiale.condition_source ?? "",
           destinataire: regleInitiale.destinataire, destinataire_custom: regleInitiale.destinataire_custom ?? "", active: regleInitiale.active,
         }
-      : null,
+      : regleNeuve
+        ? { ...NOUVELLE_REGLE }
+        : null,
   );
   const [apercu, setApercu] = useState<Apercu | null>(null);
   const [retour, setRetour] = useState<Retour | null>(null);
@@ -97,7 +105,8 @@ export default function EditeurModele({
       setRetour(res);
       if (!res.ok) return;
       router.refresh();
-      if (!carte) fermer();
+      // Un modèle ou une règle de plus : sa carte apparaît dans la page, la fenêtre se ferme.
+      if (!carte || regleNeuve) fermer();
       else if (res.modeleId) setModeleId(res.modeleId);
     });
 
@@ -125,8 +134,14 @@ export default function EditeurModele({
   return (
     <Fenetre
       canal={m.channel}
-      titre={carte ? carte.titre : "Nouveau modèle"}
-      phrase={carte ? `${carte.declencheur}${carte.delai ? ` · ${carte.delai}` : ""} · ${carte.destinataire}` : "Un e-mail ou un SMS des questionnaires, et s'il le faut la règle qui l'envoie."}
+      titre={regleNeuve ? "Nouvelle règle d'envoi" : carte ? carte.titre : "Nouveau modèle"}
+      phrase={
+        regleNeuve
+          ? `Pour le modèle « ${m.name} »`
+          : carte
+            ? `${carte.declencheur}${carte.delai ? ` · ${carte.delai}` : ""} · ${carte.destinataire}`
+            : "Un e-mail ou un SMS des questionnaires, et s'il le faut la règle qui l'envoie."
+      }
       fermer={fermer}
       bloquee={bloquee}
     >
@@ -297,7 +312,19 @@ export default function EditeurModele({
                   <p className={s.aide}>Choisir un autre modèle l&apos;ouvre ici : c&apos;est lui que la règle enverra, et lui que vous modifiez.</p>
                 </div>
               )}
-              {!regleInitiale && (
+              {regleInitiale && modeleId && autreRegle && (
+                <button
+                  type="button"
+                  className={s.lienDiscret}
+                  onClick={() => {
+                    const g = modeles.find((x) => x.id === modeleId);
+                    if (g) autreRegle(g);
+                  }}
+                >
+                  + Une autre règle pour ce modèle
+                </button>
+              )}
+              {!regleInitiale && !regleNeuve && (
                 <button type="button" className={s.lienDiscret} onClick={() => setR(null)}>
                   Ne pas ajouter de règle
                 </button>
@@ -307,7 +334,7 @@ export default function EditeurModele({
 
           <div className={s.actions}>
             <button type="button" className="btn primary" disabled={enCours} onClick={enregistrer}>
-              {enCours ? "Enregistrement…" : carte ? "Enregistrer" : "Créer le modèle"}
+              {enCours ? "Enregistrement…" : regleNeuve ? "Créer la règle" : carte ? "Enregistrer" : "Créer le modèle"}
             </button>
             <button
               type="button"
@@ -319,7 +346,7 @@ export default function EditeurModele({
             <button type="button" className="btn ghost" onClick={fermer}>
               Fermer
             </button>
-            {carte && (carte.regle || modeleId) && (
+            {carte && !regleNeuve && (carte.regle || modeleId) && (
               <button type="button" className={s.supprimer} disabled={enCours} onClick={supprimer}>
                 {carte.regle ? "Supprimer la règle" : "Supprimer le modèle"}
               </button>
