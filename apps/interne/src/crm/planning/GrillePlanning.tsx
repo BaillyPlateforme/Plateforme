@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Ic } from "@/crm/lib/icons";
 import { ETATS_VISITE, estVisite } from "@/crm/visites/cycle";
 import { terminerRdv } from "@/crm/actions";
@@ -10,6 +10,7 @@ import { confirmerParSms, deplacerRdv } from "./actions";
 import type { CreneauPlanning, EvenementPlanning } from "./donnees";
 import { couloirs, H0, H1, heure, hhmm, position as placer, type Bloc } from "./grille";
 import { TYPES_RDV } from "./types-rdv";
+import { phraseConfirmationOubliee } from "./planificateur/regles";
 import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
 import type { EtatAffiche } from "@/crm/rdv/sms";
 import s from "./planning.module.css";
@@ -21,8 +22,13 @@ import s from "./planning.module.css";
  * Un rendez-vous se déplace au glisser-déposer (souris ou doigt), au quart
  * d'heure : le serveur vérifie la règle des visites (pas de chevauchement
  * avec le planning du commercial ni avec un créneau proposé à un autre
- * client) avant d'enregistrer. Un clic l'ouvre pour le modifier ou le
- * supprimer.
+ * client) avant d'enregistrer.
+ *
+ * Un clic sur un rendez-vous ouvre sa petite fenêtre : quand, qui, où, où en
+ * est la visite, et trois gestes — « Modifier » (le planificateur en
+ * modification, /planning/<id>), « Déplacer » (le prochain clic dans la
+ * grille le pose, sans glisser), « Ouvrir le dossier ». Le glisser-déposer
+ * reste. Échap ferme la fenêtre ou abandonne le déplacement.
  *
  * Les blocs qui se chevauchent se partagent la colonne en couloirs ; quand
  * un couloir est étroit, le bloc ne garde que l'heure, le nom et l'état, et
@@ -31,13 +37,26 @@ import s from "./planning.module.css";
 
 const HAUT = 52;
 const PAS = 15;
+const LARGEUR_FENETRE = 300;
+const JOURS_FR = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
 type Jour = { cle: string; nom: string; numero: number; aujourdhui: boolean; visites: number };
 
 const position = (debutMin: number, duree: number) => placer(debutMin, duree, HAUT);
+/** « 2026-11-10 » → « Mardi 10 novembre ». */
+const jourLong = (cle: string) => {
+  const d = new Date(`${cle}T12:00:00Z`);
+  const t = `${JOURS_FR[d.getUTCDay()]} ${d.getUTCDate()} ${MOIS_FR[d.getUTCMonth()]}`;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 type Glisse = { id: number; jour: string; debutMin: number; duree: number; prise: number; depart: { x: number; y: number }; actif: boolean };
 type Message = { ton: "ok" | "ko"; texte: string; sms?: number };
+/** La petite fenêtre d'un rendez-vous, posée à côté de son bloc (coordonnées de l'écran). */
+type Fenetre = { id: number; left: number; top: number };
+/** « Déplacer » : le rendez-vous suit le pointeur dans la grille, le prochain clic le pose. */
+type Viser = { id: number; jour: string | null; debutMin: number };
 
 export default function GrillePlanning({ jours, evenements, creneaux, filtre, etatsSms = {} }: { jours: Jour[]; evenements: EvenementPlanning[]; creneaux: CreneauPlanning[]; filtre: number | null; /** L'état du SMS de chaque rendez-vous (src/crm/rdv). */ etatsSms?: Record<number, EtatAffiche> }) {
   const router = useRouter();
@@ -45,7 +64,54 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
   const glisseRef = useRef<Glisse | null>(null);
   const [enCours, setEnCours] = useState<{ id: number; jour: string; debutMin: number } | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
+  const [fenetre, setFenetre] = useState<Fenetre | null>(null);
+  const [viser, setViser] = useState<Viser | null>(null);
+  const fenetreRef = useRef<HTMLDivElement | null>(null);
   const corps = useRef<HTMLDivElement | null>(null);
+
+  // La fenêtre se ferme à Échap, à un clic ailleurs, quand la page défile ; Échap abandonne aussi « Déplacer ».
+  useEffect(() => {
+    if (!fenetre && !viser) return;
+    const touche = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      setFenetre(null);
+      setViser(null);
+    };
+    const ailleurs = (ev: PointerEvent) => {
+      if (fenetreRef.current && !fenetreRef.current.contains(ev.target as Node)) setFenetre(null);
+    };
+    const fermer = () => setFenetre(null);
+    // Un défilement encore en cours au moment du clic (fin d'un défilement doux) ne referme pas la fenêtre aussitôt.
+    const ouverteLe = Date.now();
+    const defile = () => {
+      if (Date.now() - ouverteLe > 250) setFenetre(null);
+    };
+    window.addEventListener("keydown", touche);
+    document.addEventListener("pointerdown", ailleurs, true);
+    window.addEventListener("scroll", defile, true);
+    window.addEventListener("resize", fermer);
+    return () => {
+      window.removeEventListener("keydown", touche);
+      document.removeEventListener("pointerdown", ailleurs, true);
+      window.removeEventListener("scroll", defile, true);
+      window.removeEventListener("resize", fermer);
+    };
+  }, [fenetre, viser]);
+
+  // À l'ouverture, le focus va sur « Modifier » (sans faire défiler : cela fermerait la fenêtre).
+  const fenetreId = fenetre?.id ?? null;
+  useEffect(() => {
+    if (fenetreId != null) fenetreRef.current?.querySelector<HTMLElement>("[data-premier]")?.focus({ preventScroll: true });
+  }, [fenetreId]);
+
+  /** Ouvre la petite fenêtre d'un rendez-vous à côté de son bloc, du côté où elle tient. */
+  function ouvrir(e: EvenementPlanning, el: HTMLElement) {
+    const r = el.getBoundingClientRect();
+    const tient = r.right + 10 + LARGEUR_FENETRE <= window.innerWidth - 8;
+    const left = tient ? r.right + 10 : Math.max(8, r.left - 10 - LARGEUR_FENETRE);
+    const top = Math.min(Math.max(8, r.top), Math.max(8, window.innerHeight - 340));
+    setFenetre({ id: e.id, left, top });
+  }
   const heures = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
   const colonnes = { gridTemplateColumns: `56px repeat(${jours.length}, minmax(0, 1fr))` } as CSSProperties;
 
@@ -73,18 +139,21 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
     return { jour: cible.dataset.jour!, debutMin: min };
   }
 
-  async function poser(g: Glisse) {
+  async function poser(g: { id: number; jour: string; debutMin: number }) {
     const e = evenements.find((x) => x.id === g.id);
     if (!e || (g.jour === e.jour && g.debutMin === e.debutMin)) return;
     setEnCours({ id: g.id, jour: g.jour, debutMin: g.debutMin });
     try {
       const r = await deplacerRdv(g.id, g.jour, hhmm(g.debutMin));
       if (r.ok) {
+        const quand = `${g.jour !== e.jour ? `${jourLong(g.jour).toLowerCase()}, ` : ""}${heure(g.debutMin)}`;
         setMessage({
           ton: "ok",
           texte: r.visite
-            ? `${e.titre} : visite déplacée à ${heure(g.debutMin)}. Le rappel de la veille suit le nouvel horaire, et l'espace du client est à jour.`
-            : `${e.titre} : déplacé à ${heure(g.debutMin)}.`,
+            ? `${e.titre} : visite déplacée (${quand}). Le rappel de la veille suit le nouvel horaire, et l'espace du client est à jour.${
+                r.oublie ? ` ${phraseConfirmationOubliee(r.oublie)}` : ""
+              }`
+            : `${e.titre} : déplacé (${quand}).`,
           sms: r.visite && r.telephone ? g.id : undefined,
         });
         router.refresh();
@@ -101,13 +170,14 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
   /**
    * Le geste commence sur un bloc, puis se suit au niveau de la fenêtre : le
    * bloc change de colonne pendant le déplacement, il ne peut pas garder le
-   * pointeur pour lui. Un geste qui ne bouge pas est un clic : il ouvre le
-   * rendez-vous.
+   * pointeur pour lui. Un geste qui ne bouge pas est un clic : il ouvre la
+   * petite fenêtre du rendez-vous.
    */
   function demarrer(ev: React.PointerEvent<HTMLElement>, e: EvenementPlanning) {
-    if (ev.button !== 0 || (ev.target as HTMLElement).closest("a,button,form")) return;
+    if (viser || ev.button !== 0 || (ev.target as HTMLElement).closest("a,button,form")) return;
     ev.preventDefault();
-    const r = ev.currentTarget.getBoundingClientRect();
+    const bloc = ev.currentTarget;
+    const r = bloc.getBoundingClientRect();
     glisseRef.current = { id: e.id, jour: e.jour, debutMin: e.debutMin, duree: e.duree, prise: ev.clientY - r.top, depart: { x: ev.clientX, y: ev.clientY }, actif: false };
     setGlisse(glisseRef.current);
     const bouger = (m: PointerEvent) => {
@@ -130,7 +200,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
       setGlisse(null);
       if (!g) return;
       if (g.actif) void poser(g);
-      else router.push(`/planning/${e.id}`);
+      else ouvrir(e, bloc);
     };
     const annuler = () => {
       arreter();
@@ -142,8 +212,36 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
     window.addEventListener("pointercancel", annuler);
   }
 
+  const evFenetre = fenetre ? evenements.find((x) => x.id === fenetre.id) : undefined;
+  const evViser = viser ? evenements.find((x) => x.id === viser.id) : undefined;
+
+  /** « Déplacer » : le bloc suit le pointeur dans la grille, au quart d'heure. */
+  function suivre(ev: React.PointerEvent<HTMLElement>) {
+    if (!viser || !evViser) return;
+    const p = sousLePointeur(ev.clientX, ev.clientY, 0, evViser.duree);
+    if (p && (p.jour !== viser.jour || p.debutMin !== viser.debutMin)) setViser({ ...viser, ...p });
+  }
+  /** Le clic qui pose le rendez-vous visé. */
+  function poserVise() {
+    if (!viser?.jour) return;
+    const v = { id: viser.id, jour: viser.jour, debutMin: viser.debutMin };
+    setViser(null);
+    void poser(v);
+  }
+
   return (
     <>
+      {viser && evViser && (
+        <p className={`${s.message} ${s.messageViser}`} role="status">
+          <Ic n="cal" />
+          <span>
+            Déplacer <b>{evViser.titre}</b> : cliquez le nouveau créneau dans la grille.
+          </span>
+          <button type="button" onClick={() => setViser(null)}>
+            Annuler
+          </button>
+        </p>
+      )}
       {message && (
         <p className={`${s.message} ${message.ton === "ok" ? s.messageOk : s.messageKo}`} role="status">
           <span>{message.texte}</span>
@@ -163,7 +261,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
           </button>
         </p>
       )}
-      <div className={s.cal}>
+      <div className={`${s.cal} ${viser ? s.viser : ""}`}>
         <div className={s.tete} style={colonnes}>
           <span />
           {jours.map((j) => (
@@ -186,7 +284,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
               {evenements
                 .filter((e) => e.jour === j.cle && e.journee)
                 .map((e) => (
-                  <Link key={e.id} href={`/planning/${e.id}`} className={`${s.puceJournee} t-${e.type}`} title={`${e.titre} · journée entière · ${e.commercial}`}>
+                  <Link key={e.id} href={`/planning/${e.id}?retour=planning`} className={`${s.puceJournee} t-${e.type}`} title={`${e.titre} · journée entière · ${e.commercial}`}>
                     <b>{e.titre}</b>
                     {!filtre && <small>{e.initiales}</small>}
                   </Link>
@@ -203,7 +301,14 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
             ))}
           </div>
           {jours.map((j, ij) => (
-            <div key={j.cle} data-jour={j.cle} className={`${s.col} ${j.aujourdhui ? s.aujourdhui : ""}`} style={{ height: (H1 - H0) * HAUT, backgroundSize: `100% ${HAUT}px` }}>
+            <div
+              key={j.cle}
+              data-jour={j.cle}
+              className={`${s.col} ${j.aujourdhui ? s.aujourdhui : ""}`}
+              style={{ height: (H1 - H0) * HAUT, backgroundSize: `100% ${HAUT}px` }}
+              onPointerMove={viser ? suivre : undefined}
+              onClick={viser ? poserVise : undefined}
+            >
               {creneaux
                 .filter((c) => c.jour === j.cle)
                 .map((c) => {
@@ -226,7 +331,8 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                 })}
               {evts(j).map((e) => {
                 const [l, n] = lanes.get(e.id) ?? [0, 1];
-                const deplace = glisse?.actif && glisse.id === e.id ? glisse : enCours?.id === e.id ? enCours : null;
+                const vise = viser?.id === e.id && viser.jour ? { jour: viser.jour, debutMin: viser.debutMin } : null;
+                const deplace = glisse?.actif && glisse.id === e.id ? glisse : vise ?? (enCours?.id === e.id ? enCours : null);
                 if (deplace && deplace.jour !== j.cle) return null;
                 const pos = position(deplace?.debutMin ?? e.debutMin, e.duree);
                 const compact = n > 1;
@@ -238,13 +344,17 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                 return (
                   <article
                     key={e.id}
-                    className={`ev t-${e.type} ${e.fait ? "fait" : ""} ${devis ? "devis" : ""} ${e.etat === "sans_suite" ? "sans-suite" : ""} ${s.bloc} ${compact ? s.compact : ""} ${deplace ? s.glisse : ""}`}
+                    className={`ev t-${e.type} ${e.fait ? "fait" : ""} ${devis ? "devis" : ""} ${e.etat === "sans_suite" ? "sans-suite" : ""} ${s.bloc} ${compact ? s.compact : ""} ${deplace ? s.glisse : ""} ${fenetre?.id === e.id ? s.ouvert : ""} ${vise ? s.vise : ""}`}
                     data-cote={l >= n / 2 || ij === jours.length - 1 ? "droite" : "gauche"}
                     tabIndex={0}
                     title={`${type.long} · ${e.titre}${e.lieu ? ` · ${e.lieu}` : ""} · ${e.commercial}${etat ? ` · ${etat.libelle}` : ""}`}
                     style={{ ...pos, left: `calc(${(l / n) * 100}% + 3px)`, right: "auto", width: `calc(${100 / n}% - 6px)` }}
                     onPointerDown={(ev) => demarrer(ev, e)}
-                    onKeyDown={(ev) => ev.key === "Enter" && router.push(`/planning/${e.id}`)}
+                    onKeyDown={(ev) => {
+                      if (ev.key !== "Enter" || ev.target !== ev.currentTarget) return;
+                      ev.preventDefault();
+                      ouvrir(e, ev.currentTarget);
+                    }}
                   >
                     {devis && (
                       <i className="ticket-devis" role="img" aria-label="Devis établi" title="Devis établi">
@@ -304,6 +414,108 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
           ))}
         </div>
       </div>
+
+      {/* La petite fenêtre d'un rendez-vous : quand, qui, où, et les trois gestes. */}
+      {fenetre && evFenetre && (
+        <FenetreRdv
+          e={evFenetre}
+          sms={etatsSms[evFenetre.id]}
+          refFenetre={fenetreRef}
+          style={{ left: fenetre.left, top: fenetre.top, width: LARGEUR_FENETRE }}
+          fermer={() => setFenetre(null)}
+          deplacer={() => {
+            setFenetre(null);
+            setViser({ id: evFenetre.id, jour: null, debutMin: evFenetre.debutMin });
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** « 570 » → « 9 h 30 ». */
+const hFr = (min: number) => `${Math.floor(min / 60)} h${min % 60 ? ` ${String(min % 60).padStart(2, "0")}` : ""}`;
+
+function FenetreRdv({
+  e,
+  sms,
+  refFenetre,
+  style,
+  fermer,
+  deplacer,
+}: {
+  e: EvenementPlanning;
+  sms?: EtatAffiche;
+  refFenetre: React.RefObject<HTMLDivElement | null>;
+  style: CSSProperties;
+  fermer: () => void;
+  deplacer: () => void;
+}) {
+  const type = TYPES_RDV[e.type];
+  const etat = e.etat ? ETATS_VISITE[e.etat] : null;
+  const visite = estVisite(e.type) && !!e.dossierId;
+  return (
+    <div ref={refFenetre} className={`${s.pop} t-${e.type}`} style={style} role="dialog" aria-label={`${type.long} · ${e.titre}`}>
+      <div className={s.popTete}>
+        <i className={s.popIcone} aria-hidden>
+          <Ic n={e.fait ? "check" : type.icone} />
+        </i>
+        <div className={s.popTitre}>
+          <small>{e.fait && visite ? `${type.long} · faite` : type.long}</small>
+          <b>{e.titre}</b>
+        </div>
+        <button type="button" className={s.popFermer} aria-label="Fermer" onClick={fermer}>
+          ×
+        </button>
+      </div>
+      <ul className={s.popInfos}>
+        <li>
+          <Ic n="cal" />
+          {jourLong(e.jour)} · {e.journee ? "journée entière" : `${hFr(e.debutMin)} – ${hFr(e.debutMin + e.duree)}`}
+        </li>
+        <li>
+          <Ic n="users" />
+          {e.commercial}
+        </li>
+        {e.lieu && (
+          <li title={e.lieu}>
+            <Ic n={e.type === "visio" ? "video" : "pin"} />
+            <span>{e.lieu}</span>
+          </li>
+        )}
+        {e.ref && (
+          <li>
+            <Ic n="doc" />
+            Dossier {e.ref}
+          </li>
+        )}
+      </ul>
+      {(etat || sms || (e.rappel && e.rappel.length > 0)) && (
+        <div className={s.popPastilles}>
+          {etat && <i className={`st ${etat.ton}`}>{etat.libelle}</i>}
+          {sms && (
+            <i className={`st ${sms.ton}`} title={sms.detail}>
+              {sms.libelle}
+            </i>
+          )}
+          {e.rappel && e.rappel.length > 0 && <i className="st n">Rappel J−1 · {e.rappel.map((x) => (x === "sms" ? "SMS" : "e-mail")).join(" + ")}</i>}
+        </div>
+      )}
+      <div className={s.popGestes}>
+        <Link href={`/planning/${e.id}?retour=planning`} className={s.popModifier} data-premier>
+          <Ic n="pen" />
+          Modifier
+        </Link>
+        <button type="button" className={s.popGeste} onClick={deplacer}>
+          Déplacer
+        </button>
+        {e.dossierId && (
+          <Link href={`/dossiers/${e.dossierId}`} className={s.popGeste}>
+            Ouvrir le dossier
+          </Link>
+        )}
+      </div>
+      <small className={s.popAstuce}>« Déplacer » : le prochain clic dans la grille le pose. Le glisser-déposer marche aussi.</small>
+    </div>
   );
 }

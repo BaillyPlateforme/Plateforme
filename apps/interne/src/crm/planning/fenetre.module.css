@@ -1,27 +1,8 @@
 /*
- * La page d'un rendez-vous et la fenêtre de visite. Couleurs du CRM
- * (variables de crm.css), palette de l'app interne en repli.
+ * La fenêtre de visite, sous le planificateur d'un rendez-vous de dossier
+ * (FenetreVisite.tsx). Couleurs du CRM (variables de crm.css), palette de
+ * l'app interne en repli.
  */
-.grille {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
-  gap: 16px;
-  align-items: start;
-  margin-bottom: 16px;
-}
-@media (max-width: 1100px) {
-  .grille {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-.colonne {
-  display: grid;
-  gap: 16px;
-}
-.carte {
-  display: grid;
-  gap: 12px;
-}
 .titre {
   font-size: 16px;
 }
@@ -60,69 +41,15 @@
   background: #fde8e6;
   color: #a02a21;
 }
-.danger {
-  border-color: #f6c5c0;
-}
-
-/* Le cycle */
-.cycle {
-  list-style: none;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  counter-reset: etape;
-}
-.cycle li {
-  counter-increment: etape;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px 6px 6px;
-  border-radius: 99px;
-  background: #f4f4f7;
-  color: var(--muted, #6b6785);
-  font-size: 12.5px;
-  font-weight: 650;
-}
-.cycle li::before {
-  content: counter(etape);
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-  font-size: 11px;
-}
-.cycle .passe {
-  background: #dcf7ea;
-  color: #0b7f50;
-}
-.cycle .actuel {
-  background: var(--accent, #4b2fe0);
-  color: #fff;
-}
-.cycle .actuel::before {
-  color: var(--accent, #4b2fe0);
-}
-.cycle .sansSuite {
-  background: #c2352b;
-}
-.cycle .sansSuite::before {
-  content: "×";
-  color: #c2352b;
-}
-.actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
 /* La fenêtre de visite */
 .fenetre {
   display: grid;
   gap: 14px;
   scroll-margin-top: 96px;
+}
+.fenetre > form {
+  display: grid;
+  gap: 14px;
 }
 .fenetreTete {
   display: flex;
@@ -130,6 +57,43 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+/* Repliée sous le planificateur : la tête est le bouton, un chevron dit qu'elle s'ouvre. */
+.repliable {
+  margin-top: 18px;
+}
+.repliable > summary {
+  position: relative;
+  padding-right: 34px;
+  list-style: none;
+  cursor: pointer;
+}
+.repliable > summary::-webkit-details-marker {
+  display: none;
+}
+.repliable > summary::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--muted, #6b6785);
+  border-bottom: 2px solid var(--muted, #6b6785);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.2s;
+}
+.repliable[open] > summary::after {
+  transform: translateY(-30%) rotate(-135deg);
+}
+.repliable > summary:focus-visible {
+  outline: 2px solid var(--accent, #4b2fe0);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.repliable:not([open]) {
+  gap: 0;
 }
 .etape {
   display: grid;

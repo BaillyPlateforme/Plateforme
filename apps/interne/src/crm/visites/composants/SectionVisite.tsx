@@ -23,6 +23,7 @@ const MESSAGES: Record<string, { ton: "ok" | "info" | "ko"; texte: string }> = {
   retire: { ton: "info", texte: "Proposition retirée : ses créneaux sont de nouveau libres." },
   document: { ton: "ok", texte: "Le PDF du compte-rendu est produit et rangé dans le dossier." },
   abandon: { ton: "info", texte: "Visite abandonnée. L'inventaire saisi reste celui du dossier." },
+  annulee: { ton: "info", texte: "Visite annulée : elle a quitté le planning et l'espace du client. Aucun message n'est parti au client." },
 };
 
 export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; commerciaux: Row[]; sp: { visite?: string; vm?: string; vc?: string; vd?: string; vt?: string } }) {
@@ -115,6 +116,9 @@ export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; co
                   ) : null}
                 </div>
                 <div className={s.actions}>
+                  <Link className="btn primary sm" href={`/planning/${r.id}`}>
+                    Modifier
+                  </Link>
                   <Link className="btn ghost sm" href={`/planning?semaine=${r.debut.slice(0, 10)}`}>
                     Planning
                   </Link>

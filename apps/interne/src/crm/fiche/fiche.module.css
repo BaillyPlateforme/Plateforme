@@ -645,6 +645,38 @@
 .table :global(.st) {
   white-space: nowrap;
 }
+/* « Modifier » au bout d'une ligne (les visites) : discret au repos, net sur la ligne survolée ou choisie. */
+.modifierLigne {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid #e4defa;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--indigo);
+  font-size: 12.5px;
+  font-weight: 700;
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    color 0.12s;
+}
+.table tbody tr:hover .modifierLigne,
+.table tbody tr[aria-selected="true"] .modifierLigne {
+  border-color: var(--indigo);
+}
+.modifierLigne:hover,
+.modifierLigne:focus-visible {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: #fff;
+}
+.modifierLigne:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
 .reference {
   font-weight: 750;
   font-variant-numeric: tabular-nums;

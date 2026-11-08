@@ -101,8 +101,11 @@ export type Contexte = {
   litiges: Row[];
   etatsSms: Map<number, EtatAffiche>;
   espaceOuvert: boolean;
-  /** `planifie` : le rendez-vous que le planificateur vient de poser (retour de /planning/nouveau). */
-  sp: { espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string; vt?: string; planifie?: string };
+  /**
+   * `planifie` : le rendez-vous que le planificateur vient de poser (retour de /planning/nouveau), ou de
+   * modifier (`modifie=1`, retour de /planning/<id>).
+   */
+  sp: { espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string; vt?: string; planifie?: string; modifie?: string };
   solde: number;
   /** L'instant de la page (ms) : une visite passée ne se confirme plus par SMS. */
   maintenant: number;
@@ -241,6 +244,11 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
           {r.lieu && <small>{r.lieu}</small>}
         </Long>,
         sms ? <i className={`st ${sms.ton}`} title={sms.detail}>{sms.libelle}</i> : <span style={{ color: "#b4b1c4" }}>—</span>,
+        // « Modifier » sur chaque rendez-vous : le planificateur en modification (/planning/<id>).
+        <Link key="m" href={`/planning/${r.id}`} className={s.modifierLigne} title={visite ? "Modifier la visite : personne, sur place ou visio, créneau" : "Modifier le rendez-vous"}>
+          <Picto nom="modifier" taille={14} />
+          Modifier
+        </Link>,
       ],
       gestes: {
         modifier: { lien: `/planning/${r.id}` },
@@ -288,6 +296,9 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
             )}
           </div>
           <div className={s.actionsDetail}>
+            <Link className="btn primary sm" href={`/planning/${r.id}`}>
+              {visite ? (r.type === "visio" ? "Modifier la visio" : "Modifier la visite") : "Modifier le rendez-vous"}
+            </Link>
             {visite && (
               <EtatSmsRdv etat={sms} confirmer={B.reponseRdv.bind(null, id, r.id, "confirme")} annuler={B.reponseRdv.bind(null, id, r.id, "annule")} />
             )}
@@ -334,6 +345,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         v.commercial ?? "—",
         signee ? `Signé par ${v.signataire}` : "Visite technique sur la tablette",
         "—",
+        "",
       ],
       gestes: {
         modifier: { lien: signee ? `/tablette/${v.id}/signature` : `/tablette/${v.id}` },
@@ -349,16 +361,16 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     cle: "visites",
     libelle: "Visites",
     compte: lignesVisites.length,
-    colonnes: [{ libelle: "État" }, { libelle: "Date" }, { libelle: "Heure" }, { libelle: "Type" }, { libelle: "Com." }, { libelle: "Description" }, { libelle: "SMS" }],
+    colonnes: [{ libelle: "État" }, { libelle: "Date" }, { libelle: "Heure" }, { libelle: "Type" }, { libelle: "Com." }, { libelle: "Description" }, { libelle: "SMS" }, { libelle: "" }],
     lignes: lignesVisites,
     vide: (
       <>
         <b>Aucun rendez-vous</b>« Nouveau » pose une visite au planning ; on peut aussi proposer des créneaux au client ci-dessous.
       </>
     ),
-    // Au retour du planificateur : la visite posée, et la suite (prévenir le client).
+    // Au retour du planificateur : la visite posée (ou modifiée), et la suite (prévenir le client).
     avant: planifie ? (
-      <VisitePlanifiee dossierId={id} rdvId={planifie.id} sms={c.etatsSms.get(planifie.id)} maintenant={c.maintenant} />
+      <VisitePlanifiee dossierId={id} rdvId={planifie.id} sms={c.etatsSms.get(planifie.id)} maintenant={c.maintenant} modifiee={c.sp.modifie === "1"} />
     ) : undefined,
     gestes: {
       nouveau: { lien: `/planning/nouveau?dossier=${id}` },

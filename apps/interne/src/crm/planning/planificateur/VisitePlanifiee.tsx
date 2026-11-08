@@ -20,11 +20,29 @@ import s from "./visite-planifiee.module.css";
  * 2) se lit avant de partir, et ne part que sur un geste ; le lien de
  * l'espace client se copie pour un e-mail ou un message. La fiche de visite
  * s'imprime (ou s'enregistre en PDF).
+ *
+ * Au retour d'une modification (`modifiee`), la même carte dit « Visite
+ * modifiée » : déplacée, la visite a perdu sa confirmation, et la suite est
+ * la même — prévenir le client du nouvel horaire, s'il ne l'a pas été.
  */
 
 const maj = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
-export default async function VisitePlanifiee({ dossierId, rdvId, sms, maintenant }: { dossierId: number; rdvId: number; sms?: EtatAffiche; /** L'instant de la page (ms) : une visite passée ne se confirme plus. */ maintenant: number }) {
+export default async function VisitePlanifiee({
+  dossierId,
+  rdvId,
+  sms,
+  maintenant,
+  modifiee = false,
+}: {
+  dossierId: number;
+  rdvId: number;
+  sms?: EtatAffiche;
+  /** L'instant de la page (ms) : une visite passée ne se confirme plus. */
+  maintenant: number;
+  /** Retour de /planning/<id> : la visite vient d'être modifiée. */
+  modifiee?: boolean;
+}) {
   const r = await q1<{ id: number; type: string; titre: string; lieu: string | null; debut: Date; duree_min: number; journee: boolean; commercial_id: number; commercial: string }>(
     `select r.id, r.type, r.titre, r.lieu, r.debut, r.duree_min, r.journee, r.commercial_id, u.nom as commercial
        from rendez_vous r join utilisateurs u on u.id = r.commercial_id where r.id = $1 and r.dossier_id = $2`,
@@ -49,7 +67,9 @@ export default async function VisitePlanifiee({ dossierId, rdvId, sms, maintenan
           <Ic n="check" />
         </i>
         <div className={s.texte}>
-          <h3 id="visite-planifiee">{visite ? `${r.type === "visio" ? "Visio" : "Visite"} planifiée` : "Rendez-vous planifié"}</h3>
+          <h3 id="visite-planifiee">
+            {visite ? `${r.type === "visio" ? "Visio" : "Visite"} ${modifiee ? "modifiée" : "planifiée"}` : `Rendez-vous ${modifiee ? "modifié" : "planifié"}`}
+          </h3>
           <p>
             <b>{r.journee ? `${maj(jourVisite(r.debut))} · journée entière` : `${maj(jourVisite(r.debut))} · ${plageVisite(r.debut, r.duree_min)}`}</b>
             <span className={s.type}>
@@ -68,7 +88,7 @@ export default async function VisitePlanifiee({ dossierId, rdvId, sms, maintenan
       {visite && !passee && (
         <div className={s.suite}>
           <div className={s.message}>
-            <small>Prochaine étape : prévenir le client</small>
+            <small>{modifiee && sms ? "La confirmation du client" : "Prochaine étape : prévenir le client"}</small>
             {apercu?.texte ? <p className={s.bulle}>{apercu.texte}</p> : <p className={s.manque}>Le modèle « Confirmation de rendez-vous » est introuvable.</p>}
             <span className={s.destinataire}>
               {apercu?.c.telephone ? `SMS au ${apercu.c.telephone}` : "Pas de téléphone sur la fiche du client : le SMS ne peut pas partir."}
@@ -93,6 +113,10 @@ export default async function VisitePlanifiee({ dossierId, rdvId, sms, maintenan
             <Link className="btn ghost" href={`/planning?semaine=${jourParis(r.debut)}&com=${r.commercial_id}`}>
               <Ic n="cal" />
               Voir au planning
+            </Link>
+            <Link className="btn ghost" href={`/planning/${rdvId}`}>
+              <Ic n="pen" />
+              Modifier
             </Link>
           </div>
         </div>
