@@ -12,7 +12,7 @@ export default function MenuCreation({ page }: { page: "nouveau" | "modeles" }) 
             { href: "/dossiers/modeles", label: "Modèles de dossier", icone: "grille", actif: page === "modeles" },
           ],
         },
-        { titre: "Ensuite", items: [{ href: "/dossiers", label: "Clients et dossiers", icone: "clients" }] },
+        { titre: "Ensuite", items: [{ href: "/parcours?vue=liste", label: "Liste des dossiers", icone: "clients" }] },
       ]}
     />
   );

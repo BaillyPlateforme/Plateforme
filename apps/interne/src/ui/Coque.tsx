@@ -61,7 +61,9 @@ export default function Coque({
   return (
     <div className={s.coque}>
       <Entete chemin={chemin} compteur={compteur} ouvrirTiroir={() => setTiroir(true)}>
-        <form action="/dossiers" className={s.recherche} role="search">
+        {/* La recherche ouvre la liste du Parcours : dossiers et demandes du site (l'ancienne liste /dossiers y mène aussi). */}
+        <form action="/parcours" className={s.recherche} role="search">
+          <input type="hidden" name="vue" value="liste" />
           <Icone nom="recherche" taille={17} />
           <input ref={recherche} name="q" placeholder="Rechercher…" aria-label="Rechercher un client, un dossier, un devis" />
           <kbd className={s.touche}>/</kbd>

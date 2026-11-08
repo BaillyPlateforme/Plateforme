@@ -9,7 +9,7 @@ export default function DossierIntrouvable() {
       <h1>Page introuvable</h1>
       <p>Ce dossier n&apos;existe pas, ou plus. Retrouvez-le depuis la liste des dossiers.</p>
       <div className="sec-actions" style={{ justifyContent: "center", marginTop: 22 }}>
-        <Link href="/dossiers" className="btn primary">Clients & dossiers</Link>
+        <Link href="/parcours?vue=liste" className="btn primary">Liste des dossiers</Link>
       </div>
     </div>
   );

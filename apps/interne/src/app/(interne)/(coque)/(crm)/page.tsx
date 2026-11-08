@@ -69,7 +69,7 @@ export default async function Pilotage() {
           <ul className="legend2">{s.repart.map((r, i) => <li key={r.type}><i className={cls[i % 4]} />{TYPES_PLURIEL[r.type] ?? r.type}<b>{Math.round((r.n / totRep) * 100)} %</b></li>)}</ul>
         </section>
         <section className="card c8">
-          <div className="card-h"><h3>Prochains déménagements</h3><Link className="btn ghost sm" href="/commandes">Tout voir</Link></div>
+          <div className="card-h"><h3>Prochains déménagements</h3><Link className="btn ghost sm" href="/parcours?vue=liste&etape=commande">Tout voir</Link></div>
           {s.prochains.length === 0 ? <div className="empty">Aucun déménagement confirmé.</div> : (
             <table className="tbl mini"><tbody>
               {s.prochains.map((r) => (

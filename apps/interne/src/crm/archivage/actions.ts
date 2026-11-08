@@ -5,9 +5,9 @@ import { ecrireReglage, ident, journal, nombre, rafraichir } from "@/crm/exploit
 import { refuse, reussi, type Resultat } from "@/crm/exploitation/ui/resultat";
 
 /*
- * Archiver un dossier clos (terminé ou perdu) le range à part : il quitte la
- * liste des dossiers et le Kanban, mais reste trouvable par la recherche et
- * consultable dans « Archivage ». Restaurer le remet en place, tel quel.
+ * Archiver un dossier clos (terminé ou perdu) le range à part : il quitte le
+ * Parcours (colonnes et liste) — une recherche du Parcours le signale — et
+ * reste consultable dans « Archivage ». Restaurer le remet en place, tel quel.
  * Seuls les dossiers terminés ou perdus s'archivent.
  */
 
@@ -18,7 +18,7 @@ async function archiverIds(ids: number[]) {
     [ids, u.id],
   );
   for (const f of faits) await journal(f.id, u.id, "Dossier archivé");
-  rafraichir("/archives", "/dossiers", "/kanban");
+  rafraichir("/archives", "/parcours");
   return faits.length;
 }
 
@@ -40,7 +40,7 @@ export async function restaurer(id: number): Promise<Resultat> {
   const r = await q<{ id: number }>("update dossiers set archive_le=null, archive_par=null, maj_le=now() where id=$1 and archive_le is not null returning id", [id]);
   if (!r.length) return refuse("Ce dossier n'est pas archivé.");
   await journal(id, u.id, "Dossier restauré depuis l'archivage");
-  rafraichir("/archives", "/dossiers", "/kanban");
+  rafraichir("/archives", "/parcours");
   return reussi("Dossier restauré : il est de retour dans la liste des dossiers.");
 }
 

@@ -70,7 +70,7 @@ export default async function TableauDuJour() {
       <div className="kpis five chevauche">
         <Link href="/dashboard?statut=new" className="kpi lien"><span className="ki"><Ic n="inbox" /></span><small>Demandes du site à ouvrir</small><b>{nouvelles}</b></Link>
         <Link href="/planning" className="kpi lien"><span className="ki"><Ic n="eye" /></span><small>Visites aujourd’hui</small><b>{visites.length}</b></Link>
-        <Link href="/commandes" className="kpi lien"><span className="ki"><Ic n="truck" /></span><small>Déménagements · 7 jours</small><b>{j.nombreChantiers}</b></Link>
+        <Link href="/parcours?vue=liste&etape=commande" className="kpi lien"><span className="ki"><Ic n="truck" /></span><small>Déménagements · 7 jours</small><b>{j.nombreChantiers}</b></Link>
         <Link href="/devis" className="kpi lien"><span className="ki"><Ic n="doc" /></span><small>Devis à relancer</small><b>{j.nombreRelances}</b></Link>
         <Link href="/" className="kpi lien"><span className="ki"><Ic n="receipt" /></span><small>CA signé · mois en cours</small><b>{eur(s.ca.cur)}</b>{delta != null && <em className={delta >= 0 ? "up" : "dn"}>{delta >= 0 ? "+" : ""}{delta} %</em>}</Link>
       </div>

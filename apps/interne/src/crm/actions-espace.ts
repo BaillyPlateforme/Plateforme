@@ -44,7 +44,7 @@ export async function ouvrirEspaceClient(dossierId: number, f: FormData) {
     "select d.client_id, c.email, d.mois_ca, d.date_chargement, d.commercial_id from dossiers d join clients c on c.id=d.client_id where d.id=$1",
     [dossierId],
   );
-  if (!d) redirect("/dossiers");
+  if (!d) redirect("/parcours");
 
   const completes: string[] = [];
   const email = s(f, "email")?.toLowerCase() ?? null;
