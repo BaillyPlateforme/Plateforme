@@ -7,7 +7,8 @@ import { ALERTES, alerteDe, GROUPES } from "@/lib/alertes-equipe/catalogue";
 import { currentUser } from "@/crm/lib/auth";
 import { q } from "@/crm/lib/db";
 import { Catalogue, Destinataires, Matrice, type AlerteVue, type DestVue } from "@/crm/alertes/Alertes";
-import { dossierDuFiltre, MenuRelances } from "@/crm/relances/Section";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { surtitreReglages } from "@/crm/reglages/pages";
 import s from "@/crm/relances/relances.module.css";
 
 export const dynamic = "force-dynamic";
@@ -18,12 +19,11 @@ const quand = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "num
  * Les alertes de l'équipe : qui reçoit quoi. Les destinataires (l'équipe,
  * lue dans team_members, et des adresses ajoutées à la main), le catalogue
  * des alertes internes (une par événement, activable, avec son texte), la
- * matrice des abonnements, et le journal des alertes parties.
+ * matrice des abonnements, et le journal des alertes parties. Une page de
+ * Réglages (menu de Réglages à gauche).
  */
-export default async function AlertesEquipe({ searchParams }: { searchParams: Promise<{ dossier?: string }> }) {
+export default async function AlertesEquipe() {
   await currentUser();
-  const sp = await searchParams;
-  const dossier = dossierDuFiltre(sp.dossier);
   const [etat, journal] = await Promise.all([
     lireEtat(q),
     q<{ id: number; alerte: string; evenement: string; reference: string | null; destinataires: number; resume: string | null; cree_le: string }>(
@@ -56,15 +56,12 @@ export default async function AlertesEquipe({ searchParams }: { searchParams: Pr
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial · Relances · Configuration"
+        surtitre={surtitreReglages("/relances/alertes")}
         titre="Alertes de l’équipe"
         texte={`${ALERTES.length} alertes · ${branchees} branchées · ${actives} actives · ${dests.filter((d) => !d.enPause).length} destinataires actifs`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`]}
-      >
-        <Link href="/dashboard/envois" data-ton="contour">Journal des envois</Link>
-        <Link href="/relances/configuration" data-ton="contour">Règles des relances</Link>
-      </Bandeau>
-      <AvecMenu menu={<MenuRelances page="alertes" dossier={dossier} />}>
+      />
+      <AvecMenu menu={<MenuReglages />}>
         <div className={s.page}>
           {!etat && <p className={s.provisoire}>Les abonnements ne se lisent pas (base injoignable ?) : les alertes qui existaient partent comme avant, les nouvelles ne partent pas.</p>}
           <div className={s.provisoire}>

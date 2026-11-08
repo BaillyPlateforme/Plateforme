@@ -1,5 +1,8 @@
 import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
+import { AvecMenu } from "@/ui/MenuVertical";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { surtitreReglages } from "@/crm/reglages/pages";
 import { aArchiver, compteursArchivage, dossiersArchives } from "@/crm/archivage/donnees";
 import { reglerDelaiArchivage } from "@/crm/archivage/actions";
 import { AArchiver, Archives } from "@/crm/archivage/ListeClos";
@@ -29,7 +32,7 @@ export default async function Archivage({ searchParams }: { searchParams: Promis
   return (
     <div className="view">
       <Bandeau
-        surtitre="Réglages · Archivage"
+        surtitre={surtitreReglages("/archives")}
         titre="Archivage"
         texte="Les dossiers clos, terminés ou perdus : rangés à part, consultables et restaurables."
         bas={
@@ -45,48 +48,50 @@ export default async function Archivage({ searchParams }: { searchParams: Promis
           </BarreBas>
         }
       />
-      <div className={u.ecran}>
-        {proposes && (
-          <p className={u.message} data-ton="ambre">
-            {proposes.delai
-              ? `Sont proposés les dossiers perdus et ceux terminés depuis ${proposes.delai} jours au moins.`
-              : "Aucun délai n'est réglé : tous les dossiers terminés et perdus sont proposés. Réglez un délai plus bas pour ne proposer que les plus anciens."}
-          </p>
-        )}
-        <section className={`${u.carte} ${u.carteSerree}`}>
-          {lignes.length === 0 ? (
-            <div className={u.vide}>
-              <i>
-                <Icone nom="archive" taille={24} />
-              </i>
-              <b>{vue === "archives" ? "Aucun dossier archivé." : "Aucun dossier à archiver."}</b>
-            </div>
-          ) : vue === "archives" ? (
-            <Archives lignes={lignes} />
-          ) : (
-            <AArchiver lignes={lignes} />
+      <AvecMenu menu={<MenuReglages />}>
+        <div className={u.ecran}>
+          {proposes && (
+            <p className={u.message} data-ton="ambre">
+              {proposes.delai
+                ? `Sont proposés les dossiers perdus et ceux terminés depuis ${proposes.delai} jours au moins.`
+                : "Aucun délai n'est réglé : tous les dossiers terminés et perdus sont proposés. Réglez un délai plus bas pour ne proposer que les plus anciens."}
+            </p>
           )}
-        </section>
-        <section className={u.carte}>
-          <div className={u.carteTete}>
-            <div>
-              <h3>Délai avant archivage</h3>
-              <p className={u.sousTitre}>Facultatif. Un dossier terminé n&apos;est proposé qu&apos;après ce délai (compté depuis la livraison). Vide : tous les dossiers terminés sont proposés.</p>
-            </div>
-          </div>
-          <Formulaire action={reglerDelaiArchivage}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
-              <div className={u.champ} style={{ gridColumn: "auto", width: 220 }}>
-                <label htmlFor="delai">Délai (jours)</label>
-                <input id="delai" type="number" min={0} step={1} name="delai" defaultValue={delai ?? ""} placeholder="Non renseigné" />
+          <section className={`${u.carte} ${u.carteSerree}`}>
+            {lignes.length === 0 ? (
+              <div className={u.vide}>
+                <i>
+                  <Icone nom="archive" taille={24} />
+                </i>
+                <b>{vue === "archives" ? "Aucun dossier archivé." : "Aucun dossier à archiver."}</b>
               </div>
-              <button type="submit" className={u.bouton} data-ton="secondaire">
-                Enregistrer
-              </button>
+            ) : vue === "archives" ? (
+              <Archives lignes={lignes} />
+            ) : (
+              <AArchiver lignes={lignes} />
+            )}
+          </section>
+          <section className={u.carte}>
+            <div className={u.carteTete}>
+              <div>
+                <h3>Délai avant archivage</h3>
+                <p className={u.sousTitre}>Facultatif. Un dossier terminé n&apos;est proposé qu&apos;après ce délai (compté depuis la livraison). Vide : tous les dossiers terminés sont proposés.</p>
+              </div>
             </div>
-          </Formulaire>
-        </section>
-      </div>
+            <Formulaire action={reglerDelaiArchivage}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
+                <div className={u.champ} style={{ gridColumn: "auto", width: 220 }}>
+                  <label htmlFor="delai">Délai (jours)</label>
+                  <input id="delai" type="number" min={0} step={1} name="delai" defaultValue={delai ?? ""} placeholder="Non renseigné" />
+                </div>
+                <button type="submit" className={u.bouton} data-ton="secondaire">
+                  Enregistrer
+                </button>
+              </div>
+            </Formulaire>
+          </section>
+        </div>
+      </AvecMenu>
     </div>
   );
 }

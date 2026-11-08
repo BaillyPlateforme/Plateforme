@@ -9,7 +9,8 @@ import { RATTRAPAGE_JOURS, relancesEtRegles } from "@/crm/relances/moteur";
 import { CANAUX, heureVeilleParis, RELANCES } from "@/crm/relances/regles";
 import { dossiersChoisissables, exclusions, journalRegles } from "@/crm/relances/suivi";
 import Configuration, { ExclusionsGlobales, type VueRegle } from "@/crm/relances/Configuration";
-import { dossierDuFiltre, MenuRelances } from "@/crm/relances/Section";
+import MenuReglages from "@/crm/reglages/MenuReglages";
+import { surtitreReglages } from "@/crm/reglages/pages";
 import s from "@/crm/relances/relances.module.css";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +22,11 @@ const quand = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "num
  * par type (activation, délais et repère, canaux et cartes, jours et heures,
  * exclusions, simulation), les dossiers à ne pas relancer et le journal des
  * modifications. Tout est lu par le moteur et par la tâche de la veille.
+ * Une page de Réglages (menu de Réglages à gauche) ; le Kanban et
+ * l'historique des relances sont dans Dossiers › Relances.
  */
-export default async function ConfigurationRelances({ searchParams }: { searchParams: Promise<{ dossier?: string }> }) {
+export default async function ConfigurationRelances() {
   await currentUser();
-  const sp = await searchParams;
-  const dossier = dossierDuFiltre(sp.dossier);
   const aujourdhui = jourParis();
   const [{ relances, regles }, cartes, exclus, dossiers, journal] = await Promise.all([
     relancesEtRegles(aujourdhui), lignesCatalogue(), exclusions(), dossiersChoisissables(), journalRegles(),
@@ -66,15 +67,14 @@ export default async function ConfigurationRelances({ searchParams }: { searchPa
   return (
     <div className="view">
       <Bandeau
-        surtitre="Commercial · Relances · Configuration"
+        surtitre={surtitreReglages("/relances/configuration")}
         titre="Règles des relances"
         texte={`${actives} type${actives > 1 ? "s" : ""} actif${actives > 1 ? "s" : ""} sur ${RELANCES.length} · ${pretes} prêt${pretes > 1 ? "s" : ""} à partir`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`, "Délais provisoires"]}
       >
-        <Link href="/modeles" data-ton="contour">Courriers et SMS</Link>
         <Link href="#journal" data-ton="contour">Journal</Link>
       </Bandeau>
-      <AvecMenu menu={<MenuRelances page="configuration" dossier={dossier} aFaire={relances.filter((r) => r.colonne === "aujourdhui" || r.colonne === "retard").length} />}>
+      <AvecMenu menu={<MenuReglages />}>
         <div className={s.page}>
           <section className={s.carte}>
             <div className={s.carteTete}>
