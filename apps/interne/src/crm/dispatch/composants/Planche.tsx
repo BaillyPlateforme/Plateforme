@@ -14,7 +14,6 @@ import Historique from "./Historique";
 import ModaleColonne from "./ModaleColonne";
 import PanneauProposition, { type EtatIa } from "./PanneauProposition";
 import { Picto, PICTO_GENRE } from "./Picto";
-import Recapitulatif from "./Recapitulatif";
 import ReglagesPlan from "./ReglagesPlan";
 import TiroirLigne from "./TiroirLigne";
 import { useGlisser } from "./useGlisser";
@@ -27,9 +26,14 @@ import s from "./dispatch.module.css";
  * suite (état optimiste) puis est confirmé par le serveur, qui peut le
  * refuser (colonne verrouillée entre-temps) : la bulle revient alors à sa
  * place, avec la raison.
+ *
+ * Simplification du 08/11/2026 : deux vues, Planning et Historique, en
+ * pilules dans la rangée basse du bandeau (plus de barre d'onglets dessous).
+ * L'ancien écran « Récapitulatif » redisait le planning colonne par colonne :
+ * il reste imprimable depuis « Exporter › Récapitulatif par conteneur ».
  */
 
-type Vue = "planning" | "recap" | "historique";
+type Vue = "planning" | "historique";
 type Mouvement = { id: number; colonneId: number | null; rang: number };
 
 const ATTENTE = "attente";
@@ -165,8 +169,6 @@ export default function Planche({
 
   /* ── Chiffres ── */
   const total = somme(lignes);
-  const reparties = lignes.filter((l) => l.colonneId != null);
-  const verrouillees = plan.colonnes.filter((c) => c.verrouilleeLe).length;
   const destinations = [...new Set(lignes.map(cleDestination))].sort((a, z) => (noms.get(a) ?? a).localeCompare(noms.get(z) ?? z, "fr"));
   const genreParDefaut: Genre = plan.colonnes.length ? plan.colonnes[plan.colonnes.length - 1].genre : "conteneur";
   const ligneOuverte = fiche != null ? lignes.find((l) => l.id === fiche) ?? null : null;
@@ -322,11 +324,21 @@ export default function Planche({
             {plan.demo ? " · plan de démonstration, données fictives" : ""}
           </>
         }
-        reperes={[
-          { label: "Clients répartis", valeur: `${reparties.length} / ${lignes.length}` },
-          { label: "Volume réparti", valeur: `${m3(somme(reparties))} / ${m3(total)}` },
-          { label: "Colonnes validées", valeur: `${verrouillees} / ${plan.colonnes.length}` },
-        ]}
+        bas={
+          <nav className={b.pilules} aria-label="Vues du plan">
+            {(
+              [
+                ["planning", "Planning"],
+                ["historique", "Historique"],
+              ] as const
+            ).map(([v, nom]) => (
+              <button key={v} type="button" className={`${b.pilule} ${s.piluleBouton}`} aria-current={vue === v ? "page" : undefined} onClick={() => setVue(v)}>
+                {nom}
+                {v === "historique" && <i className={b.nombre}>{plan.historique.length}</i>}
+              </button>
+            ))}
+          </nav>
+        }
       >
         <button type="button" onClick={() => setProposition(true)} disabled={lignes.length === 0}>
           <Picto nom="etincelle" taille={18} />
@@ -341,21 +353,21 @@ export default function Planche({
       </Bandeau>
 
       <div className={s.outils}>
-        <div className={s.onglets} role="tablist" aria-label="Vues du plan">
-          {(
-            [
-              ["planning", "Planning", "colonnes"],
-              ["recap", "Récapitulatif", "conteneur"],
-              ["historique", "Historique", "horloge"],
-            ] as const
-          ).map(([v, nom, picto]) => (
-            <button key={v} type="button" role="tab" aria-selected={vue === v} onClick={() => setVue(v)}>
-              <Picto nom={picto} taille={16} />
-              {nom}
-              {v === "historique" && <em>{plan.historique.length}</em>}
-            </button>
-          ))}
-        </div>
+        {vue === "planning" && destinations.length > 0 ? (
+          <div className={s.legende} aria-label="Destinations">
+            {destinations.map((d) => {
+              const ls = lignes.filter((l) => cleDestination(l) === d);
+              return (
+                <span key={d} className={s.destination} style={{ ["--c" as string]: couleurs.get(d) }}>
+                  <i />
+                  <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <span />
+        )}
         <div className={s.actions}>
           <button type="button" className={s.bouton} onClick={() => setEdition("nouvelle")}>
             <Picto nom="plus" taille={16} /> Colonne
@@ -392,34 +404,18 @@ export default function Planche({
       </div>
 
       {vue === "planning" && (
-        <>
-          {destinations.length > 0 && (
-            <div className={s.legende} aria-label="Destinations">
-              {destinations.map((d) => {
-                const ls = lignes.filter((l) => cleDestination(l) === d);
-                return (
-                  <span key={d} className={s.destination} style={{ ["--c" as string]: couleurs.get(d) }}>
-                    <i />
-                    <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          <div ref={planche} className={`${s.planche} ${glisse ? s.glissement : ""}`}>
-            {colonne(null)}
-            {plan.colonnes.map(colonne)}
-            <button type="button" className={s.ajoutColonne} onClick={() => setEdition("nouvelle")}>
-              <span>
-                <Picto nom="plus" taille={20} />
-              </span>
-              Ajouter une colonne
-              <small style={{ fontWeight: 500, color: "#77738f", maxWidth: 170, textAlign: "center" }}>Conteneur, tournée, date ou zone</small>
-            </button>
-          </div>
-        </>
+        <div ref={planche} className={`${s.planche} ${glisse ? s.glissement : ""}`}>
+          {colonne(null)}
+          {plan.colonnes.map(colonne)}
+          <button type="button" className={s.ajoutColonne} onClick={() => setEdition("nouvelle")}>
+            <span>
+              <Picto nom="plus" taille={20} />
+            </span>
+            Ajouter une colonne
+            <small style={{ fontWeight: 500, color: "#77738f", maxWidth: 170, textAlign: "center" }}>Conteneur, tournée, date ou zone</small>
+          </button>
+        </div>
       )}
-      {vue === "recap" && <Recapitulatif plan={plan} lignes={lignes} couleurs={couleurs} />}
       {vue === "historique" && <Historique evenements={plan.historique} />}
 
       {glisse && ligneGlissee && glisse.cible !== undefined && (

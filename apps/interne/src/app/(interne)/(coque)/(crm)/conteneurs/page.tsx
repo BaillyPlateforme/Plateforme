@@ -3,6 +3,8 @@ import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
 import { dateFr, eur, m3 } from "@/crm/lib/format";
 import { compteursConteneurs, listeConteneurs, type ConteneurListe } from "@/crm/conteneurs/donnees";
+import { nombrePlans } from "@/crm/dispatch/donnees";
+import VuesConteneurs from "@/crm/conteneurs/Vues";
 import { etatJalon, JALONS, STATUTS, estStatut } from "@/crm/conteneurs/regles";
 import { BarreBas, RechercheVerre } from "@/crm/exploitation/ui/Bas";
 import u from "@/crm/exploitation/ui/ui.module.css";
@@ -15,10 +17,16 @@ export const metadata = { title: "Conteneurs" };
  * Les conteneurs (Créagidem : liste groupée Export / Import, ou dans l'ordre
  * chronologique) : trajet, navire, remplissage, avancement des jalons, marge
  * et alertes du contrôle d'incohérences. « Nouveau conteneur » ouvre la
- * saisie complète ; le dispatch international reste à côté.
+ * saisie complète ; le dispatch international est l'autre vue de la page
+ * (pilules « Conteneurs · Dispatch » du bandeau).
+ *
+ * Simplification du 08/11/2026 : les filtres Export et Import doublaient les
+ * deux groupes de la liste ; ils ne sont plus proposés (l'adresse
+ * ?vue=export|import reste lue).
  */
-const VUES = { cours: "En cours", export: "Export", import: "Import", livres: "Livrés", tous: "Tous" } as const;
+const VUES = { cours: "En cours", livres: "Livrés", tous: "Tous", export: "Export", import: "Import" } as const;
 type Vue = keyof typeof VUES;
+const PROPOSEES: Vue[] = ["cours", "livres", "tous"];
 const auj = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
 
 function Carte({ c }: { c: ConteneurListe }) {
@@ -84,7 +92,7 @@ function Carte({ c }: { c: ConteneurListe }) {
           <small>{c.marge.reelle != null ? "marge réalisée" : c.marge.prevue != null ? "marge prévue" : "marge non saisie"}</small>
         </span>
         {c.alertes > 0 ? (
-          <Link href={`/conteneurs/${c.id}?onglet=controle`} className={`${u.etat} ${s.alertes}`} data-ton={c.erreurs ? "rose" : "ambre"}>
+          <Link href={`/conteneurs/${c.id}#controle`} className={`${u.etat} ${s.alertes}`} data-ton={c.erreurs ? "rose" : "ambre"}>
             {c.alertes} alerte{c.alertes > 1 ? "s" : ""}
           </Link>
         ) : (
@@ -101,7 +109,7 @@ export default async function Conteneurs({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const vue: Vue = sp.vue && sp.vue in VUES ? (sp.vue as Vue) : "cours";
   const chrono = sp.ordre === "chrono";
-  const [rows, n] = await Promise.all([listeConteneurs({ vue, q: sp.q?.trim() || undefined }), compteursConteneurs()]);
+  const [rows, n, plans] = await Promise.all([listeConteneurs({ vue, q: sp.q?.trim() || undefined }), compteursConteneurs(), nombrePlans()]);
   const nombres: Record<Vue, number> = { cours: n.cours, export: n.export, import: n.import, livres: n.livres, tous: n.tous };
   const lien = (p: Record<string, string | undefined>) => {
     const x = new URLSearchParams();
@@ -124,16 +132,14 @@ export default async function Conteneurs({ searchParams }: { searchParams: Promi
         action={{ label: "Nouveau conteneur", href: "/conteneurs/nouveau", icone: "plus" }}
         bas={
           <BarreBas>
-            <Pilules label="Conteneurs" items={(Object.keys(VUES) as Vue[]).map((v) => ({ href: lien({ vue: v === "cours" ? undefined : v }), label: VUES[v], actif: vue === v, nombre: nombres[v] }))} />
+            <VuesConteneurs vue="conteneurs" conteneurs={n.tous} plans={plans} />
+            <Pilules label="Filtrer les conteneurs" items={PROPOSEES.map((v) => ({ href: lien({ vue: v === "cours" ? undefined : v }), label: VUES[v], actif: vue === v, nombre: nombres[v] }))} />
             <RechercheVerre action="/conteneurs" valeur={sp.q} placeholder="Numéro, navire, client, destination…" garder={{ vue: vue === "cours" ? undefined : vue, ordre: sp.ordre }} />
           </BarreBas>
         }
       >
         <Link href={lien({ ordre: chrono ? undefined : "chrono" })} data-ton="contour">
           {chrono ? "Grouper Export / Import" : "Ordre chronologique"}
-        </Link>
-        <Link href="/conteneurs/dispatch" data-ton="contour">
-          Dispatch international
         </Link>
       </Bandeau>
       <div className={u.ecran}>

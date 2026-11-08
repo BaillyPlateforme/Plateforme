@@ -33,55 +33,26 @@
   gap: 12px;
   margin-bottom: 16px;
 }
-.onglets {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid var(--filet);
-}
-.onglets button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 12px;
+/* Les vues du plan (Planning, Historique) : des pilules de verre du bandeau, en boutons. */
+.piluleBouton {
+  border: 0;
+  background: transparent;
+  font: inherit;
   font-size: 13.5px;
-  font-weight: 650;
-  color: var(--gris);
-  transition: background-color 0.15s, color 0.15s;
-}
-.onglets button:hover {
-  color: var(--encre);
-}
-.onglets button[aria-selected="true"] {
-  background: var(--encre);
-  color: #fff;
-  box-shadow: 0 10px 22px -14px rgba(23, 20, 43, 0.8);
-}
-.onglets em {
-  font-style: normal;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--violet-doux);
-  color: var(--violet);
-  font-size: 11px;
-  line-height: 20px;
-  text-align: center;
-}
-.onglets button[aria-selected="true"] em {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
 }
 .actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+/* La légende des destinations, à gauche des actions du plan, sur la même rangée. */
+.outils .legende {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-bottom: 0;
 }
 .bouton,
 .boutonPlein,
@@ -1109,18 +1080,13 @@
   text-align: right;
 }
 
-/* ───────── Récapitulatif ───────── */
+/* ───────── Cartes (création d'un plan) et tableaux ───────── */
 
 .bilan {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
-}
-.recap {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 16px;
 }
 .carte {
   padding: 20px;
@@ -1142,29 +1108,6 @@
   margin-top: 2px;
   font-size: 12.5px;
   color: var(--gris);
-}
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 14px 0;
-}
-.stats div {
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: #f8f6fd;
-}
-.stats small {
-  display: block;
-  font-size: 11px;
-  color: var(--gris);
-}
-.stats b {
-  display: block;
-  margin-top: 2px;
-  font-size: 17px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
 }
 .table {
   width: 100%;
@@ -1196,12 +1139,6 @@
   margin-right: 6px;
   border-radius: 50%;
   background: var(--c);
-}
-.villes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
 }
 
 /* ───────── Historique ───────── */
@@ -1483,24 +1420,19 @@
   .creation {
     grid-template-columns: minmax(0, 1fr);
   }
-  .recap {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 @media (max-width: 760px) {
   .planche {
     height: max(520px, calc(100dvh - 76px - 110px));
   }
-  /* Sur un téléphone, la légende et les onglets défilent sur une ligne au lieu de s'empiler. */
-  .legende,
-  .onglets {
+  /* Sur un téléphone, la légende défile sur une ligne au lieu de s'empiler. */
+  .legende {
     flex-wrap: nowrap;
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .destination,
-  .onglets button {
+  .destination {
     flex: none;
   }
   .colonne {
@@ -1512,9 +1444,6 @@
   }
   .plans {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .fenetreTete,
   .fenetreCorps,
