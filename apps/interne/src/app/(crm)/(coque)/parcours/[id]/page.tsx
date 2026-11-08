@@ -12,6 +12,9 @@ import Frise from "@/crm/parcours/Frise";
 import DefileEtapes from "@/crm/parcours/DefileEtapes";
 import { CarteArgent, CarteClient, CarteDocuments, CarteEquipe, CarteEtapes, CarteTrajet } from "@/crm/parcours/Cartes";
 import s from "@/crm/parcours/parcours.module.css";
+import PanneauDossiers from "@/crm/parcours/PanneauDossiers";
+import { cartesPanneau, VUES_PANNEAU } from "@/crm/parcours/cartes-panneau";
+import pan from "@/crm/parcours/panneau.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Parcours d'un dossier" };
@@ -24,10 +27,12 @@ export const metadata: Metadata = { title: "Parcours d'un dossier" };
  * cartes du dossier. Lecture seule : on agit depuis la fiche, le planning,
  * l'espace client.
  */
-export default async function ParcoursDossier({ params }: { params: Promise<{ id: string }> }) {
+export default async function ParcoursDossier({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ vue?: string }> }) {
   await currentUser();
   const id = Number((await params).id);
-  const p = await parcoursDossier(id);
+  const sp = await searchParams;
+  const vue = VUES_PANNEAU.some((v) => v.cle === sp.vue) ? (sp.vue as string) : "";
+  const [p, cartes] = await Promise.all([parcoursDossier(id), cartesPanneau(vue)]);
   if (!p) notFound();
   const d = p.d;
   const depart = p.stops.find((x) => x.genre === "depart")?.adresse;
@@ -75,11 +80,10 @@ export default async function ParcoursDossier({ params }: { params: Promise<{ id
         <Link href="/kanban" data-ton="contour">
           Kanban
         </Link>
-        <Link href="/parcours" data-ton="contour">
-          Autre dossier
-        </Link>
       </Bandeau>
 
+      <div className={pan.avecPanneau}>
+      <div className={pan.zone}>
       <div className={s.grille}>
         <div className={s.principal}>
           <CarteEtapes etapes={p.etapes} />
@@ -92,6 +96,9 @@ export default async function ParcoursDossier({ params }: { params: Promise<{ id
           <CarteArgent p={p} />
           <CarteDocuments p={p} />
         </aside>
+      </div>
+      </div>
+      <PanneauDossiers cartes={cartes} actif={id} vue={vue} vues={VUES_PANNEAU} />
       </div>
     </div>
   );

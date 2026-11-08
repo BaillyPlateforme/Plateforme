@@ -12,12 +12,14 @@ export const dynamic = "force-dynamic";
  * en retard, envoyées, désactivées. Filtre par type (?type=…) : à la fusion
  * avec le design « Quantum », ces pilules passent dans le bas du Bandeau.
  */
-export default async function Relances({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+export default async function Relances({ searchParams }: { searchParams: Promise<{ type?: string; dossier?: string }> }) {
   await currentUser();
   const sp = await searchParams;
   const [toutes, regles, cartes] = await Promise.all([listerRelances(), reglesRelances(), lignesCatalogue()]);
   const type = RELANCES.some((r) => r.type === sp.type) ? sp.type : null;
-  const relances = toutes.filter((r) => !type || r.type === type);
+  // Ouvert depuis un dossier : ses seules relances (on reste sur le dossier).
+  const dossier = sp.dossier && /^\d+$/.test(sp.dossier) ? Number(sp.dossier) : null;
+  const relances = toutes.filter((r) => (!type || r.type === type) && (!dossier || r.dossierId === dossier));
   const vues: RegleVue[] = RELANCES.map((d) => {
     const g = regles.get(d.type)!;
     const c = cartes.get(d.carte) ?? null;
@@ -46,6 +48,8 @@ export default async function Relances({ searchParams }: { searchParams: Promise
           />
         }
       >
+        {dossier && <Link href={`/dossiers/${dossier}`} data-ton="contour">Fiche du dossier</Link>}
+        {dossier && <Link href="/relances" data-ton="contour">Toutes les relances</Link>}
         <Link href="/modeles" data-ton="contour">Courriers et SMS</Link>
       </Bandeau>
       <Kanban relances={relances} regles={vues} />

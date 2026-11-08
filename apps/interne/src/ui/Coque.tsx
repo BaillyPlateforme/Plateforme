@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Applications from "@/composants/Applications";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
-import { GROUPES, estActif, groupeDe, type Entree } from "./navigation";
+import { GROUPES, dossierDe, estActif, groupeDe, hrefPour, type Entree } from "./navigation";
 import OngletsTravail from "./OngletsTravail";
 import s from "./coque.module.css";
 
@@ -99,6 +99,8 @@ function Entete({
   children: React.ReactNode;
 }) {
   const courant = groupeDe(chemin);
+  // Le dossier ouvert : les pages de la rubrique restent sur lui.
+  const dossier = dossierDe(chemin, useSearchParams().get("dossier"));
   const [apercu, setApercu] = useState<string | null>(null);
   const montre = GROUPES.find((g) => g.titre === apercu) ?? courant;
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,7 +174,7 @@ function Entete({
       <nav className={s.sousBarre} aria-label={montre.titre} onMouseEnter={() => planifier(montre.titre === courant.titre ? null : montre.titre, 0)}>
         <div key={montre.titre} className={s.pages}>
           {montre.entrees.map((e) => (
-            <Link key={e.href} href={e.href} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
+            <Link key={e.href} href={hrefPour(e, dossier)} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
               <Icone nom={e.icone} taille={17} />
               <span>{e.label}</span>
               {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}

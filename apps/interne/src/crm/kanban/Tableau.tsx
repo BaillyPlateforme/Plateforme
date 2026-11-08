@@ -59,10 +59,14 @@ export default function TableauKanban({ cartes, commerciaux, initiaux }: { carte
     const p = new URLSearchParams();
     if (filtres.commercial) p.set("commercial", String(filtres.commercial));
     if (filtres.segment) p.set("segment", filtres.segment);
-    if (filtres.q.trim()) p.set("q", filtres.q.trim());
+    // Ouvert depuis un dossier (?dossier=) : tant que la recherche est celle du dossier, on garde
+    // le dossier dans l'adresse, pour que le menu reste sur lui.
+    const dossier = new URLSearchParams(window.location.search).get("dossier");
+    if (dossier && filtres.q.trim() === initiaux.q) p.set("dossier", dossier);
+    else if (filtres.q.trim()) p.set("q", filtres.q.trim());
     const cible = `${window.location.pathname}${p.size ? `?${p}` : ""}`;
     if (cible !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", cible);
-  }, [filtres]);
+  }, [filtres, initiaux.q]);
 
   // L'animation d'arrivée ne joue qu'une fois.
   useEffect(() => {

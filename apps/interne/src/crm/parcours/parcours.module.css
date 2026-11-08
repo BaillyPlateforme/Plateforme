@@ -1185,3 +1185,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Avec la bande des dossiers ouverte, les cartes passent sous le parcours quand la place manque. */
+@container (max-width: 1040px) {
+  .grille {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cote {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}

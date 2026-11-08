@@ -93,3 +93,26 @@ export function groupeDe(chemin: string): Groupe {
 export function estActif(e: Entree, chemin: string) {
   return e.actif ? e.actif(chemin) : sous(e.href)(chemin);
 }
+
+/**
+ * Le dossier ouvert : celui de l'adresse (sa fiche, un devis, son parcours),
+ * sinon celui du filtre `?dossier=` d'une liste. Rien hors d'un dossier.
+ */
+export function dossierDe(chemin: string, filtre?: string | null): number | null {
+  const m = chemin.match(/^\/(?:dossiers|parcours)\/(\d+)/);
+  if (m) return Number(m[1]);
+  return filtre && /^\d+$/.test(filtre) ? Number(filtre) : null;
+}
+
+/**
+ * L'adresse d'une page du menu quand un dossier est ouvert : on reste sur ce
+ * dossier (exigence de David). La fiche et le parcours s'ouvrent sur lui, les
+ * listes (devis, factures, relances, Kanban) se filtrent sur lui.
+ */
+export function hrefPour(e: Entree, dossier: number | null): string {
+  if (!dossier) return e.href;
+  if (e.href === "/dossiers") return `/dossiers/${dossier}`;
+  if (e.href === "/parcours") return `/parcours/${dossier}`;
+  if (["/devis", "/factures", "/relances", "/kanban"].includes(e.href)) return `${e.href}?dossier=${dossier}`;
+  return e.href;
+}
