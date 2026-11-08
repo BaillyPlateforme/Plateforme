@@ -53,16 +53,30 @@ function Coche() {
   );
 }
 
-/** Le chiffrage d'un devis, recalculé de ses lignes (devis d'avant compris). */
-function chiffrageDe(v: any, tvaAssurance: number): { ch: Chiffrage; c: Calcul } {
+/**
+ * Le chiffrage d'un devis, recalculé de ses lignes. Un devis d'avant (jamais
+ * réenregistré par la fenêtre Devis) garde le montant qu'il avait : si ses
+ * lignes n'y retombent pas, le montant enregistré fait foi (TVA 20 %, comme
+ * l'imprimait le CRM) et les lignes s'impriment sans prix (`sansPrix`).
+ */
+function chiffrageDe(v: any, tvaAssurance: number): { ch: Chiffrage; c: Calcul; sansPrix: boolean } {
+  const ancien = v.montant_ht == null;
   const ch: Chiffrage = {
     mode: v.mode === "forfait" ? "forfait" : "postes",
     saisie: v.saisie === "ht" ? "ht" : "ttc",
     remisePct: Number(v.remise_pct ?? 0),
-    lignes: lireLignes(v.lignes),
+    lignes: lireLignes(v.lignes, ancien ? Number(v.montant ?? 0) : null),
     assurance: lireAssurance(v.assurance),
   };
-  return { ch, c: calculer(ch, tvaAssurance) };
+  const c = calculer(ch, tvaAssurance);
+  const montant = Number(v.montant ?? 0);
+  if (!ancien || Math.abs(c.ttc - montant) < 0.005) return { ch, c, sansPrix: false };
+  const ht = Math.round((montant / 1.2) * 100) / 100, tva = Math.round((montant - ht) * 100) / 100;
+  return {
+    ch,
+    c: { ...c, brut: montant, remise: 0, net: montant, parTaux: [{ taux: 20, brut: montant, remise: 0, net: montant, ht, tva, ttc: montant }], ht, tva, ttc: montant },
+    sansPrix: true,
+  };
 }
 
 export default function DevisBailly({
@@ -152,7 +166,7 @@ function Accord({ lien, cgv, signeLe }: { lien: string | null; cgv: boolean; sig
     <div className={s.accord}>
       <b>Bon pour accord</b>
       {!!signeLe && <span className={s.enLigne}>Devis signé le {dateFr(signeLe as string, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</span>}
-      <p>Date et signature précédées de la mention « bon pour accord »{cgv ? ", valant acceptation des conditions générales jointes" : ""}.</p>
+      {!signeLe && <p>Date et signature précédées de la mention « bon pour accord »{cgv ? ", valant acceptation des conditions générales jointes" : ""}.</p>}
       <div className={s.signature} />
       {lien && <div className={s.enLigne}>Ou signez en ligne : {lien}</div>}
     </div>
@@ -163,11 +177,12 @@ function Accord({ lien, cgv, signeLe }: { lien: string | null; cgv: boolean; sig
 
 function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocument; lienSignature?: (token: string) => string }) {
   const tvaAssurance = lireAssurance(v.assurance).tva ?? p.tvaAssurance;
-  const { ch, c } = chiffrageDe(v, tvaAssurance);
+  const { ch, c, sansPrix } = chiffrageDe(v, tvaAssurance);
   const ht = ch.saisie === "ht";
   const base = ch.lignes.filter((l) => l.groupe === "base");
   const divers = ch.lignes.filter((l) => l.groupe === "divers" && (l.libelle.trim() || c.montants[l.id]));
-  const forfait = ch.mode === "forfait" && base.length > 0;
+  // Forfait, ou devis d'avant dont les lignes ne font pas le montant : un prix global, les lignes sans prix.
+  const forfait = (ch.mode === "forfait" || sansPrix) && base.length > 0;
   const lignes = forfait ? divers : [...base, ...divers];
   const montantForfait = base.filter((l) => l.charge !== "client").reduce((a, l) => a + (c.montants[l.id] ?? 0), 0);
   const prestations = lirePrestations(v.prestations).filter((x) => x.libelle.trim() && x.charge !== "so");
@@ -219,6 +234,7 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
 
       <h2 className={s.titre}>Votre devis</h2>
       <div className={s.chiffrage}>
+        <div>
         <table className={s.lignesDevis}>
           <thead>
             <tr>
@@ -236,7 +252,7 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
                   <small>Prix global{base.length > 1 ? ` : ${base.filter((l) => l.charge !== "client").map((l) => l.libelle).filter(Boolean).join(", ").toLowerCase()}` : ""}</small>
                 </td>
                 {tauxUniques > 1 && <td className={s.n}>{[...new Set(base.map((l) => pct(l.tva)))].join(", ")}</td>}
-                <td className={s.n}><b>{euros(montantForfait)}</b></td>
+                <td className={s.n}><b>{euros(sansPrix ? c.ttc : montantForfait)}</b></td>
               </tr>
             )}
             {lignes.map((l) => (
@@ -252,6 +268,13 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
             ))}
           </tbody>
         </table>
+          {(c.primeContractuelle > 0 || c.primeDommage > 0) && (
+            <p className={s.assuranceTexte}>
+              {c.primeContractuelle > 0 && <>Assurance contractuelle : valeur déclarée {euros(a.contractuelle.valeur)}, taux {pct(a.contractuelle.taux)}. </>}
+              {c.primeDommage > 0 && <>Assurance dommage : valeur déclarée {euros(a.dommage.valeur)}, taux {pct(a.dommage.taux)}{a.dommage.sansFranchise ? ", sans franchise" : a.dommage.franchise != null ? `, franchise ${euros(a.dommage.franchise)}` : ""}.</>}
+            </p>
+          )}
+        </div>
         <dl className={s.totaux}>
           {c.remise > 0 && (
             <>
@@ -269,12 +292,6 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
         </dl>
       </div>
 
-      {(c.primeContractuelle > 0 || c.primeDommage > 0) && (
-        <p className={s.assuranceTexte}>
-          {c.primeContractuelle > 0 && <>Assurance contractuelle : valeur déclarée {euros(a.contractuelle.valeur)}, taux {pct(a.contractuelle.taux)}. </>}
-          {c.primeDommage > 0 && <>Assurance dommage : valeur déclarée {euros(a.dommage.valeur)}, taux {pct(a.dommage.taux)}, {a.dommage.sansFranchise ? "sans franchise" : a.dommage.franchise != null ? `franchise ${euros(a.dommage.franchise)}` : "franchise selon conditions"}.</>}
-        </p>
-      )}
 
       {prestations.length > 0 && (
         <>

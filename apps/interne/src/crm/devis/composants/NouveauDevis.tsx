@@ -105,7 +105,7 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
               <li key={m.id}>
                 <label data-choisi={source === m.id ? "" : undefined}>
                   <input type="radio" name="choix" checked={source === m.id} onChange={() => setSource(m.id)} />
-                  <span className={s.modeleNom}><b>{m.numero}</b> · {m.nom}<small>{m.client} · dossier {m.ref}{m.did === dossierId ? " (ce dossier)" : ""}</small></span>
+                  <span className={s.modeleNom}><span><b>{m.numero}</b> · {m.nom}</span><small>{m.client} · dossier {m.ref}{m.did === dossierId ? " (ce dossier)" : ""}</small></span>
                   <span className={s.modeleMeta}>{m.lignes} ligne{m.lignes > 1 ? "s" : ""} · {m.mode === "forfait" ? "forfait" : "5 postes"}</span>
                   <b className={s.modeleMontant}>{euros(m.montant)}</b>
                 </label>

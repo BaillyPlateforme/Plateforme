@@ -790,6 +790,9 @@
 .cgv {
   break-before: page;
 }
+.compact .bas {
+  break-inside: avoid;
+}
 .cgvTexte {
   column-count: 2;
   column-gap: 7mm;

@@ -34,7 +34,7 @@ const ONGLETS: { cle: Onglet; label: string; icone: NomIcone }[] = [
 ];
 
 type Props = {
-  devis: { id: number; numero: string; statut: string; token: string | null; envoye_le: string | null; signe_le: string | null; retire_le: string | null; maj_le: string | null; validation: Record<string, unknown> | null };
+  devis: { id: number; numero: string; statut: string; token: string | null; envoye_le: string | null; signe_le: string | null; retire_le: string | null; maj_le: string | null; validation: Record<string, unknown> | null; montant: number; ancien: boolean };
   dossier: { id: number; ref: string; volume: number; client: string; email: string | null };
   initial: EtatDevis;
   onglet: Onglet;
@@ -136,6 +136,11 @@ export default function EditeurDevis(p: Props) {
         {signe && onglet !== "commande" && <p className={s.bandeauInfo}>Ce devis est signé : toute modification change le montant de la commande, et l&apos;espace client du dossier la montre.</p>}
         {p.devis.retire_le && <p className={s.bandeauInfo}>Ce devis a été retiré de la proposition : il ne se signe plus.</p>}
 
+        {onglet === "chiffrage" && p.devis.ancien && Math.abs(calcul.ttc - p.devis.montant) >= 0.005 && (
+          <p className={s.bandeauAlerte}>
+            Devis établi avant la fenêtre Devis : son montant enregistré, celui envoyé au client et imprimé, est de {euros(p.devis.montant)} TTC. Ses lignes totalisent {euros(calcul.ttc)} : l&apos;enregistrer remplacera le montant par celui des lignes.
+          </p>
+        )}
         {onglet === "chiffrage" && (
           <div className={s.avecRecap}>
             <OngletChiffrage chiffrage={etat.chiffrage} calcul={calcul} onChange={(c) => majEtat("chiffrage", c)} tvaDefaut={p.defauts.tva} tvaAssurance={p.defauts.tvaAssurance} postesTarif={p.postesTarif} />

@@ -203,7 +203,11 @@ const tab = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
  * d'achat) devient une ligne d'une unité, au prix TTC qu'elle portait : le
  * devis garde exactement son montant.
  */
-export function lireLignes(brut: unknown): LigneDevis[] {
+export function lireLignes(brut: unknown, montantSansLignes?: number | null): LigneDevis[] {
+  // Un devis d'avant sans lignes (montant seul) : une ligne à son montant TTC, pour qu'il garde son prix.
+  if (!tab(brut).length && montantSansLignes) {
+    return [{ id: "a0", groupe: "base", libelle: "Prix du déménagement", detail: "", qte: 1, unite: "", pu: montantSansLignes, tva: TVA_CODE, charge: "bailly" }];
+  }
   return tab(brut).filter((l) => !obj(l).auto).map((x, i) => {
     const l = obj(x);
     const ancienne = l.pu === undefined;

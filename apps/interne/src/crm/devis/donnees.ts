@@ -5,7 +5,6 @@ import {
   type EtatDevis, type Etape, type Formule,
 } from "./modele";
 import { CLES_PARAMETRES, PARAMETRES_VIDES, effectifs, type ParametresDevis } from "./parametres";
-import { calculer } from "./calcul";
 
 /*
  * Les lectures du module Devis : la fenêtre d'un devis, la liste (dossier ou
@@ -87,7 +86,7 @@ export async function chargerDevis(devisId: number) {
       mode: v.mode === "forfait" ? "forfait" : "postes",
       saisie: v.saisie === "ht" ? "ht" : "ttc",
       remisePct: v.remise_pct ?? 0,
-      lignes: lireLignes(v.lignes),
+      lignes: lireLignes(v.lignes, v.montant_ht == null ? v.montant : null),
       assurance: lireAssurance(v.assurance),
     },
     prestations: lirePrestations(v.prestations),
@@ -111,7 +110,7 @@ export async function chargerDevis(devisId: number) {
       id: v.id as number, numero: v.numero as string, statut: v.statut as string, token: (v.token as string | null) ?? null,
       envoye_le: v.envoye_le ? new Date(v.envoye_le).toISOString() : null, signe_le: v.signe_le ? new Date(v.signe_le).toISOString() : null,
       retire_le: v.retire_le ? new Date(v.retire_le).toISOString() : null, maj_le: v.maj_le ? new Date(v.maj_le).toISOString() : null,
-      montant: v.montant as number, validation: (v.validation as Row | null) ?? null, origine: (v.origine as string | null) ?? null,
+      montant: v.montant as number, ancien: v.montant_ht == null, validation: (v.validation as Row | null) ?? null, origine: (v.origine as string | null) ?? null,
     },
     dossier: {
       id: v.did as number, ref: v.ref as string, statut: v.dossier_statut as string, volume: v.volume as number, periode: (v.periode as string | null) ?? null,
@@ -177,8 +176,8 @@ export async function listeDevis(f: { dossier?: number | null; statut?: string |
 /** HT d'un devis : la colonne enregistrée, sinon le calcul de ses lignes (devis d'avant). */
 export function htDe(r: Row) {
   if (r.montant_ht != null) return Number(r.montant_ht);
-  const lignes = lireLignes(r.lignes);
-  return calculer({ mode: "postes", saisie: r.saisie === "ht" ? "ht" : "ttc", remisePct: 0, lignes, assurance: lireAssurance({}) }, 20).ht;
+  // Devis d'avant : le HT qu'il affichait, montant TTC ÷ 1,2.
+  return Math.round((Number(r.montant ?? 0) / 1.2) * 100) / 100;
 }
 
 /** Les devis à copier : n'importe quel dossier, par nom de client, société, numéro de devis ou de dossier. */

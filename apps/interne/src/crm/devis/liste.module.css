@@ -64,7 +64,7 @@
   font-size: 13.5px;
 }
 .table th {
-  padding: 0 10px 10px;
+  padding: 0 8px 10px;
   color: #8a87a0;
   font-size: 10.5px;
   font-weight: 750;
@@ -74,7 +74,7 @@
   white-space: nowrap;
 }
 .table td {
-  padding: 11px 10px;
+  padding: 11px 8px;
   border-top: 1px solid #f1eff7;
   white-space: nowrap;
   vertical-align: middle;
@@ -125,7 +125,12 @@
   font-weight: 700;
 }
 .categorie {
-  max-width: 180px;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.court {
+  max-width: 110px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -136,18 +141,17 @@
 }
 .actions a,
 .actions button {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: #4b2fe0;
-  font-size: 12.5px;
-  font-weight: 650;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: #6f6c80;
 }
 .actions a:hover,
 .actions button:hover {
   background: #f3f0ff;
+  color: #4b2fe0;
 }
 .actions button[data-danger] {
   color: #c2272d;
