@@ -33,7 +33,12 @@ export const SECTIONS: Section[] = [
     cle: "demandes",
     nom: "Demandes",
     accueil: "/dashboard",
-    onglets: [],
+    onglets: [
+      { href: "/dashboard", label: "Liste" },
+      { href: "/dashboard?vue=focus", label: "Focus" },
+      { href: "/dashboard?vue=kanban", label: "Kanban" },
+      { href: "/dashboard?vue=rappels", label: "Rappels" },
+    ],
   },
   {
     cle: "espace-client",

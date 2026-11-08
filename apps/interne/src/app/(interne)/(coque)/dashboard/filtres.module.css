@@ -1,0 +1,113 @@
+/*
+ * Les filtres de la liste des demandes, dans la rangée basse du bandeau :
+ * une recherche et trois choix de verre (statut, origine, tri), au dessin
+ * des filtres du Parcours. Un choix posé passe en blanc.
+ */
+.rangee {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.rangee::-webkit-scrollbar {
+  display: none;
+}
+.recherche {
+  flex: 0 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 180px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.78);
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.recherche:focus-within {
+  background: rgba(255, 255, 255, 0.17);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+.recherche svg {
+  flex: none;
+}
+.recherche input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+}
+.recherche input::placeholder {
+  color: rgba(255, 255, 255, 0.62);
+}
+.recherche input::-webkit-search-cancel-button {
+  filter: invert(1);
+  opacity: 0.7;
+}
+.choix {
+  flex: none;
+  width: auto;
+  height: 42px;
+  margin: 0;
+  padding: 0 38px 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    right 15px center / 13px no-repeat;
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  appearance: none;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.choix:hover {
+  background-color: rgba(255, 255, 255, 0.17);
+}
+.choix:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.choix[data-actif] {
+  border-color: #fff;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232e1f9e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  color: #2e1f9e;
+  box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
+}
+.choix option {
+  color: #14121f;
+  background: #fff;
+}
+.effacer {
+  flex: none;
+  height: 34px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.78);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.effacer:hover {
+  color: #fff;
+}
