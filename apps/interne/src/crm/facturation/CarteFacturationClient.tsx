@@ -41,7 +41,7 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
     const u = new URL(window.location.href);
     const e = u.searchParams.get("encaisser");
     if (e === "arrhes" || e === "reglement") {
-      const libres = d.reglements.filter((r) => r.nature === "arrhes").length === 0 && d.devis ? Math.round(d.devis.montant * 0.3) : undefined;
+      const libres = d.reglements.filter((r) => r.nature === "arrhes").length === 0 && d.devis ? d.devis.arrhes : undefined;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- ouverture unique, à l'arrivée sur la page
       setOuverte({ genre: "encaisser", nature: e, montant: e === "arrhes" ? libres : undefined });
       u.searchParams.delete("encaisser");

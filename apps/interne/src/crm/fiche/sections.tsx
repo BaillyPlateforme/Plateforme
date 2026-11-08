@@ -490,7 +490,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     ],
     apres: signe ? (
       <p className="sub" style={{ margin: 0 }}>
-        Arrhes 30 % : <b>{eur(Math.round(signe.montant * 0.3))}</b>
+        Arrhes {String(data.arrhesPct.get(signe.id) ?? data.arrhesDefaut).replace(".", ",")} % : <b>{eur(Math.round((signe.montant * (data.arrhesPct.get(signe.id) ?? data.arrhesDefaut)) / 100))}</b>
         {totalArrhes > 0 ? ` · reçues : ${eur(totalArrhes)}` : " · pas encore reçues (onglet Facturation)"}
       </p>
     ) : undefined,
@@ -740,10 +740,11 @@ function ligneFacture(dossierId: number, f: Row, reglable: boolean): Ligne {
           : reglable
             ? { action: A.facturePayee.bind(null, dossierId, f.id), confirmer: "Marquer payée ?" }
             : off("Le règlement d'une facture de garde-meuble ne se saisit pas encore ici."),
-      transfert: off("L'avoir n'existe pas encore dans le CRM."),
+      // L'avoir se fait dans la carte Facturation (src/crm/facturation), qui tient la numérotation AV- et le reste à payer.
+      transfert: f.statut === "annulee" ? off("Facture déjà annulée par un avoir.") : { aller: { section: "demenagements", onglet: "facturation" } },
       signer: off("Sans objet pour une facture."),
     },
-    libelles: { confirmer: "Marquer payée" },
+    libelles: { confirmer: "Marquer payée", transfert: "Avoir" },
   };
 }
 
@@ -857,10 +858,10 @@ function gardeMeubles(c: Contexte): SectionFiche {
     lignes: [],
     vide: (
       <>
-        <b>Aucune facture à un client payeur</b>Le client payeur (un autre client que celui du dossier) n’existe pas encore dans le CRM.
+        <b>Aucune facture à un client payeur</b>Le client payeur (un autre client que celui du dossier) se choisit dans l’onglet Facturation, section Déménagements.
       </>
     ),
-    gestes: { nouveau: off("Le client payeur n'existe pas encore dans le CRM.") },
+    gestes: { nouveau: { aller: { section: "demenagements", onglet: "facturation" } } },
   };
   const facturesGm: Onglet = {
     cle: "factures",

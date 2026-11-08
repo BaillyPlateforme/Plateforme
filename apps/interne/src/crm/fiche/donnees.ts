@@ -1,6 +1,8 @@
 import "server-only";
 import { q, type Row } from "@/crm/lib/db";
 import { lienFichier } from "@/lib/espace-client/fichiers";
+import { lireParametres } from "@/crm/devis/donnees";
+import { effectifs } from "@/crm/devis/parametres";
 
 /*
  * Ce que la fiche du dossier lit en plus de getDossier (lib/data.ts) : les
@@ -19,7 +21,7 @@ const PORTE_FICHIERS = "/api/data/espace-client/fichier";
 
 export async function ficheDossier(d: Row) {
   const id = d.id as number;
-  const [rdvs, visitesSansRdv, devis, contacts, services, gm, activite, espace] = await Promise.all([
+  const [rdvs, visitesSansRdv, devis, contacts, services, gm, activite, espace, parametresDevis] = await Promise.all([
     q(
       `select r.id, r.type, r.titre, r.lieu, r.notes, r.debut, r.duree_min, r.termine, r.devis_etabli, r.sans_suite, r.journee,
               r.commercial_id, u.nom as commercial, u.initiales,
@@ -36,7 +38,7 @@ export async function ficheDossier(d: Row) {
         where v.dossier_id = $1 and v.rendez_vous_id is null order by v.commencee_le`,
       [id],
     ),
-    q("select id, cree_le from devis where dossier_id = $1", [id]),
+    q("select id, cree_le, arrhes_pct::float8 as arrhes_pct from devis where dossier_id = $1", [id]),
     q(
       "select id, civilite, prenom, nom, fonction, telephone, email, notes, cree_le from contacts where client_id = $1 order by cree_le, id",
       [d.client_id],
@@ -56,6 +58,7 @@ export async function ficheDossier(d: Row) {
       [id],
     ),
     q<{ id: string; reference: string }>("select id::text, reference from public.ec_dossiers where crm_dossier_id = $1 limit 1", [id]).catch(() => []),
+    lireParametres(),
   ]);
   const ec = espace[0] ?? null;
 
@@ -90,7 +93,10 @@ export async function ficheDossier(d: Row) {
     : [];
 
   const creeLe = new Map(devis.map((v) => [v.id as number, v.cree_le as Date]));
-  return { rdvs, visitesSansRdv, devisCreeLe: creeLe, contacts, services, gm, facturesGm, idsGmFactures, activite, espace: ec, envois, documents };
+  // Le pourcentage d'arrhes de chaque devis, sinon celui des Paramètres du devis : le même que l'éditeur et la facturation.
+  const arrhesDefaut = effectifs(parametresDevis).arrhesPct;
+  const arrhesPct = new Map(devis.map((v) => [v.id as number, Number(v.arrhes_pct ?? arrhesDefaut)]));
+  return { rdvs, visitesSansRdv, devisCreeLe: creeLe, arrhesPct, arrhesDefaut, contacts, services, gm, facturesGm, idsGmFactures, activite, espace: ec, envois, documents };
 }
 
 export type FicheDonnees = Awaited<ReturnType<typeof ficheDossier>>;
