@@ -185,6 +185,7 @@
 }
 .memo {
   flex: 1 1 100%;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -364,6 +365,8 @@
 
 .repli {
   display: grid;
+  /* Une colonne bornée : sans elle, la barre d'outils (sans retour à la ligne) élargit la section sur un téléphone. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.28s cubic-bezier(0.3, 0.7, 0.2, 1);
 }
@@ -372,6 +375,7 @@
 }
 .repliInterieur {
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .section[data-ouverte="true"] .repliInterieur {
@@ -1299,6 +1303,16 @@
   }
   .rond .libelleLarge {
     display: none;
+  }
+  .memo button {
+    flex-basis: 100%;
+    align-items: flex-start;
+  }
+  .memo button span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
   }
   .rond {
     width: 36px;

@@ -74,7 +74,9 @@ const LV_ST: Record<string, [string, string]> = { a_planifier: ["À planifier", 
 const FACT_ST: Record<string, [string, string]> = { emise: ["Émise", "w"], payee: ["Réglée", "g"], retard: ["En retard", "r"] };
 const LITIGE_ST: Record<string, [string, string]> = { ouvert: ["Ouvert", "r"], en_cours: ["En cours", "w"], clos: ["Clos", "g"] };
 const ENVOI_TON: Record<string, string> = { envoye: "g", journalise: "i", bloque: "w", fictif: "i", bac_a_sable: "p", echec: "r", incertain: "w", en_cours: "i" };
-const FORMULE_SOUS: Record<string, string> = { premium: "Le client ne fait rien", standard: "Emballe ce qui casse", economique: "Le client fait tout" };
+const FORMULES: Record<string, string> = { premium: "Premium", standard: "Standard", economique: "Économique" };
+const formule = (cle: string) => FORMULES[cle] ?? cle;
+const FORMULE_SOUS: Record<string, string> ={ premium: "Le client ne fait rien", standard: "Emballe ce qui casse", economique: "Le client fait tout" };
 
 const ms = (d: Date | string | null | undefined) => (d ? new Date(d).getTime() : 0);
 const jj = (d: Date | string | null | undefined) => dateFr(d, { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -99,10 +101,14 @@ export type Contexte = {
   espaceOuvert: boolean;
   sp: { espace?: string; m?: string; visite?: string; vm?: string; vc?: string; vd?: string };
   solde: number;
+  /** L'instant de la page (ms) : une visite passée ne se confirme plus par SMS. */
+  maintenant: number;
 };
 
 /** « Visite le … » : la prochaine visite, sinon la dernière (comme le sous-titre de la fiche Créagidem). */
-export function visiteDuSousTitre(rdvs: Row[], maintenant = Date.now()) {
+export const maintenant = () => Date.now();
+
+export function visiteDuSousTitre(rdvs: Row[], maintenant: number) {
   const visites = rdvs.filter((r) => estVisite(r.type) && !r.journee);
   const v = visites.find((r) => new Date(r.debut).getTime() >= maintenant) ?? visites[visites.length - 1];
   return v ? `Visite le ${new Date(v.debut).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Paris" })}` : null;
@@ -232,7 +238,11 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       gestes: {
         modifier: { lien: `/planning/${r.id}` },
         copier: { fenetre: `copier-rdv-${r.id}` },
-        confirmer: visite ? { action: B.envoyerSms.bind(null, id, r.id), confirmer: "Envoyer le SMS ?" } : off("Le SMS de confirmation concerne les visites."),
+        confirmer: !visite
+          ? off("Le SMS de confirmation concerne les visites.")
+          : r.termine || ms(r.debut) < c.maintenant
+            ? off("La visite est passée.")
+            : { action: B.envoyerSms.bind(null, id, r.id), confirmer: "Envoyer le SMS ?" },
         signer:
           r.visite_statut === "signee" && r.visite_id
             ? { lien: `/api/visites/${r.visite_id}/compte-rendu`, nouvelOnglet: true }
@@ -358,7 +368,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
   const salut = d.civilite === "Madame" ? "Madame" : d.civilite === "Monsieur" ? "Monsieur" : "Bonjour";
   const mailto = `mailto:${d.email ?? ""}?subject=${encodeURIComponent(`Votre devis de déménagement ${d.ref}`)}&body=${encodeURIComponent(
     `${salut} ${d.nom},\n\nSuite à notre rencontre, veuillez trouver nos propositions pour votre déménagement de ${d.stops[0]?.adresse ?? ""} vers ${d.stops[d.stops.length - 1]?.adresse ?? ""} (${m3(d.volume)}) :\n\n` +
-      d.devis.map((v: Row) => `• ${maj(v.formule)} : ${eur(v.montant)}`).join("\n") +
+      d.devis.map((v: Row) => `• ${formule(v.formule)} : ${eur(v.montant)}`).join("\n") +
       `\n\nLes arrhes s'élèvent à 30 % de la formule retenue. Je reste à votre disposition.\n\nCordialement,\n${d.commercial ?? "Bailly Déménagement"}`,
   )}`;
   const lignesDevis: Ligne[] = d.devis.map((v: Row) => {
@@ -373,7 +383,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         <Etat key="e" v={DEVIS_ST[v.statut] ?? [v.statut, "i"]} />,
         jj(date),
         <span key="f">
-          <b>{maj(v.formule)}</b>
+          <b>{formule(v.formule)}</b>
           <small>{FORMULE_SOUS[v.formule]}</small>
         </span>,
         TYPE_D[d.type_demenagement] ?? "National",
@@ -407,7 +417,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         <>
           <h4>
             <Picto nom="document" taille={16} />
-            Devis {v.numero} · formule {maj(v.formule)} · {eur(v.montant)}
+            Devis {v.numero} · formule {formule(v.formule)} · {eur(v.montant)}
             {v.formule === "standard" && <i className="st p">Recommandé</i>}
           </h4>
           <ul className={s.lignesDevis}>
@@ -1160,7 +1170,12 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
       </>
     ),
     gestes: { nouveau: lectureSeule, modifier: lectureSeule, imprimer: lectureSeule, copier: lectureSeule, supprimer: lectureSeule, signer: lectureSeule },
-    avant: data.envois.length ? <p className={s.aide}>Le journal des envois de la plateforme (dossier {d.ref}{data.espace ? ` et espace ${data.espace.reference}` : ""}), en lecture seule.</p> : undefined,
+    avant: data.envois.length ? (
+      <p className={s.aide}>
+        Le journal des envois de la plateforme (dossier {d.ref}
+        {data.espace && data.espace.reference !== d.ref ? ` et espace ${data.espace.reference}` : ""}), en lecture seule.
+      </p>
+    ) : undefined,
   };
 
   // Courriers : les documents du dossier prêts à imprimer.

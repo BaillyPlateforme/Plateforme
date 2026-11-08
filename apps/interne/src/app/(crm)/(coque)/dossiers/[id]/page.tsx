@@ -10,7 +10,7 @@ import { litiges as getLitiges } from "@/crm/lib/data2";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 import { ficheDossier } from "@/crm/fiche/donnees";
-import { construireFiche, visiteDuSousTitre } from "@/crm/fiche/sections";
+import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sections";
 import Fiche from "@/crm/fiche/Fiche";
 
 export const dynamic = "force-dynamic";
@@ -49,9 +49,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   const regle = d.paiements.reduce((a: number, x: Row) => a + Number(x.montant ?? 0), 0);
   const solde = Math.max(0, Math.max(montantSigne, facture) - regle);
 
-  const visiteLe = visiteDuSousTitre(data.rdvs);
+  const instant = maintenant();
+  const visiteLe = visiteDuSousTitre(data.rdvs, instant);
 
-  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, sp, solde });
+  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, sp, solde, maintenant: instant });
 
   return (
     <div className="view dossier">

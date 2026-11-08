@@ -154,25 +154,25 @@ export function FenetreAdresses({ d }: { d: Row }) {
           </legend>
           <div className={s.grille}>
             <Champ l={6} titre="Adresse">
-              <input name={`adresse_${e.id}`} defaultValue={e.adresse ?? ""} placeholder="Numéro et rue" />
+              <input type="text" name={`adresse_${e.id}`} defaultValue={e.adresse ?? ""} placeholder="Numéro et rue" />
             </Champ>
             <Champ l={2} titre="Code postal">
-              <input name={`code_postal_${e.id}`} defaultValue={e.code_postal ?? ""} inputMode="numeric" />
+              <input type="text" name={`code_postal_${e.id}`} defaultValue={e.code_postal ?? ""} inputMode="numeric" />
             </Champ>
             <Champ l={4} titre="Ville">
-              <input name={`ville_${e.id}`} defaultValue={e.ville ?? ""} />
+              <input type="text" name={`ville_${e.id}`} defaultValue={e.ville ?? ""} />
             </Champ>
             <Champ l={3} titre="Pays">
-              <input name={`pays_${e.id}`} defaultValue={e.pays ?? ""} placeholder="France" />
+              <input type="text" name={`pays_${e.id}`} defaultValue={e.pays ?? ""} placeholder="France" />
             </Champ>
             <Champ l={3} titre="Téléphone sur place">
               <input name={`telephone_${e.id}`} defaultValue={e.telephone ?? ""} type="tel" />
             </Champ>
             <Champ l={2} titre="Étage">
-              <input name={`etage_${e.id}`} defaultValue={e.etage ?? ""} placeholder="RDC, 3…" />
+              <input type="text" name={`etage_${e.id}`} defaultValue={e.etage ?? ""} placeholder="RDC, 3…" />
             </Champ>
             <Champ l={2} titre="Portage (m)">
-              <input name={`portage_${e.id}`} defaultValue={e.portage_m ?? ""} inputMode="numeric" />
+              <input type="text" name={`portage_${e.id}`} defaultValue={e.portage_m ?? ""} inputMode="numeric" />
             </Champ>
             <Champ l={2} titre="Escalier">
               <select name={`escalier_${e.id}`} defaultValue={e.escalier ?? ""}>
@@ -229,7 +229,7 @@ export function FenetreAdresses({ d }: { d: Row }) {
               </label>
             </div>
             <Champ l={12} titre="Précisions d’accès">
-              <input name={`acces_${e.id}`} defaultValue={e.acces ?? ""} placeholder="Code portail, cour intérieure, horaires de la rue…" />
+              <input type="text" name={`acces_${e.id}`} defaultValue={e.acces ?? ""} placeholder="Code portail, cour intérieure, horaires de la rue…" />
             </Champ>
           </div>
         </fieldset>
