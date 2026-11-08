@@ -124,7 +124,7 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
                   <div className={s.ligneHaut}>
                     <b>{f.numero}</b>
                     <span className={s.genre}>{GENRE[f.genre as GenreFacture] ?? "Facture"}</span>
-                    <Etat etat={f.etat} />
+                    {f.genre !== "avoir" && <Etat etat={f.etat} />}
                   </div>
                   <div className={s.ligneBas}>
                     {f.objet} · émise le {fr(f.emiseLe)}

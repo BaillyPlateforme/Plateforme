@@ -253,7 +253,7 @@ export async function emettreFacture(saisie: SaisieFacture): Promise<Issue> {
   const deduites = [...new Set(lignes.map((l) => l.factureDeduiteId).filter((x): x is number => !!x))];
   if (deduites.length) {
     const ok = await q<{ id: number; numero: string; deja: string | null }>(`select f.id, f.numero,
-        (select x.numero from factures_lignes l join factures x on x.id = l.facture_id where l.facture_deduite_id = f.id and x.statut <> 'annulee' limit 1) as deja
+        (select x.numero from factures_lignes l join factures x on x.id = l.facture_id where l.facture_deduite_id = f.id and x.statut <> 'annulee' and x.genre <> 'avoir' limit 1) as deja
         from factures f where f.id = any($1) and f.dossier_id = $2 and f.genre = 'acompte' and f.statut <> 'annulee'`, [deduites, s.dossierId]);
     if (ok.length !== deduites.length) return refus("Une facture d'arrhes déduite n'est pas valable (annulée ou d'un autre dossier).");
     const deja = ok.find((x) => x.deja);
@@ -316,7 +316,7 @@ export async function annulerParAvoir(factureId: number, motif: string): Promise
   if (f.genre === "avoir") return refus("Un avoir ne s'annule pas.");
   if (f.statut === "annulee") return refus(`La facture ${f.numero} est déjà annulée.`);
   const dessus = await q1<{ numero: string }>(`select x.numero from factures_lignes l join factures x on x.id = l.facture_id
-      where l.facture_deduite_id = $1 and x.statut <> 'annulee' limit 1`, [factureId]);
+      where l.facture_deduite_id = $1 and x.statut <> 'annulee' and x.genre <> 'avoir' limit 1`, [factureId]);
   if (dessus) return refus(`Cette facture d'arrhes est déduite sur la facture ${dessus.numero} : annulez d'abord celle-ci.`);
   const aujourd = aujourdhuiParis();
   let r: { id: number; numero: string; liberes: number };

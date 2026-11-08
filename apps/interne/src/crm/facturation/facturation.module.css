@@ -804,11 +804,17 @@
 .lignes .num input {
   text-align: right;
 }
+.lignes td:first-child {
+  min-width: 210px;
+}
 .lignes .etroit {
-  width: 84px;
+  width: 62px;
 }
 .lignes .moyen {
-  width: 116px;
+  width: 96px;
+}
+.lignes td.num input {
+  min-width: 52px;
 }
 .retirer {
   display: grid;

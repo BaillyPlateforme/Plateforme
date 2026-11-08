@@ -145,7 +145,7 @@ const SQL_FACTURES = `select f.id, f.numero, f.genre, f.objet, f.montant::float8
     (select a.id from factures a where a.facture_origine_id = f.id and a.genre = 'avoir' order by a.id limit 1) as avoir_id,
     (select count(*) from factures_lignes l where l.facture_id = f.id)::int as nb_lignes,
     (select x.numero from factures_lignes l join factures x on x.id = l.facture_id
-      where l.facture_deduite_id = f.id and x.statut <> 'annulee' order by x.id limit 1) as deduite_sur
+      where l.facture_deduite_id = f.id and x.statut <> 'annulee' and x.genre <> 'avoir' order by x.id limit 1) as deduite_sur
   from factures f join factures_soldes s on s.id = f.id left join factures o on o.id = f.facture_origine_id`;
 
 const versFacture = (r: Row): FactureVue => ({
