@@ -1,11 +1,4 @@
 /* La liste des devis et les paramètres : cartes blanches, tableau aéré, actions en ligne. */
-/* La rangée du bas du bandeau : les états, puis la vue des signatures. */
-.filtresBas {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
 .page {
   display: grid;
   gap: 18px;

@@ -173,6 +173,25 @@ export async function listeDevis(f: { dossier?: number | null; statut?: string |
     ${w.length ? "where " + w.join(" and ") : ""} order by v.cree_le desc, v.id desc limit 300`, p);
 }
 
+/**
+ * Les nombres du menu de la liste : un par état (les mêmes filtres que
+ * listeDevis, sans sa limite), et les devis partis à la signature.
+ */
+export async function compteursDevis(dossier: number | null) {
+  const r = await q1<Record<"tous" | "brouillon" | "envoye" | "signe" | "refuse" | "retire" | "signatures", number>>(
+    `select count(*)::int as tous,
+      count(*) filter (where v.statut='brouillon' and v.retire_le is null)::int as brouillon,
+      count(*) filter (where v.statut='envoye' and v.retire_le is null)::int as envoye,
+      count(*) filter (where v.statut='signe' and v.retire_le is null)::int as signe,
+      count(*) filter (where v.statut='refuse' and v.retire_le is null)::int as refuse,
+      count(*) filter (where v.retire_le is not null)::int as retire,
+      count(*) filter (where v.token is not null)::int as signatures
+    from devis v join dossiers d on d.id=v.dossier_id join clients c on c.id=d.client_id ${dossier ? "where v.dossier_id=$1" : ""}`,
+    dossier ? [dossier] : [],
+  );
+  return r ?? { tous: 0, brouillon: 0, envoye: 0, signe: 0, refuse: 0, retire: 0, signatures: 0 };
+}
+
 /** HT d'un devis : la colonne enregistrée, sinon le calcul de ses lignes (devis d'avant). */
 export function htDe(r: Row) {
   if (r.montant_ht != null) return Number(r.montant_ht);
