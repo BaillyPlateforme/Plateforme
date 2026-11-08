@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/auth";
 import { roleDuCompte } from "@/lib/supabase/roles";
 import { createServiceClient } from "@/lib/supabase/server";
-import { COOKIE_APERCU, LECTURE_SEULE, lireCookieApercu, type CookieApercu } from "./apercu";
+import { membreParEmail, porteSuperAdmin } from "@/lib/droits";
+import { COOKIE_APERCU, LECTURE_SEULE, lireCookieApercu, RESERVE_AU_CLIENT, type CookieApercu, type ModeApercu } from "./apercu";
 import { DUREE_SESSION_H, estDemo } from "./config";
 import { avecDelai, depot, maintenant } from "./depot";
 import { desceller, sceller } from "./signature";
@@ -27,14 +28,21 @@ import type { Client, Donnees } from "./types";
  * lieu ; il n'est lu qu'en démonstration.
  *
  * L'aperçu de l'équipe (apercu.ts) : un membre de l'équipe voit l'espace
- * d'un client depuis le CRM, en lecture seule. Son cookie signé passe AVANT
- * toute autre session, en base comme en démonstration, mais seulement tant
- * qu'il est valable (signature et heure) : il ne se mélange jamais à une
- * vraie session du client ouverte dans le même navigateur — l'une ou
- * l'autre, jamais les deux. Pendant l'aperçu :
+ * d'un client depuis le CRM, en lecture seule — ou, s'il est super admin, en
+ * édition. Son cookie signé passe AVANT toute autre session, en base comme en
+ * démonstration, mais seulement tant qu'il est valable (signature et heure) :
+ * il ne se mélange jamais à une vraie session du client ouverte dans le même
+ * navigateur — l'une ou l'autre, jamais les deux. Pendant l'aperçu :
  *   - le client est lu par la clé de service, et ses données par
  *     `lireDuClient`, qui ne rend que ses lignes (restreindre) ;
- *   - toute écriture est refusée (exigerClientPourAgir, refuserEnApercu) ;
+ *   - en lecture, toute écriture est refusée (exigerClientPourAgir,
+ *     refuserEnApercu) ; en édition, les gestes du client passent
+ *     (exigerClientPourAgir), sauf ceux qui n'appartiennent qu'à lui
+ *     (refuserEnApercu : connexion, paiement, signature, consentement,
+ *     message en son nom) ;
+ *   - le droit de l'auteur d'une édition est relu dans team_members à chaque
+ *     requête : retiré, l'édition retombe en lecture ; parti de l'équipe (ou
+ *     désactivé), l'aperçu s'arrête ; illisible, c'est la lecture ;
  *   - ni ec_sessions ni lien d'accès ne sont touchés : les indicateurs de
  *     l'équipe (« vu par le client le… ») restent ceux du client ;
  *   - « Se déconnecter » ne fait que quitter l'aperçu.
@@ -47,8 +55,25 @@ const DUREE_MS = DUREE_SESSION_H * 60 * 60 * 1000;
 
 type ContenuDemo = { c: string; iat: number; exp: number };
 
-/** L'aperçu de l'équipe en cours : son cookie, s'il est signé et encore valable. Une fois par requête. */
-const apercuEnCours = cache(async (): Promise<CookieApercu | null> => lireCookieApercu((await cookies()).get(COOKIE_APERCU)?.value));
+type ApercuEnCours = CookieApercu & { mode: ModeApercu };
+
+/**
+ * L'aperçu de l'équipe en cours : son cookie, s'il est signé et encore
+ * valable, avec son mode EFFECTIF. Une édition n'en est une que si son auteur
+ * est toujours super admin actif, relu sans cache ; sinon elle retombe en
+ * lecture, et s'il n'est plus de l'équipe, il n'y a plus d'aperçu. Une fois
+ * par requête.
+ */
+const apercuEnCours = cache(async (): Promise<ApercuEnCours | null> => {
+  const a = lireCookieApercu((await cookies()).get(COOKIE_APERCU)?.value);
+  if (!a) return null;
+  if (a.m !== "edition") return { ...a, mode: "lecture" };
+  const auteur = await membreParEmail(a.e).catch(() => undefined);
+  // Illisible (base injoignable) : la lecture, jamais l'édition.
+  if (auteur === undefined) return { ...a, mode: "lecture" };
+  if (!auteur?.actif) return null;
+  return { ...a, mode: porteSuperAdmin(auteur) ? "edition" : "lecture" };
+});
 
 /** Le client connecté, s'il y en a un et que sa session tient toujours. Une fois par requête. */
 export const clientConnecte = cache(async (): Promise<Client | null> => {
@@ -81,25 +106,39 @@ export async function exigerClient(): Promise<Client> {
 
 /**
  * Qui regarde l'espace, quand c'est l'équipe : `par`, le nom (ou l'e-mail)
- * de celui qui a ouvert l'aperçu depuis le CRM. Null hors aperçu.
+ * de celui qui a ouvert l'aperçu depuis le CRM, et le mode effectif. Null
+ * hors aperçu.
  */
-export async function apercuEquipe(): Promise<{ par: string } | null> {
+export async function apercuEquipe(): Promise<{ par: string; mode: ModeApercu } | null> {
   const a = await apercuEnCours();
-  return a && (await clientConnecte()) ? { par: a.u } : null;
+  return a && (await clientConnecte()) ? { par: a.u, mode: a.mode } : null;
+}
+
+/** L'auteur d'une édition en cours (super admin vérifié à cette requête) ; null hors édition. */
+export async function editionEquipe(): Promise<{ par: string; email: string } | null> {
+  const a = await apercuEnCours();
+  return a?.mode === "edition" ? { par: a.u, email: a.e } : null;
 }
 
 /**
- * La garde de toute écriture venue du navigateur : action serveur, route qui
- * modifie quelque chose. Pendant un aperçu de l'équipe, elle refuse, quel que
- * soit le chemin (bouton, ou POST fabriqué à la main).
+ * La garde des gestes qui n'appartiennent qu'au client — se connecter,
+ * payer, signer, consentir, écrire en son nom : refusés pendant tout aperçu
+ * de l'équipe, en lecture comme en édition, quel que soit le chemin (bouton,
+ * ou POST fabriqué à la main).
  */
 export async function refuserEnApercu(): Promise<void> {
-  if (await apercuEnCours()) throw new Error(LECTURE_SEULE);
+  const a = await apercuEnCours();
+  if (a) throw new Error(a.mode === "edition" ? RESERVE_AU_CLIENT : LECTURE_SEULE);
 }
 
-/** Pour les actions du client, qui écrivent : la session, et jamais pendant un aperçu de l'équipe. */
+/**
+ * Pour les actions du client, qui écrivent : la session ; refusée pendant un
+ * aperçu en lecture ; permise pendant une édition par un super admin (que
+ * l'action trace alors comme un geste de l'équipe : actions/espace-client.ts).
+ */
 export async function exigerClientPourAgir(): Promise<Client> {
-  await refuserEnApercu();
+  const a = await apercuEnCours();
+  if (a && a.mode !== "edition") throw new Error(LECTURE_SEULE);
   return exigerClient();
 }
 

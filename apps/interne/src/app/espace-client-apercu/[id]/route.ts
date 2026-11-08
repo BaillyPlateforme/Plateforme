@@ -7,6 +7,7 @@ import { adressePublique } from "@/lib/espace-client/config";
 import { depot } from "@/lib/espace-client/depot";
 import { nomClient } from "@/lib/espace-client/format";
 import { getAcces } from "@/lib/supabase/auth";
+import { estSuperAdmin } from "@/lib/droits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,11 +16,15 @@ export const dynamic = "force-dynamic";
  * « Voir son espace » : un membre de l'équipe ouvre, depuis le CRM, l'espace
  * d'un client tel que le client le voit — en lecture seule
  * (lib/espace-client/apercu.ts). `id` : le dossier de l'espace (ec_dossiers).
+ * « Modifier son espace » (?mode=edition) : la même chose en édition, au nom
+ * du client, pour les seuls super admins (lib/droits.ts).
  *
  *   1. l'équipe seule : sans session, la connexion ; un autre compte, refusé.
  *      Une navigation venue d'un autre site est refusée aussi (Sec-Fetch-Site) :
- *      l'aperçu s'ouvre depuis le CRM, pas depuis un lien posé ailleurs ;
- *   2. l'ouverture est notée au fil d'activité du dossier du CRM (qui, quand) ;
+ *      l'aperçu s'ouvre depuis le CRM, pas depuis un lien posé ailleurs. Pour
+ *      l'édition, le droit de super admin est relu ici, côté serveur : l'adresse
+ *      seule ne donne rien ;
+ *   2. l'ouverture est notée au fil d'activité du dossier du CRM (qui, quand, quel mode) ;
  *      un espace sans dossier du CRM est noté dans le journal du serveur. Le
  *      journal de l'espace (ec_notifications) n'est pas pris : il ne contient
  *      que des messages, que l'équipe prévisualise comme tels ;
@@ -75,6 +80,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (site && site !== "same-origin" && site !== "none") {
     return message("Ouvrez l'aperçu depuis le CRM", "Pour votre sécurité, l'espace d'un client ne s'ouvre que depuis la fiche de son dossier, bouton « Voir son espace ».", 403);
   }
+  // Le mode : la lecture, sauf une édition demandée ET un super admin vérifié ici.
+  const mode = req.nextUrl.searchParams.get("mode") === "edition" ? "edition" : "lecture";
+  if (mode === "edition" && !(await estSuperAdmin())) {
+    return message("Réservé aux super admins", "Modifier l'espace d'un client en son nom demande le droit de super admin (Réglages › Équipe). « Voir son espace » reste ouvert, en lecture seule.", 403);
+  }
   const utilisateur = await currentUser();
   const par = utilisateur.nom?.trim() || acces.email;
 
@@ -86,7 +96,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   // 3. Qui ouvre l'espace de qui, et quand : au fil d'activité du dossier du CRM.
   // Sans `maj_le` : regarder un dossier ne le modifie pas.
-  const libelle = `Espace client ouvert en aperçu (lecture seule) par ${par}`;
+  const libelle = mode === "edition" ? `Espace client ouvert en édition (au nom du client) par ${par}` : `Espace client ouvert en aperçu (lecture seule) par ${par}`;
   let note = false;
   if (typeof dossier.crm_dossier_id === "number") {
     const r = await q<{ id: number }>(
@@ -100,19 +110,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!r) return message("Aperçu indisponible", "L'ouverture n'a pas pu être notée dans le dossier : réessayez dans un instant.", 503);
     note = r.length > 0;
   }
-  if (!note) console.info(`Aperçu de l'espace client ${dossier.reference} ouvert par ${par} (sans dossier du CRM où le noter).`);
+  if (!note) console.info(`${mode === "edition" ? "Édition" : "Aperçu"} de l'espace client ${dossier.reference} ouvert par ${par} (sans dossier du CRM où le noter).`);
 
   // 4. Le jeton, porté par un formulaire envoyé aussitôt à l'app externe.
   const externe = await adressePublique();
   const cible = `${externe}/espace-client/apercu`;
-  const jeton = emettreJetonApercu({ clientId: client.id, reference: dossier.reference, par });
+  const jeton = emettreJetonApercu({ clientId: client.id, reference: dossier.reference, par, email: acces.email, mode });
   const nonce = randomBytes(16).toString("base64");
   const nom = client.societe || nomClient(client);
   return page(
     "Ouverture de l'espace client…",
     `<form id="apercu" method="post" action="${echapper(cible)}"><input type="hidden" name="jeton" value="${echapper(jeton)}">` +
-      `<h1>Espace de ${echapper(nom)}</h1><p>Ouverture de l'aperçu, en lecture seule…</p>` +
-      `<noscript><button type="submit">Ouvrir l'aperçu</button></noscript></form>` +
+      `<h1>Espace de ${echapper(nom)}</h1><p>${mode === "edition" ? "Ouverture en édition, au nom du client…" : "Ouverture de l'aperçu, en lecture seule…"}</p>` +
+      `<noscript><button type="submit">${mode === "edition" ? "Ouvrir l'édition" : "Ouvrir l'aperçu"}</button></noscript></form>` +
       `<script nonce="${nonce}">document.getElementById("apercu").submit();</script>`,
     200,
     { nonce, formAction: new URL(externe).origin },
