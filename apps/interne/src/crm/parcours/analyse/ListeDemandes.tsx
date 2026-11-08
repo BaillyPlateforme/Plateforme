@@ -81,7 +81,7 @@ export default function ListeDemandes({ requests, dossiers }: { requests: Reques
                 const dossier = dossiers[r.id];
                 return (
                   <tr key={r.id} onClick={() => router.push(`/dashboard/${r.id}`)} className="group cursor-pointer transition hover:bg-accent-soft/20">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <span className="font-medium group-hover:text-accent">{r.client_nom ?? "—"}</span>
                       <div className="text-xs text-ink-soft">{r.client_email}</div>
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -95,14 +95,14 @@ export default function ListeDemandes({ requests, dossiers }: { requests: Reques
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-ink-soft">
+                    <td className="px-3 py-3 text-ink-soft">
                       {r.depart_ville ?? "?"} → {r.arrivee_ville ?? "?"}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums">{r.volume_m3 != null ? `${r.volume_m3} m³` : "—"}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{r.estimation_prix != null ? `${Math.round(r.estimation_prix)} €` : "—"}</td>
-                    <td className={`px-4 py-3 text-center font-medium tabular-nums ${scoreColor(r.score_potentiel)}`}>{r.score_potentiel ?? "—"}</td>
-                    <td className={`px-4 py-3 text-center font-medium tabular-nums ${scoreColor(r.score_difficulte)}`}>{r.score_difficulte ?? "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 text-right tabular-nums">{r.volume_m3 != null ? `${r.volume_m3} m³` : "—"}</td>
+                    <td className="px-3 py-3 text-right tabular-nums">{r.estimation_prix != null ? `${Math.round(r.estimation_prix)} €` : "—"}</td>
+                    <td className={`px-3 py-3 text-center font-medium tabular-nums ${scoreColor(r.score_potentiel)}`}>{r.score_potentiel ?? "—"}</td>
+                    <td className={`px-3 py-3 text-center font-medium tabular-nums ${scoreColor(r.score_difficulte)}`}>{r.score_difficulte ?? "—"}</td>
+                    <td className="px-3 py-3">
                       {dossier ? (
                         <span className="inline-flex flex-col">
                           <span className="w-fit whitespace-nowrap rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent" title="Demande acceptée : l'étape de son dossier">
@@ -114,7 +114,7 @@ export default function ListeDemandes({ requests, dossiers }: { requests: Reques
                         <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_META[sousStatut(r.status)].className}`}>{libelleDemande(r.status)}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-ink-soft">
+                    <td className="px-3 py-3 text-right text-xs text-ink-soft">
                       <div>{new Date(r.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}</div>
                       <div className="text-[11px] text-ink-soft/70">{new Date(r.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</div>
                     </td>
@@ -130,5 +130,5 @@ export default function ListeDemandes({ requests, dossiers }: { requests: Reques
 }
 
 function Th({ children, right, center }: { children: React.ReactNode; right?: boolean; center?: boolean }) {
-  return <th className={`px-4 py-3 font-medium ${right ? "text-right" : center ? "text-center" : "text-left"}`}>{children}</th>;
+  return <th className={`px-3 py-3 font-medium ${right ? "text-right" : center ? "text-center" : "text-left"}`}>{children}</th>;
 }

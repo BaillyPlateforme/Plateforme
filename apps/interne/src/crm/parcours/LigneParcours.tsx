@@ -218,7 +218,7 @@ export default function LigneParcours({
                 ) : (
                   <span className={s.vide}>Saisi au CRM</span>
                 )}
-                {faits.demande && <small>{faits.demande.statut}</small>}
+                {/* Pas le statut de la demande : acceptée, elle n'a plus d'autre étape que celle du dossier (unification du 08/11/2026). */}
               </dd>
             </div>
           </dl>
