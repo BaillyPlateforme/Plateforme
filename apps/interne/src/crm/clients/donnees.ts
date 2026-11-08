@@ -1,4 +1,5 @@
 import "server-only";
+import { espaceDuClientEc, manqueAvantEspace, type EspaceDuClient } from "@/lib/espace-client/crm";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { listerRelances } from "@/crm/relances/moteur";
 import { chiffresTelephone, normaliser, type LigneClient } from "./commun";
@@ -183,7 +184,17 @@ export interface FicheClient {
   devis: Row[];
   factures: Row[];
   reglements: { total: number; nombre: number; dernier: string | null };
+  /** Les dossiers de l'espace liés à ses dossiers du CRM, un par un : pour la discussion de chacun (Messages). */
   espaces: EspaceClient[];
+  /**
+   * Un client, un espace : SON espace client — celui de son adresse e-mail,
+   * ou celui où l'un de ses dossiers est —, ses connexions et tous ses
+   * dossiers. Presque toujours un seul ; deux si son adresse a changé après
+   * l'ouverture d'un premier espace.
+   */
+  espaceClient: EspaceDuClient[];
+  /** Ses dossiers qui ne sont dans aucun espace, et ce qui leur manque pour le rejoindre (ou pour en ouvrir un). */
+  horsEspace: Record<number, { manque: string[]; horsCours: boolean }>;
   rdvs: Row[];
   demandes: Row[];
   doublons: {
@@ -327,6 +338,38 @@ export async function ficheClient(id: number): Promise<FicheClient | null> {
       : Promise.resolve([] as Row[]),
   ]);
 
+  // Un client, un espace : celui de son adresse, ou celui où l'un de ses dossiers est (son adresse a pu changer depuis).
+  const idsEspace = await q<{ id: string }>(
+    `select distinct x.client_id::text as id from public.ec_dossiers x where x.crm_dossier_id = any($1::int[])
+     union
+     select ec.id::text from public.ec_clients ec
+      where $2::text is not null and ec.email = $2 and exists (select 1 from public.ec_dossiers x where x.client_id = ec.id)`,
+    [ids, email],
+  ).catch((e) => {
+    console.error("Clients : lecture de l'espace client impossible", e instanceof Error ? e.message : e);
+    return [] as { id: string }[];
+  });
+  const espaceClient = (
+    await Promise.all(
+      idsEspace.map((x) =>
+        espaceDuClientEc(x.id).catch((e) => {
+          console.error("Clients : lecture de l'espace client impossible", e instanceof Error ? e.message : e);
+          return null;
+        }),
+      ),
+    )
+  ).filter((x): x is EspaceDuClient => !!x && x.dossiers.length > 0);
+  const dansUnEspace = new Set(espaceClient.flatMap((e) => e.dossiers.map((x) => x.crmDossierId)));
+  const horsEspace: FicheClient["horsEspace"] = {};
+  for (const d of dossiers) {
+    if (d.payeurSeulement || dansUnEspace.has(d.id)) continue;
+    const { manque } = manqueAvantEspace({
+      email, depart: d.depart, arrivee: d.arrivee, date_chargement: d.chargement, mois_ca: d.moisCa, volume: d.volume,
+      commercial_id: d.commercial?.id ?? null, type: client.type, type_demenagement: d.typeDemenagement,
+    });
+    horsEspace[d.id] = { manque, horsCours: !!d.archiveLe || ["termine", "perdu"].includes(d.statut) };
+  }
+
   return {
     client,
     contacts,
@@ -334,6 +377,8 @@ export async function ficheClient(id: number): Promise<FicheClient | null> {
     devis,
     factures,
     reglements: { total: reglements?.total ?? 0, nombre: reglements?.nombre ?? 0, dernier: iso(reglements?.dernier) },
+    espaceClient,
+    horsEspace,
     espaces: espaces.map((e) => ({
       id: e.id,
       dossierId: e.crm_dossier_id,

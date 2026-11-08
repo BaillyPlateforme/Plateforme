@@ -13,6 +13,8 @@ type Ligne = {
   id: number; ref: string; statut: string; type: string; nom: string; prenom: string | null; societe: string | null; email: string | null;
   depart: string | null; arrivee: string | null; mois_ca: unknown; date_chargement: unknown; volume: number; commercial_id: number | null;
   commercial: string | null; type_demenagement: string | null; espace_id: string | null; espace_ref: string | null;
+  /** Un client, un espace : les dossiers de l'espace que son client a déjà (même adresse e-mail), quand il en a un. */
+  son_espace: string[] | null;
 };
 
 const STATUT: Record<string, string> = { prospect: "Nouveau", visite: "Visite à faire", devis: "Devis envoyé", commande: "Signé", planifie: "Planifié", termine: "Terminé" };
@@ -37,6 +39,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
   const lignes = await q<Ligne>(
     `select d.id, d.ref, d.statut, c.type, c.nom, c.prenom, c.societe, c.email, d.mois_ca, d.date_chargement, d.volume::float8 as volume,
        d.commercial_id, u.nom as commercial, d.type_demenagement, e.id as espace_id, e.reference as espace_ref,
+       (select array_agg(x.reference order by x.created_at) from public.ec_clients ec join public.ec_dossiers x on x.client_id = ec.id
+         where ec.email = lower(btrim(c.email))) as son_espace,
        (select adresse from etapes_trajet where dossier_id=d.id and genre='depart' and coalesce(adresse,'')<>'' order by ordre limit 1) as depart,
        (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' and coalesce(adresse,'')<>'' order by ordre desc limit 1) as arrivee
      from dossiers d join clients c on c.id=d.client_id left join utilisateurs u on u.id=d.commercial_id
@@ -135,7 +139,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
                     <td className="px-5 py-3">{l.commercial ?? <span className="text-ink-soft">—</span>}</td>
                     <td className="px-5 py-3">
                       {l.espace_id ? (
-                        <Pastille ton="ok">Espace ouvert · {l.espace_ref}</Pastille>
+                        <Pastille ton="ok">{l.son_espace && l.son_espace.length > 1 ? `Dans son espace · ${l.son_espace.length} dossiers` : `Espace ouvert · ${l.espace_ref}`}</Pastille>
+                      ) : l.son_espace?.length ? (
+                        <span className="text-[12.5px]">
+                          <Pastille ton="attente">À ajouter à son espace</Pastille>
+                          <span className="mt-1 block text-[11.5px] text-ink-soft">
+                            Son espace existe ({l.son_espace.join(", ")}){manque.length ? ` · manque : ${manque.map((x) => x.libelle.toLowerCase()).join(", ")}` : ""}
+                          </span>
+                        </span>
                       ) : manque.length ? (
                         <span className="text-[12.5px] text-brand-ink">À compléter : {manque.map((x) => x.libelle.toLowerCase()).join(", ")}</span>
                       ) : (
@@ -150,7 +161,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ q
                       ) : (
                         <form action={ouvrirEspaceClient.bind(null, l.id)}>
                           <button className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-accent-dark">
-                            Ouvrir l&apos;espace
+                            {l.son_espace?.length ? "Ajouter à son espace" : <>Ouvrir l&apos;espace</>}
                           </button>
                         </form>
                       )}

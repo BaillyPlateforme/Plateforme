@@ -2,19 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
-import { dateLongue, joursRestants, periodeCompacte } from "@/lib/espace-client/format";
+import { dateLongue, estRecent, joursRestants, periodeCompacte } from "@/lib/espace-client/format";
 import { dossiersDuClient } from "@/lib/espace-client/lectures";
 import { photoDe } from "@/lib/espace-client/photos";
 import { clientConnecte, lireDonneesClient } from "@/lib/espace-client/session";
 import { Icone } from "../_ui/Icone";
 import { Logo } from "../_ui/Logo";
 
-export const metadata: Metadata = { title: "Mes dossiers" };
+export const metadata: Metadata = { title: "Mes déménagements" };
 
 /**
  * L'entrée de l'espace : sans session, la connexion ; avec un seul dossier,
  * sa page de garde ; avec plusieurs, le sélecteur de la micro démo — un
- * client qui déménage deux fois a deux dossiers.
+ * client qui déménage deux fois a deux dossiers, dans un seul espace (un
+ * client, un espace). C'est là qu'arrive son lien d'accès quand il ne vise
+ * aucun dossier ; chaque page d'un dossier garde « Mes déménagements » en
+ * haut à droite pour passer de l'un à l'autre.
  */
 export default async function MesDossiers({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const client = await clientConnecte();
@@ -23,6 +26,8 @@ export default async function MesDossiers({ searchParams }: { searchParams: Prom
   const dossiers = dossiersDuClient(await lireDonneesClient(), client.id);
   const ok = typeof sp.ok === "string" ? `?ok=${sp.ok}` : "";
   if (dossiers.length === 1 && !sp.choisir) redirect(`/espace-client/${dossiers[0].reference}${ok}`);
+  // Le premier dossier de son espace : les suivants, ajoutés depuis, sont « Nouveau » quelques jours.
+  const premier = dossiers.map((d) => d.created_at ?? "").sort()[0] ?? "";
 
   return (
     <div className="ecran-nuit">
@@ -36,13 +41,13 @@ export default async function MesDossiers({ searchParams }: { searchParams: Prom
         </a>
       </div>
       <div className="sel-head">
-        <p className="kicker rise">Mes dossiers</p>
+        <p className="kicker rise">Mes déménagements</p>
         <h1 className="display rise" style={{ "--i": 1 } as CSSProperties}>
           Bonjour {client.prenom}
         </h1>
         <p className="rise" style={{ "--i": 2 } as CSSProperties}>
           {dossiers.length > 1
-            ? `Vous avez déménagé ${dossiers.length} fois avec Bailly. Quel dossier souhaitez-vous ouvrir ?`
+            ? `Vos ${dossiers.length} déménagements avec Bailly sont réunis dans votre espace. Lequel souhaitez-vous ouvrir ?`
             : dossiers.length === 1
               ? "Votre dossier vous attend."
               : "Votre dossier est en cours de création : votre conseiller vous prévient dès qu'il est prêt."}
@@ -62,7 +67,8 @@ export default async function MesDossiers({ searchParams }: { searchParams: Prom
             >
               <div className="top">
                 <span className="ref">Dossier {d.reference}</span>
-                <span className={`gbadge${fini ? "" : " live"}`}>{fini ? "Terminé" : "En cours"}</span>
+                {/* Un dossier qui vient de rejoindre son espace (pas le premier) : « Nouveau » quinze jours, puis « En cours ». */}
+                <span className={`gbadge${fini ? "" : " live"}`}>{fini ? "Terminé" : d.created_at && d.created_at > premier && estRecent(d.created_at) ? "Nouveau" : "En cours"}</span>
               </div>
               <div>
                 <h2>

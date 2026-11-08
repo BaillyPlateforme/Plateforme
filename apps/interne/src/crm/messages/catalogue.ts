@@ -102,6 +102,8 @@ export const CATALOGUE: EntreeCatalogue[] = [
     declencheur: "Les conditions de livraison ne sont pas validées avant le déménagement : relance par la tâche de la veille." },
   { cle: "ec_reponse_conseiller", titre: "Réponse du conseiller", etape: "commande", canal: "email", ...espace("ec_reponse_conseiller"), aValider: true,
     declencheur: "Quand l'équipe répond au client dans la discussion de son espace (depuis le CRM).", delai: "Aussitôt · un e-mail au plus par 10 minutes" },
+  { cle: "ec_nouveau_dossier", titre: "Nouveau dossier dans l'espace", etape: "commande", canal: "email", ...espace("ec_nouveau_dossier"), aValider: true,
+    declencheur: "Quand un dossier rejoint l'espace d'un client qui en a déjà un (dossier créé, demande acceptée, « Ajouter à son espace »). Aucun nouveau lien d'accès : le client se connecte comme d'habitude.", delai: "Aussitôt · une fois par dossier" },
   // ── Cartons ─────────────────────────────────────────────────────────────
   { cle: "ec_creneau_cartons_sms", titre: "Cartons : créneau de la veille", etape: "cartons", canal: "sms", ...espace("ec_creneau_cartons_sms"),
     declencheur: "La veille du samedi de livraison des cartons, par la tâche de la veille.", delai: "J−1" },

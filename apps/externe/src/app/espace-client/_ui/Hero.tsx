@@ -2,24 +2,40 @@ import Image from "next/image";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { Espace } from "@/lib/espace-client/espace";
-import { aVille, nomClient, periodeCompacte } from "@/lib/espace-client/format";
-import { FlecheTrajet, Icone } from "./Icone";
+import { aVille, nomClient, periode, periodeCompacte } from "@/lib/espace-client/format";
+import { photoDe } from "@/lib/espace-client/photos";
+import { ChoixDossier } from "./ChoixDossier";
+import { FlecheTrajet } from "./Icone";
 import { Logo } from "./Logo";
 import { liensBas, pilules, type Pilule } from "./navigation";
 
 const i = (n: number) => ({ "--i": n }) as CSSProperties;
 
-/** En haut à droite : changer de dossier, et le nom du client qui mène à son conseiller. */
+/**
+ * En haut à droite : « Mes déménagements » quand le client en a plusieurs
+ * (un client, un espace : il passe de l'un à l'autre), et son nom, qui mène
+ * à son conseiller.
+ */
 export function ActionsHaut({ e }: { e: Espace }) {
   const base = `/espace-client/${e.dossier.reference}`;
   const initiales = `${e.client.prenom[0] ?? ""}${e.client.nom[0] ?? ""}`.toUpperCase();
+  // Dans l'ordre du choix (lectures.ts, dossiersDuClient) : en cours d'abord, puis les terminés.
+  const tous = [e.dossier, ...e.autresDossiers].sort(
+    (a, b) => Number(a.statut === "termine") - Number(b.statut === "termine") || b.periode_debut.localeCompare(a.periode_debut),
+  );
   return (
     <div className="top-actions">
       {e.autresDossiers.length > 0 && (
-        <Link className="chip-glass" href="/espace-client?choisir=1">
-          <Icone nom="swap" />
-          <span className="lbl">Changer de dossier</span>
-        </Link>
+        <ChoixDossier
+          courant={e.dossier.reference}
+          dossiers={tous.map((d) => ({
+            reference: d.reference,
+            trajet: `${d.ville_depart} → ${d.ville_arrivee}`,
+            periode: periode(d.periode_debut, d.periode_fin).replace(/^./, (c) => c.toUpperCase()),
+            termine: d.statut === "termine",
+            photo: photoDe(d.photo).chemin,
+          }))}
+        />
       )}
       <Link className="chip-glass" href={`${base}/conseiller`}>
         <span className="lbl">

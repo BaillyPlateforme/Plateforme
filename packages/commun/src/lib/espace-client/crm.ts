@@ -4,12 +4,13 @@ import { envoyerLienAuClient } from "./acces";
 import { AdresseDejaPrise, verifierAdresseLibre } from "./comptes";
 import { estDemo } from "./config";
 import { avecDelai, depot } from "./depot";
-import { PAYS } from "./format";
-import { dossiersDuClient, snapshotDe } from "./lectures";
+import { PAYS, periode, salutation } from "./format";
+import { conseillerDe, dossiersDuClient, signatureDe, snapshotDe } from "./lectures";
+import { notifier } from "./notifier";
 import { photoPourVille } from "./photos";
-import { avancement, calculerFrise, type Etape } from "./progression";
+import { avancement, calculerFrise, prochaineEtape, suiviEquipe, type Etape } from "./progression";
 import { segmentDuCrm } from "./segments";
-import type { Client, Dossier, Notification, TypeClient } from "./types";
+import type { Client, Dossier, Notification, StatutDossier, TypeClient } from "./types";
 
 /*
  * Le lien entre l'espace client et le CRM — le seul module des deux apps qui
@@ -139,6 +140,25 @@ export function prealablesEspace(d: DossierCrmPourEspace): Prealable[] {
   ];
 }
 
+/** Un déménagement hors de France : son espace demande le pays de destination (les pièces de la douane en dépendent). */
+export const estInternationalCrm = (typeDemenagement: string | null | undefined) => ["international", "maritime", "aerien"].includes(typeDemenagement ?? "");
+
+/**
+ * Ce qui manque encore pour qu'un dossier rejoigne de lui-même l'espace que
+ * son client a déjà : les préalables de l'ouverture, et pour un déménagement
+ * international le pays de destination, qui doit se lire dans l'adresse
+ * d'arrivée (le formulaire de la fiche, lui, le demande). `pays` : celui
+ * qu'on y lit.
+ */
+export function manqueAvantEspace(d: DossierCrmPourEspace): { manque: string[]; pays: string | null } {
+  const manque = prealablesEspace(d)
+    .filter((p) => !p.ok)
+    .map((p) => p.libelle);
+  const pays = estInternationalCrm(d.type_demenagement) ? paysDeLAdresse(d.arrivee) : null;
+  if (estInternationalCrm(d.type_demenagement) && !pays) manque.push("Pays de destination");
+  return { manque, pays };
+}
+
 /** Le pays d'une adresse d'arrivée, quand elle le dit : « …, Montréal, Canada » → CA. */
 export function paysDeLAdresse(adresse: string | null | undefined): string | null {
   const morceaux = (adresse ?? "").split(",").map((m) => m.trim().toLowerCase());
@@ -152,14 +172,63 @@ export function paysDeLAdresse(adresse: string | null | undefined): string | nul
 }
 
 export type IssueOuverture =
-  | { ok: true; deja: boolean; dossierId: string; reference: string; lien: Pick<Notification, "id" | "statut"> | null; avertissement?: string }
+  | {
+      ok: true;
+      deja: boolean;
+      dossierId: string;
+      reference: string;
+      lien: Pick<Notification, "id" | "statut"> | null;
+      avertissement?: string;
+      /**
+       * Le client avait déjà son espace : le dossier l'a rejoint (`dossiers` :
+       * combien il en réunit désormais). Aucun nouveau lien d'accès ; l'avis
+       * « nouveau dossier » est journalisé (ou envoyé selon ENVOI_MODE).
+       */
+      ajoute?: { dossiers: number; avis: Pick<Notification, "id" | "statut"> | null };
+    }
   | { ok: false; erreur: string };
+
+/**
+ * L'avis au client dont l'espace reçoit un nouveau dossier : « Un nouveau
+ * dossier a été ajouté à votre espace ». Pas de lien d'accès — il se
+ * connecte comme d'habitude ; le bouton mène au dossier, la connexion s'il
+ * n'a plus de session. Une seule fois par dossier de l'espace (clé
+ * d'idempotence). Texte de départ dans textes-messages.ts, à valider par
+ * Bailly dans « Courriers et SMS ».
+ */
+async function annoncerNouveauDossier(client: Client, dossier: Dossier, dossiers: number): Promise<Notification> {
+  const d = await depot().lireDuClient(client.id);
+  return notifier.envoyer(
+    {
+      dossier_id: dossier.id,
+      canal: "email",
+      modele: "nouveau_dossier",
+      destinataire: client.email,
+      payload: {
+        salutation: salutation(client),
+        email: client.email,
+        dossier: dossier.reference,
+        trajet: `${dossier.ville_depart} → ${dossier.ville_arrivee}`,
+        periode: periode(dossier.periode_debut, dossier.periode_fin),
+        dossiers,
+        chemin: `/espace-client/${encodeURIComponent(dossier.reference)}`,
+        photo: dossier.photo,
+        signature: signatureDe(conseillerDe(d, client.conseiller_id)),
+      },
+    },
+    { cle: `ec:nouveau-dossier:${dossier.id}` },
+  );
+}
 
 /**
  * Ouvre l'espace client d'un dossier du CRM : le client de l'espace (celui de
  * son adresse s'il existe déjà), le dossier lié et la projection du CRM — en
  * une transaction, par la fonction SQL —, puis le compte de connexion et le
- * lien d'accès, journalisé (envoyé seulement avec ESPACE_CLIENT_ENVOI=1).
+ * lien d'accès, journalisé (envoyé seulement avec ENVOI_MODE=actif).
+ *
+ * Un client, un espace : si son adresse a déjà un espace (un autre dossier y
+ * est), le dossier le rejoint — même client, même compte, aucun nouveau lien
+ * d'accès ; le client reçoit l'avis « nouveau dossier » à la place.
  *
  * Sans effet si l'espace existe déjà : on rend le sien, sans renvoyer de lien.
  */
@@ -186,7 +255,26 @@ export async function ouvrirEspaceDepuisCrm(crmDossierId: number, options: { pay
   if (!client || !dossier) return { ok: false, erreur: "L'espace a été créé, mais il ne se relit pas : réessayez." };
 
   // La photo de la page de garde, d'après la ville d'arrivée que la projection vient de poser.
-  await depot().modifier("dossiers", dossier.id, { photo: photoPourVille(dossier.ville_arrivee) });
+  const photo = photoPourVille(dossier.ville_arrivee);
+  await depot().modifier("dossiers", dossier.id, { photo });
+
+  // Son espace avait déjà un dossier : celui-ci le rejoint. Ni compte à créer, ni lien d'accès : l'avis « nouveau dossier ».
+  const { count } = await avecDelai(
+    createServiceClient().from("ec_dossiers").select("id", { count: "exact", head: true }).eq("client_id", client.id),
+    DELAI,
+  );
+  const dossiers = count ?? 1;
+  if (dossiers > 1) {
+    let avis: Notification | null = null;
+    try {
+      avis = await annoncerNouveauDossier(client, { ...dossier, photo }, dossiers);
+    } catch (e) {
+      console.error("Espace client : avis « nouveau dossier » impossible", e instanceof Error ? e.message : e);
+    }
+    const etat = avis ? (avis.statut === "envoyee" ? "envoyé" : avis.statut === "echec" ? "en échec" : "journalisé") : "pas parti";
+    await noterDansLeCrm(crmDossierId, `Ajouté à l'espace client de ${client.email} (${dossiers} dossiers) · avis « nouveau dossier » ${etat}, aucun nouveau lien d'accès`);
+    return { ok: true, deja: false, dossierId: dossier.id, reference: dossier.reference, lien: null, ajoute: { dossiers, avis: avis ? { id: avis.id, statut: avis.statut } : null } };
+  }
 
   // Le compte de connexion et le lien d'accès. L'espace existe déjà : un échec ici se rattrape par « Renvoyer le lien ».
   try {
@@ -217,7 +305,42 @@ export async function renvoyerLienCrm(crmDossierId: number): Promise<{ ok: true;
   }
 }
 
+/**
+ * Renvoie le lien d'accès d'un client de l'espace, depuis sa fiche du CRM :
+ * sans dossier visé, le lien mène au choix de ses déménagements quand il en
+ * a plusieurs (à son dossier s'il n'en a qu'un). Noté au fil du dossier du
+ * CRM que l'e-mail présente.
+ */
+export async function renvoyerLienClientEc(clientId: string): Promise<{ ok: true; statut: Notification["statut"]; email: string } | { ok: false; erreur: string }> {
+  if (estDemo()) return { ok: false, erreur: "L'espace client de démonstration n'est pas relié au CRM." };
+  const client = await depot().trouver("clients", clientId);
+  if (!client) return { ok: false, erreur: "Client de l'espace introuvable." };
+  try {
+    const n = await envoyerLienAuClient(client);
+    const courant = n.dossier_id ? await depot().trouver("dossiers", n.dossier_id) : null;
+    await noterDansLeCrm(courant?.crm_dossier_id, `Lien d'accès à l'espace client ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email} (depuis la fiche client)`);
+    return { ok: true, statut: n.statut, email: client.email };
+  } catch (e) {
+    return { ok: false, erreur: e instanceof Error ? e.message : "Envoi impossible." };
+  }
+}
+
 // --- L'état de l'espace, vu du CRM ---------------------------------------------------------------
+
+type Db = ReturnType<typeof createServiceClient>;
+
+/** Les connexions du client (toutes ses sessions : une session ouvre tous ses dossiers) et son dernier lien d'accès. */
+async function accesDuClient(db: Db, clientId: string, email: string) {
+  const [sessions, liens] = await Promise.all([
+    avecDelai(db.from("ec_sessions").select("ouverte_le").eq("client_id", clientId).order("ouverte_le", { ascending: false }).limit(50), DELAI),
+    avecDelai(db.from("ec_notifications").select("sent_at, statut").eq("modele", "acces").eq("destinataire", email).order("sent_at", { ascending: false }).limit(1), DELAI),
+  ]);
+  return {
+    dernierAcces: (sessions.data?.[0]?.ouverte_le as string | undefined) ?? null,
+    sessions: sessions.data?.length ?? 0,
+    dernierLien: liens.data?.[0] ? { le: liens.data[0].sent_at as string, statut: liens.data[0].statut as Notification["statut"] } : null,
+  };
+}
 
 export interface EtatEspace {
   dossierId: string;
@@ -233,6 +356,8 @@ export interface EtatEspace {
   frise: Etape[];
   avancement: { faites: number; total: number; pourcent: number };
   autresDossiers: number;
+  /** Les autres dossiers de son espace : un client, un espace, tous ses dossiers dedans. */
+  autres: { reference: string; crmDossierId: number | null }[];
   bailleur: string | null;
 }
 
@@ -245,26 +370,76 @@ export async function etatEspaceCrm(crmDossierId: number): Promise<EtatEspace | 
   const d = await depot().lireDuClient(lien.client_id);
   const s = snapshotDe(d, lien.id);
   if (!s) return null;
-  const [sessions, liens] = await Promise.all([
-    avecDelai(db.from("ec_sessions").select("ouverte_le").eq("client_id", lien.client_id).order("ouverte_le", { ascending: false }).limit(50), DELAI),
-    avecDelai(db.from("ec_notifications").select("sent_at, statut").eq("modele", "acces").eq("destinataire", s.client.email).order("sent_at", { ascending: false }).limit(1), DELAI),
-  ]);
+  const acces = await accesDuClient(db, lien.client_id, s.client.email);
   const frise = calculerFrise(s);
   const conseiller = d.conseillers.find((k) => k.id === s.client.conseiller_id);
+  const autres = dossiersDuClient(d, s.client.id).filter((x) => x.id !== s.dossier.id);
   return {
     dossierId: s.dossier.id,
     reference: s.dossier.reference,
     segment: s.client.type,
     email: s.client.email,
     conseiller: conseiller ? `${conseiller.prenom} ${conseiller.nom}`.trim() : "—",
-    dernierAcces: (sessions.data?.[0]?.ouverte_le as string | undefined) ?? null,
-    sessions: sessions.data?.length ?? 0,
-    dernierLien: liens.data?.[0] ? { le: liens.data[0].sent_at as string, statut: liens.data[0].statut as Notification["statut"] } : null,
+    ...acces,
     frise,
     avancement: avancement(frise),
-    autresDossiers: dossiersDuClient(d, s.client.id).length - 1,
+    autresDossiers: autres.length,
+    autres: autres.map((x) => ({ reference: x.reference, crmDossierId: x.crm_dossier_id ?? null })),
     bailleur: s.dossier.bailleur_nom ?? null,
   };
+}
+
+/** Un dossier de l'espace d'un client, tel que sa fiche du CRM le montre. */
+export interface DossierDeLEspace {
+  id: string;
+  reference: string;
+  crmDossierId: number | null;
+  statut: StatutDossier;
+  trajet: string;
+  periode: string;
+  /** La part des points du client faits (suiviEquipe) : le même pourcentage que la liste des espaces. */
+  pourcent: number;
+  /** Ce que le client a à faire ensuite, ou null si tout est fait. */
+  prochaine: string | null;
+  creeLe: string;
+}
+
+/** L'espace d'un client, vu de sa fiche du CRM : un espace, ses connexions, tous ses dossiers. */
+export interface EspaceDuClient {
+  clientId: string;
+  email: string;
+  dernierAcces: string | null;
+  sessions: number;
+  dernierLien: { le: string; statut: Notification["statut"] } | null;
+  dossiers: DossierDeLEspace[];
+}
+
+/** L'espace d'un client de l'espace (ec_clients), pour la fiche client du CRM. Null s'il n'existe pas. */
+export async function espaceDuClientEc(clientId: string): Promise<EspaceDuClient | null> {
+  if (estDemo()) return null;
+  const d = await depot().lireDuClient(clientId);
+  const client = d.clients.find((c) => c.id === clientId);
+  if (!client) return null;
+  const acces = await accesDuClient(createServiceClient(), clientId, client.email);
+  const dossiers = dossiersDuClient(d, clientId).flatMap((x): DossierDeLEspace[] => {
+    const s = snapshotDe(d, x.id);
+    if (!s) return [];
+    const frise = calculerFrise(s);
+    return [
+      {
+        id: x.id,
+        reference: x.reference,
+        crmDossierId: x.crm_dossier_id ?? null,
+        statut: x.statut,
+        trajet: `${x.ville_depart} → ${x.ville_arrivee}`,
+        periode: periode(x.periode_debut, x.periode_fin),
+        pourcent: suiviEquipe(s, frise).pourcent,
+        prochaine: x.statut === "termine" ? null : (prochaineEtape(frise)?.titre ?? null),
+        creeLe: x.created_at,
+      },
+    ];
+  });
+  return { clientId, email: client.email, ...acces, dossiers };
 }
 
 /** Les espaces déjà ouverts pour ces dossiers du CRM : identifiant du dossier CRM → référence et identifiant de l'espace. */

@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { q, q1 } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { lireDemande } from "@/lib/espace-client/demandes";
-import { ouvrirEspaceDepuisCrm, renvoyerLienCrm } from "@/lib/espace-client/crm";
-import { projeterEspace } from "@/crm/lib/espace";
+import { estInternationalCrm, ouvrirEspaceDepuisCrm, paysDeLAdresse, renvoyerLienClientEc, renvoyerLienCrm, type IssueOuverture } from "@/lib/espace-client/crm";
+import { espaceDuDossier, projeterEspace } from "@/crm/lib/espace";
 
 /*
  * L'espace client, ouvert depuis le CRM. Un dossier, deux faces : le dossier
@@ -25,6 +25,9 @@ const vers = (id: number, etat: string, message?: string) =>
   `/dossiers/${id}?espace=${etat}${message ? `&m=${encodeURIComponent(message.slice(0, 300))}` : ""}#espace-client`;
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** L'état de retour d'une ouverture réussie : ouvert (lien d'accès), ajouté à l'espace qu'il avait déjà, déjà fait. */
+const etatOuvert = (r: Extract<IssueOuverture, { ok: true }>) => (r.deja ? "deja" : r.ajoute ? "ajoute" : r.avertissement ? "avertissement" : "ouvert");
 
 async function noter(dossierId: number, utilisateurId: number, libelle: string) {
   await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [dossierId, utilisateurId, libelle]);
@@ -71,7 +74,50 @@ export async function ouvrirEspaceClient(dossierId: number, f: FormData) {
   if (r.ok) await projeterEspace(dossierId);
   refresh(dossierId);
   if (!r.ok) redirect(vers(dossierId, "erreur", r.erreur));
-  redirect(vers(dossierId, r.deja ? "deja" : r.avertissement ? "avertissement" : "ouvert", r.avertissement));
+  redirect(vers(dossierId, etatOuvert(r), r.avertissement));
+}
+
+/**
+ * « Ajouter à son espace », depuis la fiche du client : un de ses dossiers
+ * rejoint l'espace qu'il a déjà, sans nouveau lien d'accès. Ce qui manque
+ * se complète sur la fiche du dossier ; le pays d'un déménagement
+ * international se lit dans l'adresse d'arrivée, sinon c'est la fiche du
+ * dossier qui le demande.
+ */
+export async function ajouterAEspaceDepuisClient(clientId: number, dossierId: number) {
+  await currentUser();
+  const retour = (etat: string, ref?: string, m?: string) =>
+    `/clients/${clientId}?${new URLSearchParams({ espace: etat, ...(ref ? { ref } : {}), ...(m ? { m: m.slice(0, 300) } : {}) })}#espace`;
+  const d = await q1<{ ref: string; type_demenagement: string | null; arrivee: string | null }>(
+    `select d.ref, d.type_demenagement,
+       (select e.adresse from etapes_trajet e where e.dossier_id = d.id and e.genre = 'arrivee' and btrim(coalesce(e.adresse, '')) <> '' order by e.ordre desc, e.id desc limit 1) as arrivee
+       from dossiers d where d.id = $1 and (d.client_id = $2 or d.payeur_client_id = $2)`,
+    [dossierId, clientId],
+  );
+  if (!d) redirect(retour("erreur", undefined, "Ce dossier n'est pas celui de ce client."));
+  const espace = await espaceDuDossier(dossierId);
+  if (!espace) redirect(retour("erreur", d.ref, "Ce client n'a pas encore d'espace : il s'ouvre depuis la fiche du dossier."));
+  const pays = estInternationalCrm(d.type_demenagement) ? paysDeLAdresse(d.arrivee) : null;
+  if (estInternationalCrm(d.type_demenagement) && !pays) redirect(vers(dossierId, "a-ajouter", "Choisissez le pays de destination, puis ajoutez le dossier à son espace."));
+  const r = await ouvrirEspaceDepuisCrm(dossierId, { pays });
+  if (r.ok) await projeterEspace(dossierId);
+  refresh(dossierId);
+  revalidatePath(`/clients/${clientId}`);
+  if (!r.ok) redirect(retour("erreur", d.ref, r.erreur));
+  redirect(retour(etatOuvert(r), d.ref, r.avertissement));
+}
+
+/**
+ * « Renvoyer le lien », depuis la fiche du client : un lien d'accès à son
+ * espace, sans dossier visé — il mène au choix de ses déménagements.
+ */
+export async function renvoyerLienDepuisClient(clientId: number, clientEspaceId: string) {
+  await currentUser();
+  const r = /^[0-9a-f-]{36}$/i.test(clientEspaceId) ? await renvoyerLienClientEc(clientEspaceId) : { ok: false as const, erreur: "Espace client introuvable." };
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/dashboard/espace-client", "layout");
+  const etat = !r.ok ? "erreur" : r.statut === "envoyee" ? "lien-envoye" : "lien-journalise";
+  redirect(`/clients/${clientId}?${new URLSearchParams({ espace: etat, ...(!r.ok ? { m: r.erreur.slice(0, 300) } : {}) })}#espace`);
 }
 
 /** « Renvoyer le lien d'accès » : un nouveau lien, journalisé (ou envoyé avec ESPACE_CLIENT_ENVOI=1). */
@@ -163,11 +209,14 @@ export async function ouvrirEspaceDepuisDemande(requestId: string) {
   }
 
   const r = await ouvrirEspaceDepuisCrm(id);
+  // Les factures, les règlements et les visites, comme après toute ouverture depuis la fiche.
+  if (r.ok) await projeterEspace(id);
   refresh(id);
   revalidatePath(`/dashboard/${requestId}`);
   if (!r.ok) {
-    // Ce qui manque se complète sur la fiche : elle s'ouvre sur le formulaire d'ouverture.
-    redirect(vers(id, "a-completer", r.erreur));
+    // Ce qui manque se complète sur la fiche : elle s'ouvre sur le formulaire d'ouverture — ou, pour un client
+    // qui a déjà son espace, sur « Ajouter à son espace » : le dossier le rejoindra dès que c'est complet.
+    redirect(vers(id, (await espaceDuDossier(id)) ? "a-ajouter" : "a-completer", r.erreur));
   }
-  redirect(vers(id, r.deja ? "deja" : r.avertissement ? "avertissement" : "ouvert", r.avertissement));
+  redirect(vers(id, etatOuvert(r), r.avertissement));
 }

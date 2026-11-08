@@ -100,6 +100,7 @@ export const MODELES_MESSAGE: Record<string, string> = {
   avarie_bailleur: "Avarie déclarée (bailleur)",
   message_conseiller: "Message au conseiller",
   reponse_conseiller: "Réponse du conseiller",
+  nouveau_dossier: "Nouveau dossier dans l'espace",
   service_demande: "Service demandé (équipe)",
   demande_avis: "Demande d'avis",
   recap_cartons_equipe: "Récapitulatif des cartons (équipe)",

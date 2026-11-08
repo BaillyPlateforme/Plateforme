@@ -82,6 +82,17 @@ export const TEXTES_ESPACE: TexteEspace[] = [
     corps: "Bonjour {salutation},\n\n{conseiller} vous a répondu dans votre espace client, au sujet de votre dossier {dossier}.\n\nRetrouvez sa réponse, et toute votre discussion, dans la rubrique « Mon conseiller » de votre espace.",
     variables: ["salutation", "conseiller", "dossier"],
   },
+  // Un client, un espace (novembre 2026) : un nouveau dossier rejoint l'espace que le client a déjà, sans nouveau
+  // lien d'accès. Texte proposé par la plateforme, à valider par Bailly : la carte de « Courriers et SMS » le marque ainsi.
+  {
+    cle: "ec_nouveau_dossier",
+    modele: "nouveau_dossier",
+    canal: "email",
+    objet: "Un nouveau dossier a été ajouté à votre espace",
+    corps:
+      "Bonjour {salutation},\n\nUn nouveau dossier a été ajouté à votre espace client : votre déménagement {trajet}, prévu {periode} (dossier {dossier}).\n\nVous le retrouvez dans « Mes déménagements », à côté de vos autres dossiers. Rien ne change pour vous : connectez-vous comme d'habitude, avec votre adresse {email}.",
+    variables: ["salutation", "trajet", "periode", "dossier", "email"],
+  },
 ];
 
 export const texteEspace = (modele: string, canal: "email" | "sms") => TEXTES_ESPACE.find((t) => t.modele === modele && t.canal === canal) ?? null;

@@ -115,6 +115,17 @@ export function Apercu() {
                     <p className="font-medium">{l.client.societe ?? l.client.nom}</p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       <Pastille ton={l.client.type === "particulier" ? "neutre" : "noir"}>{segmentDe(l.client.type).libelle}</Pastille>
+                      {/* Un client, un espace : ses autres dossiers sont dans le même espace (un clic les montre tous). */}
+                      {l.client.autres.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setQ(l.client.email)}
+                          title={`Un seul espace client, ${l.client.autres.length + 1} dossiers : ${[l.reference, ...l.client.autres.map((a) => a.reference)].join(", ")}. Cliquer pour les afficher ensemble.`}
+                          className="inline-flex items-center rounded-full bg-[#f4f1ff] px-2 py-0.5 text-[11.5px] font-semibold text-[#2e1f9e] ring-1 ring-[#e3dcff] hover:bg-[#ebe5ff]"
+                        >
+                          {l.client.autres.length + 1} dossiers · même espace
+                        </button>
+                      )}
                       <span className="text-[11.5px] text-ink-soft">{l.conseiller.nom}</span>
                       {l.client.masquage && <Pastille ton="attente">Devis/factures masqués</Pastille>}
                       {l.client.demo && <Pastille ton="alerte">Fictif (démonstration)</Pastille>}

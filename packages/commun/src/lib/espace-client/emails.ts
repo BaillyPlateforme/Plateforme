@@ -30,6 +30,7 @@ export type ModeleEmail =
   | "avarie_bailleur"
   | "message_conseiller"
   | "reponse_conseiller"
+  | "nouveau_dossier"
   | "service_demande"
   | "demande_avis"
   | "recap_cartons_equipe"
@@ -137,6 +138,7 @@ const BOUTONS: Record<string, (d: Donnees, lien: (chemin: unknown) => string) =>
   avarie_recue: (d, lien) => ({ url: lien(d.chemin), label: "Suivre ma déclaration" }),
   demande_avis: (d) => (d.lien_avis ? { url: String(d.lien_avis), label: "Donner mon avis" } : null),
   reponse_conseiller: (d, lien) => ({ url: lien(d.chemin), label: "Lire la réponse" }),
+  nouveau_dossier: (d, lien) => ({ url: lien(d.chemin), label: "Voir mon nouveau dossier" }),
 };
 
 /** La ligne grise que les boîtes affichent à côté de l'objet. */
@@ -147,6 +149,7 @@ const PREHEADERS: Record<string, (d: Donnees) => string> = {
   avarie_recue: (d) => `Déclaration ${d.numero} enregistrée.`,
   demande_avis: () => "Merci de votre confiance.",
   reponse_conseiller: (d) => `${d.conseiller} vous a répondu dans votre espace client.`,
+  nouveau_dossier: (d) => `Votre déménagement ${d.trajet} est dans votre espace client.`,
 };
 
 /** Un texte venu de « Courriers et SMS » (crm.modeles_messages), à la place du texte de départ. */

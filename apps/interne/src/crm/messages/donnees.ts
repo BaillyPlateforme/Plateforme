@@ -85,6 +85,7 @@ const LIBELLES_VARIABLES: Record<string, string> = {
   adresse: "Adresse", contact: "Personne présente", telephone: "Téléphone du conseiller", prenom: "Prénom", libelle: "Objet du paiement",
   reference: "Référence de la transaction", numero: "Numéro de déclaration", objets: "Objets abîmés", trajet: "Trajet", pieces: "Pièces manquantes",
   conseiller: "Qui a répondu (prénom et nom)", dossier: "Référence du dossier",
+  periode: "Période du déménagement (« en mars 2027 », « le 12 mars 2027 »)", email: "Adresse de connexion du client",
   elements: "Ce que la relance demande, tel que coché à l'envoi : seule sur son paragraphe, la liste mise en page (sinon posée avant la signature) ; dans une phrase ou un SMS, la liste courte",
 };
 
