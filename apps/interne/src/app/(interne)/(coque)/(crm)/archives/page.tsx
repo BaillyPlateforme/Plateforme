@@ -33,8 +33,8 @@ export default async function Archivage({ searchParams }: { searchParams: Promis
     <div className="view">
       <Bandeau
         surtitre={surtitreReglages("/archives")}
-        titre="Archivage"
-        texte="Les dossiers clos, terminés ou perdus : rangés à part, consultables et restaurables."
+        titre="Réglages"
+        texte="Archivage · les dossiers clos, terminés ou perdus : rangés à part, consultables et restaurables."
         bas={
           <BarreBas>
             <Pilules

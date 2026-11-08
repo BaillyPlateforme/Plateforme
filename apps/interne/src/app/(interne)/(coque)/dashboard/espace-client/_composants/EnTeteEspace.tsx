@@ -16,7 +16,8 @@ import { usePorte } from "./socle";
  */
 export type VueEspace = "dossiers" | "cartons" | "sav";
 
-const TITRES: Record<VueEspace, string> = { dossiers: "Espace client", cartons: "Cartons du samedi", sav: "SAV" };
+// Le titre reste « Espace client » pour les trois vues (changer de vue ne change pas de page) ; la vue ouvre le texte.
+const VUES: Record<VueEspace, string> = { dossiers: "Dossiers", cartons: "Cartons du samedi", sav: "SAV" };
 
 export function EnTeteEspace({ vue }: { vue: VueEspace }) {
   const { racine, demo } = usePorte();
@@ -25,8 +26,8 @@ export function EnTeteEspace({ vue }: { vue: VueEspace }) {
     <EnTeteSection
       propre
       surtitre="Espace client"
-      titre={TITRES[vue]}
-      texte="Les dossiers de vos clients, de la visite au SAV"
+      titre="Espace client"
+      texte={`${VUES[vue]} · les dossiers de vos clients, de la visite au SAV`}
       action={{ label: "Ouvrir un espace", href: `${racine}/nouveau`, icone: "plus" }}
     />
   );

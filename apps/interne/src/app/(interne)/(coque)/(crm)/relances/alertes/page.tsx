@@ -57,8 +57,8 @@ export default async function AlertesEquipe() {
     <div className="view">
       <Bandeau
         surtitre={surtitreReglages("/relances/alertes")}
-        titre="Alertes de l’équipe"
-        texte={`${ALERTES.length} alertes · ${branchees} branchées · ${actives} actives · ${dests.filter((d) => !d.enPause).length} destinataires actifs`}
+        titre="Réglages"
+        texte={`Alertes de l’équipe · ${ALERTES.length} alertes · ${branchees} branchées · ${actives} actives · ${dests.filter((d) => !d.enPause).length} destinataires actifs`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`]}
       />
       <AvecMenu menu={<MenuReglages />}>

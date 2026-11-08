@@ -31,6 +31,8 @@ export function metaDe(pathname: string): { titre: string; sous?: string } {
   // Les pages de l'espace client (cartons, SAV, pièces…) : leur propre titre plutôt que « Espace client »
   // partout ; la phrase reste celle de la section.
   const ec = Object.keys(PAGES_ESPACE).find((k) => pathname.startsWith(k));
+  // Les vues du menu (cartons, SAV) gardent le titre de la section : changer de vue ne change pas de page.
+  if (ec && ["/dashboard/espace-client/cartons", "/dashboard/espace-client/sav"].includes(ec)) return { titre: "Espace client", sous: `${PAGES_ESPACE[ec]} · ${META["/dashboard/espace-client"].sous}` };
   if (ec) return { titre: PAGES_ESPACE[ec], sous: META["/dashboard/espace-client"].sous };
   if (pathname.startsWith("/dashboard/clients/")) return { titre: "Client", sous: "Historique et devis" };
   if (/^\/dashboard\/[0-9a-f-]{8,}/.test(pathname)) return { titre: "Demande", sous: "Fiche complète" };

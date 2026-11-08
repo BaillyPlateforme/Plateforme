@@ -96,7 +96,8 @@ export default async function Relances({
   const effets = vue === "historique" ? await mesurerEffet(histo) : [];
 
   // ── Le bandeau ──
-  const titre = vue === "historique" ? "Historique des relances" : vue === "previsions" ? "Prévisions des relances" : "Relances";
+  // Un seul titre pour les trois vues : changer de vue ne change pas de page (David) ; la vue est au menu.
+  const titre = "Relances";
   const texte =
     vue === "historique"
       ? `${pluriel(lignes.length, "relance")} partie${lignes.length > 1 ? "s" : ""} ou tentée${lignes.length > 1 ? "s" : ""}${periode ? ` · ${PERIODES.find((p) => Number(p.valeur) === periode)!.libelle}` : ""}`

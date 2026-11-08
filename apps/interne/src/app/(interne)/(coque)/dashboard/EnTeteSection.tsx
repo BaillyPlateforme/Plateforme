@@ -68,8 +68,20 @@ function Bande() {
   return (
     <Bandeau
       surtitre={c?.surtitre ?? (reglage ? `${section.nom} · ${reglage.groupe.titre}` : section.nom)}
-      titre={c?.titre ?? reglage?.page.titre ?? reglage?.page.label ?? meta.titre}
-      texte={c ? c.texte : (reglage?.page.texte ?? meta.sous)}
+      // Réglages : un seul titre pour toutes ses pages (changer de page dans le menu ne change pas le bandeau) ;
+      // le nom de la page passe en tête du texte.
+      titre={reglage ? "Réglages" : (c?.titre ?? meta.titre)}
+      texte={
+        reglage ? (
+          <>
+            {reglage.page.titre ?? reglage.page.label} · {c?.texte ?? reglage.page.texte}
+          </>
+        ) : c ? (
+          c.texte
+        ) : (
+          meta.sous
+        )
+      }
       action={c?.action}
       etiquettes={c?.etiquettes}
       bas={c?.bas}

@@ -25,7 +25,7 @@ export default async function Parametres({ searchParams }: { searchParams: Promi
   const ok = (await searchParams).ok === "1";
   return (
     <div className="view">
-      <Bandeau surtitre={surtitreReglages("/devis/parametres")} titre="Paramètres du devis" texte="Ce que Bailly fournit une fois pour tous les devis : CGV, taux, formulations proposées à la saisie." />
+      <Bandeau surtitre={surtitreReglages("/devis/parametres")} titre="Réglages" texte="Paramètres du devis · ce que Bailly fournit une fois pour tous les devis : CGV, taux, formulations proposées à la saisie." />
       <AvecMenu menu={<MenuReglages />}>
         <form action={enregistrerParametres} className={`${s.page} ${s.formulaire}`}>
           {ok && <p className={s.ok}>Paramètres enregistrés : ils valent pour les prochains devis et pour l&apos;impression de tous.</p>}

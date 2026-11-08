@@ -1,11 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { Icone, type NomIcone } from "./icones";
 import s from "./menu-vertical.module.css";
 
 /*
- * Le menu vertical d'une section, à gauche du contenu : les sous-onglets de
- * la section (exigence de David : plus de sous-onglets dans le bandeau). Une
- * colonne fine et collante, en groupes, l'onglet actif en indigo.
+ * Le menu vertical d'une section, à gauche du contenu : les vues de la page
+ * (exigence de David : jamais dans le bandeau). Une colonne fine et collante,
+ * en groupes, la vue active en indigo.
+ *
+ * Changer de vue ne doit pas « changer de page » (David) : la page ne remonte
+ * pas en haut (scroll={false}) et la vue cliquée s'allume tout de suite, sans
+ * attendre la réponse du serveur ; le bandeau, lui, reste celui de la page.
  */
 
 export type ItemMenu = {
@@ -27,6 +34,14 @@ export type GroupeMenu = { titre?: string; items: ItemMenu[] };
 const clicSimple = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
 export default function MenuVertical({ titre, groupes, dense = false }: { titre: string; groupes: GroupeMenu[]; /** Des lignes plus serrées, pour un long menu (Réglages). */ dense?: boolean }) {
+  // La vue cliquée, en attendant que la page dise laquelle est active ; oubliée dès qu'elle le dit.
+  const actifHref = groupes.flatMap((g) => g.items).find((it) => it.actif)?.href ?? null;
+  const [vise, setVise] = useState<string | null>(null);
+  const [vu, setVu] = useState(actifHref);
+  if (vu !== actifHref) {
+    setVu(actifHref);
+    setVise(null);
+  }
   return (
     <nav className={dense ? `${s.menu} ${s.dense}` : s.menu} aria-label={titre}>
       <p className={s.titre}>{titre}</p>
@@ -38,16 +53,17 @@ export default function MenuVertical({ titre, groupes, dense = false }: { titre:
               key={it.href}
               href={it.href}
               className={s.item}
-              aria-current={it.actif ? "page" : undefined}
-              onClick={
-                it.choisir
-                  ? (e) => {
-                      if (!clicSimple(e)) return;
-                      e.preventDefault();
-                      it.choisir!();
-                    }
-                  : undefined
-              }
+              scroll={false}
+              aria-current={(vise ? vise === it.href : it.actif) ? "page" : undefined}
+              onClick={(e) => {
+                if (!clicSimple(e)) return;
+                if (it.choisir) {
+                  e.preventDefault();
+                  it.choisir();
+                  return;
+                }
+                setVise(it.href);
+              }}
             >
               {it.icone && <Icone nom={it.icone} taille={17} />}
               <span>{it.label}</span>

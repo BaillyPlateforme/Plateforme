@@ -51,9 +51,9 @@ export default async function StatistiquesCommerciales({ searchParams }: { searc
   return (
     <div className="view">
       <Bandeau
-        surtitre="Statistiques · Commercial"
-        titre="Statistiques commerciales"
-        texte={`Par commercial · ${periode.phrase} · CA rattaché ${rattachement === "signature" ? "à la signature" : "au déménagement"}`}
+        surtitre="Accueil · Statistiques"
+        titre="Statistiques"
+        texte={`Commercial · par commercial · ${periode.phrase} · CA rattaché ${rattachement === "signature" ? "à la signature" : "au déménagement"}`}
         bas={
           <BasStatistiques>
             <Pilules label="Période" items={PERIODES.map((p) => ({ href: lien({ periode: p.cle }), label: p.libelle, actif: periode.cle === p.cle }))} />

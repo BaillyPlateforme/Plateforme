@@ -26,8 +26,8 @@ export default async function VueDates() {
     <div className="view">
       <Bandeau
         surtitre="Dossiers · Planning"
-        titre="Dates souhaitées"
-        texte="Les dates de déménagement demandées sur le site, au mois"
+        titre="Planning"
+        texte="Dates souhaitées · les dates de déménagement demandées sur le site, au mois"
       />
       <AvecMenu menu={<MenuPlanning actif="dates" />}>
         <div className="vue-equipe">

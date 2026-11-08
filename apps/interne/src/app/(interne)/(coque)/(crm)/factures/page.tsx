@@ -123,7 +123,8 @@ export default async function Factures({ searchParams }: { searchParams: Promise
     <div className={`view ${s.page}`}>
       <Bandeau
         surtitre={dossier ? `Facturation · dossier ${refDossier ?? ""}` : "Dossiers · Factures"}
-        titre={vue === "reglements" ? "Règlements" : vue === "arrhes" ? "Arrhes" : type ? TYPES[type].titre : "Factures"}
+        // Un seul titre pour les trois vues (David : changer de vue ne change pas de page) ; la vue est au menu.
+        titre="Factures"
         texte={texte}
         bas={
           <div className={s.filtresBas}>

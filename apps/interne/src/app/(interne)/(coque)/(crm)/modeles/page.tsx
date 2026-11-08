@@ -53,8 +53,8 @@ export default async function Modeles({ searchParams }: { searchParams: Promise<
     <div className="view">
       <Bandeau
         surtitre={surtitreReglages("/modeles")}
-        titre="Courriers et SMS"
-        texte={`${actifs} messages actifs sur ${cartes.length}${aValider ? ` · ${aValider} textes à valider` : ""} · envois : ${envois.libelle.toLowerCase()}`}
+        titre="Réglages"
+        texte={`Courriers et SMS · ${actifs} messages actifs sur ${cartes.length}${aValider ? ` · ${aValider} textes à valider` : ""} · envois : ${envois.libelle.toLowerCase()}`}
         action={{ label: "Nouveau modèle", href: lien({ nouveau: true }), icone: "plus" }}
         secondaire={{ label: "Tester un envoi", href: lien({ tester: true }) }}
         bas={

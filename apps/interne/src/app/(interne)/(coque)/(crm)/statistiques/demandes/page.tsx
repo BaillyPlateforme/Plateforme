@@ -22,9 +22,9 @@ export default async function StatistiquesDemandes({ searchParams }: { searchPar
   return (
     <div className="view">
       <Bandeau
-        surtitre="Statistiques · Demandes du site"
-        titre="Demandes du site"
-        texte="Analyse complète du flux de demandes, du formulaire comme des mails"
+        surtitre="Accueil · Statistiques"
+        titre="Statistiques"
+        texte="Demandes du site · le flux des demandes, du formulaire comme des mails"
       />
       <AvecMenu menu={<MenuStatistiques actif="demandes" analyse={vue} />}>
         <div className="vue-equipe">

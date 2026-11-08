@@ -37,8 +37,8 @@ export default async function VueVisites() {
     <div className="view">
       <Bandeau
         surtitre="Dossiers · Planning"
-        titre="Visites techniques"
-        texte="Proposez des créneaux depuis la fiche d'un dossier, faites la visite sur la tablette, et faites signer le compte-rendu au client."
+        titre="Planning"
+        texte="Visites techniques · proposez des créneaux depuis la fiche d'un dossier, faites la visite sur la tablette, et faites signer le compte-rendu au client."
         action={{ label: "Ouvrir la tablette", href: "/tablette", icone: "fleche" }}
       />
       <AvecMenu menu={<MenuPlanning actif="visites" />}>

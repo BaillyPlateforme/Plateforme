@@ -68,8 +68,8 @@ export default async function ConfigurationRelances() {
     <div className="view">
       <Bandeau
         surtitre={surtitreReglages("/relances/configuration")}
-        titre="Règles des relances"
-        texte={`${actives} type${actives > 1 ? "s" : ""} actif${actives > 1 ? "s" : ""} sur ${RELANCES.length} · ${pretes} prêt${pretes > 1 ? "s" : ""} à partir`}
+        titre="Réglages"
+        texte={`Règles des relances · ${actives} type${actives > 1 ? "s" : ""} actif${actives > 1 ? "s" : ""} sur ${RELANCES.length} · ${pretes} prêt${pretes > 1 ? "s" : ""} à partir`}
         etiquettes={[`Envoi : ${envoi.libelle.toLowerCase()}`, "Délais provisoires"]}
       >
         <Link href="#journal" data-ton="contour">Journal</Link>
