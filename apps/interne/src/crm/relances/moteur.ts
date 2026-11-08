@@ -115,12 +115,13 @@ async function candidats(): Promise<Candidat[]> {
   }
 
   // Solde : une facture du CRM qui n'est pas réglée (les arrhes passent par les paiements).
-  const factures = await q<Client & { id: number; dossier_id: number; ref: string; dstatut: string; numero: string; montant: number; emise_le: Date; date_livraison: Date | null; statut: string }>(
+  const factures = await q<Client & { id: number; dossier_id: number; ref: string; dstatut: string; numero: string; montant: number; emise_le: Date; date_livraison: Date | null; statut: string; dreste: number | null }>(
     // Le montant relancé est le reste à payer réel de la facture (paiements partiels déduits) ; ni avoir ni facture annulée.
-    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, s.reste::float8 as montant, f.emise_le,
+    `select f.id, f.dossier_id, d.ref, d.statut as dstatut, d.date_livraison, f.numero, s.reste::float8 as montant, f.emise_le, ds.reste::float8 as dreste,
             case when f.statut = 'annulee' then 'payee' else f.statut end as statut,
             c.type as segment, c.nom, c.prenom, c.societe
        from factures f join factures_soldes s on s.id = f.id join dossiers d on d.id = f.dossier_id join clients c on c.id = d.client_id
+       left join dossiers_soldes ds on ds.dossier_id = d.id
       where f.genre <> 'avoir' and (s.reste > 0 or f.id::text in (select split_part(cle, ':', 2) from relances where type='solde'))`,
   );
   for (const f of factures) {
@@ -128,7 +129,8 @@ async function candidats(): Promise<Candidat[]> {
       type: "solde", objetId: String(f.id), dossierId: f.dossier_id, ref: f.ref, client: nom(f), segment: f.segment,
       dates: { facture: iso(f.emise_le), livraison: iso(f.date_livraison) },
       objet: `Facture ${f.numero} · ${eur(f.montant)}`, vars: { montant: eur(f.montant) },
-      regle: f.statut === "payee" ? "Facture réglée : relances arrêtées." : f.dstatut === "perdu" ? "Dossier perdu." : null,
+      // Un dossier déjà soldé (règlement saisi sans être affecté à la facture) : le client a payé, on ne le relance pas.
+      regle: f.statut === "payee" ? "Facture réglée : relances arrêtées." : f.dstatut === "perdu" ? "Dossier perdu." : f.dreste != null && f.dreste <= 0.004 ? "Dossier soldé : règlement à affecter à la facture, relances arrêtées." : null,
     });
   }
 
