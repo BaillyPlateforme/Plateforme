@@ -118,15 +118,27 @@ export async function ouvrirEspaceDepuisDemande(requestId: string) {
     const souhait = dem.date_souhaitee
       ? `Souhaitée le ${new Date(`${dem.date_souhaitee}T12:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`
       : null;
+    // Accepter ouvre aussi l'espace client (David, 08/11/2026), qui exige une période et un commercial : la date
+    // souhaitée donne le mois prévu (la date de chargement reste à fixer au planning), et le commercial est celui
+    // qui accepte, ou à défaut le commercial le moins chargé en dossiers ouverts (règle à valider par Bailly).
+    const moisPrevu = /^\d{4}-\d{2}/.test(String(dem.date_souhaitee ?? "")) ? `${String(dem.date_souhaitee).slice(0, 7)}-01` : null;
+    const commercial =
+      u.role === "commercial"
+        ? u.id
+        : ((await q1<{ id: number }>(
+            `select u.id from utilisateurs u where u.role = 'commercial'
+              order by (select count(*) from dossiers d where d.commercial_id = u.id and d.statut not in ('termine', 'perdu') and d.archive_le is null), u.id
+              limit 1`,
+          ))?.id ?? null);
     const client = await q1<{ id: number }>(
       "insert into clients(type,prenom,nom,societe,email,telephone) values($1,$2,$3,$4,$5,$6) returning id",
       [type, reste.length ? prenom : null, reste.length ? reste.join(" ") : (dem.client_nom?.trim() || dem.client_email || "Sans nom"), dem.espace_nom, dem.client_email?.trim().toLowerCase() ?? null, dem.client_tel],
     );
     try {
       const cree = await q1<{ id: number }>(
-        `insert into dossiers(ref,client_id,commercial_id,statut,periode,volume,observations,request_id)
-         values($1,$2,$3,'prospect',$4,$5,$6,$7) returning id`,
-        [await numeroDossier(), client!.id, u.role === "commercial" ? u.id : null, souhait, dem.volume_m3 ?? 0,
+        `insert into dossiers(ref,client_id,commercial_id,statut,periode,mois_ca,volume,observations,request_id)
+         values($1,$2,$3,'prospect',$4,$5,$6,$7,$8) returning id`,
+        [await numeroDossier(), client!.id, commercial, souhait, moisPrevu, dem.volume_m3 ?? 0,
           `Dossier créé depuis la demande du site du ${new Date(dem.created_at).toLocaleDateString("fr-FR")}.`, requestId],
       );
       id = cree!.id;

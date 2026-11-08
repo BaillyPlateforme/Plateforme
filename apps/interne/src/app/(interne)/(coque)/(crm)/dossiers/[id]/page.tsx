@@ -73,7 +73,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       <Bandeau
         surtitre={`Dossier ${d.ref}`}
         titre={nomClient(d)}
-        texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
+        texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, periodeDuSousTitre(d), visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
         // Le statut seul : sur une ligne, les pastilles ne rétrécissent pas et effaçaient le téléphone et le trajet.
         // Le segment est sur le repère du client, le type, le commercial et « traité par » en tête de la section
         // Déménagements, le véhicule dans la bande des observations. Les étapes : le parcours, juste dessous.
@@ -138,4 +138,14 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       <Fiche dossierId={id} {...fiche} />
     </div>
   );
+}
+
+/** La période dans le sous-titre (la date n'y figurait pas, David 08/11/2026) : la date de chargement, sinon le souhait du client, sinon le mois prévu. */
+function periodeDuSousTitre(d: Record<string, unknown>): string | null {
+  const jour = (v: unknown) => new Date(`${(v instanceof Date ? v.toISOString() : String(v)).slice(0, 10)}T12:00:00`);
+  const periode = typeof d.periode === "string" ? d.periode.trim() : "";
+  if (d.date_chargement) return `Chargement le ${jour(d.date_chargement).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+  if (periode) return periode;
+  if (d.mois_ca) return jour(d.mois_ca).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  return null;
 }

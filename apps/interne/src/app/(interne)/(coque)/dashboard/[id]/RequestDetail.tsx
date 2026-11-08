@@ -191,7 +191,14 @@ function InfosTab({ detail, araignee }: { detail: Detail; araignee: Araignee | n
         </Card>
         <Card title="Prestation">
           <dl className="grid grid-cols-2 gap-y-3 text-sm">
-            <Row k="Date souhaitée" v={r.date_souhaitee ?? "à définir"} />
+            <Row
+              k="Date souhaitée"
+              v={
+                r.date_souhaitee
+                  ? new Date(`${String(r.date_souhaitee).slice(0, 10)}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                  : "à définir"
+              }
+            />
             <Row k="Flexibilité" v={r.flexibilite ?? "—"} />
             <Row k="Formule" v={r.formule ?? "—"} />
             <Row k="Distance" v={r.distance_km != null ? `${r.distance_km} km` : "—"} />
