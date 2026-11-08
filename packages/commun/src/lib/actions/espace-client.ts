@@ -13,6 +13,7 @@ import { aujourdhui, dateLongue, jourLong, joursRestants, nomClient, salutation 
 import { conseillerDe, signatureDe } from "@/lib/espace-client/lectures";
 import { estProfilDemo } from "@/lib/espace-client/seed";
 import { notifier } from "@/lib/espace-client/notifier";
+import { alerterEquipe, champDesabonnement, destinatairesAlerte, noterEvenement } from "@/lib/alertes-equipe";
 import { paiementSimule, traiterEvenement } from "@/lib/espace-client/paiement";
 import { prestataire } from "@/lib/espace-client/stripe";
 import { stripeConfigure } from "@/lib/espace-client/stripe-config";
@@ -158,8 +159,37 @@ export async function reinitialiserDemo() {
 
 // --- Mes documents -----------------------------------------------------------------------------
 
+/**
+ * Un avis à l'équipe dont le texte vient du code (cartons, avarie, service) :
+ * à ses abonnés (Relances › Alertes de l'équipe), chacun avec sa clé et son
+ * lien de désabonnement ; sans abonnements lisibles, comme avant
+ * (ESPACE_CLIENT_EMAIL_EQUIPE, sinon le conseiller du dossier).
+ */
+async function avertirEquipe(alerte: string, evenement: string, conseiller: string, m: Omit<Parameters<typeof notifier.envoyer>[0], "destinataire">) {
+  const { destinataires } = await destinatairesAlerte(alerte, { conseillers: [conseiller] });
+  for (const a of destinataires) {
+    await notifier.envoyer({ ...m, destinataire: a.email, payload: { ...m.payload, ...champDesabonnement(a) } }, { cle: `alerte:${alerte}:${evenement}:${a.email}` });
+  }
+  await noterEvenement(alerte, evenement, String(m.payload.reference ?? "") || null, destinataires.length, destinataires.length ? `${destinataires.length} destinataire(s)` : "Aucun abonné : rien n'est parti.");
+}
+
+/** Alerte « pièces complètes » : la pièce déposée était la dernière obligatoire qui manquait. */
+async function alerterSiPiecesCompletes(c: Awaited<ReturnType<typeof contexte>>, piece: { id: string; libelle: string; obligatoire: boolean }) {
+  const { client, dossier, d, conseiller } = c;
+  if (!piece.obligatoire) return;
+  const recues = new Set(d.documents.filter((x) => x.dossier_id === dossier.id).map((x) => x.requirement_id));
+  const manquantes = requirementsApplicables(dossier, client.type, d.document_requirements).filter((r) => r.obligatoire && !recues.has(r.id));
+  if (manquantes.length !== 1 || manquantes[0].id !== piece.id) return;
+  await alerterEquipe("pieces_completes", {
+    evenement: `dossier-${dossier.id}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseiller.email],
+    vars: { client: nomClient(client), reference: dossier.reference, piece: piece.libelle },
+    lien: typeof dossier.crm_dossier_id === "number" ? { chemin: `/dossiers/${dossier.crm_dossier_id}`, libelle: "Ouvrir le dossier" } : null,
+  });
+}
+
 export async function deposerPiece(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
-  const { client, dossier, d } = await contexte(reference);
+  const ctx = await contexte(reference);
+  const { client, dossier, d } = ctx;
   const f = fd.get("fichier");
   const fichier = f instanceof File ? f : null;
   const erreur = verifierFichier(fichier, TYPES_DOCUMENTS);
@@ -177,12 +207,13 @@ export async function deposerPiece(reference: string, _: EtatFormulaire, fd: For
     chemin, nom_fichier: fichier!.name, taille_octets: fichier!.size, mime: fichier!.type, requirement_id: piece?.id ?? null,
     created_by: client.id, created_at: maintenant(),
   });
+  if (piece) await alerterSiPiecesCompletes(ctx, piece);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=piece#pieces`);
 }
 
 export async function enregistrerConditions(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
-  const { dossier, d } = await contexte(reference);
+  const { client, dossier, d, conseiller } = await contexte(reference);
   const existant = d.conditions_livraison.find((c) => c.dossier_id === dossier.id);
   if (existant?.valide_at) {
     return { message: "Vos conditions de livraison sont déjà validées : pour les modifier, contactez votre conseiller." };
@@ -214,6 +245,11 @@ export async function enregistrerConditions(reference: string, _: EtatFormulaire
   if (existant) await depot().modifier("conditions_livraison", existant.id, ligne, { valide_at: null });
   else await depot().inserer("conditions_livraison", { id: nouvelId(), dossier_id: dossier.id, ...ligne });
   await depot().inserer("acceptations", acceptation(dossier.id, "conditions_livraison", t));
+  await alerterEquipe("conditions_validees", {
+    evenement: `dossier-${dossier.id}-${ligne.valide_at}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseiller.email],
+    vars: { client: nomClient(client), reference: dossier.reference },
+    lien: typeof dossier.crm_dossier_id === "number" ? { chemin: `/dossiers/${dossier.crm_dossier_id}`, libelle: "Ouvrir le dossier" } : null,
+  });
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=conditions#conditions`);
 }
@@ -277,12 +313,11 @@ export async function planifierCartons(reference: string, _: EtatFormulaire, fd:
   }
   if (dossier.cartons_non_necessaires) await depot().modifier("dossiers", dossier.id, { cartons_non_necessaires: false });
 
-  // L'e-mail à l'équipe, pour qu'elle saisisse le nombre de cartons.
-  await notifier.envoyer({
+  // L'e-mail à l'équipe, pour qu'elle saisisse le nombre de cartons : à ses abonnés.
+  await avertirEquipe("cartons_demandes", `${dossier.id}-${r.data.date_samedi}-${maintenant()}`, conseiller.email, {
     dossier_id: dossier.id,
     canal: "email",
     modele: "cartons_demandes_equipe",
-    destinataire: emailEquipe(conseiller.email),
     payload: {
       client: nomClient(client), reference: dossier.reference, jour: jourLong(r.data.date_samedi), adresse: r.data.adresse,
       contact: r.data.contact_nom, telephone_contact: r.data.contact_tel, modification: !!existante,
@@ -315,8 +350,8 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
   await depot().inserer("sav_declarations", { id: nouvelId(), dossier_id: dossier.id, numero, ...r.data, photos: pieces, statut: "recue", created_at: maintenant() });
 
   const signature = signatureDe(conseiller);
-  await notifier.envoyer({
-    dossier_id: dossier.id, canal: "email", modele: "avarie_equipe", destinataire: emailEquipe(conseiller.email),
+  await avertirEquipe("sav_declare", numero, conseiller.email, {
+    dossier_id: dossier.id, canal: "email", modele: "avarie_equipe",
     payload: {
       client: nomClient(client), reference: dossier.reference, numero, reserves: r.data.reserves_emises, date_constat: r.data.date_constat,
       objets: r.data.objets, description: r.data.description, nb_photos: pieces.length,
@@ -372,7 +407,14 @@ export async function accepterDevis(reference: string, devisId: string) {
   if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
   if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0 && typeof devis.crm_devis_id === "number") {
-    await signerDevisCrm(devis.crm_devis_id, await traces());
+    const issue = await signerDevisCrm(devis.crm_devis_id, await traces());
+    if (issue === "signe") {
+      await alerterEquipe("devis_signe", {
+        evenement: `crm-devis-${devis.crm_devis_id}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseillerDe(d, client.conseiller_id).email],
+        vars: { client: nomClient(client), reference: dossier.reference, numero: devis.numero, origine: "accepté depuis l'espace client" },
+        lien: typeof dossier.crm_dossier_id === "number" ? { chemin: `/dossiers/${dossier.crm_dossier_id}`, libelle: "Ouvrir le dossier" } : null,
+      });
+    }
   } else if (devis && devis.statut === "envoye" && devis.arrhes_pourcentage === 0) {
     const t = await traces();
     // Accepté une seule fois, même sur deux clics simultanés.
@@ -438,8 +480,8 @@ export async function demanderService(reference: string, serviceId: string) {
   const { client, dossier, conseiller, d } = await contexte(reference);
   const service = d.services.find((s) => s.id === serviceId && s.actif);
   if (!service) redirect(`/espace-client/${reference}/services`);
-  await notifier.envoyer({
-    dossier_id: dossier.id, canal: "email", modele: "service_demande", destinataire: emailEquipe(conseiller.email),
+  await avertirEquipe("service_demande", `${dossier.id}-${service.id}-${aujourdhui()}`, conseiller.email, {
+    dossier_id: dossier.id, canal: "email", modele: "service_demande",
     payload: { client: nomClient(client), email: client.email, telephone_client: client.telephone, reference: dossier.reference, service: service.titre, signature: { nom: "Espace client", role: "Message automatique", telephone: conseiller.telephone } },
   });
   redirect(`/espace-client/${reference}/services?ok=service`);

@@ -1,4 +1,5 @@
 import "server-only";
+import { alerterEquipe } from "@/lib/alertes-equipe";
 import type { ResultatEnvoi } from "@/lib/envois";
 import { normaliserTelephone } from "@/lib/envois/garde-fous";
 import { q, q1 } from "@/crm/lib/db";
@@ -107,7 +108,24 @@ export async function reponseSmsRecue(numeroBrut: string, texte: string): Promis
   );
   if (!r) return { rdvId: null, raison: "aucun rendez-vous à venir pour ce numéro" };
   await enregistrerReponseRdv(r.rendez_vous_id, reponse, "sms", { texte });
+  if (reponse === "annule") await alerterRdvAnnule(r.rendez_vous_id);
   return { rdvId: r.rendez_vous_id, reponse };
+}
+
+/** L'alerte de l'équipe « Rendez-vous annulé par le client », à ses abonnés (Relances › Alertes de l'équipe). */
+async function alerterRdvAnnule(rdvId: number) {
+  const r = await q1<{ debut: string; dossier_id: number | null; ref: string | null; nom: string | null; prenom: string | null; societe: string | null; commercial: string | null; titre: string }>(
+    `select r.debut, r.dossier_id, r.titre, d.ref, c.nom, c.prenom, c.societe, u.email as commercial
+       from rendez_vous r left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id left join utilisateurs u on u.id = r.commercial_id where r.id = $1`,
+    [rdvId],
+  ).catch(() => undefined);
+  if (!r) return;
+  const quand = new Date(r.debut).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  await alerterEquipe("rdv_annule", {
+    evenement: `rdv-${rdvId}-${new Date(r.debut).toISOString()}`, reference: r.ref, conseillers: [r.commercial],
+    vars: { client: r.nom || r.societe ? appel({ civilite: null, prenom: r.prenom, nom: r.nom, societe: r.societe }) : r.titre, reference: r.ref ?? "sans dossier", date: quand },
+    lien: r.dossier_id ? { chemin: `/dossiers/${r.dossier_id}`, libelle: "Ouvrir le dossier" } : { chemin: "/planning", libelle: "Ouvrir le planning" },
+  });
 }
 
 export interface EtatAffiche {

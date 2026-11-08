@@ -14,6 +14,8 @@
  */
 import { SCHEMA_VISITES } from "@/crm/visites/schema";
 import { SCHEMA_FICHE } from "@/crm/fiche/schema";
+import { SCHEMA_RELANCES } from "@/crm/relances/schema";
+import { SCHEMA_ALERTES } from "@/crm/alertes/schema";
 
 export const SCHEMA = `
 create schema if not exists crm;
@@ -324,4 +326,6 @@ end $$;
 create index if not exists idx_modeles_dossier_usage on crm.modeles_dossier(utilisations desc, dernier_usage desc);
 alter table crm.modeles_dossier enable row level security;
 ${SCHEMA_VISITES}
-${SCHEMA_FICHE}`;
+${SCHEMA_FICHE}
+${SCHEMA_RELANCES}
+${SCHEMA_ALERTES}`;

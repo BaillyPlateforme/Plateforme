@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { TEL_AGENCE } from "@/lib/messaging";
+import { champDesabonnement, destinatairesAlerte, noterEvenement } from "@/lib/alertes-equipe";
 import { createServiceClient } from "@/lib/supabase/server";
 import { pdfBons } from "./pdf";
 import { estDemo } from "./config";
@@ -139,10 +140,10 @@ export async function envoyerRecapitulatifEquipe(samedi: string) {
     client: l.contact_nom, reference: dossier.reference, adresse: l.adresse, nb: l.nb_cartons,
   }));
   const empreinte = createHash("sha256").update(JSON.stringify(lignes)).digest("hex").slice(0, 16);
-  const equipe = process.env.ESPACE_CLIENT_EMAIL_EQUIPE?.trim();
-  const destinataires = equipe
-    ? [equipe]
-    : [...new Set(bons.map((b) => conseillerDe(d, b.client.conseiller_id).email).filter(Boolean))];
+  // Les abonnés de l'alerte « Tournée des cartons du samedi » (Relances › Alertes de l'équipe) ;
+  // sans abonnements lisibles, comme avant : ESPACE_CLIENT_EMAIL_EQUIPE, sinon les conseillers des dossiers du jour.
+  const abonnes = (await destinatairesAlerte("recap_cartons", { conseillers: bons.map((b) => conseillerDe(d, b.client.conseiller_id).email) })).destinataires;
+  const destinataires = abonnes.map((a) => a.email);
   const pdf = (await pdfBons(samedi, bons)).toString("base64");
 
   let partis = 0;
@@ -155,6 +156,7 @@ export async function envoyerRecapitulatifEquipe(samedi: string) {
         payload: {
           jour: jourLong(samedi), total, lignes, incomplets: lignes.filter((x) => !x.nb || !x.creneau).length,
           chemin: `/dashboard/espace-client/cartons?samedi=${samedi}`, signature: { nom: "Espace client", role: "Message automatique", telephone: TEL_AGENCE },
+          ...champDesabonnement(abonnes.find((x) => x.email === a) ?? { desabonnement: null }),
         },
       },
       { cle: `veille:cartons:recap:${samedi}:${a.toLowerCase()}:${empreinte}`, origine: "veille", piecesJointes: [{ nom: `bons-cartons-${samedi}.pdf`, base64: pdf }] },
@@ -163,5 +165,6 @@ export async function envoyerRecapitulatifEquipe(samedi: string) {
     else if (n.statut === "envoyee") partis += 1;
     else journalises += 1;
   }
+  await noterEvenement("recap_cartons", `${samedi}-${empreinte}`, null, destinataires.length, `${destinataires.length} destinataire(s) · ${partis} parti(s), ${journalises} journalisé(s), ${deja} déjà traité(s)`);
   return { destinataires: destinataires.length, partis, journalises, deja };
 }
