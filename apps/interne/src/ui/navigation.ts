@@ -38,6 +38,8 @@ export const ADRESSES_REGLAGES = [
   "/dashboard/simulateur",
   "/dashboard/campagne",
   "/dashboard/playground",
+  // Modèles de messages et règles d'alerte des demandes du site (pas une boîte de réception).
+  "/dashboard/messagerie",
   "/dashboard/espace-client/reglages",
   "/dashboard/espace-client/destinations",
   "/dashboard/espace-client/journal",
