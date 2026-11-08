@@ -15,6 +15,7 @@ import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sect
 import Fiche from "@/crm/fiche/Fiche";
 import { parcoursDossier } from "@/crm/parcours/donnees";
 import LigneParcours from "@/crm/parcours/LigneParcours";
+import { estSuperAdmin } from "@/lib/droits";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   const sp = await searchParams;
   const d = await getDossier(id);
   if (!d) notFound();
-  const [lit, etatsSms, users, data, espace, client, parcours] = await Promise.all([
+  const [lit, etatsSms, users, data, espace, client, parcours, superAdmin] = await Promise.all([
     getLitiges(id),
     etatsRdv(d.rdvs.map((r: Row) => r.id)),
     q("select id,nom,role from utilisateurs order by id"),
@@ -49,6 +50,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       console.error("Dossier : lecture du parcours impossible", e instanceof Error ? e.message : e);
       return null;
     }),
+    // « Modifier son espace » n'apparaît qu'aux super admins ; la route le revérifie de toute façon.
+    estSuperAdmin().catch(() => false),
   ]);
   d.telephone2 = client[0]?.telephone2 ?? null;
   // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
@@ -91,6 +94,12 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         <EnregistrerModele dossier={{ id, ref: d.ref, type: d.type, type_demenagement: d.type_demenagement, volume: d.volume, vehicule: d.vehicule, garde_meuble: d.stops.some((x: Row) => x.genre === "garde_meuble"), observations: d.observations ?? null }} />
         {/* Les gestes secondaires, rangés dans « ⋯ » pour que les boutons tiennent sur deux lignes. */}
         <MenuActions>
+          {espace[0] && superAdmin && (
+            // L'espace en édition, au nom du client (super admin) : un <a>, jamais de préchargement.
+            <a href={`/espace-client-apercu/${espace[0].id}?mode=edition`} target="_blank" rel="noopener" title="Modifier l'espace au nom du client : chaque geste est noté à votre nom (nouvel onglet)">
+              Modifier son espace
+            </a>
+          )}
           {espace[0] && <Link href={`/dashboard/espace-client/dossiers/${espace[0].id}`}>Suivi de l’espace (équipe)</Link>}
           <Link href={`/imprimer/${id}?doc=fiche`}>Fiche PDF</Link>
           <form action={A.dupliquerDossier.bind(null, id)}><button>Dupliquer le dossier</button></form>
