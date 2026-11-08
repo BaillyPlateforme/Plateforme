@@ -74,11 +74,12 @@
   border-radius: var(--r, 14px);
   overflow: auto;
 }
+/* 920 px au moins : la semaine tient à côté du menu de gauche (232 px) dès 1280 px de large. */
 .tete,
 .journee,
 .corps {
   display: grid;
-  min-width: 980px;
+  min-width: 920px;
 }
 .tete {
   position: sticky;
