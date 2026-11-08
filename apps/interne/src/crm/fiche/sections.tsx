@@ -71,7 +71,7 @@ const O = {
 const TYPE_D: Record<string, string> = { national: "National", international: "International", maritime: "Maritime", aerien: "Aérien", gm: "Garde-meuble", bureau: "Bureau" };
 const DEVIS_ST: Record<string, [string, string]> = { brouillon: ["Brouillon", "i"], envoye: ["Envoyé", "w"], signe: ["Signé", "g"], refuse: ["Non retenu", "r"] };
 const LV_ST: Record<string, [string, string]> = { a_planifier: ["À planifier", "w"], planifiee: ["Planifiée", "i"], en_cours: ["En cours", "p"], livree: ["Livrée", "g"] };
-const FACT_ST: Record<string, [string, string]> = { emise: ["Émise", "w"], payee: ["Réglée", "g"], retard: ["En retard", "r"] };
+const FACT_ST: Record<string, [string, string]> = { emise: ["Émise", "w"], payee: ["Payée", "g"], retard: ["En retard", "r"] };
 const LITIGE_ST: Record<string, [string, string]> = { ouvert: ["Ouvert", "r"], en_cours: ["En cours", "w"], clos: ["Clos", "g"] };
 const ENVOI_TON: Record<string, string> = { envoye: "g", journalise: "i", bloque: "w", fictif: "i", bac_a_sable: "p", echec: "r", incertain: "w", en_cours: "i" };
 const FORMULES: Record<string, string> = { premium: "Premium", standard: "Standard", economique: "Économique" };
@@ -693,7 +693,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     cle: "factures-client",
     libelle: "Factures client",
     compte: facturesDem.length,
-    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Réglée le" }],
+    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Payée le" }],
     lignes: facturesDem.map((f: Row) => ligneFacture(id, f, true)),
     vide: (
       <>
@@ -766,7 +766,7 @@ function Encaissement({ nouveau, signe }: { nouveau: Geste; signe?: Row }) {
   );
 }
 
-/** Une facture en ligne de tableau. `reglable` : une facture du déménagement (« Réglée » termine le dossier planifié). */
+/** Une facture en ligne de tableau. `reglable` : une facture du déménagement (« Payée » termine le dossier planifié). */
 function ligneFacture(dossierId: number, f: Row, reglable: boolean): Ligne {
   const etat = FACT_ST[f.statut] ?? [f.statut, "i"];
   // Les factures lues par getDossier sont celles du dossier ; celles du garde-meuble disent le leur (ou aucun).
@@ -789,14 +789,14 @@ function ligneFacture(dossierId: number, f: Row, reglable: boolean): Ligne {
       imprimer: duDossier ? { lien: `/imprimer/${dossierId}?doc=facture&f=${f.id}` } : off("Facture sans dossier : elle s'imprime depuis la page Factures."),
       confirmer:
         f.statut === "payee"
-          ? off("Facture déjà réglée.")
+          ? off("Facture déjà payée.")
           : reglable
-            ? { action: A.facturePayee.bind(null, dossierId, f.id), confirmer: "Marquer réglée ?" }
+            ? { action: A.facturePayee.bind(null, dossierId, f.id), confirmer: "Marquer payée ?" }
             : off("Le règlement d'une facture de garde-meuble ne se saisit pas encore ici."),
       transfert: off("L'avoir n'existe pas encore dans le CRM."),
       signer: off("Sans objet pour une facture."),
     },
-    libelles: { confirmer: "Réglée" },
+    libelles: { confirmer: "Marquer payée" },
   };
 }
 
@@ -919,7 +919,7 @@ function gardeMeubles(c: Contexte): SectionFiche {
     cle: "factures",
     libelle: "Factures client",
     compte: data.facturesGm.length,
-    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Réglée le" }],
+    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Payée le" }],
     lignes: data.facturesGm.map((f) => ligneFacture(id, f, false)),
     vide: <b>Aucune facture de garde-meuble.</b>,
     gestes: { nouveau: off("Une facture de garde-meuble s'émet depuis son contrat (onglet GM/Self, « Facturer »).") },
@@ -1051,7 +1051,7 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
     cle: "factures",
     libelle: "Factures",
     compte: toutes.length,
-    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Réglée le" }],
+    colonnes: [{ libelle: "Facture" }, { libelle: "Objet" }, { libelle: "Émise le" }, { libelle: "Montant", num: true }, { libelle: "État" }, { libelle: "Payée le" }],
     lignes: toutes.map((f) => {
       const l = ligneFacture(id, f, f.origine === "Déménagement");
       return { ...l, cellules: [l.cellules[0], <span key="o"><span className={s.long}>{f.objet}</span><small>{f.origine}</small></span>, ...l.cellules.slice(2)], gestes: { ...l.gestes, supprimer: off("Une facture émise ne se supprime pas.") } };
