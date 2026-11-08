@@ -401,7 +401,7 @@ export function Donut({
         </text>
       </svg>
 
-      <ul className="w-full space-y-1.5 text-sm">
+      <ul className="w-full min-w-0 flex-1 space-y-1.5 text-sm">
         {data.map((d, i) => {
           const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
           return (
