@@ -1027,11 +1027,20 @@ html.ec-anim .ec .apparait.vu { opacity: 1; transform: none; }
 .ec .apercu-equipe .btn { flex: none; min-height: 34px; padding: 0 16px; font-size: 14px; box-shadow: none; }
 .ec .sticky-nav { top: var(--apercu-h); }
 .ec .aside-sticky, .ec .toc { top: calc(92px + var(--apercu-h)); }
-/* Ce qui enverrait quelque chose est grisé : l'écran le dit au clic (GardeApercu), et le serveur refuse. */
-.ec:has(> .apercu-equipe) form:not([data-apercu-libre]) :is(button:not([type="button"]), .btn),
-.ec:has(> .apercu-equipe) [data-apercu-bloque],
-.ec:has(> .apercu-equipe) label:has(input[type="file"]) { opacity: .5; cursor: not-allowed; }
+/* En lecture, ce qui enverrait quelque chose est grisé : l'écran le dit au clic (GardeApercu), et le serveur refuse. */
+.ec:has(> .apercu-equipe:not(.edition)) form:not([data-apercu-libre]) :is(button:not([type="button"]), .btn),
+.ec:has(> .apercu-equipe:not(.edition)) [data-apercu-bloque],
+.ec:has(> .apercu-equipe:not(.edition)) label:has(input[type="file"]) { opacity: .5; cursor: not-allowed; }
 .ec .toast.apercu-refus svg { color: var(--accent); }
+
+/* L'édition par l'équipe (super admin) : l'ambre, pour qu'on ne la confonde jamais avec la lecture.
+   Seul ce qui n'appartient qu'au client (data-reserve-client) est grisé. */
+.ec .apercu-equipe.edition { --ambre: #f59e0b; background: #2a1d05; border-bottom-color: var(--ambre); }
+.ec .apercu-equipe.edition .apercu-equipe-badge { background: var(--ambre); color: #1b1a18; }
+.ec .apercu-equipe.edition .btn-primary { background: var(--ambre); color: #1b1a18; }
+.ec .apercu-equipe.edition .btn-primary:hover { background: #d97706; }
+.ec:has(> .apercu-equipe.edition) [data-reserve-client] :is(button:not([type="button"]), .btn) { opacity: .5; cursor: not-allowed; }
+.ec:has(> .apercu-equipe.edition) .toast.apercu-refus svg { color: #f59e0b; }
 
 /* Sur téléphone : l'œil seul dans la pastille, et le nom du client sur deux lignes au plus. */
 @media (max-width: 640px) {

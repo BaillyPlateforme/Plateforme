@@ -58,7 +58,7 @@ export default async function PaiementSimule({ params }: { params: Promise<{ id:
               <div className="for">{session.libelle}</div>
               <div className="amt">{euros(session.montant)}</div>
               {session.statut === "ouverte" ? (
-                <form action={issuePaiementSimule.bind(null, session.id)}>
+                <form action={issuePaiementSimule.bind(null, session.id)} data-reserve-client>
                   <div className="field">
                     <label className="sr-only" htmlFor="cc">
                       Numéro de carte

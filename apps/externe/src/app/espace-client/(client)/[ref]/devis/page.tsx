@@ -126,17 +126,17 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
                 <Icone nom="download" /> Télécharger le devis
               </a>
               {particulier && v.statut === "envoye" && !expire && v.arrhes_pourcentage > 0 && (
-                <form action={payerArrhes.bind(null, ref, v.id)}>
+                <form action={payerArrhes.bind(null, ref, v.id)} data-reserve-client>
                   <button className="btn btn-primary">Accepter et payer les arrhes · {euros(arrhes)}</button>
                 </form>
               )}
               {particulier && v.statut === "envoye" && !expire && v.arrhes_pourcentage === 0 && (
-                <form action={accepterDevis.bind(null, ref, v.id)}>
+                <form action={accepterDevis.bind(null, ref, v.id)} data-reserve-client>
                   <button className="btn btn-primary">Accepter ce devis</button>
                 </form>
               )}
               {particulier && v.statut === "accepte" && !arrhesPayees(v, factures) && (
-                <form action={payerArrhes.bind(null, ref, v.id)}>
+                <form action={payerArrhes.bind(null, ref, v.id)} data-reserve-client>
                   <button className="btn btn-primary">Payer les arrhes · {euros(arrhes)}</button>
                 </form>
               )}
@@ -190,7 +190,7 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
                     </td>
                     <td className="r">
                       {f.statut !== "payee" ? (
-                        <form action={payerFacture.bind(null, ref, f.id)}>
+                        <form action={payerFacture.bind(null, ref, f.id)} data-reserve-client>
                           <button className="btn btn-primary btn-sm">Payer</button>
                         </form>
                       ) : (
@@ -244,7 +244,7 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
           )}
         </div>
         {solde ? (
-          <form action={payerFacture.bind(null, ref, solde.id)}>
+          <form action={payerFacture.bind(null, ref, solde.id)} data-reserve-client>
             <button className="btn btn-primary">Régler le solde · {euros(solde.montant_ttc)}</button>
           </form>
         ) : reste === 0 && total ? (

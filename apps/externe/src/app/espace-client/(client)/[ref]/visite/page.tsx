@@ -101,7 +101,7 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
                     <summary>
                       Aucun créneau ne vous convient ? <span>Demander d&apos;autres créneaux</span>
                     </summary>
-                    <form action={demanderAutresCreneaux.bind(null, ref)}>
+                    <form action={demanderAutresCreneaux.bind(null, ref)} data-reserve-client>
                       <label className="field">
                         <span>Vos disponibilités (facultatif)</span>
                         <textarea name="message" className="textarea" rows={3} maxLength={600} placeholder="Par exemple : plutôt en fin de journée, ou le samedi matin." />
