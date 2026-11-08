@@ -15,6 +15,8 @@ const TRAJET = `(select adresse from etapes_trajet where dossier_id=d.id and gen
 
 export async function listDossiers(f: { q?: string; type?: string; statuts?: string[] } = {}) {
   const w: string[] = [], p: unknown[] = [];
+  // Un dossier archivé (src/crm/archivage) n'est plus listé ; la recherche le retrouve.
+  if (!f.q) w.push("d.archive_le is null");
   if (f.q) {
     // Nom, prénom, société, référence, e-mail ; et le téléphone, chiffres seuls (« 06 12… » comme « 0612… »).
     p.push(`%${f.q}%`);
