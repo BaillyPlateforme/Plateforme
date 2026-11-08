@@ -7,6 +7,8 @@ import type { NomIcone } from "@/ui/icones";
 import { etatEnvois } from "@/lib/envois";
 import { currentUser } from "@/crm/lib/auth";
 import { q1 } from "@/crm/lib/db";
+import { cartesDesDossiers, type Carte } from "@/crm/kanban/donnees";
+import { ETAPE_DOSSIER, ETAPES_DOSSIER, estStatutDossier } from "@/crm/kanban/etapes";
 import { jourParis } from "@/crm/envois";
 import { RATTRAPAGE_JOURS, relancesEtRegles } from "@/crm/relances/moteur";
 import { CANAUX, COLONNES, FAMILLES, jourIso, libelleCanal, plus, RELANCES, STATUT_ENVOI, type Relance, type TypeRelance } from "@/crm/relances/regles";
@@ -52,13 +54,15 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 export default async function Relances({
   searchParams,
 }: {
-  searchParams: Promise<{ vue?: string; type?: string; dossier?: string; horizon?: string; periode?: string; canal?: string; issue?: string; origine?: string }>;
+  searchParams: Promise<{ vue?: string; type?: string; dossier?: string; etape?: string; horizon?: string; periode?: string; canal?: string; issue?: string; origine?: string }>;
 }) {
   await currentUser();
   const sp = await searchParams;
   const vue: Vue = VUES.some((v) => v.cle === sp.vue) ? (sp.vue as Vue) : "kanban";
   const dossier = dossierDuFiltre(sp.dossier);
   const type = RELANCES.some((r) => r.type === sp.type) ? (sp.type as TypeRelance) : null;
+  // L'étape du dossier (?etape=devis) : le lien d'une colonne du Parcours qui a ses relances.
+  const etape = sp.etape && estStatutDossier(sp.etape) && ETAPE_DOSSIER[sp.etape].relances.length ? sp.etape : null;
   const horizon = sp.horizon === "30" ? 30 : 14;
   const aujourdhui = jourParis();
 
@@ -68,14 +72,16 @@ export default async function Relances({
     dossier ? q1("select 1 from relances_exclusions where dossier_id=$1 and type='*'", [dossier]) : Promise.resolve(undefined),
     vue === "kanban" ? Promise.resolve([]) : historiqueRelances(),
   ]);
-  const duDossier = toutes.filter((r) => !dossier || r.dossierId === dossier);
+  // Les dossiers des relances, en cartes : la même carte qu'au Parcours, et leur étape pour le filtre.
+  const cartes = await cartesDesDossiers(toutes.map((r) => r.dossierId)).catch(() => new Map<number, Carte>());
+  const duDossier = toutes.filter((r) => (!dossier || r.dossierId === dossier) && (!etape || cartes.get(r.dossierId)?.statut === etape));
   const relances = duDossier.filter((r) => !type || r.type === type);
   const col = (c: Relance["colonne"]) => relances.filter((r) => r.colonne === c);
   const dues = col("aujourdhui").length + col("retard").length;
   const j7 = col("avenir").filter((r) => r.prevue <= plus(aujourdhui, 7)).length;
   const envoi = etatEnvois();
 
-  const lien = (p: Record<string, string | number | null | undefined> = {}) => lienRelances("/relances", dossier, { vue: vue === "kanban" ? null : vue, type, ...p });
+  const lien = (p: Record<string, string | number | null | undefined> = {}) => lienRelances("/relances", dossier, { vue: vue === "kanban" ? null : vue, type, etape, ...p });
 
   // ── L'historique : les relances parties ou tentées (filtres de la vue Historique) ──
   const histo = histoTout.filter((l) => (!dossier || l.dossierId === dossier) && (!type || l.type === type));
@@ -110,7 +116,7 @@ export default async function Relances({
       groupes={[
         {
           items: VUES.map((v) => ({
-            href: lienRelances("/relances", dossier, { vue: v.cle === "kanban" ? null : v.cle, type }),
+            href: lienRelances("/relances", dossier, { vue: v.cle === "kanban" ? null : v.cle, type, etape }),
             label: v.libelle,
             icone: v.icone,
             actif: vue === v.cle,
@@ -137,7 +143,15 @@ export default async function Relances({
           { cle: "issue", libelle: "Toutes les issues", options: FAMILLES.map((f) => ({ valeur: f.cle, libelle: `${f.libelle} · ${avantIssue.filter((l) => l.famille === f.cle).length}` })) },
           { cle: "origine", libelle: "Veille et équipe", options: [{ valeur: "veille", libelle: "Par la veille" }, { valeur: "equipe", libelle: "Par l’équipe" }] },
         ]
-      : [parType((t) => (vue === "kanban" ? duDossier.filter((r) => r.type === t).length : null))];
+      : [
+          parType((t) => (vue === "kanban" ? duDossier.filter((r) => r.type === t).length : null)),
+          // L'étape du dossier, celle des colonnes du Parcours (les étapes où des relances peuvent partir).
+          {
+            cle: "etape",
+            libelle: "Toutes les étapes",
+            options: ETAPES_DOSSIER.filter((e) => e.relances.length).map((e) => ({ valeur: e.cle, libelle: e.label })),
+          },
+        ];
 
   return (
     <div className="view">
@@ -165,13 +179,19 @@ export default async function Relances({
         }
       >
         {dossier && <Link href={`/dossiers/${dossier}`} data-ton="contour">Fiche du dossier</Link>}
+        {/* Filtrées sur une étape : l'étape elle-même, dans le Parcours. */}
+        {etape && (
+          <Link href={`/parcours?etape=${etape === "commande" ? "signe" : etape}`} data-ton="contour">
+            « {ETAPE_DOSSIER[etape].label} » dans le Parcours
+          </Link>
+        )}
         {dossier && <BoutonExclusion dossierId={dossier} exclu={!!exclu} />}
         {dossier && <Link href={lienRelances("/relances", null, { vue: vue === "kanban" ? null : vue })} data-ton="contour">Toutes les relances</Link>}
       </Bandeau>
 
       <AvecMenu menu={menu}>
         <div className={s.page}>
-          {vue === "kanban" && <Kanban relances={relances} aujourdhui={aujourdhui} borneRattrapage={plus(aujourdhui, -RATTRAPAGE_JOURS)} />}
+          {vue === "kanban" && <Kanban relances={relances} dossiers={Object.fromEntries(cartes)} aujourdhui={aujourdhui} borneRattrapage={plus(aujourdhui, -RATTRAPAGE_JOURS)} />}
           {vue === "previsions" && <Previsions relances={relances} regles={regles} tentatives={tentatives} type={type} horizon={horizon} aujourdhui={aujourdhui} />}
           {vue === "historique" && (
             <>

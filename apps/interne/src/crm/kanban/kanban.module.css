@@ -1,8 +1,10 @@
 /*
- * Le Kanban des dossiers, dans le design « Quantum » modernisé : colonnes
- * claires à liseré de couleur, cartes blanches arrondies, ombres teintées
- * d'indigo. Les filtres se posent dans la rangée du bas de la bande indigo
- * (Bandeau), en verre, à la hauteur réservée de 44 px.
+ * Les tableaux du CRM (Demandes, Parcours, Relances), dans le design
+ * « Quantum » modernisé : colonnes claires à liseré de la couleur de leur
+ * étape (etapes.ts), en-têtes communs (Colonne.tsx) ; les cartes ont leur
+ * propre feuille (carte.module.css, Carte.tsx). Les filtres se posent dans
+ * la rangée du bas de la bande indigo (Bandeau), en verre, à la hauteur
+ * réservée de 44 px.
  */
 .racine {
   /* Les variables des fenêtres et messages repris du dispatch (elements.tsx). */
@@ -109,19 +111,9 @@
   color: #2e1f9e;
   box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
 }
-.groupe button:has(.mini) {
+/* Un commercial : son avatar (celui des cartes, Carte.tsx), puis son prénom quand il est choisi. */
+.groupe button:has([data-taille="mini"]) {
   padding-left: 6px;
-}
-.mini {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fff;
 }
 .effacer {
   flex: none;
@@ -136,28 +128,6 @@
 }
 .effacer:hover {
   color: #fff;
-}
-
-/* Les teintes des commerciaux : une par personne, sur l'avatar des cartes et des filtres. */
-.avatar[data-teinte="0"],
-.mini[data-teinte="0"] {
-  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
-}
-.avatar[data-teinte="1"],
-.mini[data-teinte="1"] {
-  background: linear-gradient(135deg, #0e9f66, #14c27d);
-}
-.avatar[data-teinte="2"],
-.mini[data-teinte="2"] {
-  background: linear-gradient(135deg, #e08900, #f5a524);
-}
-.avatar[data-teinte="3"],
-.mini[data-teinte="3"] {
-  background: linear-gradient(135deg, #c81e5b, #ff5f93);
-}
-.avatar[data-teinte="4"],
-.mini[data-teinte="4"] {
-  background: linear-gradient(135deg, #1d1270, #3a22c4);
 }
 
 /* ───────── La planche et ses colonnes ───────── */
@@ -184,45 +154,11 @@
   scroll-snap-type: none;
 }
 
+/* La couleur d'une colonne est celle de son étape, posée sur la colonne (Colonne.tsx, styleEtape ; etapes.ts). */
 .colonne,
 .repliee {
   --c: #4b2fe0;
-  --c-doux: rgba(75, 47, 224, 0.14);
-}
-.colonne[data-statut="prospect"],
-.repliee[data-statut="prospect"] {
-  --c: #7a52ff;
-  --c-doux: rgba(122, 82, 255, 0.15);
-}
-.colonne[data-statut="visite"],
-.repliee[data-statut="visite"] {
-  --c: #4b2fe0;
-  --c-doux: rgba(75, 47, 224, 0.14);
-}
-.colonne[data-statut="devis"],
-.repliee[data-statut="devis"] {
-  --c: #f59e0b;
-  --c-doux: rgba(245, 158, 11, 0.18);
-}
-.colonne[data-statut="commande"],
-.repliee[data-statut="commande"] {
-  --c: #14c27d;
-  --c-doux: rgba(20, 194, 125, 0.16);
-}
-.colonne[data-statut="planifie"],
-.repliee[data-statut="planifie"] {
-  --c: #2e1f9e;
-  --c-doux: rgba(46, 31, 158, 0.14);
-}
-.colonne[data-statut="termine"],
-.repliee[data-statut="termine"] {
-  --c: #14121f;
-  --c-doux: rgba(20, 18, 31, 0.1);
-}
-.colonne[data-statut="perdu"],
-.repliee[data-statut="perdu"] {
-  --c: #e1306c;
-  --c-doux: rgba(225, 48, 108, 0.14);
+  --c-doux: color-mix(in srgb, var(--c) 15%, transparent);
 }
 
 .colonne {
@@ -323,11 +259,55 @@
   background: #fff;
   color: var(--encre);
 }
+/* Le lien d'une colonne qui continue sur un autre tableau : « Détail », « Parcours », « Relances ». */
+.lienColonne {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 7px 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 11%, #fff);
+  color: color-mix(in srgb, var(--c) 70%, #14121f);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.2s;
+}
+.lienColonne:hover {
+  background: var(--c);
+  color: #fff;
+  box-shadow: 0 8px 16px -10px var(--c);
+}
+.lienColonne:focus-visible {
+  outline: 2px solid var(--c);
+  outline-offset: 2px;
+}
+
+/* La ligne sous le titre, de la même hauteur partout : le sens de l'étape, ou ce qu'elle pèse. */
+.sous {
+  height: 34px;
+  margin: 8px 0 0;
+  overflow: hidden;
+}
+.sens {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--gris);
+}
 .somme {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin: 9px 0 0;
+  margin: 0;
+  line-height: 30px;
 }
 .somme b {
   font-size: 19px;
@@ -335,10 +315,6 @@
   letter-spacing: -0.02em;
   color: var(--encre);
   font-variant-numeric: tabular-nums;
-}
-.somme {
-  height: 28px;
-  line-height: 28px;
 }
 .somme span {
   font-size: 12px;
@@ -527,477 +503,21 @@
   transform: rotate(-90deg);
 }
 
-/* ───────── Une carte ───────── */
-
-.carte {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  flex: none;
-  padding: 13px 14px 12px 12px;
-  border-radius: 18px;
-  background: #fff;
-  border: 1px solid #ebe8f3;
-  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 10px 22px -18px rgba(46, 31, 158, 0.55);
-  cursor: grab;
-  user-select: none;
-  touch-action: manipulation;
-  transition: transform 0.16s, box-shadow 0.2s, border-color 0.15s, opacity 0.15s;
-}
-.carte:hover {
-  border-color: #d9ccfb;
-  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 18px 32px -20px rgba(46, 31, 158, 0.7);
-  transform: translateY(-1px);
-}
-.carte:focus-visible {
-  outline: 2px solid var(--violet);
-  outline-offset: 2px;
-}
-.fantome,
-.fantome:hover {
-  opacity: 0.32;
+/*
+ * Les deux colonnes-ponts : « Demandes », en tête du Parcours, et « Dossier »,
+ * à la fin de Demandes — deux vues d'une même vérité (etapes.ts, aDecider).
+ * Le même dessin des deux côtés : un fond teinté de leur couleur, un filet en
+ * pointillés ; elles ne reçoivent pas de dépôt.
+ */
+.pont {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 5%, #fff), color-mix(in srgb, var(--c) 9%, #f6f5fb));
   border-style: dashed;
-  box-shadow: none;
-  transform: none;
-}
-.flottante {
-  position: fixed;
-  z-index: 80;
-  margin: 0;
-  pointer-events: none;
-  cursor: grabbing;
-  transform: rotate(1.8deg) scale(1.03);
-  border-color: #b9a8ff;
-  box-shadow: 0 34px 60px -22px rgba(46, 16, 101, 0.55), 0 0 0 4px rgba(75, 47, 224, 0.1);
-}
-.arrivee {
-  animation: arrivee 1.1s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes arrivee {
-  0% {
-    opacity: 0.2;
-    transform: translateY(-8px) scale(0.96);
-    box-shadow: 0 0 0 0 rgba(75, 47, 224, 0);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(0) scale(1.015);
-    box-shadow: 0 0 0 6px rgba(75, 47, 224, 0.18), 0 18px 32px -20px rgba(46, 31, 158, 0.7);
-  }
-  100% {
-    transform: none;
-    box-shadow: 0 0 0 0 rgba(75, 47, 224, 0), 0 10px 22px -18px rgba(46, 31, 158, 0.55);
-  }
-}
-
-.carteHaut {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.prise {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 24px;
-  margin-left: -4px;
-  border-radius: 6px;
-  color: #d3cde5;
-  touch-action: none;
-  cursor: grab;
-  transition: color 0.15s;
-}
-.carte:hover .prise {
-  color: var(--gris);
-}
-.client {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--encre);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.avatar {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: 27px;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  color: #fff;
-  box-shadow: 0 0 0 2px #fff, 0 5px 12px -5px rgba(46, 31, 158, 0.65);
-}
-.avatar:not([data-teinte]) {
-  background: #d9d5e6;
-}
-.ligneRef,
-.trajet {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  margin: 0;
-  padding-left: 20px;
-}
-.ref {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--gris);
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.segment {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #ece8ff;
-  color: #3a22c4;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.segment[data-segment="compte"] {
-  background: #e3f8ee;
-  color: #0e7a50;
-}
-.segment[data-segment="militaire"] {
-  background: #fff1db;
-  color: #a4560a;
-}
-.segment[data-segment="partenaire"] {
-  background: #efebff;
-  color: #7a52ff;
-}
-.segment[data-segment="logement_social"] {
-  background: #ffe8f0;
-  color: #be185d;
-}
-.signe {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #f4f3f9;
-  color: var(--gris);
-}
-.trajet {
-  font-size: 12.5px;
-  font-weight: 550;
-  color: #3b3753;
-}
-.trajet span {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.point {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 2px solid var(--violet);
-}
-.flecheTrajet {
-  flex: none;
-  color: var(--gris-clair);
-}
-.pied {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 3px;
-  padding: 9px 0 0 20px;
-  border-top: 1px dashed #ece9f3;
-}
-.volume {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 8px;
-  background: #f4f3f9;
-  color: #3b3753;
-  font-size: 11.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.date {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  font-size: 11.5px;
-  font-weight: 550;
-  color: var(--gris);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.date svg {
-  flex: none;
-}
-.montant {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13.5px;
-  font-weight: 750;
-  color: var(--encre);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.montant[data-signe]::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #14c27d;
-  box-shadow: 0 0 0 3px rgba(20, 194, 125, 0.18);
-}
-.alerte {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 2px 0 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: #fff6e5;
-  color: #95560a;
-  font-size: 11.5px;
-  font-weight: 650;
-}
-.alerte svg {
-  flex: none;
-}
-
-/* ───────── Les demandes du site, en tête ───────── */
-
-/* Une colonne à part : elle ne reçoit pas de dépôt, ses cartes s'ouvrent d'un clic. */
-.colonneDemandes {
-  --c: #a78bfa;
-  --c-doux: rgba(167, 139, 250, 0.2);
-  background: linear-gradient(180deg, #f8f6ff, #f2effc);
-  border-style: dashed;
-  border-color: #ddd3fb;
+  border-color: color-mix(in srgb, var(--c) 34%, #e8e6ef);
   /* Sa largeur est celle des autres colonnes, pas celle de la plus longue ligne d'une carte (écran étroit). */
   min-width: 0;
 }
-.colonneDemandes[data-etat="interdit"] {
+.pont[data-etat="interdit"] {
   opacity: 0.48;
-}
-.carteDemande {
-  cursor: pointer;
-  text-decoration: none;
-  color: inherit;
-}
-.carteDemande .ligneRef,
-.carteDemande .trajet,
-.carteDemande .pied {
-  padding-left: 28px;
-}
-.source {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  margin-left: -2px;
-  border-radius: 7px;
-  background: #ece8ff;
-  color: #4b2fe0;
-}
-.statutDemande {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #f4f3f9;
-  color: #3b3753;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.statutDemande[data-statut="new"] {
-  background: #fff1db;
-  color: #a4560a;
-}
-.statutDemande[data-statut="qualified"],
-.statutDemande[data-statut="analyzing"] {
-  background: #ece8ff;
-  color: #3a22c4;
-}
-/* Le libellé du parcours (« Particulier · express ») cède la place plutôt que de déborder de la carte. */
-.carteDemande .segment {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Le nom du client est le lien de la carte : il la couvre tout entière, sous les boutons de la décision. */
-.lienCarte {
-  color: inherit;
-  text-decoration: none;
-}
-.lienCarte::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-}
-.lienCarte:focus-visible {
-  outline: none;
-}
-.carteDemande:has(.lienCarte:focus-visible) {
-  outline: 2px solid var(--violet);
-  outline-offset: 2px;
-}
-
-/* La décision, au bas de la carte : refuser, accepter. */
-.decision {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 1px;
-  padding-left: 28px;
-}
-/* « Voir le détail » : de la colonne des demandes du Tableau au Kanban de Demandes. */
-.colonneDemandes .teteHaut h2 {
-  flex: none;
-}
-.voirDetail {
-  flex: none;
-  margin-left: auto;
-  color: #4b2fe0;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-decoration: underline;
-  text-decoration-color: rgba(75, 47, 224, 0.3);
-  text-underline-offset: 3px;
-  transition: color 0.15s, text-decoration-color 0.15s;
-}
-.voirDetail:hover {
-  color: #2e1f9e;
-  text-decoration-color: currentColor;
-}
-.marques {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-width: 0;
-  margin-right: auto;
-}
-.marque {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #f4f3f9;
-  color: #3b3753;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.marque[data-ton="ambre"] {
-  background: #fff4e0;
-  color: #a4560a;
-}
-.marque[data-ton="rose"] {
-  background: #ffe4ec;
-  color: #be185d;
-}
-.marque[data-ton="vert"] {
-  background: #e3f8ee;
-  color: #0e7a50;
-}
-.statutDemande[data-statut="dossier"] {
-  background: #e3f8ee;
-  color: #0e7a50;
-}
-/* Une carte qu'on glisse (Kanban de Demandes) : sa poignée décale le texte. */
-.carteDemande:has([data-prise]) .ligneRef,
-.carteDemande:has([data-prise]) .trajet,
-.carteDemande:has([data-prise]) .pied,
-.carteDemande:has([data-prise]) .decision {
-  padding-left: 42px;
-}
-.carteDemande[data-ligne] {
-  cursor: grab;
-}
-.incomplete {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #fff4e0;
-  color: #a4560a;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.refuser,
-.accepter {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 11px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.2s;
-}
-.refuser {
-  background: transparent;
-  color: var(--gris);
-}
-.refuser:hover {
-  background: #fff1f2;
-  border-color: #fecdd3;
-  color: var(--rose);
-}
-.accepter {
-  background: var(--violet-doux);
-  color: #3a22c4;
-}
-.accepter:hover {
-  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
-  color: #fff;
-  box-shadow: 0 8px 18px -10px rgba(75, 47, 224, 0.9);
-}
-.refuser:focus-visible,
-.accepter:focus-visible {
-  outline: 2px solid var(--violet);
-  outline-offset: 2px;
 }
 
 /* ───────── La fenêtre du dépôt ───────── */
@@ -1203,22 +723,7 @@
   transform: none;
 }
 
-/* ───────── Écrans tactiles et étroits ───────── */
-
-@media (hover: none) {
-  .prise {
-    width: 26px;
-    height: 28px;
-    margin-left: -6px;
-    background: #f4f3f9;
-    color: var(--gris);
-  }
-  .ligneRef,
-  .trajet,
-  .pied {
-    padding-left: 28px;
-  }
-}
+/* ───────── Écrans étroits ───────── */
 
 @media (max-width: 760px) {
   .filtres {

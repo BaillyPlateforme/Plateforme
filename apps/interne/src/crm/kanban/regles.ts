@@ -15,9 +15,12 @@
  * pourquoi), et l'action serveur le rejoue sur l'état réel du dossier.
  */
 
-export const COLONNES = ["prospect", "visite", "devis", "commande", "planifie", "termine", "perdu"] as const;
-export type Statut = (typeof COLONNES)[number];
-export const estStatut = (s: string): s is Statut => (COLONNES as readonly string[]).includes(s);
+import { ETAPES_DOSSIER, estStatutDossier, STATUTS_DOSSIER, type StatutDossier } from "./etapes";
+
+/** Les colonnes : les étapes d'un dossier, dans l'ordre ; leur nom et leur couleur sont communs à tous les tableaux (etapes.ts). */
+export const COLONNES = STATUTS_DOSSIER;
+export type Statut = StatutDossier;
+export const estStatut = estStatutDossier;
 
 /** Au-delà de ce nombre de jours, un devis envoyé sans réponse est signalé sur la carte du dossier. */
 export const RELANCE_JOURS = 7;
@@ -33,16 +36,8 @@ export function ville(adresse: string | null | undefined) {
 
 const RANG: Record<Statut, number> = { prospect: 0, visite: 1, devis: 2, commande: 3, planifie: 4, termine: 5, perdu: 6 };
 
-/** Le libellé des colonnes, ceux du CRM (format.ts, STATUTS), répétés ici pour garder ce module pur. */
-export const NOM: Record<Statut, string> = {
-  prospect: "Nouveau",
-  visite: "Visite à faire",
-  devis: "Devis envoyé",
-  commande: "Signé",
-  planifie: "Planifié",
-  termine: "Terminé",
-  perdu: "Perdu",
-};
+/** Le nom des colonnes : celui de la définition commune (etapes.ts). */
+export const NOM = Object.fromEntries(ETAPES_DOSSIER.map((e) => [e.cle, e.label])) as Record<Statut, string>;
 
 /** Un devis, tel que le tableau le connaît. */
 export type DevisCarte = { id: number; numero: string; formule: string; montant: number; statut: "brouillon" | "envoye" | "signe" | "refuse"; envoyeLe: string | null };

@@ -25,9 +25,24 @@ const REQUETE = `select r.id, r.created_at, r.source::text as source, r.status::
     (select coalesce(e.payload->>'statut', 'a_rappeler') from public.request_events e
        where e.request_id = r.id and e.type = 'rappel' order by e.created_at desc limit 1) as rappel,
     (select v.status::text from public.devis v where v.request_id = r.id order by v.created_at desc limit 1) as devis_site,
-    x.id as dossier_id, x.ref as dossier_ref, x.statut as dossier_statut
+    x.id as dossier_id, x.ref as dossier_ref, x.statut as dossier_statut, x.archive_le is not null as dossier_archive,
+    x.commercial_id as dossier_commercial_id, x.commercial as dossier_commercial, x.initiales as dossier_initiales
   from public.requests r
-  left join lateral (select d.id, d.ref, d.statut from dossiers d where d.request_id = r.id order by d.id limit 1) x on true`;
+  left join lateral (select d.id, d.ref, d.statut, d.archive_le, d.commercial_id, u.nom as commercial, u.initiales
+      from dossiers d left join utilisateurs u on u.id = d.commercial_id where d.request_id = r.id order by d.id limit 1) x on true`;
+
+/*
+ * Les demandes lues : toutes celles qui attendent une décision (la colonne
+ * « Demandes » du Parcours et les colonnes ouvertes du Kanban se comptent sur
+ * cette même lecture, etapes.ts du Kanban, aDecider), et, pour le reste —
+ * acceptées, perdues, archivées —, les plus récentes. Avant le 08/11/2026,
+ * le Parcours lisait ses demandes à part (200 au plus) et Demandes les
+ * siennes (300 au plus, toutes confondues) : au-delà, les deux tableaux ne
+ * comptaient plus la même chose.
+ */
+const RECENTES = 300;
+const PLAFOND = 1000;
+const OUVERTE = "x.id is null and r.status::text not in ('lost', 'archived')";
 
 function versDemande(r: Record<string, unknown>): DemandeVue {
   const parcours = parcoursDeLaDemande(r as Parameters<typeof parcoursDeLaDemande>[0]);
@@ -63,13 +78,27 @@ function versDemande(r: Record<string, unknown>): DemandeVue {
     incomplete: !!r.jeton || (!SANS_PRIX.has(parcours) && volume == null) || !depart || !arrivee,
     rappel: (r.rappel as string | null) ?? null,
     devisSite: (r.devis_site as string | null) ?? null,
-    dossier: r.dossier_id != null ? { id: Number(r.dossier_id), ref: String(r.dossier_ref), statut: String(r.dossier_statut) } : null,
+    dossier:
+      r.dossier_id != null
+        ? {
+            id: Number(r.dossier_id),
+            ref: String(r.dossier_ref),
+            statut: String(r.dossier_statut),
+            archive: !!r.dossier_archive,
+            commercialId: (r.dossier_commercial_id as number | null) ?? null,
+            commercial: (r.dossier_commercial as string | null) ?? null,
+            initiales: (r.dossier_initiales as string | null) ?? null,
+          }
+        : null,
   };
 }
 
-/** Les demandes du site, les plus récentes d'abord (300 au plus, comme les autres listes : 200). */
+/** Les demandes du site, les plus récentes d'abord : toutes celles à décider, et les 300 dernières des autres. */
 export async function lireDemandes(): Promise<DemandeVue[]> {
-  const rows = await q(`${REQUETE} order by r.created_at desc limit 300`);
+  const rows = await q(
+    `${REQUETE} where (${OUVERTE}) or r.id in (select id from public.requests order by created_at desc limit ${RECENTES})
+      order by r.created_at desc limit ${PLAFOND}`,
+  );
   return rows.map(versDemande);
 }
 

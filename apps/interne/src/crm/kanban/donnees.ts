@@ -98,6 +98,18 @@ export async function cartesKanban(): Promise<Carte[]> {
   return rows.map((r) => versCarte(r, espaces));
 }
 
+/**
+ * Des dossiers choisis, en cartes : ceux des relances (Relances › Kanban),
+ * pour que leur carte dise la même chose qu'au Parcours — trajet, montant,
+ * volume, date, commercial — et pour filtrer les relances par étape.
+ */
+export async function cartesDesDossiers(ids: number[]): Promise<Map<number, Carte>> {
+  const uniques = [...new Set(ids)].filter((id) => Number.isSafeInteger(id) && id > 0);
+  if (!uniques.length) return new Map();
+  const rows = await q(`${SQL} where d.id = any($1::int[])`, [uniques]);
+  return new Map(rows.map((r) => [r.id as number, versCarte(r, new Set())]));
+}
+
 /** Un dossier, relu au moment du dépôt : les règles s'appliquent à son état réel, pas à celui de l'écran. */
 export async function carteKanban(id: number): Promise<Carte | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;

@@ -219,45 +219,24 @@
   color: #6f6c80;
 }
 
-/* L'étape, en pastille, de la couleur de sa colonne du Kanban. */
+/*
+ * L'étape, en pastille, de la couleur de sa colonne du Kanban : --s, posée
+ * par le composant depuis la définition commune (src/crm/kanban/etapes.ts),
+ * comme les pastilles des cartes.
+ */
 .etape {
+  --s: #4b2fe0;
   flex: none;
   display: inline-flex;
   align-items: center;
   height: 22px;
   padding: 0 9px;
   border-radius: 999px;
-  background: #ece8ff;
-  color: #3a22c4;
+  background: color-mix(in srgb, var(--s) 13%, #fff);
+  color: color-mix(in srgb, var(--s) 62%, #14121f);
   font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
-}
-.etape[data-etape="incomplete"],
-.etape[data-etape="archivee"] {
-  background: #f1eff8;
-  color: #6f6c80;
-}
-.etape[data-etape="nouvelle"] {
-  background: #f1ecff;
-  color: #6236e6;
-}
-.etape[data-etape="devis"] {
-  background: #e0f2fe;
-  color: #0369a1;
-}
-.etape[data-etape="rappel"] {
-  background: #fff4e0;
-  color: #a4560a;
-}
-.etape[data-etape="accepte"],
-.etape[data-etape="dossier"] {
-  background: #e3f8ee;
-  color: #0b7a4f;
-}
-.etape[data-etape="perdue"] {
-  background: #ffe4ec;
-  color: #be185d;
 }
 
 /* La n° 1 : la « Top demande », en vedette. */

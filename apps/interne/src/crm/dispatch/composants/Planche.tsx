@@ -209,7 +209,8 @@ export default function Planche({
           couleur={couleur(l)}
           figee={figee}
           fantome={glisse?.ligneId === l.id}
-          onPointerDown={figee ? undefined : (e) => commencer(e, l.id)}
+          saisir={figee ? undefined : (e) => commencer(e, l.id)}
+          apresGlisser={apresGlisser}
           onOuvrir={() => setFiche(l.id)}
         />,
       );
@@ -339,6 +340,22 @@ export default function Planche({
             {plan.demo ? " · plan de démonstration, données fictives" : ""}
           </>
         }
+        // La légende des destinations, dans la rangée du bas de la bande (la couleur du liseré des cartes).
+        bas={
+          vue === "planning" && destinations.length > 0 ? (
+            <div className={s.legendeBande} aria-label="Destinations">
+              {destinations.map((d) => {
+                const ls = lignes.filter((l) => cleDestination(l) === d);
+                return (
+                  <span key={d} className={s.destinationBande} style={{ ["--c" as string]: couleurs.get(d) }}>
+                    <i />
+                    <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
+                  </span>
+                );
+              })}
+            </div>
+          ) : undefined
+        }
       >
         <button type="button" onClick={() => setProposition(true)} disabled={lignes.length === 0}>
           <Picto nom="etincelle" taille={18} />
@@ -371,21 +388,7 @@ export default function Planche({
         }
       >
         <div className={s.outils}>
-          {vue === "planning" && destinations.length > 0 ? (
-            <div className={s.legende} aria-label="Destinations">
-              {destinations.map((d) => {
-                const ls = lignes.filter((l) => cleDestination(l) === d);
-                return (
-                  <span key={d} className={s.destination} style={{ ["--c" as string]: couleurs.get(d) }}>
-                    <i />
-                    <b>{noms.get(d)}</b> {ls.length} client{ls.length > 1 ? "s" : ""} · {m3(somme(ls))}
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <span />
-          )}
+          <span />
           <div className={s.actions}>
             <button type="button" className={s.bouton} onClick={() => setEdition("nouvelle")}>
               <Picto nom="plus" taille={16} /> Colonne
@@ -471,26 +474,6 @@ export default function Planche({
       {reglages && <ReglagesPlan plan={plan} onFermer={() => setReglages(false)} onMessage={setMessage} />}
       {demande && <Confirmation demande={demande} onFermer={() => setDemande(null)} />}
       <Toast message={message} onFermer={fermerMessage} />
-      {/* Le clic qui suit un glisser n'ouvre pas la fiche : la bulle ne s'ouvre qu'au clic franc. */}
-      <ClicBulle apresGlisser={apresGlisser} ouvrir={setFiche} />
     </div>
   );
-}
-
-/**
- * Ouvre la fiche d'un client au clic sur sa bulle. Écouté sur le document :
- * un seul écouteur pour toutes les bulles, et le clic qui termine un glisser
- * est ignoré.
- */
-function ClicBulle({ apresGlisser, ouvrir }: { apresGlisser: () => boolean; ouvrir: (id: number) => void }) {
-  useEffect(() => {
-    const clic = (e: MouseEvent) => {
-      const bulle = (e.target as HTMLElement).closest<HTMLElement>("[data-ligne]");
-      if (!bulle || apresGlisser() || (e.target as HTMLElement).closest("a, button")) return;
-      ouvrir(Number(bulle.dataset.ligne));
-    };
-    document.addEventListener("click", clic);
-    return () => document.removeEventListener("click", clic);
-  }, [apresGlisser, ouvrir]);
-  return null;
 }

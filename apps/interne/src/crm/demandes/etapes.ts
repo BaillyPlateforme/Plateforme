@@ -1,3 +1,4 @@
+import { aDecider, ETAPES_DEMANDE, type CleEtapeDemande } from "@/crm/kanban/etapes";
 import type { Parcours } from "@/lib/parcours";
 import type { RequestStatus } from "@/lib/types";
 
@@ -26,20 +27,9 @@ import type { RequestStatus } from "@/lib/types";
  * pendant le glisser, et l'action serveur le rejoue.
  */
 
-export type CleEtape = "incomplete" | "nouvelle" | "analyse" | "qualifiee" | "devis" | "rappel" | "accepte" | "dossier" | "perdue" | "archivee";
-
-export const ETAPES: { cle: CleEtape; label: string; aide: string }[] = [
-  { cle: "incomplete", label: "Incomplète", aide: "Il manque le volume ou une ville, ou le client n'a pas fini de la compléter" },
-  { cle: "nouvelle", label: "Nouvelle", aide: "Complète, pas encore évaluée" },
-  { cle: "analyse", label: "En analyse", aide: "L'équipe l'étudie" },
-  { cle: "qualifiee", label: "Qualifiée", aide: "Évaluée : potentiel, difficulté, estimation" },
-  { cle: "devis", label: "Devis du site envoyé", aide: "Le devis de la demande est parti au client" },
-  { cle: "rappel", label: "Rappel demandé", aide: "Le client attend qu'on le rappelle" },
-  { cle: "accepte", label: "Devis du site accepté", aide: "Le client a accepté le devis de la demande" },
-  { cle: "dossier", label: "Dossier", aide: "Acceptée : elle suit son dossier" },
-  { cle: "perdue", label: "Perdue", aide: "Refusée, ou perdue" },
-  { cle: "archivee", label: "Archivée", aide: "Sortie du parcours sans être perdue" },
-];
+/** Les colonnes, leur nom, leur sens et leur couleur : la définition commune à tous les tableaux (src/crm/kanban/etapes.ts). */
+export type CleEtape = CleEtapeDemande;
+export const ETAPES = ETAPES_DEMANDE;
 export const NOM_ETAPE = Object.fromEntries(ETAPES.map((e) => [e.cle, e.label])) as Record<CleEtape, string>;
 
 /** Une demande, telle que Demandes la montre (Kanban, Top demandes). */
@@ -77,7 +67,19 @@ export type DemandeVue = {
   rappel: string | null;
   /** Le statut du dernier devis du site (brouillon, envoye, accepte, refuse, expire), ou rien. */
   devisSite: string | null;
-  dossier: { id: number; ref: string; statut: string } | null;
+  /** Le dossier né de la demande acceptée, son étape et son commercial. */
+  dossier: DossierDeLaDemande | null;
+};
+
+export type DossierDeLaDemande = {
+  id: number;
+  ref: string;
+  statut: string;
+  /** Archivé : il a quitté le Parcours (l'archivage le garde). */
+  archive?: boolean;
+  commercialId?: number | null;
+  commercial?: string | null;
+  initiales?: string | null;
 };
 
 const RAPPEL_OUVERT = ["a_rappeler", "en_cours"];
@@ -123,5 +125,5 @@ export function verdict(d: DemandeVue, cible: CleEtape): Verdict | null {
   return { ok: false, raison: `Le devis du site est ${d.devisSite === "accepte" ? "accepté" : "envoyé"} : l'étape suit le devis (onglet Devis de la demande).` };
 }
 
-/** Une demande encore ouverte : ni acceptée (dossier), ni perdue, ni archivée. */
-export const estOuverte = (d: Pick<DemandeVue, "statut" | "dossier">) => !d.dossier && d.statut !== "lost" && d.statut !== "archived";
+/** Une demande encore ouverte : ni acceptée (dossier), ni perdue, ni archivée — la règle des deux ponts (aDecider). */
+export const estOuverte = (d: Pick<DemandeVue, "statut" | "dossier">) => aDecider(d);

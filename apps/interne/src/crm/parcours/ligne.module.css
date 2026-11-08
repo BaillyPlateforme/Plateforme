@@ -476,6 +476,33 @@
 .prochaine[data-ton="fini"] .prochaineTexte small {
   color: #0b7a4e;
 }
+/* La colonne du Parcours où se trouve le dossier : la pastille du Tableau (src/crm/kanban/etapes.ts). */
+.prochaineTexte small .colonne {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 18px;
+  margin-left: 9px;
+  padding: 0 8px;
+  border-radius: 999px;
+  vertical-align: 1px;
+  background: color-mix(in srgb, var(--s) 14%, #fff);
+  color: color-mix(in srgb, var(--s) 62%, #14121f);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  transition: background-color 0.15s;
+}
+.prochaineTexte small .colonne::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--s);
+}
+.prochaineTexte small .colonne:hover {
+  background: color-mix(in srgb, var(--s) 24%, #fff);
+}
 .prochaineTexte b {
   font-size: 17px;
   font-weight: 750;

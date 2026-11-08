@@ -1,58 +1,24 @@
 import "server-only";
 import { q } from "@/crm/lib/db";
-import { libelleParcours, parcoursDeLaDemande, SANS_PRIX } from "@/lib/parcours";
-import type { CarteDemande, DossierDeDemande } from "./demandes-commun";
+import { lireDemandes } from "@/crm/demandes/donnees";
+import type { DemandeVue } from "@/crm/demandes/etapes";
+import { aDecider } from "@/crm/kanban/etapes";
+import type { DossierDeDemande } from "./demandes-commun";
 
 /*
- * Les demandes du site qui n'ont pas encore leur dossier au CRM : la première
- * colonne du Parcours, « Demandes ». Une demande en sort quand on l'accepte
+ * Les demandes du site qui attendent qu'on les décide : la première colonne
+ * du Parcours, « Demandes ». Une demande en sort quand on l'accepte
  * (« Accepter », sur sa carte ou sa page : DecisionDemande), ce qui crée son
  * dossier et pose `dossiers.request_id`, ou quand on la refuse (« Perdue »).
  *
- * Lues par le pool du CRM, en nommant le schéma `public` (comme la fiche d'un
- * dossier lit `public.ec_dossiers`) : une jointure suffit pour écarter les
- * demandes déjà entrées. Les demandes perdues ou archivées n'y sont pas :
- * Parcours › Analyse des demandes les garde.
+ * La même lecture que le Kanban de Demandes (lireDemandes) et la même règle
+ * (aDecider, src/crm/kanban/etapes.ts) : les deux tableaux comptent les
+ * mêmes demandes, et chacune y porte la même étape détaillée (Incomplète,
+ * Rappel demandé…). Les demandes perdues ou archivées n'y sont pas :
+ * Demandes les garde.
  */
-
-const iso = (d: unknown) => (d == null ? null : d instanceof Date ? d.toISOString() : String(d));
-
-export async function demandesSansDossier(): Promise<CarteDemande[]> {
-  const rows = await q(
-    `select r.id, r.created_at, r.source::text as source, r.status::text as status, r.client_nom, r.client_email, r.client_tel, r.completion_token,
-        r.depart_ville, r.arrivee_ville, r.volume_m3::float8 as volume, r.estimation_prix::float8 as estimation, r.date_souhaitee,
-        r.raw_payload->'details'->>'express' as express, r.raw_payload->'espace'->>'nom' as espace_nom,
-        r.raw_payload->'details'->>'parcours' as parcours, r.raw_payload->'details'->>'transfert' as transfert,
-        r.raw_payload->>'mutation_pro' as mutation, r.raw_payload->>'societe' as societe
-      from public.requests r
-      where r.status::text not in ('lost', 'archived')
-        and not exists (select 1 from dossiers d where d.request_id = r.id)
-      order by r.created_at desc
-      limit 200`,
-  );
-  return rows.map((r) => {
-    const parcours = parcoursDeLaDemande(r);
-    return {
-      id: r.id,
-      recueLe: iso(r.created_at)!,
-      source: r.source === "email" ? "email" : "form",
-      statut: r.status,
-      // Comme la liste des demandes (dashboard/status.ts, isIncomplete) : un lien de complétion en attente, ou une donnée qui manque.
-      incomplete: !!r.completion_token || (!SANS_PRIX.has(parcours) && r.volume == null) || !r.depart_ville || !r.arrivee_ville,
-      client: (r.client_nom as string | null)?.trim() || r.client_email || "Sans nom",
-      email: r.client_email,
-      telephone: r.client_tel,
-      depart: r.depart_ville,
-      arrivee: r.arrivee_ville,
-      volume: r.volume,
-      estimation: SANS_PRIX.has(parcours) ? null : r.estimation,
-      // Une date sans heure, lue à minuit UTC par le pool du CRM : le jour seul.
-      dateSouhaitee: r.date_souhaitee ? iso(r.date_souhaitee)!.slice(0, 10) : null,
-      parcours,
-      parcoursLabel: libelleParcours(r),
-      societe: r.societe || r.espace_nom || null,
-    };
-  });
+export async function demandesADecider(): Promise<DemandeVue[]> {
+  return (await lireDemandes()).filter(aDecider);
 }
 
 /**

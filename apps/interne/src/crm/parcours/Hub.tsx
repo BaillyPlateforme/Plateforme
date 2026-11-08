@@ -6,11 +6,13 @@ import Bandeau from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
 import { AvecMenu } from "@/ui/MenuVertical";
 import TableauKanban from "@/crm/kanban/Tableau";
+import { Avatar } from "@/crm/kanban/Carte";
 import type { Carte, Commercial } from "@/crm/kanban/donnees";
+import { ETAPE_DEMANDE, etapeDossier, PONT_DEMANDES } from "@/crm/kanban/etapes";
 import { DossierTable, type LigneDossier } from "@/crm/components/DossierTable";
-import { dateFr, photoPour, STATUTS, TYPES, TYPES_PLURIEL } from "@/crm/lib/format";
+import { etapeDe, type DemandeVue } from "@/crm/demandes/etapes";
+import { dateFr, photoPour, TYPES, TYPES_PLURIEL } from "@/crm/lib/format";
 import { NOM_PARCOURS } from "@/lib/parcours";
-import { libelleDemande, type CarteDemande } from "./demandes-commun";
 import { adresse, avecDemandes, ETAPES_FILTRE, FILTRES_VIDES, garderDemande, garderDossier, RANG_ETAPE, statutsDe, type Filtres } from "./filtres";
 import MenuParcours from "./MenuParcours";
 import k from "@/crm/kanban/kanban.module.css";
@@ -32,14 +34,16 @@ import h from "./hub.module.css";
  * bas de la bande : ils valent pour les deux vues et vivent dans l'adresse ;
  * passer d'une vue à l'autre ne recharge rien. Les demandes du site, de près
  * (Kanban détaillé, Feed, Top demandes, analyse), sont dans Demandes
- * (src/crm/demandes) ; la colonne « Demandes » y mène (« Voir le détail »).
+ * (src/crm/demandes) ; la colonne « Demandes » y mène (« Détail »), avec la
+ * recherche en cours. Les deux tableaux lisent les mêmes demandes, et les
+ * mêmes noms et couleurs d'étape (src/crm/kanban/etapes.ts).
  */
 
 const prenom = (nom: string) => nom.split(/\s+/)[0] ?? nom;
-const teinte = (id: number | null) => (id == null ? 0 : id % 5);
 const jour = (d: string) => dateFr(`${d.slice(0, 10)}T12:00:00Z`, { day: "numeric", month: "short", year: "numeric" });
 
 function ligneDossier(c: Carte): LigneDossier {
+  const e = etapeDossier(c.statut);
   return {
     cle: `d${c.id}`,
     href: `/dossiers/${c.id}`,
@@ -51,26 +55,27 @@ function ligneDossier(c: Carte): LigneDossier {
     arrivee: c.arrivee,
     volume: c.volume,
     commercial: c.commercial,
-    etape: { label: STATUTS[c.statut]?.label ?? c.statut, ton: STATUTS[c.statut]?.cls ?? "i", rang: RANG_ETAPE[c.statut] ?? 9 },
+    etape: { label: e.label, ton: e.ton, teinte: e.teinte, rang: RANG_ETAPE[c.statut] ?? 9 },
     montant: c.montant,
     date: c.dateChargement?.slice(0, 10) ?? null,
     dateTexte: c.dateChargement ? jour(c.dateChargement) : (c.periode ?? "—"),
   };
 }
 
-function ligneDemande(d: CarteDemande): LigneDossier {
+/** Une demande du site, dans la liste : l'étape « Demandes » (la colonne du Tableau), et dessous son étape détaillée (celle de Demandes › Kanban). */
+function ligneDemande(d: DemandeVue): LigneDossier {
   return {
     cle: `r${d.id}`,
     href: `/dashboard/${d.id}`,
     client: d.client,
-    sous: `Demande du site · ${libelleDemande(d.statut)}`,
+    sous: `Demande du site · ${ETAPE_DEMANDE[etapeDe(d)].label}`,
     photo: null,
     type: NOM_PARCOURS[d.parcours],
     depart: d.depart,
     arrivee: d.arrivee,
     volume: d.volume,
     commercial: null,
-    etape: { label: "Demande", ton: "d", rang: RANG_ETAPE.demande },
+    etape: { label: PONT_DEMANDES.label, ton: "d", teinte: PONT_DEMANDES.teinte, rang: RANG_ETAPE.demande },
     montant: d.estimation,
     estimation: true,
     date: d.dateSouhaitee,
@@ -88,7 +93,7 @@ export default function Hub({
 }: {
   cartes: Carte[];
   commerciaux: Commercial[];
-  demandes: CarteDemande[];
+  demandes: DemandeVue[];
   vueInitiale: "colonnes" | "liste";
   initiaux: Filtres;
   /** Les dossiers archivés qui répondent à la recherche de l'adresse. */
@@ -147,9 +152,7 @@ export default function Hub({
                   title={c.nom}
                   aria-label={`Commercial : ${c.nom}`}
                 >
-                  <span className={k.mini} data-teinte={teinte(c.id)}>
-                    {c.initiales}
-                  </span>
+                  <Avatar r={c} mini />
                   {filtres.commercial === c.id && prenom(c.nom)}
                 </button>
               ))}
@@ -194,7 +197,15 @@ export default function Hub({
         )}
 
         {vue === "colonnes" ? (
-          <TableauKanban cartes={cartes} commerciaux={commerciaux} garder={garder} statuts={statuts} demandes={avecDemandes(filtres.etape) ? demandesVisibles : null} filtresActifs={filtresActifs} />
+          <TableauKanban
+            cartes={cartes}
+            commerciaux={commerciaux}
+            garder={garder}
+            statuts={statuts}
+            demandes={avecDemandes(filtres.etape) ? demandesVisibles : null}
+            filtresActifs={filtresActifs}
+            recherche={filtres.q}
+          />
         ) : (
           <DossierTable lignes={lignes} vide={filtresActifs ? "Aucun dossier ni demande pour ces filtres." : "Aucun dossier."} />
         )}

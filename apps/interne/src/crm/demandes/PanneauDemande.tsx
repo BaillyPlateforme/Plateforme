@@ -7,6 +7,7 @@ import { Icone } from "@/ui/icones";
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { Toast, type Message } from "@/crm/dispatch/composants/elements";
 import { eur, m3, STATUTS } from "@/crm/lib/format";
+import { ETAPE_DEMANDE, etapeDossier, TEINTES } from "@/crm/kanban/etapes";
 import { FenetreAccepter, FenetreRefuser } from "@/crm/parcours/DecisionDemande";
 import { mettreARappeler } from "./actions";
 import { AXES, basePrestige, manques } from "./araignee";
@@ -64,7 +65,12 @@ export default function PanneauDemande({ ligne, activites, erreur }: { ligne: Li
             </Link>
           </div>
           <p>
-            <span className={s.etape} data-etape={etape}>
+            {/* Acceptée : l'étape de son dossier, de la couleur de sa colonne du Parcours ; sinon celle de sa colonne de Demandes. */}
+            <span
+              className={s.etape}
+              data-etape={etape}
+              style={{ ["--s" as string]: TEINTES[etape === "dossier" && d.dossier ? etapeDossier(d.dossier.statut).teinte : ETAPE_DEMANDE[etape].teinte] }}
+            >
               {etape === "dossier" && d.dossier ? `Dossier ${d.dossier.ref} · ${STATUTS[d.dossier.statut]?.label ?? d.dossier.statut}` : NOM_ETAPE[etape]}
             </span>
             <span>

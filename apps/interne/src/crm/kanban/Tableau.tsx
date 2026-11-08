@@ -1,19 +1,20 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Icone } from "@/ui/icones";
 import { Fenetre, Toast, type Message } from "@/crm/dispatch/composants/elements";
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { useGlisser } from "@/crm/dispatch/composants/useGlisser";
-import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
-import type { CarteDemande as Demande } from "@/crm/parcours/demandes-commun";
-import CarteDemande from "./CarteDemande";
+import type { DemandeVue } from "@/crm/demandes/etapes";
+import { dateFr, eur, m3 } from "@/crm/lib/format";
 import { FenetreAccepter, FenetreRefuser, type DemandeADecider } from "@/crm/parcours/DecisionDemande";
+import CarteDemande from "./CarteDemande";
+import CarteDossier from "./CarteDossier";
+import TeteColonne, { Somme, styleEtape } from "./Colonne";
 import { deplacerDossier, type Choix } from "./actions";
 import type { Carte, Commercial } from "./donnees";
-import { INTITULE, NOM, RELANCE_JOURS, verdict, ville, type Geste, type Statut } from "./regles";
+import { ETAPE_DOSSIER, PONT_DEMANDES } from "./etapes";
+import { INTITULE, NOM, verdict, type Geste, type Statut } from "./regles";
 import s from "./kanban.module.css";
 
 /*
@@ -34,14 +35,18 @@ import s from "./kanban.module.css";
  * Les demandes du site (colonne « Demandes ») ne se glissent pas : chaque
  * carte porte la décision — « Accepter » crée le dossier et l'espace client,
  * « Refuser » la marque perdue (parcours/DecisionDemande) —, et s'ouvre d'un
- * clic sur sa page, où la même décision attend.
+ * clic sur sa page, où la même décision attend. Cette colonne est le pont
+ * vers Demandes › Kanban, où les mêmes demandes ont leurs étapes détaillées
+ * (etapes.ts, aDecider) : son en-tête y mène, avec la recherche en cours.
+ * Une étape qui a ses relances mène à Relances, filtrées sur elle.
+ *
+ * Toutes les cartes sont celles des tableaux du CRM (Carte.tsx) ; noms et
+ * couleurs des colonnes viennent de la définition commune (etapes.ts).
  */
 
 type Depot = { carte: Carte; vers: Statut; geste: Geste };
 
 const SIGNES: Statut[] = ["commande", "planifie", "termine"];
-
-const teinte = (id: number | null) => (id == null ? 0 : id % 5);
 
 export default function TableauKanban({
   cartes,
@@ -50,6 +55,7 @@ export default function TableauKanban({
   statuts,
   demandes,
   filtresActifs,
+  recherche,
 }: {
   cartes: Carte[];
   commerciaux: Commercial[];
@@ -58,10 +64,11 @@ export default function TableauKanban({
   /** Les colonnes à montrer, dans l'ordre (toutes, sauf filtre d'étape). */
   statuts: Statut[];
   /** Les demandes du site à montrer en tête, déjà filtrées ; null : pas de colonne. */
-  demandes: Demande[] | null;
+  demandes: DemandeVue[] | null;
   filtresActifs: boolean;
+  /** La recherche en cours : elle suit le lien vers Demandes. */
+  recherche?: string;
 }) {
-  const router = useRouter();
   const [perdus, setPerdus] = useState(false);
   const [depot, setDepot] = useState<Depot | null>(null);
   const [message, setMessage] = useState<Message | null>(null);
@@ -137,43 +144,29 @@ export default function TableauKanban({
     setHauteur(e.currentTarget.offsetHeight);
     commencer(e, c.id);
   };
-  // Le parcours d'un dossier, c'est sa page.
-  const ouvrir = (c: Carte) => {
-    if (!apresGlisser()) router.push(`/dossiers/${c.id}`);
-  };
 
-  /* ── La colonne des demandes du site ── */
-  const colonneDemandes = (liste: Demande[]) => {
+  /* ── La colonne des demandes du site : le pont vers Demandes › Kanban ── */
+  const colonneDemandes = (liste: DemandeVue[]) => {
     const total = liste.reduce((a, d) => a + (d.estimation ?? 0), 0);
+    const q = recherche?.trim();
     return (
       <section
         key="demandes"
-        className={`${s.colonne} ${s.colonneDemandes}`}
-        data-statut="demandes"
+        className={`${s.colonne} ${s.pont}`}
+        style={styleEtape(PONT_DEMANDES.teinte)}
         data-etat={carteGlissee ? "interdit" : undefined}
-        aria-label={`Demandes, ${liste.length} demandes du site à accepter ou refuser`}
+        aria-label={`${PONT_DEMANDES.label}, ${liste.length} demandes du site à accepter ou refuser`}
       >
-        <header className={s.tete}>
-          <div className={s.teteHaut}>
-            <i className={s.pastille} aria-hidden />
-            <h2>Demandes</h2>
-            {/* Le résumé des demandes qui attendent une décision ; leurs étapes détaillées sont dans Demandes › Kanban. */}
-            <Link href="/demandes" className={s.voirDetail}>
-              Voir le détail
-            </Link>
-            <span className={s.nombre}>{liste.length}</span>
-          </div>
-          <p className={s.somme}>
-            {total > 0 ? (
-              <>
-                <b>{eur(total)}</b>
-                <span>estimés en ligne</span>
-              </>
-            ) : (
-              <span className={s.sansMontant}>Pas encore de montant</span>
-            )}
-          </p>
-        </header>
+        <TeteColonne
+          label={PONT_DEMANDES.label}
+          nombre={liste.length}
+          lien={{
+            href: q ? `/demandes?${new URLSearchParams({ q })}` : "/demandes",
+            label: "Détail",
+            titre: "Les mêmes demandes, à leurs étapes détaillées : Demandes › Kanban",
+          }}
+          sous={<Somme total={total} mot="estimés en ligne" />}
+        />
         <div className={s.corps}>
           {liste.map((d) => (
             <CarteDemande key={d.id} demande={d} decider={(genre) => setDecision({ genre, demande: { id: d.id, client: d.client } })} />
@@ -199,10 +192,20 @@ export default function TableauKanban({
     // « Perdu » est repliée par défaut ; « Nouveau », vide, aussi : aucun dépôt n'y mène, les dossiers y naissent.
     const replie = !seule && ((statut === "perdu" && !perdus) || (statut === "prospect" && liste.length === 0));
 
+    const def = ETAPE_DOSSIER[statut];
     if (replie) {
       const pliable = statut === "perdu";
       return (
-        <section key={statut} className={s.repliee} data-colonne={statut} data-etat={etat} data-visee={visee || undefined} data-statut={statut} aria-label={`${NOM[statut]}, ${liste.length} dossiers, colonne repliée`}>
+        <section
+          key={statut}
+          className={s.repliee}
+          style={styleEtape(def.teinte)}
+          data-colonne={statut}
+          data-etat={etat}
+          data-visee={visee || undefined}
+          data-statut={statut}
+          aria-label={`${NOM[statut]}, ${liste.length} dossiers, colonne repliée`}
+        >
           <button
             type="button"
             className={s.deplier}
@@ -221,29 +224,34 @@ export default function TableauKanban({
     }
 
     return (
-      <section key={statut} className={s.colonne} data-colonne={statut} data-statut={statut} data-etat={etat} data-visee={visee || undefined} aria-label={`${NOM[statut]}, ${liste.length} dossiers`}>
-        <header className={s.tete}>
-          <div className={s.teteHaut}>
-            <i className={s.pastille} aria-hidden />
-            <h2>{NOM[statut]}</h2>
-            <span className={s.nombre}>{liste.length}</span>
-            {statut === "perdu" && !seule && (
+      <section
+        key={statut}
+        className={s.colonne}
+        style={styleEtape(def.teinte)}
+        data-colonne={statut}
+        data-statut={statut}
+        data-etat={etat}
+        data-visee={visee || undefined}
+        aria-label={`${NOM[statut]}, ${liste.length} dossiers`}
+      >
+        <TeteColonne
+          label={NOM[statut]}
+          nombre={liste.length}
+          // Une étape où des relances peuvent partir : ses relances, dans Relances.
+          lien={
+            def.relances.length > 0
+              ? { href: `/relances?etape=${statut}`, label: "Relances", titre: `Les relances des dossiers « ${NOM[statut]} », dans Relances` }
+              : null
+          }
+          bouton={
+            statut === "perdu" && !seule ? (
               <button type="button" className={s.replier} onClick={() => setPerdus(false)} aria-label="Replier la colonne des dossiers perdus" title="Replier">
                 <Icone nom="chevron" taille={15} />
               </button>
-            )}
-          </div>
-          <p className={s.somme}>
-            {total > 0 ? (
-              <>
-                <b>{eur(total)}</b>
-                <span>{SIGNES.includes(statut) ? "signés" : "en devis"}</span>
-              </>
-            ) : (
-              <span className={s.sansMontant}>Pas encore de montant</span>
-            )}
-          </p>
-        </header>
+            ) : undefined
+          }
+          sous={<Somme total={total} mot={SIGNES.includes(statut) ? "signés" : "en devis"} />}
+        />
         <div className={s.corps} data-corps="">
           {visee && v?.ok && (
             <div className={s.place} style={{ ["--h" as string]: `${hauteur}px` }} aria-hidden>
@@ -257,10 +265,11 @@ export default function TableauKanban({
             <CarteDossier
               key={c.id}
               carte={c}
+              ligne={c.id}
               fantome={glisse?.ligneId === c.id}
               arrivee={arrivee === c.id}
-              onPointerDown={(e) => saisir(e, c)}
-              onOuvrir={() => ouvrir(c)}
+              saisir={(e) => saisir(e, c)}
+              apresGlisser={apresGlisser}
             />
           ))}
           {liste.length === 0 && !(visee && v?.ok) && (
@@ -322,100 +331,6 @@ export default function TableauKanban({
       {decision?.genre === "accepter" && <FenetreAccepter demande={decision.demande} onFermer={() => setDecision(null)} />}
       {decision?.genre === "refuser" && <FenetreRefuser demande={decision.demande} onFermer={() => setDecision(null)} onRefusee={setMessage} />}
       <Toast message={message} onFermer={fermerMessage} />
-    </div>
-  );
-}
-
-/* ───────── Une carte ───────── */
-
-function CarteDossier({
-  carte: c,
-  fantome,
-  flottante,
-  arrivee,
-  style,
-  onPointerDown,
-  onOuvrir,
-}: {
-  carte: Carte;
-  fantome?: boolean;
-  flottante?: boolean;
-  arrivee?: boolean;
-  style?: React.CSSProperties;
-  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
-  onOuvrir?: () => void;
-}) {
-  const de = ville(c.depart);
-  const a = ville(c.arrivee);
-  const date = c.dateChargement ? dateFr(c.dateChargement, { day: "numeric", month: "short", year: "numeric" }) : c.periode;
-  const classes = [s.carte, fantome && s.fantome, flottante && s.flottante, arrivee && s.arrivee].filter(Boolean).join(" ");
-  return (
-    <div
-      className={classes}
-      style={style}
-      data-ligne={flottante ? undefined : c.id}
-      data-segment={c.segment}
-      role={flottante ? undefined : "link"}
-      tabIndex={flottante ? -1 : 0}
-      aria-label={flottante ? undefined : `${c.client}, ${c.ref}. Ouvrir le parcours`}
-      onPointerDown={onPointerDown}
-      onClick={onOuvrir}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          onOuvrir?.();
-        }
-      }}
-    >
-      <div className={s.carteHaut}>
-        <span className={s.prise} data-prise="" title="Glisser pour déplacer" aria-hidden>
-          <Picto nom="prise" taille={14} />
-        </span>
-        <span className={s.client}>{c.client}</span>
-        <span className={s.avatar} data-teinte={teinte(c.commercialId)} title={c.commercial ? `Commercial : ${c.commercial}` : "Aucun commercial"}>
-          {c.initiales ?? "—"}
-        </span>
-      </div>
-      <div className={s.ligneRef}>
-        <span className={s.ref}>{c.ref}</span>
-        <span className={s.segment} data-segment={c.segment}>
-          {TYPES[c.segment] ?? c.segment}
-        </span>
-        {c.site && (
-          <span className={s.signe} title="Venu d'une demande du site">
-            <Icone nom="globe" taille={13} />
-          </span>
-        )}
-        {c.espace && (
-          <span className={s.signe} title="Espace client ouvert">
-            <Icone nom="equipe" taille={13} />
-          </span>
-        )}
-      </div>
-      <p className={s.trajet} title={[c.depart, c.arrivee].filter(Boolean).join(" → ")}>
-        <i className={s.point} />
-        <span>{de ?? "Départ à préciser"}</span>
-        <Icone nom="fleche" taille={13} className={s.flecheTrajet} />
-        <span>{a ?? "Arrivée à préciser"}</span>
-      </p>
-      <div className={s.pied}>
-        <span className={s.volume}>{c.volume > 0 ? m3(c.volume) : "Volume ?"}</span>
-        <span className={s.date} title={c.dateChargement ? "Date de chargement" : "Période souhaitée"}>
-          <Icone nom="calendrier" taille={13} />
-          {date ?? "Date à fixer"}
-        </span>
-        {c.montant != null && (
-          <span className={s.montant} data-signe={c.signe || undefined} title={c.signe ? "Devis signé" : "Dernier devis envoyé"}>
-            {eur(c.montant)}
-          </span>
-        )}
-      </div>
-      {c.attente != null && c.attente >= RELANCE_JOURS && (
-        <p className={s.alerte}>
-          <Icone nom="horloge" taille={13} />
-          Devis sans réponse depuis {c.attente} jours
-        </p>
-      )}
     </div>
   );
 }

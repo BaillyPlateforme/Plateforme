@@ -1,166 +1,106 @@
 "use client";
 
-import Link from "next/link";
 import { Icone } from "@/ui/icones";
-import { Picto } from "@/crm/dispatch/composants/Picto";
-import { dateFr, eur, m3, STATUTS } from "@/crm/lib/format";
-import { libelleDemande, sousStatut } from "@/crm/parcours/demandes-commun";
-import s from "./kanban.module.css";
+import { NOM_PARCOURS } from "@/lib/parcours";
+import { etapeDe, type DemandeVue } from "@/crm/demandes/etapes";
+import CarteKanban, { Action, jourCourt, type Signal } from "./Carte";
+import { ETAPE_DEMANDE, etapeDossier, TEINTES } from "./etapes";
 
 /*
- * La carte d'une demande du site, la même dans la colonne « Demandes » du
- * Tableau du Parcours et dans le Kanban de Demandes : un clic l'ouvre (le
- * nom du client est un lien qui couvre la carte), ses deux boutons décident
- * sans l'ouvrir — « Accepter » (le dossier et l'espace client), « Refuser »
- * (perdue). Acceptée, elle mène à son dossier et ne décide plus rien.
+ * Une demande du site, en carte (Carte.tsx) : la même dans le Kanban de
+ * Demandes et dans la colonne « Demandes » du Tableau du Parcours — la même
+ * lecture (lireDemandes), la même étape (etapeDe), les mêmes mots.
  *
- * Dans le Kanban de Demandes, elle se glisse d'une étape à l'autre
- * (`saisir`) ; un glisser ne l'ouvre pas (`apresGlisser`).
+ *  - un clic l'ouvre : /dashboard/<id> ; acceptée, son dossier ;
+ *  - « Accepter » (le dossier et l'espace client) et « Refuser » (perdue)
+ *    décident sans l'ouvrir ; acceptée, elle ne décide plus rien ;
+ *  - dans le Kanban de Demandes, elle se glisse d'une étape à l'autre
+ *    (`saisir`) ; la colonne dit son étape (`etapeDite`) : la carte ne la
+ *    répète pas. Au Parcours, sa pastille la dit.
  */
 
-export type DemandeCarte = {
-  id: string;
-  client: string;
-  source: "form" | "email";
-  statut: string;
-  recueLe: string;
-  parcours: string;
-  parcoursLabel: string;
-  depart: string | null;
-  arrivee: string | null;
-  volume: number | null;
-  dateSouhaitee: string | null;
-  estimation: number | null;
-  incomplete: boolean;
-  dossier?: { id: number; ref: string; statut: string } | null;
-};
+const RAPPEL: Record<string, string> = { a_rappeler: "À rappeler", en_cours: "Rappel en cours" };
+const DEVIS_PERDU: Record<string, string> = { refuse: "Devis du site refusé", expire: "Devis du site expiré" };
 
 export default function CarteDemande({
   demande: d,
   decider,
-  marque,
+  etapeDite = false,
   saisir,
   apresGlisser,
   ligne,
   fantome,
   flottante,
   style,
-  etapeDite = false,
 }: {
-  /** La colonne dit déjà l'étape (Kanban de Demandes) : ni pastille de statut, ni « Incomplète ». */
-  etapeDite?: boolean;
-  demande: DemandeCarte;
-  /** Les boutons de la décision ; sans eux, pas de boutons. */
+  demande: DemandeVue;
+  /** Les gestes de la décision ; sans eux, pas de boutons. */
   decider?: (genre: "accepter" | "refuser") => void;
-  /** Une pastille de plus, sous le trajet : le rappel, le devis du site refusé… */
-  marque?: { libelle: string; ton: "ambre" | "rose" | "vert" | "gris" } | null;
-  /** Le glisser du Kanban de Demandes. */
+  /** La colonne dit déjà l'étape (Kanban de Demandes). */
+  etapeDite?: boolean;
   saisir?: (e: React.PointerEvent<HTMLElement>) => void;
   apresGlisser?: () => boolean;
-  /** Le rang de la carte, pour le glisser. */
   ligne?: number;
   fantome?: boolean;
   flottante?: boolean;
   style?: React.CSSProperties;
 }) {
-  const date = d.dateSouhaitee ? dateFr(`${d.dateSouhaitee}T12:00:00Z`, { day: "numeric", month: "short", year: "numeric" }) : null;
-  const href = d.dossier ? `/dossiers/${d.dossier.id}` : `/dashboard/${d.id}`;
-  const classes = [s.carte, s.carteDemande, fantome && s.fantome, flottante && s.flottante].filter(Boolean).join(" ");
+  const etape = etapeDe(d);
+  const def = ETAPE_DEMANDE[etape];
+  const signaux: Signal[] = [];
+  if (d.dossier) {
+    const e = etapeDossier(d.dossier.statut);
+    signaux.push(
+      d.dossier.archive
+        ? { texte: "Dossier archivé", teinte: "ardoise", titre: `Dossier ${d.dossier.ref} : archivé` }
+        : { texte: e.label, teinte: e.teinte, titre: `Dossier ${d.dossier.ref}, à l'étape « ${e.label} » du Parcours` },
+    );
+  } else {
+    if (!etapeDite) signaux.push({ texte: def.label, teinte: def.teinte, titre: def.aide });
+    // Le rappel, quand la colonne ne le dit pas, ou pour dire où il en est.
+    if (d.rappel && RAPPEL[d.rappel] && (etape !== "rappel" || etapeDite)) signaux.push({ texte: RAPPEL[d.rappel], teinte: "ambre", icone: "horloge", titre: "Le client a demandé qu'on le rappelle" });
+    if (d.devisSite && DEVIS_PERDU[d.devisSite]) signaux.push({ texte: DEVIS_PERDU[d.devisSite], teinte: "rose" });
+  }
+  const recue = jourCourt(d.recueLe);
   return (
-    <article
-      className={classes}
+    <CarteKanban
+      titre={d.client}
+      reference={d.dossier ? d.dossier.ref : `Reçue ${recue}`}
+      referenceTitre={d.dossier ? `Dossier ${d.dossier.ref}` : `Demande reçue le ${recue}`}
+      href={d.dossier ? `/dossiers/${d.dossier.id}` : `/dashboard/${d.id}`}
+      libelle={d.dossier ? `${d.client}, dossier ${d.dossier.ref}. Ouvrir le dossier` : `${d.client}, demande du site. Ouvrir la demande`}
+      source={d.source}
+      trajet={{ depart: d.depart, arrivee: d.arrivee }}
+      puces={[
+        { genre: "montant", valeur: d.estimation, estimation: true, titre: "Estimation donnée par le site" },
+        { genre: "volume", valeur: d.volume },
+        { genre: "date", texte: jourCourt(d.dateSouhaitee), titre: d.flexibilite ? `Date souhaitée · ${d.flexibilite}` : "Date souhaitée" },
+        { genre: "segment", texte: NOM_PARCOURS[d.parcours], segment: d.parcours, titre: d.parcoursLabel },
+      ]}
+      // Une demande n'a pas de commercial ; son dossier, si.
+      responsable={d.dossier ? { id: d.dossier.commercialId ?? null, nom: d.dossier.commercial ?? null, initiales: d.dossier.initiales ?? null } : undefined}
+      signaux={signaux}
+      actions={
+        decider && !d.dossier ? (
+          <>
+            <Action ton="discret" onClick={() => decider("refuser")} title="Refuser : la demande passe en « Perdue »">
+              Refuser
+            </Action>
+            <Action ton="principal" onClick={() => decider("accepter")} title="Accepter : créer le dossier et l'espace client">
+              <Icone nom="coche" taille={14} />
+              Accepter
+            </Action>
+          </>
+        ) : undefined
+      }
+      // Tenue hors de sa colonne, elle en garde la couleur.
+      accent={flottante ? TEINTES[def.teinte] : undefined}
+      ligne={ligne}
+      saisir={saisir}
+      apresGlisser={apresGlisser}
+      fantome={fantome}
+      flottante={flottante}
       style={style}
-      data-ligne={flottante ? undefined : ligne}
-      onPointerDown={(e) => {
-        // Les boutons et le lien gardent leur clic ; le reste de la carte se saisit.
-        if (!saisir || (e.target as HTMLElement).closest("button")) return;
-        saisir(e);
-      }}
-    >
-      <div className={s.carteHaut}>
-        {saisir && (
-          <span className={s.prise} data-prise="" title="Glisser pour changer d'étape" aria-hidden>
-            <Picto nom="prise" taille={14} />
-          </span>
-        )}
-        <span className={s.source} title={d.source === "email" ? "Reçue par e-mail" : "Formulaire du site"}>
-          <Icone nom={d.source === "email" ? "courrier" : "globe"} taille={14} />
-        </span>
-        <Link
-          href={href}
-          className={`${s.client} ${s.lienCarte}`}
-          aria-label={d.dossier ? `${d.client}, dossier ${d.dossier.ref}. Ouvrir le dossier` : `${d.client}, demande du site. Ouvrir la demande`}
-          draggable={false}
-          onClick={(e) => {
-            if (apresGlisser?.()) e.preventDefault();
-          }}
-          tabIndex={flottante ? -1 : undefined}
-        >
-          {d.client}
-        </Link>
-        {d.dossier ? (
-          <span className={s.statutDemande} data-statut="dossier" title={`Dossier ${d.dossier.ref}`}>
-            {STATUTS[d.dossier.statut]?.label ?? d.dossier.statut}
-          </span>
-        ) : (
-          !etapeDite && (
-            <span className={s.statutDemande} data-statut={sousStatut(d.statut)}>
-              {libelleDemande(d.statut)}
-            </span>
-          )
-        )}
-      </div>
-      <div className={s.ligneRef}>
-        <span className={s.ref}>{d.dossier ? d.dossier.ref : `Reçue le ${dateFr(d.recueLe, { day: "numeric", month: "short" })}`}</span>
-        <span className={s.segment} data-segment={d.parcours === "particulier" ? "particulier" : "compte"} title={d.parcoursLabel}>
-          {d.parcoursLabel}
-        </span>
-      </div>
-      <p className={s.trajet} title={[d.depart, d.arrivee].filter(Boolean).join(" → ")}>
-        <i className={s.point} />
-        <span>{d.depart ?? "Départ à préciser"}</span>
-        <Icone nom="fleche" taille={13} className={s.flecheTrajet} />
-        <span>{d.arrivee ?? "Arrivée à préciser"}</span>
-      </p>
-      <div className={s.pied}>
-        <span className={s.volume}>{d.volume != null && d.volume > 0 ? m3(d.volume) : "Volume ?"}</span>
-        <span className={s.date} title="Date souhaitée">
-          <Icone nom="calendrier" taille={13} />
-          {date ?? "Date à fixer"}
-        </span>
-        {d.estimation != null && (
-          <span className={s.montant} title="Estimation donnée par le site">
-            {eur(d.estimation)}
-          </span>
-        )}
-      </div>
-      {(marque || (decider && !d.dossier) || (d.incomplete && !etapeDite)) && (
-        <div className={s.decision}>
-          <span className={s.marques}>
-            {d.incomplete && !d.dossier && !etapeDite && (
-              <span className={s.incomplete} title="Il manque le volume ou une adresse, ou le client n'a pas fini de compléter sa demande">
-                Incomplète
-              </span>
-            )}
-            {marque && (
-              <span className={s.marque} data-ton={marque.ton}>
-                {marque.libelle}
-              </span>
-            )}
-          </span>
-          {decider && !d.dossier && (
-            <>
-              <button type="button" className={s.refuser} onClick={() => decider("refuser")} title="Refuser : la demande passe en « Perdue »">
-                Refuser
-              </button>
-              <button type="button" className={s.accepter} onClick={() => decider("accepter")} title="Accepter : créer le dossier et l'espace client">
-                <Icone nom="coche" taille={14} />
-                Accepter
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </article>
+    />
   );
 }
