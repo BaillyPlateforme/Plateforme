@@ -134,14 +134,14 @@ export function DossierTable({ rows, lignes, vide = "Aucun dossier ne correspond
                   </span>
                 </Link>
               </td>
-              <td>
+              <td className={s.texte}>
                 <i className="ty">{l.type}</i>
               </td>
               <td className="trajet" title={[l.depart, l.arrivee].filter(Boolean).join(" → ")}>
                 {ville(l.depart) ?? "—"} → {ville(l.arrivee) ?? "—"}
               </td>
               <td className="num">{l.volume != null && l.volume > 0 ? m3(l.volume) : "—"}</td>
-              <td>{l.commercial ?? "—"}</td>
+              <td className={s.texte}>{l.commercial ?? "—"}</td>
               <td>
                 <i className={`st ${l.etape.ton}`}>{l.etape.label}</i>
               </td>

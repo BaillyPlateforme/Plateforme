@@ -288,7 +288,8 @@ function LigneLead({
         </button>
       </td>
       <td className="px-3 py-3">
-        <div className="whitespace-nowrap text-ink">
+        {/* Le trajet passe à la ligne : à côté du menu de gauche, un long nom de ville élargissait tout le tableau. */}
+        <div className="min-w-[140px] max-w-[220px] text-ink">
           {l.depart_ville || "—"} <span className="text-ink-soft">→</span> {l.arrivee_ville || "—"}
         </div>
         {toucheParis(l) && <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">Paris</div>}

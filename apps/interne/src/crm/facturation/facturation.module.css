@@ -1104,6 +1104,19 @@
 .liste .nw {
   white-space: nowrap;
 }
+/*
+ * À côté du menu de gauche (232 px), la liste tient dans la largeur dès
+ * 1280 px : des cellules un peu plus serrées, et un client assez large pour
+ * son nom et la référence du dossier (sans la couper au tiret).
+ */
+.liste .colClient {
+  min-width: 136px;
+}
+.liste.liste th,
+.liste.liste td {
+  padding-left: 9px;
+  padding-right: 9px;
+}
 .liste th {
   position: sticky;
   top: 0;

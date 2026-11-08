@@ -28,7 +28,7 @@ function LigneFacture({ f }: { f: LigneListeFacture }) {
         <small>{GENRE[f.genre as GenreFacture] ?? "Facture"}{f.origineNumero ? ` · annule ${f.origineNumero}` : ""}{f.avoirNumero ? ` · annulée par ${f.avoirNumero}` : ""}</small>
       </td>
       {/* Une seule colonne pour le client : celui du dossier, et le payeur quand c'en est un autre. */}
-      <td>
+      <td className={s.colClient}>
         {f.dossierId ? <Link href={`/dossiers/${f.dossierId}#facturation`}>{f.origineNom}</Link> : f.origineNom}
         <small>{f.ref ?? "garde-meuble"}{f.payeurNomAffiche !== f.origineNom ? ` · payé par ${f.payeurNomAffiche}` : ""}</small>
       </td>
@@ -108,7 +108,7 @@ export function TableReglements({ rows, arrhes }: { rows: LigneListeReglement[];
           {rows.map((r) => (
             <tr key={r.id}>
               <td className={s.nw}>{fr(r.recuLe)}{r.saisiPar && <small>saisi par {r.saisiPar}</small>}</td>
-              <td><Link href={`/dossiers/${r.dossierId}#facturation`}>{r.client}</Link><small>{r.ref}</small></td>
+              <td className={s.colClient}><Link href={`/dossiers/${r.dossierId}#facturation`}>{r.client}</Link><small>{r.ref}</small></td>
               {!arrhes && <td>{NATURE[r.nature ?? "reglement"] ?? "Règlement"}</td>}
               <td className={s.nw}><span className={s.mode} data-mode={r.mode ?? ""}><i>{MODE_COURT[r.mode ?? ""] ?? "—"}</i>{libelleMode(r.mode)}</span></td>
               <td>{[r.banque, r.numeroCheque && `n° ${r.numeroCheque}`, r.titulaire].filter(Boolean).join(" · ") || <span className={s.terne}>—</span>}{r.commentaire && <small>{r.commentaire}</small>}</td>
