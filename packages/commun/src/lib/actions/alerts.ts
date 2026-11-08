@@ -11,6 +11,7 @@ import { envoyerEmail, envoyerSms, estParti, libelleStatut } from "@/lib/envois"
 import { getSettings } from "@/lib/settings";
 import { TEL_AGENCE, type Channel, type RuleKind } from "@/lib/messaging";
 import { habillerTexte } from "@/lib/email-render";
+import { journaliserEquipe } from "@/lib/journal";
 
 export interface AlertInput {
   name: string;
@@ -29,16 +30,30 @@ export interface AlertInput {
 export async function saveAlert(id: string | null, input: AlertInput) {
   await exigerEquipe();
   const supabase = createServiceClient();
-  if (id) await supabase.from("alerts").update(input).eq("id", id);
-  else await supabase.from("alerts").insert(input);
+  const { data } = id
+    ? await supabase.from("alerts").update(input).eq("id", id).select("id")
+    : await supabase.from("alerts").insert(input).select("id");
   revalidatePath("/dashboard/parametres");
+  const cible = (data?.[0]?.id as string | undefined) ?? id;
+  if (data?.length) {
+    await journaliserEquipe({
+      action: id ? "regle_alerte.modifie" : "regle_alerte.cree",
+      libelle: `Règle d'envoi « ${input.name} » ${id ? "modifiée" : "créée"}${input.active ? "" : " (inactive)"}`,
+      objet: { type: "regle_alerte", id: cible },
+      details: { nom: input.name, evenement: input.event, canal: input.channel, destinataire: input.destinataire, active: input.active },
+    });
+  }
 }
 
 export async function deleteAlert(id: string) {
   await exigerEquipe();
   const supabase = createServiceClient();
-  await supabase.from("alerts").delete().eq("id", id);
+  const { data } = await supabase.from("alerts").delete().eq("id", id).select("name, event, channel");
   revalidatePath("/dashboard/parametres");
+  const a = data?.[0] as { name: string; event: string; channel: string } | undefined;
+  if (a) {
+    await journaliserEquipe({ action: "regle_alerte.supprime", libelle: `Règle d'envoi « ${a.name} » supprimée`, objet: { type: "regle_alerte", id }, details: { nom: a.name, evenement: a.event, canal: a.channel } });
+  }
 }
 
 // Vérifie l'état de la connexion Brevo (bouton de test dans Paramètres).

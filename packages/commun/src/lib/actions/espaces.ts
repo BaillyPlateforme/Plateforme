@@ -5,12 +5,14 @@ import {
   enregistrerEspace,
   enregistrerLogo,
   enregistrerRegles,
+  listEspaces,
   renouvelerLien,
   retirerLogo,
   supprimerEspace,
 } from "@/lib/espaces-pro";
 import type { EspacePro, Regles } from "@/lib/espaces";
 import { exigerEquipe } from "@/lib/supabase/auth";
+import { journaliserEquipe } from "@/lib/journal";
 
 type Reponse = { ok: true; espace: EspacePro } | { ok: false; erreur: string };
 
@@ -48,8 +50,10 @@ export async function sauverRegles(
 export async function effacerEspace(id: string): Promise<{ ok: boolean; erreur?: string }> {
   try {
     await exigerEquipe();
+    const espace = (await listEspaces()).find((e) => e.id === id);
     await supprimerEspace(id);
     revalidatePath("/dashboard/espaces-pro");
+    if (espace) await journaliserEquipe({ action: "espace_pro.supprime", libelle: `Espace pro « ${espace.nom} » supprimé`, objet: { type: "espace_pro", id }, details: { nom: espace.nom, slug: espace.slug } });
     return { ok: true };
   } catch (e) {
     return { ok: false, erreur: e instanceof Error ? e.message : "Erreur inconnue" };
@@ -92,6 +96,7 @@ export async function enleverLogo(id: string): Promise<Reponse> {
     const espace = await retirerLogo(id);
     if (!espace) throw new Error("Espace introuvable.");
     revalidatePath("/dashboard/espaces-pro");
+    await journaliserEquipe({ action: "logo_espace_pro.supprime", libelle: `Logo de l'espace pro « ${espace.nom} » retiré`, objet: { type: "espace_pro", id }, details: { nom: espace.nom } });
     return { ok: true, espace };
   } catch (e) {
     return echec(e);

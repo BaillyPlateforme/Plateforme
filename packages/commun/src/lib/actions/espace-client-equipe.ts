@@ -21,6 +21,7 @@ import {
 import { estRelie, facturePayeeCrm, majClientCrm, noterDansLeCrm } from "@/lib/espace-client/crm";
 import { segmentDe } from "@/lib/espace-client/segments";
 import type { Client, Devis, DocumentFichier, StatutDevis, StatutSav } from "@/lib/espace-client/types";
+import { ecrireJournal, type Geste } from "@/lib/journal";
 
 /*
  * Les actions de l'équipe. Une action serveur répond depuis n'importe quelle
@@ -47,6 +48,17 @@ async function garde(fn: (equipe: Equipe) => Promise<Resultat>): Promise<Resulta
 }
 
 const echec = (erreurs: Erreurs): Resultat => ({ ok: false, erreurs });
+
+/**
+ * Le journal des gestes (crm.journal) : un geste de l'équipe sur l'espace
+ * client, signé de son compte (equipe.nom est son adresse). Rien en
+ * démonstration : les données y sont fictives. Ne lève jamais.
+ */
+async function tracer(equipe: Equipe, g: Geste) {
+  if (equipe.demo || estDemo()) return;
+  await ecrireJournal(g, { type: "staff", email: equipe.nom });
+}
+const crmDe = (d: { crm_dossier_id?: number | null } | null | undefined) => (typeof d?.crm_dossier_id === "number" ? d.crm_dossier_id : null);
 
 const plusJours = (jour: string, n: number) => {
   const d = new Date(`${jour}T12:00:00Z`);
@@ -193,24 +205,32 @@ export async function creerDossier(entree: NouveauDossier, pieces?: FormData): P
 }
 
 export async function modifierDossier(id: string, entree: Record<string, unknown>): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const dossier = await depot().trouver("dossiers", id);
     if (!dossier) throw new Error("Dossier introuvable.");
+    const trace = (champs: string[]) =>
+      tracer(equipe, {
+        action: "dossier_espace.modifie", libelle: `Espace client du dossier ${dossier.reference} modifié`, objet: { type: "dossier_espace", id },
+        dossierId: crmDe(dossier), requestId: dossier.request_id, details: { reference: dossier.reference, champs },
+      });
     // Relié au CRM : seules les données propres à l'espace se modifient ici.
     if (estRelie(dossier)) {
       const l = dossierLieSchema.safeParse(entree);
       if (!l.success) return echec(erreursDe(l.error));
       const international = dossier.portee === "international";
       if (international && l.data.pays_destination === "FR") return echec({ pays_destination: "Choisissez le pays de destination : il fixe les pièces à fournir." });
-      await depot().modifier("dossiers", id, {
+      const champs = {
         logement: l.data.logement, photo: l.data.photo, bailleur_nom: l.data.bailleur_nom, bailleur_email: l.data.bailleur_email,
         ...(international ? { pays_destination: l.data.pays_destination, mode_transport: l.data.mode_transport } : {}),
-      });
+      };
+      await depot().modifier("dossiers", id, champs);
+      await trace(Object.keys(champs));
       return { ok: true, message: "Dossier enregistré : son espace est à jour." };
     }
     const x = dossierSchema.safeParse(entree);
     if (!x.success) return echec(erreursDe(x.error));
     if (!(await depot().modifier("dossiers", id, { ...x.data, request_id: x.data.request_id ?? dossier.request_id }))) throw new Error("Dossier introuvable.");
+    await trace(Object.keys(x.data));
     return { ok: true, message: "Dossier enregistré." };
   });
 }
@@ -226,7 +246,7 @@ export async function modifierConteneur(id: string, entree: Record<string, unkno
 
 /** Coordonnées du client et réglages grand compte : le masquage n'a de sens que pour un grand compte. */
 export async function modifierClient(dossierId: string, entree: Record<string, unknown>): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const c = clientSchema.safeParse(entree);
     if (!c.success) return echec(erreursDe(c.error));
     const d = await lireDonnees();
@@ -246,21 +266,30 @@ export async function modifierClient(dossierId: string, entree: Record<string, u
     const reglages = masquage === "jamais" ? { masquer_devis: false, masquer_factures: false } : masquage === "toujours" ? { masquer_devis: true, masquer_factures: true } : {};
     await depot().modifier("clients", client.id, { ...c.data, ...reglages });
     // Relié au CRM : les coordonnées et le segment s'y écrivent aussi, le CRM les tient.
-    if (estRelie(dossier)) {
-      await majClientCrm(dossier.crm_dossier_id!, { ...c.data });
-      return { ok: true, message: "Client enregistré dans le CRM et dans son espace." };
-    }
+    if (estRelie(dossier)) await majClientCrm(dossier.crm_dossier_id!, { ...c.data });
+    const nom = [c.data.prenom, c.data.nom].filter(Boolean).join(" ") || c.data.email;
+    await tracer(equipe, {
+      action: "client_espace.modifie", libelle: `Coordonnées du client ${nom} modifiées (dossier ${dossier.reference})`, objet: { type: "client_espace", id: client.id },
+      dossierId: crmDe(dossier), requestId: dossier.request_id,
+      details: { reference: dossier.reference, adresse_changee: c.data.email !== client.email, segment: c.data.type },
+    });
+    if (estRelie(dossier)) return { ok: true, message: "Client enregistré dans le CRM et dans son espace." };
     return { ok: true, message: "Client enregistré : son espace est à jour." };
   });
 }
 
 export async function envoyerAcces(dossierId: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const dossier = await depot().trouver("dossiers", dossierId);
     const client = dossier && (await depot().trouver("clients", dossier.client_id));
     if (!dossier || !client) throw new Error("Dossier introuvable.");
     const n = await envoyerLienAuClient(client, { reference: dossier.reference });
     await noterDansLeCrm(dossier.crm_dossier_id, `Lien d'accès à l'espace client ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}`);
+    await tracer(equipe, {
+      action: "acces_espace.envoye", libelle: `Lien d'accès à l'espace client ${n.statut === "envoyee" ? "envoyé" : "journalisé (non envoyé)"} pour ${client.email}`,
+      objet: { type: "dossier_espace", id: dossierId }, dossierId: crmDe(dossier), requestId: dossier.request_id,
+      details: { reference: dossier.reference, destinataire: client.email, statut: n.statut, notification_id: n.id },
+    });
     return { ok: true, apercu: apercuDe(n.id), message: `Lien d'accès ${n.statut === "envoyee" ? "envoyé" : "journalisé"} pour ${client.email}.` };
   });
 }
@@ -272,18 +301,22 @@ export async function envoyerAcces(dossierId: string): Promise<Resultat> {
  * instant, même si son jeton n'a pas expiré.
  */
 export async function revoquerSessions(dossierId: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const dossier = await depot().trouver("dossiers", dossierId);
     if (!dossier) throw new Error("Client introuvable.");
     await depot().modifier("clients", dossier.client_id, { sessions_revoquees_le: maintenant() });
     await annulerLiens(dossier.client_id);
+    await tracer(equipe, {
+      action: "sessions_espace.revoquees", libelle: `Sessions de l'espace client coupées (dossier ${dossier.reference})`,
+      objet: { type: "client_espace", id: dossier.client_id }, dossierId: crmDe(dossier), requestId: dossier.request_id, details: { reference: dossier.reference },
+    });
     return { ok: true, message: "Sessions coupées : le client devra demander un nouveau lien." };
   });
 }
 
 /** La fin de chantier signée : le dossier passe à « terminé », et la demande d'avis part une fois. */
 export async function marquerRealise(dossierId: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const d = await lireDonnees();
     const dossier = d.dossiers.find((y) => y.id === dossierId);
     const client = dossier && d.clients.find((k) => k.id === dossier.client_id);
@@ -308,6 +341,12 @@ export async function marquerRealise(dossierId: string): Promise<Resultat> {
         );
     const partie = n?.statut === "envoyee";
     await noterDansLeCrm(dossier.crm_dossier_id, `Fin de chantier signée (espace client)${n ? (partie ? " · demande d'avis envoyée" : " · demande d'avis journalisée (non envoyée)") : ""}`);
+    await tracer(equipe, {
+      action: "dossier_espace.realise",
+      libelle: `Dossier ${dossier.reference} marqué terminé (fin de chantier signée)${n ? (partie ? " · demande d'avis envoyée" : " · demande d'avis journalisée (non envoyée)") : ""}`,
+      objet: { type: "dossier_espace", id: dossierId }, dossierId: crmDe(dossier), requestId: dossier.request_id,
+      details: { reference: dossier.reference, demande_avis: n ? n.statut : "deja_demandee" },
+    });
     return {
       ok: true,
       apercu: n ? apercuDe(n.id) : null,
@@ -345,11 +384,17 @@ export async function deposerDocumentEquipe(dossierId: string, fd: FormData): Pr
 }
 
 export async function supprimerDocument(documentId: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const doc = await depot().trouver("documents", documentId);
     if (doc) {
       await depot().supprimer("documents", documentId);
       await retirerFichier(doc.chemin);
+      const dossier = await depot().trouver("dossiers", doc.dossier_id);
+      await tracer(equipe, {
+        action: "document_espace.supprime", libelle: `Document « ${doc.libelle} » retiré de l'espace client${dossier ? ` (dossier ${dossier.reference})` : ""}`,
+        objet: { type: "document_espace", id: documentId }, dossierId: crmDe(dossier), requestId: dossier?.request_id ?? null,
+        details: { libelle: doc.libelle, categorie: doc.categorie, source: doc.source, fichier: doc.nom_fichier, depose_par: doc.created_by, depose_le: doc.created_at, reference: dossier?.reference },
+      });
     }
     return { ok: true, message: "Document retiré." };
   });
@@ -378,18 +423,24 @@ export async function ajouterDevis(dossierId: string, entree: { formule: string;
 }
 
 export async function changerStatutDevis(devisId: string, statut: StatutDevis): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     if (!["envoye", "accepte", "refuse", "expire"].includes(statut)) throw new Error("Statut inconnu.");
     const v = await depot().trouver("devis", devisId);
     if (!v) throw new Error("Devis introuvable.");
     if (typeof v.crm_devis_id === "number") return { ok: false, erreur: VIENT_DU_CRM };
     await depot().modifier("devis", devisId, { statut, accepte_le: statut === "accepte" ? (v.accepte_le ?? aujourdhui()) : null });
+    const dossier = await depot().trouver("dossiers", v.dossier_id);
+    const mot = { envoye: "envoyé", accepte: "accepté", refuse: "refusé", expire: "expiré" }[statut as "envoye" | "accepte" | "refuse" | "expire"];
+    await tracer(equipe, {
+      action: "devis_espace.statut", libelle: `Devis ${v.numero} marqué ${mot} dans l'espace client`, objet: { type: "devis_espace", id: devisId },
+      dossierId: crmDe(dossier), requestId: dossier?.request_id ?? null, details: { numero: v.numero, avant: v.statut, apres: statut, reference: dossier?.reference },
+    });
     return { ok: true, message: "Devis mis à jour." };
   });
 }
 
 export async function ajouterFacture(dossierId: string, entree: Record<string, unknown>): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const r = factureSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
     const d = await lireDonnees();
@@ -397,10 +448,16 @@ export async function ajouterFacture(dossierId: string, entree: Record<string, u
     if (!dossier) throw new Error("Dossier introuvable.");
     if (estRelie(dossier)) return { ok: false, erreur: VIENT_DU_CRM };
     const retenu = d.devis.filter((x) => x.dossier_id === dossierId && x.statut === "accepte").sort((a, b) => b.emis_le.localeCompare(a.emis_le))[0];
+    const id = nouvelId();
+    const numero = await prochainNumeroFacture();
     await depot().inserer("factures", {
-      id: nouvelId(), dossier_id: dossierId, devis_id: r.data.type === "garde_meubles" ? null : (retenu?.id ?? null), numero: await prochainNumeroFacture(),
+      id, dossier_id: dossierId, devis_id: r.data.type === "garde_meubles" ? null : (retenu?.id ?? null), numero,
       type: r.data.type, libelle: r.data.libelle, montant_ttc: r.data.montant_ttc, statut: "a_payer", emise_le: aujourdhui(), echeance: r.data.echeance,
       periode: r.data.periode, payee_le: null, paiement_ref: null,
+    });
+    await tracer(equipe, {
+      action: "facture_espace.cree", libelle: `Facture ${numero} émise dans l'espace client (${r.data.libelle})`, objet: { type: "facture_espace", id },
+      dossierId: crmDe(dossier), requestId: dossier.request_id, details: { numero, libelle: r.data.libelle, montant_ttc: r.data.montant_ttc, type: r.data.type, reference: dossier.reference },
     });
     return { ok: true, message: "Facture émise : le client peut la régler en ligne." };
   });
@@ -408,15 +465,23 @@ export async function ajouterFacture(dossierId: string, entree: Record<string, u
 
 /** Un règlement reçu hors ligne (virement, chèque). */
 export async function marquerFacturePayee(factureId: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const f = await depot().trouver("factures", factureId);
     if (!f) throw new Error("Facture introuvable.");
+    const dossier = await depot().trouver("dossiers", f.dossier_id);
+    const trace = () =>
+      tracer(equipe, {
+        action: "facture_espace.payee", libelle: `Facture ${f.numero} marquée réglée hors ligne (${f.libelle})`, objet: { type: "facture_espace", id: factureId },
+        dossierId: crmDe(dossier), requestId: dossier?.request_id ?? null, details: { numero: f.numero, montant_ttc: f.montant_ttc, reference: dossier?.reference },
+      });
     // Une facture du CRM se règle dans le CRM : il la marque payée, et l'espace suit.
     if (typeof f.crm_facture_id === "number") {
       await facturePayeeCrm(f.crm_facture_id, "HORS-LIGNE");
+      await trace();
       return { ok: true, message: "Facture marquée réglée dans le CRM et dans l'espace du client." };
     }
     await depot().modifier("factures", factureId, { statut: "payee", payee_le: aujourdhui(), paiement_ref: f.paiement_ref ?? "HORS-LIGNE" });
+    await trace();
     return { ok: true, message: "Facture marquée réglée." };
   });
 }
@@ -435,8 +500,15 @@ export async function enregistrerPiece(id: string | null, entree: Record<string,
 }
 
 export async function supprimerPiece(id: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
+    const p = await depot().trouver("document_requirements", id);
     await depot().supprimer("document_requirements", id);
+    if (p) {
+      await tracer(equipe, {
+        action: "piece_requise.supprime", libelle: `Pièce à fournir « ${p.libelle} » retirée des listes${p.pays ? ` (${p.pays})` : ""}`, objet: { type: "piece_requise", id },
+        details: { libelle: p.libelle, pays: p.pays, segment: p.segment, obligatoire: p.obligatoire },
+      });
+    }
     return { ok: true, message: "Pièce retirée des listes." };
   });
 }
@@ -490,9 +562,16 @@ export async function marquerCartonsLivres(samedi: string): Promise<Resultat> {
 // --- SAV ---------------------------------------------------------------------------------------
 
 export async function changerStatutSav(id: string, statut: StatutSav): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     if (!["recue", "en_analyse", "cloturee"].includes(statut)) throw new Error("Statut inconnu.");
     if (!(await depot().modifier("sav_declarations", id, { statut }))) throw new Error("Déclaration introuvable.");
+    const s = await depot().trouver("sav_declarations", id);
+    const dossier = s ? await depot().trouver("dossiers", s.dossier_id) : null;
+    const mot = { recue: "reçue", en_analyse: "en analyse", cloturee: "clôturée" }[statut as "recue" | "en_analyse" | "cloturee"];
+    await tracer(equipe, {
+      action: "sav.statut", libelle: `Déclaration de SAV${s ? ` ${s.numero}` : ""} passée à « ${mot} »`, objet: { type: "sav", id },
+      dossierId: crmDe(dossier), requestId: dossier?.request_id ?? null, details: { numero: s?.numero, statut, reference: dossier?.reference },
+    });
     return { ok: true, message: "Déclaration mise à jour : le client voit le nouveau statut." };
   });
 }
@@ -509,10 +588,12 @@ export async function ajouterConseiller(entree: Record<string, unknown>): Promis
 }
 
 export async function supprimerConseiller(id: string): Promise<Resultat> {
-  return garde(async () => {
+  return garde(async (equipe) => {
     const d = await lireDonnees();
     if (d.clients.some((c) => c.conseiller_id === id)) return { ok: false, erreur: "Ce conseiller suit encore des clients : réattribuez-les d'abord." };
+    const k = d.conseillers.find((c) => c.id === id);
     await depot().supprimer("conseillers", id);
+    if (k) await tracer(equipe, { action: "conseiller.supprime", libelle: `Conseiller ${k.prenom} ${k.nom} retiré de l'espace client`, objet: { type: "conseiller", id }, details: { prenom: k.prenom, nom: k.nom } });
     return { ok: true, message: "Conseiller retiré." };
   });
 }
