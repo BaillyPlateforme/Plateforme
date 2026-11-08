@@ -11,20 +11,23 @@ import { SANS_PRIX, type Parcours } from "@/lib/parcours";
 
 export type CleAxe = "potentiel" | "facilite" | "prestige" | "volume" | "montant" | "completude";
 
-export const AXES: { cle: CleAxe; label: string; regle: string }[] = [
-  { cle: "potentiel", label: "Potentiel", regle: "La note de potentiel de la qualification, sur 100." },
-  { cle: "facilite", label: "Facilité", regle: "100 moins la note de difficulté : plus le déménagement est facile, plus le point s'éloigne du centre." },
+/** Les six axes : leur libellé, leur couleur (une par axe, dans la palette) et leur règle. */
+export const AXES: { cle: CleAxe; label: string; couleur: string; regle: string }[] = [
+  { cle: "potentiel", label: "Potentiel", couleur: "#4b2fe0", regle: "La note de potentiel de la qualification, sur 100." },
+  { cle: "facilite", label: "Facilité", couleur: "#14c27d", regle: "100 moins la note de difficulté : plus le déménagement est facile, plus le point s'éloigne du centre." },
   {
     cle: "prestige",
     label: "Prestige",
+    couleur: "#f59e0b",
     regle:
       "Le prix médian au m² des logements vendus dans la commune (DVF 2021–2025), rangé parmi les ventes de toute la France : 82 = plus cher que là où se sont faites 82 % des ventes. La plus haute des deux communes, départ ou arrivée.",
   },
-  { cle: "volume", label: "Volume", regle: "Le rang du volume parmi ceux des demandes reçues : 0 pour le plus petit, 100 pour le plus grand." },
-  { cle: "montant", label: "Montant", regle: "Le rang de l'estimation du site parmi celles des demandes reçues. Sans objet pour un parcours sans prix (mutation, entreprise)." },
+  { cle: "volume", label: "Volume", couleur: "#0ea5e9", regle: "Le rang du volume parmi ceux des demandes reçues : 0 pour le plus petit, 100 pour le plus grand." },
+  { cle: "montant", label: "Montant", couleur: "#7a52ff", regle: "Le rang de l'estimation du site parmi celles des demandes reçues. Sans objet pour un parcours sans prix (mutation, entreprise)." },
   {
     cle: "completude",
     label: "Complétude",
+    couleur: "#e1306c",
     regle: "La part des huit informations utiles renseignées : nom, e-mail, téléphone, ville de départ, ville d'arrivée, une adresse précise, volume (sauf parcours sans volume), date souhaitée.",
   },
 ];
@@ -63,21 +66,29 @@ export type ChampsCompletude = {
   parcours: Parcours;
 };
 
+/** Les huit informations utiles d'une demande, et si elles sont renseignées. */
+function champsUtiles(d: ChampsCompletude): { label: string; ok: boolean }[] {
+  const plein = (v: unknown) => v != null && String(v).trim() !== "";
+  return [
+    { label: "nom", ok: plein(d.client) },
+    { label: "e-mail", ok: plein(d.email) },
+    { label: "téléphone", ok: plein(d.telephone) },
+    { label: "ville de départ", ok: plein(d.depart) },
+    { label: "ville d'arrivée", ok: plein(d.arrivee) },
+    { label: "adresse précise", ok: plein(d.departAdresse) || plein(d.arriveeAdresse) },
+    { label: "volume", ok: SANS_PRIX.has(d.parcours) || (d.volume != null && d.volume > 0) },
+    { label: "date souhaitée", ok: plein(d.dateSouhaitee) },
+  ];
+}
+
 /** La complétude : la part des huit informations utiles renseignées. */
 export function completude(d: ChampsCompletude): number {
-  const plein = (v: unknown) => v != null && String(v).trim() !== "";
-  const champs = [
-    plein(d.client),
-    plein(d.email),
-    plein(d.telephone),
-    plein(d.depart),
-    plein(d.arrivee),
-    plein(d.departAdresse) || plein(d.arriveeAdresse),
-    SANS_PRIX.has(d.parcours) || (d.volume != null && d.volume > 0),
-    plein(d.dateSouhaitee),
-  ];
-  return Math.round((100 * champs.filter(Boolean).length) / champs.length);
+  const champs = champsUtiles(d);
+  return Math.round((100 * champs.filter((c) => c.ok).length) / champs.length);
 }
+
+/** Ce qui manque à la complétude : « adresse précise », « date souhaitée »… */
+export const manques = (d: ChampsCompletude) => champsUtiles(d).filter((c) => !c.ok).map((c) => c.label);
 
 export function araigneeDe(
   d: ChampsCompletude & { potentiel: number | null; difficulte: number | null; estimation: number | null },

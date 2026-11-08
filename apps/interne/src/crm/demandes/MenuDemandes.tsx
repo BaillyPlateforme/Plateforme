@@ -7,9 +7,10 @@ import { VUES_DU_SITE, type VueDuSite } from "@/crm/statistiques/demandes/vues";
  * véritable vue feed, et une vue par potentiel »). Les vues à gauche, les
  * filtres dans la bande.
  *
- *  - Demandes : le Kanban (les étapes détaillées, jusqu'au dossier), le Feed
- *    (tout ce qui arrive aux demandes) et Top demandes (classées par
- *    potentiel, avec leur araignée) ;
+ *  - Demandes : le Kanban (les étapes détaillées, jusqu'au dossier), puis le
+ *    Feed (les demandes dans l'ordre où elles arrivent, par jour) et Top
+ *    demandes (par potentiel, la meilleure en vedette) — la même liste et le
+ *    même panneau de la demande choisie (ListeDetail) ;
  *  - Analyse : la liste détaillée et ses filtres, les clients à rappeler,
  *    les statistiques (leurs huit analyses s'ouvrent sous l'entrée) et le
  *    suivi des leads.

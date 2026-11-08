@@ -62,6 +62,8 @@ export type DemandeVue = {
   estimation: number | null;
   /** AAAA-MM-JJ. */
   dateSouhaitee: string | null;
+  /** La souplesse sur la date (« Ce mois-ci »…), telle que le client l'a donnée. */
+  flexibilite: string | null;
   potentiel: number | null;
   difficulte: number | null;
   parcours: Parcours;

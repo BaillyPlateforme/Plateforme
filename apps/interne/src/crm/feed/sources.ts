@@ -134,10 +134,13 @@ export const SOURCES: Source[] = [
     cotes: ["client", "staff"],
     genres: ["demande"],
     acteurs: ["client", "staff", "auto"],
+    // Un rappel est demandé par le client (« Être rappelé »), ou par l'équipe (Demandes, « À rappeler ») : il porte alors `par`.
     sql: `select 'evt', e.id::text, e.created_at, false,
-      case when e.type in ('completed', 'rappel') then 'client' else 'staff' end, array['demande'],
-      case when e.type in ('completed', 'rappel') then 'client' when e.type in ('status_changed', 'note', 'scored', 'estimated', 'suivi') then 'staff' else 'auto' end,
-      lower(nullif(e.payload->>'par', '')), case when e.type in ('completed', 'rappel') then r.client_nom end, null::int,
+      case when e.type = 'completed' or (e.type = 'rappel' and coalesce(e.payload->>'par', '') = '') then 'client' else 'staff' end, array['demande'],
+      case when e.type = 'completed' or (e.type = 'rappel' and coalesce(e.payload->>'par', '') = '') then 'client'
+           when e.type in ('status_changed', 'note', 'scored', 'estimated', 'suivi', 'rappel') then 'staff' else 'auto' end,
+      lower(nullif(e.payload->>'par', '')),
+      case when e.type = 'completed' or (e.type = 'rappel' and coalesce(e.payload->>'par', '') = '') then r.client_nom end, null::int,
       ${DOSSIER_DE_DEMANDE("e.request_id")}, e.request_id, null::uuid,
       concat_ws(' ', r.client_nom, r.depart_ville, r.arrivee_ville),
       jsonb_build_object('type', e.type, 'p', e.payload - 'lines' - 'note', 'note', e.payload ? 'note' and coalesce(e.payload->>'note', '') <> '')
