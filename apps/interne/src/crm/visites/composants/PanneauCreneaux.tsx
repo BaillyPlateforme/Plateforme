@@ -27,6 +27,7 @@ export default function PanneauCreneaux({
   suggestions,
   espace,
   replie = false,
+  type = "phys",
 }: {
   dossierId: number;
   commerciaux: { id: number; nom: string }[];
@@ -36,6 +37,8 @@ export default function PanneauCreneaux({
   espace: boolean;
   /** Une visite est déjà réservée : le panneau se replie, rien n'est coché d'office (replanifier reste possible). */
   replie?: boolean;
+  /** Le type proposé d'office (le planificateur de visite y mène avec le sien : &vt=visio). */
+  type?: "phys" | "visio";
 }) {
   const router = useRouter();
   const chemin = usePathname();
@@ -102,7 +105,7 @@ export default function PanneauCreneaux({
         </label>
         <label>
           <span>Visite</span>
-          <select name="type" defaultValue="phys">
+          <select name="type" defaultValue={type}>
             <option value="phys">Sur place</option>
             <option value="visio">En visio</option>
           </select>

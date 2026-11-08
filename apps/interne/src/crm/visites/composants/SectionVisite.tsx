@@ -25,7 +25,7 @@ const MESSAGES: Record<string, { ton: "ok" | "info" | "ko"; texte: string }> = {
   abandon: { ton: "info", texte: "Visite abandonnée. L'inventaire saisi reste celui du dossier." },
 };
 
-export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; commerciaux: Row[]; sp: { visite?: string; vm?: string; vc?: string; vd?: string } }) {
+export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; commerciaux: Row[]; sp: { visite?: string; vm?: string; vc?: string; vd?: string; vt?: string } }) {
   const etat = await etatVisites(d.id);
   const espace = (await espacesDesDossiersCrm([d.id]).catch(() => new Map())).has(d.id);
   const commercialId = Number(sp.vc) || d.commercial_id || commerciaux[0]?.id || null;
@@ -201,6 +201,7 @@ export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; co
           commerciaux={commerciaux.map((c) => ({ id: c.id, nom: c.nom }))}
           commercialId={commercialId}
           duree={dureeMin}
+          type={sp.vt === "visio" ? "visio" : "phys"}
           suggestions={libres}
           espace={espace}
           replie={aVenir.length > 0 || !!enCours || signes.length > 0}

@@ -1,0 +1,176 @@
+/*
+ * « Visite planifiée », en tête de l'onglet Visites du dossier au retour du
+ * planificateur : la visite, la couleur de son type, et la suite (le SMS de
+ * confirmation à relire puis envoyer, le lien de l'espace client).
+ */
+.carte {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--devis, #14c27d) 35%, var(--line));
+  border-left: 5px solid var(--c);
+  border-radius: 16px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--devis, #14c27d) 7%, #fff), #fff 55%);
+  animation: apparait 0.35s ease-out;
+}
+@keyframes apparait {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carte {
+    animation: none;
+  }
+}
+.tete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.icone {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--devis, #14c27d);
+  color: #fff;
+  box-shadow: 0 8px 18px -10px var(--devis, #14c27d);
+}
+.icone :global(.ic) {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.6;
+}
+.texte {
+  flex: 1;
+  min-width: 0;
+}
+.texte h3 {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--devis-ink, #0b7f50);
+}
+.texte p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.texte p b {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.texte small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+}
+.type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, #fff);
+  color: var(--ci);
+  font-size: 12px;
+  font-weight: 700;
+}
+.type :global(.ic) {
+  width: 13px;
+  height: 13px;
+}
+.fermer {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+}
+.fermer:hover {
+  background: #f1f0f6;
+  color: var(--ink);
+}
+
+.suite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 20px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.message {
+  display: flex;
+  flex: 1 1 380px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.message small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.bulle {
+  position: relative;
+  max-width: 560px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: #eef0f5;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.manque {
+  margin: 0;
+  font-size: 13px;
+  color: #8a4b06;
+}
+.destinataire {
+  font-size: 12px;
+  color: var(--muted);
+}
+.gestes {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+.gestes :global(.btn .ic) {
+  width: 15px;
+  height: 15px;
+}
+.envoyer {
+  height: 40px;
+}
+
+@media (max-width: 1100px) {
+  .gestes {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+}
