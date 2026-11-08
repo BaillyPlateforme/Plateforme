@@ -8,6 +8,8 @@
 
 .page {
   display: grid;
+  /* Une seule colonne bornée à la largeur : le Kanban défile dans sa planche, pas la page (sinon 1748 px à 1440). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   min-width: 0;
 }
