@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { commerciaux, lundiDe, semaineCourante } from "@/crm/lib/data";
 import { Ic } from "@/crm/lib/icons";
 import { dateFr } from "@/crm/lib/format";
@@ -12,7 +13,7 @@ import s from "@/crm/planning/planning.module.css";
 import { etatsRdv } from "@/crm/rdv/sms";
 // Le numéro de semaine ISO, le même que le planning d'exploitation (l'ancien calcul donnait 45 pour la semaine 46).
 import { semaineIso } from "@/crm/exploitation/planning";
-import VuesPlanning, { BasPlanning, vuePlanning } from "@/crm/planning/Vues";
+import MenuPlanning, { BasPlanning, vuePlanning } from "@/crm/planning/Vues";
 import VueVisites from "@/crm/visites/VueVisites";
 import VueDates from "@/crm/planning/VueDates";
 
@@ -29,7 +30,8 @@ export const dynamic = "force-dynamic";
  * Un seul planning commercial (simplification du 08/11/2026) : la semaine,
  * les visites techniques (?vue=visites, l'ancienne page /visites) et les
  * dates souhaitées par les clients du site (?vue=dates, l'ancien agenda des
- * questionnaires), en pilules dans la rangée du bas du bandeau.
+ * questionnaires), au menu de gauche ; les commerciaux restent un filtre,
+ * dans la rangée du bas du bandeau.
  */
 
 const NOMS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -67,7 +69,6 @@ export default async function Planning({ searchParams }: { searchParams: Promise
         action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}
         bas={
           <BasPlanning>
-            <VuesPlanning actif="semaine" separateur />
             <Pilules
               label="Commercial"
               items={[
@@ -88,36 +89,38 @@ export default async function Planning({ searchParams }: { searchParams: Promise
           </a>
         )}
       </Bandeau>
-      {sp.ok && OK[sp.ok] && <p className={`${s.message} ${s.messageOk}`}>{OK[sp.ok]}</p>}
-      <div className={s.legende}>
-        <span>
-          <i className="dot t-phys" />
-          Visite physique
-        </span>
-        <span>
-          <i className="dot t-visio" />
-          Visio
-        </span>
-        <span>
-          <i className="dot t-tache" />
-          Tâche
-        </span>
-        <span>
-          <i className="dot t-perso" />
-          Perso / règle
-        </span>
-        <span>
-          <i className="dot" style={{ border: "1.5px dashed var(--accent)", background: "transparent" }} />
-          Créneau proposé au client
-        </span>
-        <i className={s.sep} />
-        {(["planifiee", "effectuee", "devis", "sans_suite"] as const).map((k) => (
-          <span key={k}>
-            <i className={`st ${ETATS_VISITE[k].ton}`}>{ETATS_VISITE[k].libelle}</i>
+      <AvecMenu menu={<MenuPlanning actif="semaine" />}>
+        {sp.ok && OK[sp.ok] && <p className={`${s.message} ${s.messageOk}`}>{OK[sp.ok]}</p>}
+        <div className={s.legende}>
+          <span>
+            <i className="dot t-phys" />
+            Visite physique
           </span>
-        ))}
-      </div>
-      <GrillePlanning jours={grilleJours} evenements={evenements} creneaux={creneaux} filtre={com} etatsSms={etatsSms} />
+          <span>
+            <i className="dot t-visio" />
+            Visio
+          </span>
+          <span>
+            <i className="dot t-tache" />
+            Tâche
+          </span>
+          <span>
+            <i className="dot t-perso" />
+            Perso / règle
+          </span>
+          <span>
+            <i className="dot" style={{ border: "1.5px dashed var(--accent)", background: "transparent" }} />
+            Créneau proposé au client
+          </span>
+          <i className={s.sep} />
+          {(["planifiee", "effectuee", "devis", "sans_suite"] as const).map((k) => (
+            <span key={k}>
+              <i className={`st ${ETATS_VISITE[k].ton}`}>{ETATS_VISITE[k].libelle}</i>
+            </span>
+          ))}
+        </div>
+        <GrillePlanning jours={grilleJours} evenements={evenements} creneaux={creneaux} filtre={com} etatsSms={etatsSms} />
+      </AvecMenu>
     </div>
   );
 }

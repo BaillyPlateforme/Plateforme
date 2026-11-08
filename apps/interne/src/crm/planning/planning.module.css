@@ -373,7 +373,7 @@
   background: var(--line, #e4e2ee);
 }
 
-/* La rangée du bas du bandeau : les vues, un filet, puis les commerciaux ; elle défile sur un écran étroit. */
+/* La rangée du bas du bandeau : les commerciaux (les vues sont au menu de gauche) ; elle défile sur un écran étroit. */
 .bas {
   display: flex;
   align-items: center;
@@ -388,13 +388,6 @@
 }
 .bas > nav {
   flex-shrink: 0;
-}
-.separateurBas {
-  flex: none;
-  width: 1px;
-  height: 26px;
-  margin: 0 2px;
-  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Le petit calendrier */
