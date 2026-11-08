@@ -105,7 +105,7 @@ export async function deplacerDossier(id: number, vers: string, choix: Choix = {
         await q("insert into activite(dossier_id,utilisateur_id,libelle) values($1,$2,$3)", [id, u.id, `${r.type === "visio" ? "Visio" : "Visite"} planifiée`]);
         await q("update dossiers set maj_le=now() where id=$1", [id]);
         await projeterEspace(id);
-        revalidatePath("/(crm)", "layout");
+        revalidatePath("/(interne)", "layout");
         break;
       }
     }

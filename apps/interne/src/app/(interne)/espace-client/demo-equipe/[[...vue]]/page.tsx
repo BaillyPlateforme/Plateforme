@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { BackOffice, type Vue } from "@/app/(equipe)/dashboard/espace-client/_composants/BackOffice";
-import { PORTE_DEMO } from "@/app/(equipe)/dashboard/espace-client/_composants/portes";
+import { BackOffice, type Vue } from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/BackOffice";
+import { PORTE_DEMO } from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/portes";
 
 const VUES: Record<string, Vue> = { nouveau: "nouveau", cartons: "cartons", sav: "sav", destinations: "destinations", journal: "journal", reglages: "reglages" };
 

@@ -113,11 +113,18 @@ function Entete({
   }, []);
   useEffect(() => () => void (minuteur.current && clearTimeout(minuteur.current)), []);
 
+  // La page cliquée s'allume tout de suite, sans attendre que la nouvelle page arrive du serveur.
+  const [vise, setVise] = useState<string | null>(null);
+  const viser = (href: string) => (ev: React.MouseEvent) => {
+    if (ev.button === 0 && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey && !ev.altKey) setVise(href);
+  };
+
   // Changer de page referme l'aperçu.
   const [vu, setVu] = useState(chemin);
   if (vu !== chemin) {
     setVu(chemin);
     setApercu(null);
+    setVise(null);
   }
 
   // Le repère glisse sous la rubrique montrée.
@@ -172,9 +179,16 @@ function Entete({
       </div>
 
       <nav className={s.sousBarre} aria-label={montre.titre} onMouseEnter={() => planifier(montre.titre === courant.titre ? null : montre.titre, 0)}>
-        <div key={montre.titre} className={s.pages}>
+        {/* Sans clé ni animation : changer de page ou de rubrique ne redessine pas la barre, seules les pages changent. */}
+        <div className={s.pages}>
           {montre.entrees.map((e) => (
-            <Link key={e.href} href={hrefPour(e, dossier)} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined}>
+            <Link
+              key={e.href}
+              href={hrefPour(e, dossier)}
+              className={s.page}
+              aria-current={(vise ? vise === e.href : estActif(e, chemin)) ? "page" : undefined}
+              onClick={viser(e.href)}
+            >
               <Icone nom={e.icone} taille={17} />
               <span>{e.label}</span>
               {compteur(e) > 0 && <span className={s.nombre}>{compteur(e)}</span>}

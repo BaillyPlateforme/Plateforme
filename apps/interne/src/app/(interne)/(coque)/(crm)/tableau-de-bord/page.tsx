@@ -5,7 +5,7 @@ import { Ic } from "@/crm/lib/icons";
 import { Line } from "@/crm/components/charts";
 import { dateFr, eur, ilYa, m3, nomClient, photoPour, RDV_TYPES, STATUTS } from "@/crm/lib/format";
 import { compterNouvelles, listRequests } from "@/lib/requests";
-import { STATUS_META } from "@/app/(equipe)/dashboard/status";
+import { STATUS_META } from "@/app/(interne)/(coque)/dashboard/status";
 import Bandeau from "@/ui/Bandeau";
 
 export const dynamic = "force-dynamic";

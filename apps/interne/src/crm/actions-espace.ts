@@ -20,7 +20,7 @@ import { projeterEspace } from "@/crm/lib/espace";
  */
 
 const s = (f: FormData, k: string) => { const v = String(f.get(k) ?? "").trim(); return v === "" ? null : v; };
-const refresh = (id: number) => { revalidatePath("/(crm)", "layout"); revalidatePath(`/dossiers/${id}`); revalidatePath("/dashboard/espace-client", "layout"); };
+const refresh = (id: number) => { revalidatePath("/(interne)", "layout"); revalidatePath(`/dossiers/${id}`); revalidatePath("/dashboard/espace-client", "layout"); };
 const vers = (id: number, etat: string, message?: string) =>
   `/dossiers/${id}?espace=${etat}${message ? `&m=${encodeURIComponent(message.slice(0, 300))}` : ""}#espace-client`;
 

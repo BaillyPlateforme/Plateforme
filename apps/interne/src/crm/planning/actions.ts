@@ -36,7 +36,7 @@ const n = (f: FormData, k: string) => {
 const TYPES = ["phys", "visio", "tache", "perso"];
 
 function rafraichir(dossierId?: number | null) {
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   revalidatePath("/(tablette)", "layout");
   if (dossierId) revalidatePath(`/dossiers/${dossierId}`);
 }

@@ -32,7 +32,7 @@ async function log(dossierId: number | null, libelle: string) {
   await projeterEspace(dossierId);
 }
 /** Rafraîchit les pages du CRM, et elles seules (voir actions.ts). */
-const refresh = (id?: number) => { revalidatePath("/(crm)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
+const refresh = (id?: number) => { revalidatePath("/(interne)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
 
 /* ---------- garde-meuble ---------- */
 /**

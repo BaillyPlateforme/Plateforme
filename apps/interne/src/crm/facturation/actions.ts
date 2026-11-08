@@ -35,7 +35,7 @@ async function noter(dossierId: number | null | undefined, libelle: string) {
 }
 async function apres(...dossiers: (number | null | undefined)[]) {
   for (const id of new Set(dossiers.filter((x): x is number => !!x))) await projeterEspace(id);
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   for (const id of dossiers) if (id) revalidatePath(`/dossiers/${id}`);
 }
 const jour = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.");
@@ -527,6 +527,6 @@ export async function enregistrerReglagesFacturation(saisie: Partial<Record<keyo
   await q(`insert into facturation_reglages(id, ${cols}, maj_le, maj_par) values(true, ${params}, now(), $${CHAMPS_REGLAGES.length + 1})
       on conflict (id) do update set ${maj}, maj_le=now(), maj_par=excluded.maj_par`, [...valeurs, u.nom]);
   revalidatePath("/dashboard/parametres");
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   return { ok: true };
 }

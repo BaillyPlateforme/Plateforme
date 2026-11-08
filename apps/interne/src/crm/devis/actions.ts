@@ -40,7 +40,7 @@ async function noter(dossierId: number, libelle: string) {
   await projeterEspace(dossierId);
 }
 function rafraichir(dossierId: number, devisId?: number) {
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   revalidatePath(`/dossiers/${dossierId}`);
   if (devisId) revalidatePath(`/dossiers/${dossierId}/devis/${devisId}`);
 }

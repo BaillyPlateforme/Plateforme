@@ -16,7 +16,7 @@ export const metadata = { title: "Back-office de démonstration — Espace clien
 export default function DemoEquipeLayout({ children }: { children: React.ReactNode }) {
   if (!demoEquipeActive()) notFound();
   return (
-    <div className="min-h-dvh bg-shell">
+    <div className="vue-equipe min-h-dvh bg-shell">
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#1b1a18] px-5 py-3 text-[13px] text-white md:px-7">
         <div className="flex items-center gap-4">
           <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={130} height={42} />

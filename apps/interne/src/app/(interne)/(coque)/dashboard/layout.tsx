@@ -1,23 +1,19 @@
-import Coque from "@/ui/Coque";
-import { contexteCoque } from "@/ui/contexte";
 import { AvecMenu } from "@/ui/MenuVertical";
 import EnTeteSection, { FournisseurEnTete, MenuDeSection } from "./EnTeteSection";
 
-export const dynamic = "force-dynamic";
-
 /**
  * Les sections venues de l'espace équipe (questionnaires, espace client vu
- * de l'équipe, réglages), dans la coque du CRM : le bandeau de la section en
+ * de l'équipe, réglages), dans la coque commune ((coque)/layout.tsx) : le bandeau de la section en
  * haut, puis ses sous-onglets en menu vertical à gauche et la page à droite.
  */
-export default async function SectionsLayout({ children }: { children: React.ReactNode }) {
-  const contexte = await contexteCoque();
+export default function SectionsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Coque {...contexte}>
+    // .vue-equipe : les pages écrites avec Tailwind, où les règles générales de crm.css s'arrêtent.
+    <div className="vue-equipe">
       <FournisseurEnTete>
         <EnTeteSection />
         <AvecMenu menu={<MenuDeSection />}>{children}</AvecMenu>
       </FournisseurEnTete>
-    </Coque>
+    </div>
   );
 }

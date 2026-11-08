@@ -43,7 +43,7 @@ async function noter(dossierId: number, libelle: string) {
   await projeterEspace(dossierId);
 }
 const rafraichir = (id: number) => {
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   revalidatePath(`/dossiers/${id}`);
 };
 async function numero(prefixe: string, table: "devis" | "lettres_voiture") {

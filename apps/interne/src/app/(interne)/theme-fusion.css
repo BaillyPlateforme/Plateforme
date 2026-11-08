@@ -68,3 +68,10 @@ body {
   background: #4b2fe0;
   color: #fff;
 }
+
+/* Les pages de l'équipe, sous la racine commune avec le CRM : le corps du CRM
+   est en 14 px, ces pages ont été écrites pour la taille du navigateur. */
+.vue-equipe {
+  font-size: 1rem;
+  line-height: 1.5;
+}

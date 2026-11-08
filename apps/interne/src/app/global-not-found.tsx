@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import "./(equipe)/globals.css";
+import "./(interne)/globals.css";
 
 /*
- * La page 404 de l'app interne. L'app a deux mises en page racines — l'espace
- * de l'équipe et le CRM — : une adresse qui ne mène à rien n'appartient à
- * aucune des deux, d'où cette page autonome.
+ * La page 404 de l'app interne. L'app a plusieurs mises en page racines
+ * (l'interne, la tablette, l'outil terrain) : une adresse qui ne mène à rien
+ * n'appartient à aucune, d'où cette page autonome.
  */
 export const metadata: Metadata = {
   title: "Page introuvable — Bailly",

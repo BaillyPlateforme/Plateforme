@@ -36,7 +36,7 @@ const n = (f: FormData, k: string) => {
 
 /** Rafraîchit le CRM, la fiche du dossier et la tablette. */
 function rafraichir(dossierId?: number) {
-  revalidatePath("/(crm)", "layout");
+  revalidatePath("/(interne)", "layout");
   revalidatePath("/(tablette)", "layout");
   if (dossierId) revalidatePath(`/dossiers/${dossierId}`);
 }

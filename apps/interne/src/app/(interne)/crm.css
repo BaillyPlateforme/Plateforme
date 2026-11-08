@@ -1,4 +1,19 @@
 /*
+ * La feuille du CRM, rangée dans la couche « base » de Tailwind : depuis que
+ * le CRM et l'espace équipe partagent une seule racine, elle est chargée sur
+ * toutes les pages internes. Dans cette couche, elle passe après la remise à
+ * zéro de Tailwind (même couche, chargée après) mais avant les classes
+ * utilitaires : une règle générale du CRM (`*{padding:0}`, `button{…}`) ne
+ * peut plus écraser une classe des pages de l'équipe. Les modules CSS, hors
+ * couche, gardent le dernier mot sur elle.
+ *
+ * Ses règles générales sur les champs, les titres et `small` s'arrêtent aux
+ * pages de l'équipe (`.vue-equipe`, posé par leur mise en page), écrites avec
+ * les classes de Tailwind : elles y élargissaient les listes déroulantes et
+ * changeaient la taille des champs.
+ */
+@layer base {
+/*
  * La feuille du CRM (design « Fusion »), reprise de la V1 autonome.
  *
  * Elle n'est chargée que par la mise en page racine du CRM, (crm)/layout.tsx :
@@ -14,11 +29,13 @@
   --phys:#4f46e5;--visio:#0ea5e9;--tache:#f59e0b;--perso:#9ca3af;--ok:#16a34a;--warn:#e11d48;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+/* La remise à zéro de Tailwind met images et icônes en bloc : dans le CRM, elles restent dans la ligne, comme avant la racine commune. */
+:is(img,svg,video,canvas,audio,iframe,embed,object):not(:where(.vue-equipe *)){display:revert-layer;vertical-align:revert-layer}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
-h1,h2,h3,h4,h5{font-family:var(--head);font-weight:600}
-small{color:var(--muted);font-size:.8em}
+h1:not(:where(.vue-equipe *)),h2:not(:where(.vue-equipe *)),h3:not(:where(.vue-equipe *)),h4:not(:where(.vue-equipe *)),h5:not(:where(.vue-equipe *)){font-family:var(--head);font-weight:600}
+small:not(:where(.vue-equipe *)){color:var(--muted);font-size:.8em}
 .ic{width:18px;height:18px;flex:none}
 .app{min-height:100vh;display:grid;grid-template-columns:260px 1fr}
 .nav{padding:20px 14px;display:flex;flex-direction:column;gap:18px;position:sticky;top:0;height:100vh;overflow:auto}
@@ -223,9 +240,9 @@ a{color:inherit}
 .form-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
 .fld{display:flex;flex-direction:column;gap:6px;grid-column:span 6}.fld.w3{grid-column:span 3}.fld.w4{grid-column:span 4}.fld.w12{grid-column:span 12}.fld.w8{grid-column:span 8}
 .fld label,.lbl{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
-input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],input[type=time],input[type=month],select,textarea{font:inherit;color:var(--ink);padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#fff;outline:0;width:100%}
-input:focus,select:focus,textarea:focus{border-color:#b9a1f5;box-shadow:0 0 0 4px #4b2fe01a}
-textarea{min-height:92px;resize:vertical}
+input[type=text]:not(:where(.vue-equipe *)),input[type=email]:not(:where(.vue-equipe *)),input[type=tel]:not(:where(.vue-equipe *)),input[type=number]:not(:where(.vue-equipe *)),input[type=date]:not(:where(.vue-equipe *)),input[type=time]:not(:where(.vue-equipe *)),input[type=month]:not(:where(.vue-equipe *)),select:not(:where(.vue-equipe *)),textarea:not(:where(.vue-equipe *)){font:inherit;color:var(--ink);padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:#fff;outline:0;width:100%}
+input:focus:not(:where(.vue-equipe *)),select:focus:not(:where(.vue-equipe *)),textarea:focus:not(:where(.vue-equipe *)){border-color:#b9a1f5;box-shadow:0 0 0 4px #4b2fe01a}
+textarea:not(:where(.vue-equipe *)){min-height:92px;resize:vertical}
 .chk{display:flex;gap:8px;align-items:center;font-size:13.5px}.chk input{width:auto;accent-color:var(--accent)}
 .form-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
 .page-h{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:10px 0 22px}
@@ -392,3 +409,4 @@ tr.lien-ligne a.etendu{color:inherit;text-decoration:none}
 tr.lien-ligne a.etendu::after{content:"";position:absolute;inset:0}
 tr.lien-ligne a.dessus{position:relative;z-index:1;color:var(--accent);text-decoration:none;font-weight:600}
 .fld.w2{grid-column:span 2}
+}

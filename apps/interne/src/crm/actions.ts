@@ -36,7 +36,7 @@ async function log(dossierId: number | null, libelle: string) {
  * CRM par son dossier, groupe compris : `/` rafraîchirait aussi tout l'espace
  * équipe, qui partage la racine de l'app.
  */
-const refresh = (id?: number) => { revalidatePath("/(crm)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
+const refresh = (id?: number) => { revalidatePath("/(interne)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
 const annee = () => new Date().getFullYear();
 async function numero(prefixe: string, table: string) {
   const col = table === "dossiers" ? "ref" : "numero";
