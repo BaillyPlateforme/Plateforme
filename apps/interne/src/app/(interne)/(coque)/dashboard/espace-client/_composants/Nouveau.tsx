@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
+import ChampAdresse from "@/ui/ChampAdresse";
 import { creerDossier } from "@/lib/actions/espace-client-equipe";
 import { photoPourVille } from "@/lib/espace-client/photos";
 import type { DemandeResume, DevisDemande } from "@/lib/espace-client/demandes";
@@ -247,16 +248,22 @@ export function Nouveau({ ouvrirApercu }: { ouvrirApercu: (id: string) => void }
         <Carte titre="Le déménagement">
           <div className="grid gap-3 md:grid-cols-2">
             <Champ label="Ville de départ" erreur={err("dossier.ville_depart")}>
-              <input className={champ} value={f.ville_depart} onChange={(e) => maj({ ville_depart: e.target.value })} />
+              <ChampAdresse mode="ville" className={champ} value={f.ville_depart} onChange={(v) => maj({ ville_depart: v })} />
             </Champ>
             <Champ label="Ville d'arrivée" erreur={err("dossier.ville_arrivee")}>
-              <input className={champ} value={f.ville_arrivee} onChange={(e) => maj({ ville_arrivee: e.target.value, ...(photoChoisie ? {} : { photo: "" }) })} />
+              <ChampAdresse mode="ville" className={champ} value={f.ville_arrivee} onChange={(v) => maj({ ville_arrivee: v, ...(photoChoisie ? {} : { photo: "" }) })} />
             </Champ>
+            {/* Une adresse choisie dans la liste donne aussi sa ville. */}
             <Champ label="Adresse de départ" erreur={err("dossier.adresse_depart")}>
-              <input className={champ} value={f.adresse_depart} onChange={(e) => maj({ adresse_depart: e.target.value })} />
+              <ChampAdresse className={champ} value={f.adresse_depart} onChange={(v) => maj({ adresse_depart: v })} onChoisir={(a) => maj({ ville_depart: a.ville })} />
             </Champ>
             <Champ label="Adresse d'arrivée" erreur={err("dossier.adresse_arrivee")}>
-              <input className={champ} value={f.adresse_arrivee} onChange={(e) => maj({ adresse_arrivee: e.target.value })} />
+              <ChampAdresse
+                className={champ}
+                value={f.adresse_arrivee}
+                onChange={(v) => maj({ adresse_arrivee: v })}
+                onChoisir={(a) => maj({ ville_arrivee: a.ville, ...(photoChoisie ? {} : { photo: "" }) })}
+              />
             </Champ>
             <Champ label="Premier jour" erreur={err("dossier.periode_debut")}>
               <input className={champ} type="date" value={f.periode_debut} onChange={(e) => maj({ periode_debut: e.target.value, periode_fin: f.periode_fin && f.periode_fin >= e.target.value ? f.periode_fin : e.target.value })} />
