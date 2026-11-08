@@ -26,7 +26,8 @@ import {
   ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons, messageSchema,
   TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
 } from "@/lib/espace-client/schemas";
-import { exigerClientPourAgir, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo, refuserEnApercu } from "@/lib/espace-client/session";
+import { marqueEquipe, tracerEdition } from "@/lib/espace-client/edition";
+import { editionEquipe, exigerClientPourAgir, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo, refuserEnApercu } from "@/lib/espace-client/session";
 import { VERSIONS } from "@/lib/espace-client/textes";
 import type { Acceptation, Client, PieceJointe, TypeAcceptation } from "@/lib/espace-client/types";
 import { TEL_AGENCE } from "@/lib/messaging";
@@ -41,10 +42,21 @@ import { TEL_AGENCE } from "@/lib/messaging";
  *   4. l'écriture, par la clé de service, puis le message éventuel.
  * La clé publique, elle, n'écrit rien : la base le refuse.
  *
- * Pendant un aperçu de l'équipe (session.ts), toutes refusent, d'entrée :
- * celles du client par `exigerClientPourAgir` (dans `contexte`), celles de
- * la connexion par `refuserEnApercu` — un lien du client ne doit pas être
- * consommé, ni une session ouverte, depuis le navigateur de l'équipe.
+ * Pendant un aperçu de l'équipe (session.ts) :
+ *   - en lecture, toutes refusent, d'entrée : celles du client par
+ *     `exigerClientPourAgir` (dans `contexte`), les autres par
+ *     `refuserEnApercu` ;
+ *   - en édition (un super admin), les gestes du client passent, tracés
+ *     comme ceux de l'équipe (edition.ts) : ligne au fil d'activité du CRM,
+ *     marque dans l'enregistrement quand il peut la porter, et pas d'accusé
+ *     de réception au client comme s'il avait agi. Restent refusés, par
+ *     `refuserEnApercu` en tête : la connexion et les liens (un lien du
+ *     client ne doit jamais être consommé, ni une session ouverte, depuis le
+ *     navigateur de l'équipe), les paiements (l'équipe enregistre un
+ *     règlement dans le CRM, elle ne paie pas au nom du client), la
+ *     signature d'un devis et l'acceptation des CGV et du RGPD (un
+ *     consentement ne se donne pas pour autrui), et les messages écrits au
+ *     conseiller au nom du client.
  */
 
 export type EtatFormulaire = { ok?: boolean; erreurs?: Erreurs; message?: string };
@@ -57,11 +69,17 @@ async function contexte(reference: string) {
   return { client, dossier, conseiller: conseillerDe(d, client.conseiller_id), d };
 }
 
-/** D'où vient l'acceptation : adresse IP et navigateur, relevés par le serveur. */
+/**
+ * D'où vient l'acceptation : adresse IP et navigateur, relevés par le
+ * serveur. En édition par l'équipe, le navigateur porte la marque de l'équipe
+ * (qui, son adresse) : l'acceptation est la sienne, pas celle du client.
+ */
 async function traces() {
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "inconnue";
-  return { ip, user_agent: (h.get("user-agent") ?? "inconnu").slice(0, 400) };
+  const navigateur = h.get("user-agent") ?? "inconnu";
+  const e = await editionEquipe();
+  return { ip, user_agent: (e ? `${marqueEquipe(e)} · ${navigateur}` : navigateur).slice(0, 400) };
 }
 
 function acceptation(dossierId: string, type: Exclude<TypeAcceptation, "devis">, t: { ip: string; user_agent: string }): Acceptation {
@@ -213,11 +231,14 @@ export async function deposerPiece(reference: string, _: EtatFormulaire, fd: For
 
   const chemin = cheminFichier(dossier.id, fichier!.name);
   await deposerFichier(chemin, await octets(fichier!), fichier!.type);
+  // En édition, la pièce reste celle du client (elle compte pour son dossier), déposée par l'équipe : `created_by` le dit.
+  const edition = await editionEquipe();
   await depot().inserer("documents", {
     id: nouvelId(), dossier_id: dossier.id, categorie: piece?.pays ? "pays" : piece?.segment ? "segment" : piece ? "identite" : "autre", libelle, source: "client",
     chemin, nom_fichier: fichier!.name, taille_octets: fichier!.size, mime: fichier!.type, requirement_id: piece?.id ?? null,
-    created_by: client.id, created_at: maintenant(),
+    created_by: edition ? marqueEquipe(edition) : client.id, created_at: maintenant(),
   });
+  await tracerEdition(dossier, `Pièce « ${libelle} » déposée`);
   if (piece) await alerterSiPiecesCompletes(ctx, piece);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=piece#pieces`);
@@ -256,6 +277,7 @@ export async function enregistrerConditions(reference: string, _: EtatFormulaire
   if (existant) await depot().modifier("conditions_livraison", existant.id, ligne, { valide_at: null });
   else await depot().inserer("conditions_livraison", { id: nouvelId(), dossier_id: dossier.id, ...ligne });
   await depot().inserer("acceptations", acceptation(dossier.id, "conditions_livraison", t));
+  await tracerEdition(dossier, "Conditions de livraison validées");
   await alerterEquipe("conditions_validees", {
     evenement: `dossier-${dossier.id}-${ligne.valide_at}`, reference: dossier.reference, origine: "espace_client", conseillers: [conseiller.email],
     vars: { client: nomClient(client), reference: dossier.reference },
@@ -274,18 +296,23 @@ export async function soumettreDeclaration(reference: string, _: EtatFormulaire,
   const r = declarationValeursSchema.safeParse(lireDeclaration(fd));
   if (!r.success) return { erreurs: erreursDe(r.error) };
   const { declarant_nom, declarant_qualite, lieu, date, objets } = r.data;
-  const contenu = { declarant_nom, declarant_qualite, lieu, date, objets };
+  // En édition, la déclaration dit qui l'a saisie (dans son contenu, sans changer de schéma).
+  const edition = await editionEquipe();
+  const contenu = { declarant_nom, declarant_qualite, lieu, date, objets, ...(edition ? { saisie_equipe: { par: edition.par, email: edition.email, le: maintenant() } } : {}) };
   const total = Math.round(contenu.objets.reduce((n, o) => n + o.quantite * o.valeur_unitaire, 0) * 100) / 100;
   const t = await traces();
   const ligne = { contenu, total, statut: "soumise" as const, soumise_at: maintenant() };
   if (existante) await depot().modifier("declarations_valeurs", existante.id, ligne, { statut: "brouillon" });
   else await depot().inserer("declarations_valeurs", { id: nouvelId(), dossier_id: dossier.id, ...ligne });
   await depot().inserer("acceptations", acceptation(dossier.id, "declaration_valeurs", t));
+  await tracerEdition(dossier, `Déclaration de valeurs transmise (${total} €)`);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/documents?ok=valeurs#valeurs`);
 }
 
 export async function accepterConditionsGenerales(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
+  // Un consentement (CGV, RGPD) ne se donne pas pour autrui : refusé pendant tout aperçu, édition comprise.
+  await refuserEnApercu();
   const { dossier, d } = await contexte(reference);
   const r = acceptationsSchema.safeParse(lireAcceptations(fd));
   if (!r.success) return { erreurs: erreursDe(r.error) };
@@ -323,6 +350,7 @@ export async function planifierCartons(reference: string, _: EtatFormulaire, fd:
     });
   }
   if (dossier.cartons_non_necessaires) await depot().modifier("dossiers", dossier.id, { cartons_non_necessaires: false });
+  await tracerEdition(dossier, `Livraison de cartons ${existante ? "modifiée" : "demandée"} (samedi ${r.data.date_samedi})`);
 
   // L'e-mail à l'équipe, pour qu'elle saisisse le nombre de cartons : à ses abonnés.
   await avertirEquipe("cartons_demandes", `${dossier.id}-${r.data.date_samedi}-${maintenant()}`, conseiller.email, {
@@ -342,6 +370,7 @@ export async function planifierCartons(reference: string, _: EtatFormulaire, fd:
 export async function pasBesoinDeCartons(reference: string) {
   const { dossier } = await contexte(reference);
   await depot().modifier("dossiers", dossier.id, { cartons_non_necessaires: true });
+  await tracerEdition(dossier, "« Pas besoin de cartons » indiqué");
   rafraichir(reference);
   redirect(`/espace-client/${reference}?ok=sans-cartons#progression`);
 }
@@ -369,10 +398,14 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
       chemin: `/dashboard/espace-client/dossiers/${dossier.id}`, signature: { nom: "Espace client", role: "Message automatique", telephone: conseiller.telephone },
     },
   });
-  await notifier.envoyer({
-    dossier_id: dossier.id, canal: "email", modele: "avarie_recue", destinataire: client.email,
-    payload: { salutation: salutation(client), numero, objets: r.data.objets, chemin: `/espace-client/${dossier.reference}/sav`, signature },
-  });
+  // L'accusé de réception au client (« votre déclaration ») : pas quand c'est l'équipe qui la saisit pour lui.
+  const edition = await editionEquipe();
+  if (!edition) {
+    await notifier.envoyer({
+      dossier_id: dossier.id, canal: "email", modele: "avarie_recue", destinataire: client.email,
+      payload: { salutation: salutation(client), numero, objets: r.data.objets, chemin: `/espace-client/${dossier.reference}/sav`, signature },
+    });
+  }
   // Logement social : le bailleur est prévenu de chaque déclaration (cahier des charges, §2).
   if (client.type === "logement_social" && dossier.bailleur_email) {
     await notifier.envoyer({
@@ -384,7 +417,8 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
       },
     });
   }
-  await noterDansLeCrm(dossier.crm_dossier_id, `Avarie déclarée par le client dans son espace (${numero}) : ${r.data.objets}`);
+  if (edition) await tracerEdition(dossier, `Avarie déclarée (${numero}) : ${r.data.objets}`);
+  else await noterDansLeCrm(dossier.crm_dossier_id, `Avarie déclarée par le client dans son espace (${numero}) : ${r.data.objets}`);
   rafraichir(reference);
   redirect(`/espace-client/${reference}/sav?ok=avarie`);
 }
@@ -392,6 +426,8 @@ export async function declarerAvarie(reference: string, _: EtatFormulaire, fd: F
 // --- Paiements ---------------------------------------------------------------------------------
 
 export async function payerArrhes(reference: string, devisId: string) {
+  // L'équipe enregistre un règlement dans le CRM ; elle ne paie jamais au nom du client.
+  await refuserEnApercu();
   const { client, dossier, d } = await contexte(reference);
   // Grands comptes et militaires ne règlent rien en ligne (cahier des charges, §3.3).
   if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Paiement des arrhes indisponible pour ce compte.");
@@ -414,6 +450,8 @@ export async function payerArrhes(reference: string, devisId: string) {
  * par la projection.
  */
 export async function accepterDevis(reference: string, devisId: string) {
+  // Une signature est l'engagement du client : refusée pendant tout aperçu (l'équipe signe dans le CRM).
+  await refuserEnApercu();
   const { client, dossier, d } = await contexte(reference);
   if (!segmentDe(client.type).paieEnLigne || client.masquer_devis) throw new Error("Acceptation indisponible pour ce compte.");
   const devis = d.devis.find((x) => x.id === devisId && x.dossier_id === dossier.id);
@@ -441,6 +479,8 @@ export async function accepterDevis(reference: string, devisId: string) {
 }
 
 export async function payerFacture(reference: string, factureId: string) {
+  // L'équipe enregistre un règlement dans le CRM ; elle ne paie jamais au nom du client.
+  await refuserEnApercu();
   const { client, dossier, d } = await contexte(reference);
   if (client.masquer_factures) throw new Error("Factures indisponibles pour ce compte.");
   const f = d.factures.find((x) => x.id === factureId && x.dossier_id === dossier.id);
@@ -478,6 +518,8 @@ export async function issuePaiementSimule(sessionId: string, fd: FormData) {
 // --- Contact -----------------------------------------------------------------------------------
 
 export async function ecrireAuConseiller(reference: string, _: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
+  // Un message signé du client : l'équipe ne l'écrit pas à sa place.
+  await refuserEnApercu();
   const { client, dossier, conseiller } = await contexte(reference);
   const r = messageSchema.safeParse({ message: fd.get("message") });
   if (!r.success) return { erreurs: erreursDe(r.error) };
@@ -496,5 +538,6 @@ export async function demanderService(reference: string, serviceId: string) {
     dossier_id: dossier.id, canal: "email", modele: "service_demande",
     payload: { client: nomClient(client), email: client.email, telephone_client: client.telephone, reference: dossier.reference, service: service.titre, signature: { nom: "Espace client", role: "Message automatique", telephone: conseiller.telephone } },
   });
+  await tracerEdition(dossier, `Service « ${service.titre} » demandé`);
   redirect(`/espace-client/${reference}/services?ok=service`);
 }

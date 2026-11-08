@@ -6,7 +6,8 @@ import { emailEquipe } from "@/lib/espace-client/config";
 import { nomClient } from "@/lib/espace-client/format";
 import { conseillerDe } from "@/lib/espace-client/lectures";
 import { notifier } from "@/lib/espace-client/notifier";
-import { exigerClientPourAgir, lireDonneesClient } from "@/lib/espace-client/session";
+import { tracerEdition } from "@/lib/espace-client/edition";
+import { exigerClientPourAgir, lireDonneesClient, refuserEnApercu } from "@/lib/espace-client/session";
 import { choisirCreneauCrm, demanderCreneauxCrm } from "@/lib/espace-client/visite";
 
 /*
@@ -15,8 +16,12 @@ import { choisirCreneauCrm, demanderCreneauxCrm } from "@/lib/espace-client/visi
  * le chemin : la session, la propriété du dossier — cherché dans ce que la
  * RLS rend au client —, puis l'écriture, ici par les fonctions de la
  * migration 0015, qui réservent dans le CRM sous verrou et revérifient que
- * le créneau est bien à ce client. Pendant un aperçu de l'équipe, elles
- * refusent d'entrée (exigerClientPourAgir).
+ * le créneau est bien à ce client.
+ *
+ * Pendant un aperçu de l'équipe : en lecture, elles refusent d'entrée
+ * (exigerClientPourAgir). En édition, le choix d'un créneau passe, noté au fil
+ * d'activité comme un geste de l'équipe ; « aucun créneau ne convient » reste
+ * refusé : c'est un message au conseiller écrit au nom du client.
  */
 
 async function contexte(reference: string) {
@@ -35,6 +40,7 @@ export async function choisirCreneau(reference: string, creneauId: string) {
   const creneau = (d.creneaux ?? []).find((c) => c.id === creneauId && c.dossier_id === dossier.id && c.statut === "propose");
   if (!creneau) redirect(`/espace-client/${reference}/visite?indisponible=1`);
   const issue = await choisirCreneauCrm(creneau.id, client.id);
+  await tracerEdition(dossier, `Créneau de visite choisi (${issue === "reserve" ? "réservé" : `refusé : ${issue}`})`);
   rafraichir(reference);
   redirect(issue === "reserve" ? `/espace-client/${reference}/visite?ok=visite-reservee` : `/espace-client/${reference}/visite?indisponible=1`);
 }
@@ -45,6 +51,7 @@ export async function choisirCreneau(reference: string, creneauId: string) {
  * un message écrit depuis l'espace.
  */
 export async function demanderAutresCreneaux(reference: string, fd: FormData) {
+  await refuserEnApercu();
   const { client, dossier, conseiller } = await contexte(reference);
   const precision = String(fd.get("message") ?? "").replace(/\s+\n/g, "\n").trim().slice(0, 600);
   await demanderCreneauxCrm(dossier.id, client.id, precision);
