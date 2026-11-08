@@ -8,6 +8,7 @@ import { q1 } from "@/crm/lib/db";
 import { parcoursDossier } from "@/crm/parcours/donnees";
 import { sousStatut } from "@/crm/parcours/demandes-commun";
 import { etapesDeLaDemande } from "@/crm/parcours/etapes";
+import { araigneeDeLaDemande } from "@/crm/demandes/donnees";
 import RequestDetail from "./RequestDetail";
 
 export const dynamic = "force-dynamic";
@@ -74,9 +75,15 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
     ? { etapes: duDossier.etapes, perdu: dossierCrm!.statut === "perdu", dossier: true }
     : { etapes: etapesDeLaDemande({ le: demande.created_at, source: demande.source, statut: demande.status, qualifieLe }), perdu: demande.status === "lost" || demande.status === "archived", dossier: false };
 
+  // L'araignée de la demande (carte Évaluation), la même que dans Demandes › Top demandes ; jamais bloquante.
+  const araignee = await araigneeDeLaDemande(id).catch((e) => {
+    console.error("Demande : araignée illisible", e instanceof Error ? e.message : e);
+    return null;
+  });
+
   return (
     <div>
-      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} parcours={parcours} />
+      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} parcours={parcours} araignee={araignee} />
     </div>
   );
 }

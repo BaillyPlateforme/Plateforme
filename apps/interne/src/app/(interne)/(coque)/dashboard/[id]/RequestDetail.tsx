@@ -14,6 +14,8 @@ import TrajetMap from "@/components/TrajetMap";
 import LigneParcours from "@/crm/parcours/LigneParcours";
 import DecisionDemande from "@/crm/parcours/DecisionDemande";
 import type { Etape } from "@/crm/parcours/etapes";
+import Radar from "@/crm/demandes/Radar";
+import { AXES, basePrestige, type Araignee } from "@/crm/demandes/araignee";
 import MenuActions from "@/ui/MenuActions";
 import { Icone, type NomIcone } from "@/ui/icones";
 import EnTeteSection from "../EnTeteSection";
@@ -59,6 +61,7 @@ export default function RequestDetail({
   espaceClient,
   dossierCrm,
   parcours,
+  araignee,
 }: {
   detail: Detail;
   photoUrls: Record<string, string>;
@@ -68,6 +71,8 @@ export default function RequestDetail({
   dossierCrm: { id: number; ref: string; statut: string } | null;
   /** Les étapes du parcours : celles du dossier si la demande est acceptée, sinon la demande en première étape. */
   parcours: { etapes: Etape[]; perdu: boolean; dossier: boolean };
+  /** L'araignée de la demande (six axes), celle de Demandes › Top demandes. */
+  araignee: Araignee | null;
 }) {
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
@@ -133,7 +138,7 @@ export default function RequestDetail({
       </nav>
 
       <div className={s.panneau} role="tabpanel" aria-label={tab}>
-        {tab === "Infos" && <InfosTab detail={detail} />}
+        {tab === "Infos" && <InfosTab detail={detail} araignee={araignee} />}
         {tab === "Analyse" && <AnalyseTab detail={detail} />}
         {tab === "Trajet" && (
           <Card title="Trajet">
@@ -155,7 +160,7 @@ export default function RequestDetail({
 
 /* ---------- Onglet Infos ---------- */
 
-function InfosTab({ detail }: { detail: Detail }) {
+function InfosTab({ detail, araignee }: { detail: Detail; araignee: Araignee | null }) {
   const r = detail.request;
   const [notes, setNotes] = useState(r.score_notes ?? "");
   const [pending, start] = useTransition();
@@ -217,6 +222,24 @@ function InfosTab({ detail }: { detail: Detail }) {
             </div>
           </div>
           <p className="text-xs text-ink-soft">Calculé automatiquement à la qualification. Détail dans l&apos;onglet <span className="font-medium text-ink">Analyse</span>.</p>
+          {/* L'araignée de la demande : la même que dans Demandes › Top demandes, six axes de 0 (centre) à 100 (bord). */}
+          {araignee && (
+            <div className={s.araignee}>
+              <Radar araignee={araignee} taille={260} libelles />
+              <p className={s.prestige}>{basePrestige(araignee.prestige)}</p>
+              <details className={s.regles}>
+                <summary>Comment se lit l&apos;araignée</summary>
+                <dl>
+                  {AXES.map((x) => (
+                    <div key={x.cle}>
+                      <dt>{x.label}</dt>
+                      <dd>{x.regle}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            </div>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium">Notes internes</label>
             <textarea
