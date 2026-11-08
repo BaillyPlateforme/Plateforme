@@ -11,7 +11,7 @@ import s from "./relances.module.css";
 /*
  * Le Kanban des relances : à venir, aujourd'hui, en retard, envoyées,
  * désactivées. Chaque carte se repousse, s'annule ou part tout de suite. Les
- * règles se règlent dans la configuration de la section.
+ * règles se règlent dans Réglages › Règles des relances.
  */
 
 const jourFr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
