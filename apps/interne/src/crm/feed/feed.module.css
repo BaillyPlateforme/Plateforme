@@ -78,8 +78,8 @@
 /* Le titre du jour reste en haut tant que son jour défile. */
 .jourTitre {
   position: sticky;
-  /* Sous les deux étages du haut de la coque (et leur ligne d'aide). */
-  top: 164px;
+  /* Juste sous les deux étages du haut de la coque (et leur ligne d'aide) : rien ne passe entre les deux. */
+  top: 157px;
   z-index: 2;
   display: flex;
   align-items: baseline;

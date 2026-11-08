@@ -305,7 +305,7 @@ export function phraseDe(src: string, d: D, contexte: Contexte): Phrase {
 /** L'icône et la couleur d'une ligne du fil d'un dossier, d'après son type. */
 export function habillageActivite(genre: string, libelle: string, suppression = false): Pick<Phrase, "icone" | "ton"> {
   if (suppression || genre === "suppression") return { icone: "corbeille", ton: "rouge" };
-  if (/sign|accept/i.test(libelle)) return { icone: "signature", ton: "vert" };
+  if (/(\bsignée?s?\b|\bacceptée?s?\b)/i.test(libelle)) return { icone: "signature", ton: "vert" };
   switch (genre) {
     case "relance":
       return { icone: "cloche", ton: "ambre" };

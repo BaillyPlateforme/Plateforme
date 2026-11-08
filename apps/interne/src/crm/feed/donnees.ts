@@ -208,6 +208,8 @@ function acteurDe(l: Ligne, personnes: Map<string, string | null>): Evenement["a
     l.acteur_nom?.trim() ||
     (l.acteur_email ? personnes.get(l.acteur_email) || l.acteur_email : null) ||
     (l.acteur_type === "client" ? "Le client" : "L’équipe");
+  // Un geste de l'équipe sans auteur connu (les plus anciens) : l'avatar de l'équipe, pas des initiales.
+  if (nom === "L’équipe") return { type: "staff", nom, initiales: "" };
   const ini = nom.includes("@") ? nom.slice(0, 2).toUpperCase() : initiales(nom);
   return { type: l.acteur_type, nom, initiales: ini || "B" };
 }

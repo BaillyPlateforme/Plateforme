@@ -202,7 +202,7 @@ function Acteur({ acteur }: { acteur: Evenement["acteur"] }) {
     );
   return (
     <span className={s.acteur} data-type="staff">
-      <i>{acteur.initiales}</i>
+      <i>{acteur.initiales || <Icone nom="equipe" taille={12} />}</i>
       {acteur.nom}
     </span>
   );
