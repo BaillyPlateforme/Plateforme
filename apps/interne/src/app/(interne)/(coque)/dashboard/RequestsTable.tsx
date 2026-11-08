@@ -1,37 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { RequestRow, RequestStatus } from "@/lib/types";
-import { STATUS_META, STATUS_ORDER, scoreColor, sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE } from "./status";
+import type { RequestRow } from "@/lib/types";
+import type { Filtres } from "./FiltresDemandes";
+import { STATUS_META, scoreColor, sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE } from "./status";
 
-type SortKey = "date" | "potentiel" | "difficulte" | "volume" | "estimation";
-/** D'où vient la demande : le formulaire du site, ou un mail reçu (l'ancienne « Messagerie » de la section). */
-export type Origine = "all" | "form" | "email";
-
-export default function RequestsTable({
-  requests,
-  initialQ = "",
-  initialStatut = "all",
-  initialOrigine = "all",
-}: {
-  requests: RequestRow[];
-  initialQ?: string;
-  initialStatut?: RequestStatus | "all";
-  initialOrigine?: Origine;
-}) {
+/**
+ * La liste des demandes, filtrée et triée. Ses filtres (recherche, statut,
+ * origine, tri) sont dans la rangée basse du bandeau (FiltresDemandes) :
+ * l'adresse les porte, la page les lit et les passe ici.
+ */
+export default function RequestsTable({ requests, filtres }: { requests: RequestRow[]; filtres: Filtres }) {
   const router = useRouter();
-  const [q, setQ] = useState(initialQ);
-  const [status, setStatus] = useState<RequestStatus | "all">(initialStatut);
-  const [origine, setOrigine] = useState<Origine>(initialOrigine);
-  const [sort, setSort] = useState<SortKey>("date");
+  const { q, statut: status, origine, tri: sort } = filtres;
 
   const rows = useMemo(() => {
     let out = requests;
     if (status !== "all") out = out.filter((r) => r.status === status);
     if (origine !== "all") out = out.filter((r) => r.source === origine);
     if (q.trim()) {
-      const needle = q.toLowerCase();
+      const needle = q.trim().toLowerCase();
       out = out.filter((r) =>
         [r.client_nom, r.client_email, r.depart_ville, r.arrivee_ville]
           .filter(Boolean)
@@ -53,50 +42,6 @@ export default function RequestsTable({
 
   return (
     <div>
-      {/* Barre d'outils */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Rechercher un client, une ville…"
-          className="w-64 rounded-xl border border-line bg-card px-3.5 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-        />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as RequestStatus | "all")}
-          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
-        >
-          <option value="all">Tous les statuts</option>
-          {STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_META[s].label}
-            </option>
-          ))}
-        </select>
-        <select
-          value={origine}
-          onChange={(e) => setOrigine(e.target.value as Origine)}
-          aria-label="Origine de la demande"
-          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
-        >
-          <option value="all">Toutes les origines</option>
-          <option value="form">{sourceLabel("form")}</option>
-          <option value="email">{sourceLabel("email")}</option>
-        </select>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded-xl border border-line bg-card px-3 py-2 text-sm outline-none focus:border-accent"
-        >
-          <option value="date">Tri : récentes</option>
-          <option value="potentiel">Tri : potentiel</option>
-          <option value="difficulte">Tri : difficulté</option>
-          <option value="volume">Tri : volume</option>
-          <option value="estimation">Tri : estimation</option>
-        </select>
-        <span className="ml-auto text-sm text-ink-soft">{rows.length} résultat(s)</span>
-      </div>
-
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-line p-12 text-center text-ink-soft">
           Aucune demande.

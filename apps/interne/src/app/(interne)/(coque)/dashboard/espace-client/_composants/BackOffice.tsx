@@ -54,8 +54,8 @@ export function BackOffice({ porte, vue, id }: { porte: Porte; vue: Vue; id?: st
   const [apercu, setApercu] = useState<string | null>(null);
   return (
     <PorteProvider value={porte}>
-      {/* Dans le CRM, le bandeau de la section porte les vues (EnTeteEspace) : plus d'onglets dans la page ;
-          la démo sans connexion garde les siens. */}
+      {/* Dans le CRM, les vues sont dans le menu de gauche de la section et le bandeau est celui d'EnTeteEspace :
+          plus d'onglets dans la page ; la démo sans connexion garde les siens. */}
       <div className={porte.demo ? "px-5 py-5 md:px-7 md:py-6" : undefined}>
         {porte.demo && (
           <>

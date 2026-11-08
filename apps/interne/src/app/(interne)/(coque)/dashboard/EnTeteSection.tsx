@@ -1,8 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
-import { ongletActif, sectionDe, type Onglet } from "@/crm/sections";
+import { ongletActifDe, sectionDe, type Onglet } from "@/crm/sections";
 import MenuReglages from "@/crm/reglages/MenuReglages";
 import { pageReglageDe } from "@/crm/reglages/pages";
 import Bandeau from "@/ui/Bandeau";
@@ -18,8 +18,10 @@ type Contenu = {
   etiquettes?: (string | false | null | undefined)[];
   /** Les boutons de la page (statut, envoi…), posés dans le bandeau. */
   children?: React.ReactNode;
-  /** La rangée du bas du bandeau : les filtres et les vues de la page (jamais des sous-onglets). */
+  /** La rangée du bas du bandeau : les filtres de la page, et eux seuls (les vues vont dans le menu de gauche). */
   bas?: React.ReactNode;
+  /** Les nombres du menu de gauche, par adresse d'onglet, quand la page les a déjà comptés. */
+  nombres?: Record<string, number | undefined>;
 };
 
 /*
@@ -97,6 +99,9 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/tableau-de-bord": "bord",
   "/dashboard/leads": "tendance",
   "/dashboard": "boite",
+  "/dashboard?vue=focus": "etoile",
+  "/dashboard?vue=kanban": "kanban",
+  "/dashboard?vue=rappels": "horloge",
   "/dashboard/rappels": "horloge",
   "/dashboard/statistiques": "tendance",
   "/dashboard/espaces-pro": "equipe",
@@ -110,7 +115,7 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/playground": "copilote",
   "/dashboard/espace-client": "dossierClient",
   "/dashboard/espace-client/nouveau": "plus",
-  "/dashboard/espace-client/cartons": "boite",
+  "/dashboard/espace-client/cartons": "caisse",
   "/dashboard/espace-client/sav": "cloche",
   "/dashboard/espace-client/destinations": "grille",
   "/dashboard/espace-client/journal": "courrier",
@@ -121,15 +126,24 @@ const ICONES: Record<string, NomIcone> = {
   "/dashboard/envois": "courrier",
 };
 
-/** Le menu vertical de la section courante : ses onglets, puis « Plus » ; pour Réglages, le menu unique de Réglages. */
+/**
+ * Le menu vertical de la section courante : ses onglets — les vues de ses
+ * pages —, puis « Plus » ; pour Réglages, le menu unique de Réglages.
+ * L'onglet actif suit l'adresse et la vue demandée (?vue=) ; les nombres
+ * sont ceux que la page a confiés au bandeau.
+ */
 export function MenuDeSection() {
   const chemin = usePathname();
+  const vue = useSearchParams().get("vue");
+  const perso = useContext(Valeur);
   const section = sectionDe(chemin);
   if (!section) return null;
   if (section.cle === "reglages") return <MenuReglages />;
-  // Une section sans onglets (Demandes, Espace client) : pas de menu, la page prend toute la largeur.
+  // Une section sans onglets : pas de menu, la page prend toute la largeur.
   if (!section.onglets.length && !section.plus?.length) return null;
-  const item = (o: Onglet) => ({ href: o.href, label: o.label, icone: ICONES[o.href], actif: ongletActif(o, chemin) });
+  const actif = ongletActifDe(section, chemin, vue);
+  const nombres = perso && perso.chemin === chemin ? perso.contenu.nombres : undefined;
+  const item = (o: Onglet) => ({ href: o.href, label: o.label, icone: ICONES[o.href], actif: o === actif, nombre: nombres?.[o.href] });
   return (
     <MenuVertical
       titre={section.nom}

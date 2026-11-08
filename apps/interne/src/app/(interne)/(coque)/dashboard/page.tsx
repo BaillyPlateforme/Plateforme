@@ -4,10 +4,10 @@ import { useSearchParams } from "next/navigation";
 import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import type { CarteRappel } from "@/lib/rappels";
-import type { RequestRow, RequestStatus } from "@/lib/types";
-import { Pilules } from "@/ui/Bandeau";
+import type { RequestRow } from "@/lib/types";
 import EnTeteSection from "./EnTeteSection";
-import RequestsTable, { type Origine } from "./RequestsTable";
+import FiltresDemandes, { lireFiltres } from "./FiltresDemandes";
+import RequestsTable from "./RequestsTable";
 import KanbanBoard from "./KanbanBoard";
 import FocusVue, { SEUIL } from "./FocusVue";
 import RappelsBoard from "./RappelsBoard";
@@ -15,37 +15,34 @@ import { META } from "./nav-meta";
 
 /*
  * Les demandes du site : une seule boîte (simplification du 08/11/2026).
- * Ses façons de regarder les demandes sont des pilules dans la rangée du bas
- * du bandeau : la liste (filtrable par statut et par origine, formulaire ou
- * mail), le focus, le kanban, et les rappels — les clients qui ont demandé à
- * être rappelés, qui avaient leur page (/dashboard/rappels).
+ * Ses façons de regarder les demandes sont ses vues, dans le menu de gauche
+ * de la section (crm/sections.ts, ?vue=) : la liste, le focus, le kanban, et
+ * les rappels — les clients qui ont demandé à être rappelés, qui avaient
+ * leur page (/dashboard/rappels). La page leur confie leurs nombres. Les
+ * filtres de la liste (recherche, statut, origine — formulaire ou mail —,
+ * tri) restent dans la rangée basse du bandeau.
  */
 type Vue = "liste" | "focus" | "kanban" | "rappels";
-const VUES: { cle: Vue; label: string }[] = [
-  { cle: "liste", label: "Liste" },
-  { cle: "focus", label: "Focus" },
-  { cle: "kanban", label: "Kanban" },
-  { cle: "rappels", label: "Rappels" },
-];
+const VUES: Vue[] = ["liste", "focus", "kanban", "rappels"];
 const OUVERTS = ["a_rappeler", "en_cours"];
 
 export default function DemandesPage() {
   const params = useSearchParams();
   const demande = params.get("vue");
-  const vue: Vue = VUES.some((v) => v.cle === demande) ? (demande as Vue) : "liste";
+  const vue: Vue = VUES.includes(demande as Vue) ? (demande as Vue) : "liste";
 
   const { donnees, erreur, recharger } = useRessource<{ requests: RequestRow[] }>("/api/data/demandes");
   const rappels = useRessource<{ rappels: CarteRappel[] }>("/api/data/rappels");
   const requests = donnees?.requests ?? [];
 
-  const compteur: Record<Vue, number | undefined> = {
-    liste: donnees ? requests.length : undefined,
-    focus: donnees ? requests.filter((r) => (r.score_potentiel ?? 0) >= SEUIL && !["lost", "archived"].includes(r.status)).length : undefined,
-    kanban: donnees ? requests.filter((r) => r.status !== "archived").length : undefined,
-    rappels: rappels.donnees ? rappels.donnees.rappels.filter((r) => OUVERTS.includes(r.statut)).length : undefined,
+  // Les nombres du menu, par adresse d'onglet (les onglets de la section Demandes).
+  const nombres: Record<string, number | undefined> = {
+    "/dashboard": donnees ? requests.length : undefined,
+    "/dashboard?vue=focus": donnees ? requests.filter((r) => (r.score_potentiel ?? 0) >= SEUIL && !["lost", "archived"].includes(r.status)).length : undefined,
+    "/dashboard?vue=kanban": donnees ? requests.filter((r) => r.status !== "archived").length : undefined,
+    "/dashboard?vue=rappels": rappels.donnees ? rappels.donnees.rappels.filter((r) => OUVERTS.includes(r.statut)).length : undefined,
   };
 
-  const origine = params.get("source");
   return (
     <div>
       <EnTeteSection
@@ -53,17 +50,8 @@ export default function DemandesPage() {
         surtitre="Dossiers · Demandes du site"
         titre="Demandes"
         texte={vue === "rappels" ? META["/dashboard/rappels"].sous : META["/dashboard"].sous}
-        bas={
-          <Pilules
-            label="Vues des demandes"
-            items={VUES.map((v) => ({
-              href: v.cle === "liste" ? "/dashboard" : `/dashboard?vue=${v.cle}`,
-              label: v.label,
-              actif: v.cle === vue,
-              nombre: compteur[v.cle],
-            }))}
-          />
-        }
+        nombres={nombres}
+        bas={vue === "liste" ? <FiltresDemandes /> : undefined}
       />
 
       {vue === "rappels" ? (
@@ -79,14 +67,7 @@ export default function DemandesPage() {
       ) : !donnees ? (
         <Squelette lignes={8} />
       ) : vue === "liste" ? (
-        <RequestsTable
-          // Une nouvelle adresse (?statut=, ?source=, ?q=) repart de ses filtres.
-          key={params.toString()}
-          requests={requests}
-          initialQ={params.get("q") ?? ""}
-          initialStatut={(params.get("statut") as RequestStatus) ?? "all"}
-          initialOrigine={origine === "email" || origine === "form" ? (origine as Origine) : "all"}
-        />
+        <RequestsTable requests={requests} filtres={lireFiltres(params)} />
       ) : vue === "focus" ? (
         <FocusVue requests={requests} />
       ) : (

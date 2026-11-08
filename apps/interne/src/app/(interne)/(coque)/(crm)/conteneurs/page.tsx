@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { dateFr, eur, m3 } from "@/crm/lib/format";
 import { compteursConteneurs, listeConteneurs, type ConteneurListe } from "@/crm/conteneurs/donnees";
 import { nombrePlans } from "@/crm/dispatch/donnees";
@@ -17,8 +18,9 @@ export const metadata = { title: "Conteneurs" };
  * Les conteneurs (Créagidem : liste groupée Export / Import, ou dans l'ordre
  * chronologique) : trajet, navire, remplissage, avancement des jalons, marge
  * et alertes du contrôle d'incohérences. « Nouveau conteneur » ouvre la
- * saisie complète ; le dispatch international est l'autre vue de la page
- * (pilules « Conteneurs · Dispatch » du bandeau).
+ * saisie complète ; le dispatch international est l'autre vue de la page,
+ * dans le menu de gauche (« Conteneurs · Dispatch ») ; les filtres (en cours,
+ * livrés, tous) et la recherche restent dans la rangée basse du bandeau.
  *
  * Simplification du 08/11/2026 : les filtres Export et Import doublaient les
  * deux groupes de la liste ; ils ne sont plus proposés (l'adresse
@@ -132,7 +134,6 @@ export default async function Conteneurs({ searchParams }: { searchParams: Promi
         action={{ label: "Nouveau conteneur", href: "/conteneurs/nouveau", icone: "plus" }}
         bas={
           <BarreBas>
-            <VuesConteneurs vue="conteneurs" conteneurs={n.tous} plans={plans} />
             <Pilules label="Filtrer les conteneurs" items={PROPOSEES.map((v) => ({ href: lien({ vue: v === "cours" ? undefined : v }), label: VUES[v], actif: vue === v, nombre: nombres[v] }))} />
             <RechercheVerre action="/conteneurs" valeur={sp.q} placeholder="Numéro, navire, client, destination…" garder={{ vue: vue === "cours" ? undefined : vue, ordre: sp.ordre }} />
           </BarreBas>
@@ -142,30 +143,32 @@ export default async function Conteneurs({ searchParams }: { searchParams: Promi
           {chrono ? "Grouper Export / Import" : "Ordre chronologique"}
         </Link>
       </Bandeau>
-      <div className={u.ecran}>
-        {sp.ok === "supprime" && <p className={u.message}>Conteneur supprimé.</p>}
-        {rows.length === 0 && (
-          <div className={`${u.carte} ${u.vide}`}>
-            <i>
-              <Icone nom="bateau" taille={24} />
-            </i>
-            <b>{sp.q ? "Aucun conteneur ne correspond." : "Aucun conteneur ici."}</b>
-            <Link href="/conteneurs/nouveau" className={u.lien}>
-              Saisir un conteneur
-            </Link>
-          </div>
-        )}
-        {groupes.map((g) => (
-          <section key={g.titre} className={s.groupe}>
-            <h2 className={s.groupeTitre}>
-              {g.titre} <small>{g.lignes.length}</small>
-            </h2>
-            {g.lignes.map((c) => (
-              <Carte key={c.id} c={c} />
-            ))}
-          </section>
-        ))}
-      </div>
+      <AvecMenu menu={<VuesConteneurs vue="conteneurs" conteneurs={n.tous} plans={plans} />}>
+        <div className={u.ecran}>
+          {sp.ok === "supprime" && <p className={u.message}>Conteneur supprimé.</p>}
+          {rows.length === 0 && (
+            <div className={`${u.carte} ${u.vide}`}>
+              <i>
+                <Icone nom="bateau" taille={24} />
+              </i>
+              <b>{sp.q ? "Aucun conteneur ne correspond." : "Aucun conteneur ici."}</b>
+              <Link href="/conteneurs/nouveau" className={u.lien}>
+                Saisir un conteneur
+              </Link>
+            </div>
+          )}
+          {groupes.map((g) => (
+            <section key={g.titre} className={s.groupe}>
+              <h2 className={s.groupeTitre}>
+                {g.titre} <small>{g.lignes.length}</small>
+              </h2>
+              {g.lignes.map((c) => (
+                <Carte key={c.id} c={c} />
+              ))}
+            </section>
+          ))}
+        </div>
+      </AvecMenu>
     </div>
   );
 }

@@ -21,13 +21,35 @@ export type Section = {
 };
 
 /*
- * Simplification du 08/11/2026 : les demandes et l'espace client n'ont plus
- * de sous-onglets (leurs vues sont des filtres dans le bandeau) ; tout ce qui
+ * Les vues d'une page vont dans le menu vertical à gauche, jamais dans le
+ * bandeau (décision de David du 08/11/2026) ; le bandeau ne garde que les
+ * filtres. Les vues des demandes sont des vues d'une même page (?vue=) : la
+ * liste, le focus, le kanban et les rappels. Celles de l'espace client sont
+ * trois pages : les dossiers, les cartons du samedi et le SAV. Tout ce qui
  * règle l'outil est dans Réglages, un seul menu vertical.
  */
 export const SECTIONS: Section[] = [
-  { cle: "demandes", nom: "Demandes", accueil: "/dashboard", onglets: [] },
-  { cle: "espace-client", nom: "Espace client", accueil: "/dashboard/espace-client", onglets: [] },
+  {
+    cle: "demandes",
+    nom: "Demandes",
+    accueil: "/dashboard",
+    onglets: [
+      { href: "/dashboard", label: "Liste" },
+      { href: "/dashboard?vue=focus", label: "Focus" },
+      { href: "/dashboard?vue=kanban", label: "Kanban" },
+      { href: "/dashboard?vue=rappels", label: "Rappels" },
+    ],
+  },
+  {
+    cle: "espace-client",
+    nom: "Espace client",
+    accueil: "/dashboard/espace-client",
+    onglets: [
+      { href: "/dashboard/espace-client", label: "Dossiers" },
+      { href: "/dashboard/espace-client/cartons", label: "Cartons du samedi" },
+      { href: "/dashboard/espace-client/sav", label: "SAV" },
+    ],
+  },
   {
     cle: "reglages",
     nom: "Réglages",
@@ -66,9 +88,24 @@ export function sectionDe(chemin: string): Section | null {
 export function ongletActif(o: Onglet, chemin: string): boolean {
   if (chemin === o.href) return true;
   if (o.prefixe && chemin.startsWith(`${o.href}/`)) return true;
-  // La fiche d'une demande (/dashboard/<uuid>) et les vues Kanban et Focus relèvent des Demandes.
-  if (o.href === "/dashboard") return /^\/dashboard\/([0-9a-f-]{8,}|kanban|focus)(\/|$)/.test(chemin);
+  // La fiche d'une demande (/dashboard/<uuid>) et l'historique d'un client, ouvert depuis elle, relèvent de la liste.
+  if (o.href === "/dashboard") return /^\/dashboard\/([0-9a-f-]{8,}|clients)(\/|$)/.test(chemin);
   // La fiche d'un dossier client relève des Dossiers.
   if (o.href === "/dashboard/espace-client") return chemin.startsWith("/dashboard/espace-client/dossiers/");
   return false;
+}
+
+/**
+ * L'onglet actif d'une section, compte tenu de la vue demandée : un onglet
+ * qui nomme une vue de sa page (« /dashboard?vue=focus ») l'emporte quand
+ * l'adresse est la sienne ; sinon, l'onglet de l'adresse, s'il y en a un
+ * (« /dashboard » pour la liste, vue par défaut).
+ */
+export function ongletActifDe(section: Section, chemin: string, vue: string | null): Onglet | undefined {
+  const onglets = [...section.onglets, ...(section.plus ?? [])];
+  const parVue = onglets.find((o) => {
+    const [base, recherche] = o.href.split("?");
+    return recherche !== undefined && base === chemin && new URLSearchParams(recherche).get("vue") === vue;
+  });
+  return parVue ?? onglets.find((o) => !o.href.includes("?") && ongletActif(o, chemin));
 }
