@@ -553,7 +553,7 @@
   font-weight: 750;
 }
 
-/* ───────── Rangée du bas du bandeau : les vues, un filet, puis les filtres ───────── */
+/* ───────── Rangée du bas du bandeau : les filtres (les vues sont au menu de gauche) ───────── */
 /* Sur un écran étroit, la rangée défile plutôt que de déborder de la bande. */
 .bas {
   display: flex;
@@ -569,11 +569,4 @@
 }
 .bas > nav {
   flex-shrink: 0;
-}
-.separateurBas {
-  flex: none;
-  width: 1px;
-  height: 26px;
-  margin: 0 2px;
-  background: rgba(255, 255, 255, 0.28);
 }
