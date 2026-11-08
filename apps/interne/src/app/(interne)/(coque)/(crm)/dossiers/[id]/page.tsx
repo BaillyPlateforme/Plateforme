@@ -15,6 +15,7 @@ import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sect
 import Fiche from "@/crm/fiche/Fiche";
 import { parcoursDossier } from "@/crm/parcours/donnees";
 import LigneParcours from "@/crm/parcours/LigneParcours";
+import FilClient from "@/crm/discussion/FilClient";
 import { estSuperAdmin } from "@/lib/droits";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +128,9 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
       )}
 
       {d.statut === "perdu" && <div className="alert">Ce dossier est marqué perdu. Il reste consultable et peut être rouvert.</div>}
+
+      {/* La discussion avec le client, quand il a un espace : repliée, ouverte d'elle-même s'il a écrit sans réponse. */}
+      {espace[0] && <FilClient dossierId={espace[0].id} client={nomClient(d)} />}
 
       <Fiche dossierId={id} {...fiche} />
     </div>

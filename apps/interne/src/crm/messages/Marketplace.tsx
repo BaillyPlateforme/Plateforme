@@ -278,7 +278,12 @@ function Editeur({ carte, tester, bloquee, fermer }: { carte: CarteVue; tester: 
             </>
           ) : (
             <>
-              {carte.aValider && <p className={s.aide}><b>Texte à valider.</b> Ce type de message n&apos;a pas encore de texte validé par Bailly : rédigez-le, enregistrez-le, puis activez la carte.</p>}
+              {carte.aValider &&
+                (carte.corps.trim() ? (
+                  <p className={s.aide}><b>Texte à valider.</b> Ce texte a été proposé par la plateforme, pas encore par Bailly : relisez-le, corrigez-le si besoin, puis enregistrez-le pour le valider.</p>
+                ) : (
+                  <p className={s.aide}><b>Texte à valider.</b> Ce type de message n&apos;a pas encore de texte validé par Bailly : rédigez-le, enregistrez-le, puis activez la carte.</p>
+                ))}
               {carte.canal === "email" && (
                 <div>
                   <label htmlFor="objet">Objet</label>

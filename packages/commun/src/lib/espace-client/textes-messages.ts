@@ -72,6 +72,16 @@ export const TEXTES_ESPACE: TexteEspace[] = [
     corps: "Bonjour {salutation},\n\nVotre déménagement {trajet} est terminé. Merci de votre confiance !\n\nVotre avis nous aide à progresser et guide les prochains clients. Il ne vous prendra qu'une minute.",
     variables: ["salutation", "trajet"],
   },
+  // La discussion de l'espace client (novembre 2026) : l'équipe a répondu au client depuis le CRM.
+  // Texte proposé par la plateforme, à valider par Bailly : la carte de « Courriers et SMS » le marque ainsi.
+  {
+    cle: "ec_reponse_conseiller",
+    modele: "reponse_conseiller",
+    canal: "email",
+    objet: "Votre conseiller vous a répondu",
+    corps: "Bonjour {salutation},\n\n{conseiller} vous a répondu dans votre espace client, au sujet de votre dossier {dossier}.\n\nRetrouvez sa réponse, et toute votre discussion, dans la rubrique « Mon conseiller » de votre espace.",
+    variables: ["salutation", "conseiller", "dossier"],
+  },
 ];
 
 export const texteEspace = (modele: string, canal: "email" | "sms") => TEXTES_ESPACE.find((t) => t.modele === modele && t.canal === canal) ?? null;

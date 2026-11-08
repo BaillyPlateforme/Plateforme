@@ -29,6 +29,7 @@ export type ModeleEmail =
   | "avarie_equipe"
   | "avarie_bailleur"
   | "message_conseiller"
+  | "reponse_conseiller"
   | "service_demande"
   | "demande_avis"
   | "recap_cartons_equipe"
@@ -135,6 +136,7 @@ const BOUTONS: Record<string, (d: Donnees, lien: (chemin: unknown) => string) =>
   paiement_confirme: (d, lien) => ({ url: lien(d.chemin), label: "Voir mes factures" }),
   avarie_recue: (d, lien) => ({ url: lien(d.chemin), label: "Suivre ma déclaration" }),
   demande_avis: (d) => (d.lien_avis ? { url: String(d.lien_avis), label: "Donner mon avis" } : null),
+  reponse_conseiller: (d, lien) => ({ url: lien(d.chemin), label: "Lire la réponse" }),
 };
 
 /** La ligne grise que les boîtes affichent à côté de l'objet. */
@@ -144,6 +146,7 @@ const PREHEADERS: Record<string, (d: Donnees) => string> = {
   paiement_confirme: (d) => `Paiement de ${d.montant} bien reçu.`,
   avarie_recue: (d) => `Déclaration ${d.numero} enregistrée.`,
   demande_avis: () => "Merci de votre confiance.",
+  reponse_conseiller: (d) => `${d.conseiller} vous a répondu dans votre espace client.`,
 };
 
 /** Un texte venu de « Courriers et SMS » (crm.modeles_messages), à la place du texte de départ. */
@@ -237,15 +240,28 @@ ${encadre(url, "Accéder à mon espace client", [
         }),
       };
 
-    case "message_conseiller":
+    // Le client écrit au conseiller. Depuis la discussion de l'espace (novembre 2026), l'e-mail porte le lien
+    // du fil dans le CRM (`chemin`) : on y répond, et la réponse s'affiche chez le client. Sans lien (une demande
+    // d'autres créneaux de visite), l'ancienne consigne : répondre à son adresse e-mail.
+    case "message_conseiller": {
+      const fil = typeof payload.chemin === "string" && payload.chemin.startsWith("/dashboard");
+      const piece = payload.piece ? p(`Pièce jointe : <b>${s("piece")}</b> — à ouvrir dans le CRM.`) : "";
+      const citation = String(payload.message ?? "").trim()
+        ? `<blockquote style="margin:0 0 16px;padding:14px 18px;background:${C.encadre};border-left:4px solid ${C.jaune};white-space:pre-wrap;">${s("message")}</blockquote>`
+        : "";
       return {
         sujet: `Message de ${payload.client} — ${payload.reference}`,
-        texte: `${payload.client} (${payload.email}) vous écrit depuis son espace client :\n\n${payload.message}`,
+        texte: `${payload.client} (${payload.email}) vous écrit depuis son espace client :\n\n${payload.message ?? ""}${payload.piece ? `\n\nPièce jointe : ${payload.piece}` : ""}${fil ? `\n\nRépondre dans le CRM : ${lien(payload.chemin)}` : ""}`,
         html: cadre({
-          base, preheader: String(payload.message ?? "").slice(0, 90), signature,
-          corps: `${p(`<b>${s("client")}</b> (${s("email")}) vous écrit depuis son espace client, dossier ${s("reference")} :`)}<blockquote style="margin:0 0 16px;padding:14px 18px;background:${C.encadre};border-left:4px solid ${C.jaune};white-space:pre-wrap;">${s("message")}</blockquote>${p("Répondez-lui directement à son adresse e-mail.")}`,
+          base, preheader: String(payload.message || payload.piece || "").slice(0, 90), signature,
+          corps: `${p(`<b>${s("client")}</b> (${s("email")}) vous écrit depuis son espace client, dossier ${s("reference")} :`)}${citation}${piece}${
+            fil
+              ? `${p("Répondez-lui depuis le CRM : votre réponse s'affiche dans son espace client. S'il vous écrit d'autres messages dans les dix minutes, ils vous attendent dans la même discussion, sans nouvel e-mail.")}${encadre(lien(payload.chemin), "Répondre dans le CRM")}`
+              : p("Répondez-lui directement à son adresse e-mail.")
+          }`,
         }),
       };
+    }
 
     case "service_demande":
       return {

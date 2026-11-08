@@ -78,8 +78,8 @@ export async function octets(f: File) {
 
 // --- Les liens ------------------------------------------------------------------------------------------
 
-/** Ce qu'un lien de fichier peut désigner. */
-export type TypeFichier = "doc" | "devis" | "facture" | "photo";
+/** Ce qu'un lien de fichier peut désigner ; « msg » : la pièce jointe d'un message de la discussion (discussion.ts). */
+export type TypeFichier = "doc" | "devis" | "facture" | "photo" | "msg";
 const DUREE_S = 5 * 60;
 
 /** La porte du client (app externe). Celle de l'équipe est sous /api/data/espace-client. */
@@ -157,11 +157,20 @@ export async function servirFichier(
   const temoin = async () =>
     doc ? reponsePdf(await pdfTemoin(dossier, doc), nom.replace(/\.\w+$/, "") + ".pdf", telecharger) : refus("Ce fichier n'est plus disponible.", 404);
 
+  return (await reponseDuSeau(chemin, nom, telecharger)) ?? temoin();
+}
+
+/**
+ * Un fichier déposé, une fois le droit établi par l'appelant : en base, une
+ * redirection vers une URL signée du seau, valable 60 secondes ; en
+ * démonstration, le fichier gardé en mémoire. Null s'il n'existe plus.
+ */
+export async function reponseDuSeau(chemin: string, nom: string, telecharger: boolean): Promise<Response | null> {
   if (!estDemo()) {
     const { data, error } = await avecDelai(
       createServiceClient().storage.from(SEAU).createSignedUrl(chemin, DUREE_URL_SEAU_S, telecharger ? { download: nom } : undefined),
     ).catch(() => ({ data: null, error: new Error("Le stockage ne répond pas.") }));
-    if (error || !data?.signedUrl) return temoin();
+    if (error || !data?.signedUrl) return null;
     return new Response(null, {
       status: 302,
       headers: { Location: data.signedUrl, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
@@ -169,7 +178,7 @@ export async function servirFichier(
   }
 
   const fichier = memoire().get(chemin);
-  if (!fichier) return temoin();
+  if (!fichier) return null;
   const affichable = /^(application\/pdf|image\/(jpeg|png|webp))$/.test(fichier.type);
   return new Response(new Uint8Array(fichier.donnees), {
     headers: {

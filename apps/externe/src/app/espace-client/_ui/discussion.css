@@ -1,0 +1,235 @@
+/* ==========================================================================
+   La discussion avec le conseiller (Discussion.tsx, BulleDiscussion.tsx)
+   La bulle « Une question ? » en bas à droite, son panneau, et la page
+   « Mon conseiller ». Dans la grammaire de l'espace : la nuit et le jaune de
+   la charte, Barlow Condensed pour les titres, des cartes blanches sur le
+   papier. Le client écrit en encre, le conseiller répond sur blanc.
+   Chargée par la mise en page d'un dossier, sous la classe racine .ec.
+   ========================================================================== */
+
+/* ---------- Avatars ---------- */
+.ec .fil-av {
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #2a3b4d, #0b1118); color: #fff;
+  font-family: var(--display); font-size: 14px; font-weight: 600; letter-spacing: .05em;
+}
+.ec .fil-av-grand { width: 64px; height: 64px; font-size: 24px; }
+.ec .fil-av-entete { width: 44px; height: 44px; font-size: 17px; box-shadow: 0 0 0 2px rgba(245,208,51,.85); }
+
+/* ---------- Le fil ---------- */
+.ec .fil { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--paper); }
+.ec .fil-corps {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 4px; padding: 18px 16px 10px;
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+.ec .fil-jour {
+  display: flex; align-items: center; gap: 14px; margin: 14px 4px 6px;
+  font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--soft);
+}
+.ec .fil-jour:first-child { margin-top: 0; }
+.ec .fil-jour::before, .ec .fil-jour::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+.ec .fil-groupe { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; animation: ec-filArrive .4s var(--ease); }
+.ec .fil-groupe[data-auteur="client"] { justify-content: flex-end; }
+@keyframes ec-filArrive { from { opacity: 0; transform: translateY(6px); } }
+.ec .fil-pile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; max-width: min(80%, 540px); }
+.ec .fil-groupe[data-auteur="client"] .fil-pile { align-items: flex-end; }
+.ec .fil-qui { display: flex; align-items: baseline; gap: 8px; margin: 0 6px 2px; font-size: 12.5px; color: var(--soft); }
+.ec .fil-qui b { font-size: 13px; font-weight: 600; color: var(--ink); }
+.ec .fil-qui time { font-variant-numeric: tabular-nums; }
+
+.ec .fil-bulle {
+  position: relative; max-width: 100%; padding: 10px 15px 11px; border-radius: 18px 18px 18px 6px;
+  background: #fff; border: 1px solid var(--line); color: var(--ink);
+  font-size: 15.5px; line-height: 1.45; overflow-wrap: anywhere;
+  box-shadow: 0 1px 2px rgba(17,24,32,.04);
+}
+.ec .fil-bulle p { white-space: pre-wrap; }
+.ec .fil-groupe[data-auteur="client"] .fil-bulle { border-radius: 18px 18px 6px 18px; background: var(--ink); border-color: var(--ink); color: #fff; }
+.ec .fil-bulle[data-etat="envoi"] { opacity: .6; }
+.ec .fil-groupe .fil-bulle[data-etat="echec"] { background: var(--danger-tint); border-color: rgba(198,54,44,.35); color: var(--danger); }
+.ec .fil-reessayer { display: inline-block; margin-top: 6px; padding: 0; border: 0; background: none; color: inherit; font-size: 13.5px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Les pièces jointes : une photo en vignette, un PDF en étiquette. */
+/* Une photo : la bulle prend sa largeur, le texte passe dessous. */
+.ec .fil-bulle:has(.fil-photo) { width: min(300px, 100%); padding: 5px; }
+.ec .fil-bulle:has(.fil-photo) p { padding: 8px 10px 5px; }
+.ec .fil-photo { display: block; border-radius: 13px; overflow: hidden; background: var(--paper-2); }
+.ec .fil-photo img { display: block; width: 100%; height: auto; max-height: 300px; object-fit: cover; transition: transform .5s var(--ease); }
+.ec .fil-photo:hover img { transform: scale(1.03); }
+.ec .fil-fichier { display: flex; align-items: center; gap: 11px; min-width: 0; color: inherit; text-decoration: none; }
+.ec .fil-fichier + p { margin-top: 8px; }
+.ec .fil-fichier > span:last-child { display: flex; flex-direction: column; min-width: 0; font-size: 12.5px; opacity: .72; }
+.ec .fil-fichier b { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; opacity: 1; }
+.ec .fil-joint-ic {
+  flex: none; display: grid; place-items: end center; width: 34px; height: 42px; padding-bottom: 6px; border-radius: 6px 12px 6px 6px;
+  background: var(--accent); color: var(--on-accent); font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+}
+
+/* « Envoyé », « Lu » : sous le dernier message du client. */
+.ec .fil-etat { display: flex; align-items: center; gap: 4px; margin: 1px 6px 0; font-size: 12px; color: var(--soft); }
+.ec .fil-etat svg { width: 15px; height: 15px; }
+.ec .fil-etat[data-etat="lu"] { color: var(--ok); font-weight: 600; }
+.ec .fil-etat[data-etat="echec"] { color: var(--danger); font-weight: 600; }
+
+/* Le fil vide : à qui l'on écrit, et ce que l'on peut faire. */
+.ec .fil-vide { display: flex; flex-direction: column; align-items: center; max-width: 360px; margin: auto; padding: 18px 8px; text-align: center; }
+.ec .fil-vide h3 { margin: 16px 0 8px; font-family: var(--display); font-size: 32px; font-weight: 600; line-height: .95; }
+.ec .fil-vide p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+.ec .fil-vide ul { display: grid; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+.ec .fil-vide li::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 9px; border-radius: 50%; background: var(--accent); vertical-align: 2px; }
+
+.ec .fil-chargement { display: flex; gap: 7px; margin: auto; }
+.ec .fil-chargement span { width: 8px; height: 8px; border-radius: 50%; background: var(--ink); opacity: .25; animation: ec-filPoint 1.1s infinite ease-in-out; }
+.ec .fil-chargement span:nth-child(2) { animation-delay: .15s; }
+.ec .fil-chargement span:nth-child(3) { animation-delay: .3s; }
+@keyframes ec-filPoint { 40% { opacity: .9; transform: translateY(-3px); } }
+.ec .fil-alerte { margin: 12px 0 0; font-size: 13px; text-align: center; color: var(--warn); }
+
+/* ---------- La saisie ---------- */
+.ec .fil-saisie { flex: none; padding: 10px 12px; border-top: 1px solid var(--line); background: #fff; }
+.ec .fil-ligne { display: flex; align-items: flex-end; gap: 6px; }
+.ec .fil-outil {
+  position: relative; flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  color: var(--muted); cursor: pointer; transition: background .2s, color .2s;
+}
+.ec .fil-outil:hover { background: var(--paper); color: var(--ink); }
+.ec .fil-outil:focus-within { box-shadow: 0 0 0 2px var(--ink); }
+.ec .fil-outil[aria-disabled] { opacity: .35; pointer-events: none; }
+.ec .fil-outil svg { width: 21px; height: 21px; }
+.ec .fil-outil input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.ec .fil-saisie textarea {
+  flex: 1; min-width: 0; min-height: 44px; max-height: 168px; resize: none;
+  padding: 10px 16px; border: 1.5px solid var(--line-strong); border-radius: 22px; outline: none;
+  /* 16 px : sous cette taille, le téléphone agrandit la page à la saisie. */
+  font-size: 16px; line-height: 1.4; background: var(--paper);
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+.ec .fil-saisie textarea:focus { border-color: var(--ink); background: #fff; box-shadow: 0 0 0 4px rgba(17,24,32,.06); }
+.ec .fil-saisie textarea:disabled { opacity: .6; }
+.ec .fil-envoyer {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 20px -12px rgba(245,208,51,.95);
+  transition: transform .3s var(--ease), background .2s, box-shadow .2s;
+}
+.ec .fil-envoyer:hover { background: var(--accent-hover); transform: translateY(-1px) rotate(-8deg); }
+.ec .fil-envoyer[disabled] { background: var(--paper-2); color: var(--soft); box-shadow: none; transform: none; cursor: default; }
+.ec .fil-envoyer svg { width: 20px; height: 20px; margin: 1px 2px 0 0; }
+.ec .fil-aide { margin: 6px 4px 0 52px; font-size: 12px; color: var(--soft); }
+@media (hover: none) { .ec .fil-aide-clavier { display: none; } }
+.ec .fil-joint { display: flex; align-items: center; gap: 10px; margin: 0 0 8px 50px; padding: 6px 6px 6px 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.ec .fil-joint img { width: 42px; height: 42px; border-radius: 9px; object-fit: cover; }
+.ec .fil-joint-nom { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); }
+.ec .fil-joint-nom b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--ink); }
+.ec .fil-joint button { display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 50%; background: none; color: var(--muted); }
+.ec .fil-joint button:hover { background: #fff; color: var(--ink); }
+.ec .fil-joint button svg { width: 16px; height: 16px; }
+.ec .fil-erreur, .ec .fil-note { margin: 0 0 8px; padding: 9px 14px; border-radius: 12px; font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.ec .fil-erreur { background: var(--danger-tint); color: var(--danger); }
+.ec .fil-note { background: var(--accent-tint); color: var(--accent-deep); }
+
+/* ---------- La bulle « Une question ? » ---------- */
+.ec .fil-bouton {
+  position: fixed; right: 22px; bottom: 22px; z-index: 58;
+  display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 24px 0 7px;
+  border: 0; border-radius: 999px; background: var(--ink); color: #fff;
+  box-shadow: 0 20px 44px -18px rgba(11,17,24,.75), inset 0 0 0 1px rgba(255,255,255,.07);
+  transition: transform .5s var(--ease), opacity .3s, box-shadow .3s, padding .3s var(--ease);
+  animation: ec-filBulle .7s var(--ease) .4s backwards;
+}
+@keyframes ec-filBulle { from { opacity: 0; transform: translateY(24px) scale(.9); } }
+.ec .fil-bouton:hover { transform: translateY(-3px); box-shadow: 0 26px 50px -18px rgba(11,17,24,.8), inset 0 0 0 1px rgba(255,255,255,.1); }
+.ec .fil-bouton:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.ec .fil-bouton-av { display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: var(--on-accent); transition: transform .4s var(--ease); }
+.ec .fil-bouton:hover .fil-bouton-av { transform: rotate(-10deg); }
+.ec .fil-bouton-av svg { width: 24px; height: 24px; }
+.ec .fil-bouton-texte { display: flex; flex-direction: column; line-height: 1.05; text-align: left; }
+.ec .fil-bouton-texte b { font-family: var(--display); font-size: 21px; font-weight: 600; letter-spacing: .01em; }
+.ec .fil-bouton-texte small { margin-top: 3px; font-size: 12.5px; opacity: .68; }
+.ec .fil-pastille {
+  position: absolute; top: -3px; left: 38px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 0 0 2.5px var(--ink);
+  animation: ec-filPastille .5s var(--ease);
+}
+@keyframes ec-filPastille { from { transform: scale(0); } }
+.ec .fil-bouton[data-ouvert] { gap: 0; padding: 0 7px; }
+.ec .fil-bouton[data-ouvert] .fil-bouton-texte { display: none; }
+.ec .fil-bouton[data-efface] { transform: translateY(150%); opacity: 0; pointer-events: none; }
+
+/* ---------- Le panneau ---------- */
+.ec .fil-fenetre {
+  position: fixed; right: 22px; bottom: 94px; z-index: 79;
+  display: flex; flex-direction: column; width: min(400px, calc(100vw - 44px)); height: min(640px, calc(100dvh - 124px));
+  border-radius: 24px; overflow: hidden; background: var(--paper);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(17,24,32,.08);
+  transform-origin: bottom right; animation: ec-filOuvrir .42s var(--ease);
+}
+@keyframes ec-filOuvrir { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+.ec .fil-entete {
+  position: relative; flex: none; display: flex; align-items: center; gap: 12px; padding: 14px 12px 14px 16px;
+  background: var(--night); color: #fff; overflow: hidden; isolation: isolate;
+}
+.ec .fil-entete::after {
+  content: ""; position: absolute; z-index: -1; right: -70px; top: -110px; width: 230px; height: 230px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,208,51,.32), transparent 70%); pointer-events: none;
+}
+.ec .fil-entete > div { flex: 1; min-width: 0; }
+.ec .fil-entete-nom { font-family: var(--display); font-size: 23px; font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec .fil-entete-sous { margin-top: 4px; font-size: 12.5px; opacity: .62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec .fil-entete-lien, .ec .fil-entete-fermer {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%;
+  background: rgba(255,255,255,.08); color: #fff; text-decoration: none; transition: background .2s;
+}
+.ec .fil-entete-lien:hover, .ec .fil-entete-fermer:hover { background: rgba(255,255,255,.18); }
+.ec .fil-entete-lien svg, .ec .fil-entete-fermer svg { width: 18px; height: 18px; }
+.ec .fil-entete-lien svg { transform: rotate(-45deg); }
+.ec .fil-voile { display: none; }
+
+/* ---------- La page « Mon conseiller » ---------- */
+.ec .fil-section { padding-top: clamp(36px, 6vw, 72px); }
+.ec .fil-lede { margin-top: 0; }
+.ec .fil-carte {
+  height: clamp(480px, 70vh, 740px); margin-top: 24px; border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; background: var(--paper); box-shadow: var(--shadow);
+}
+.ec .fil-page .fil-corps { padding: 26px 26px 12px; }
+.ec .fil-page .fil-saisie { padding: 14px 16px 12px; }
+.ec .fil-page .fil-vide h3 { font-size: 38px; }
+.ec .fil-conseiller-tete { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.ec .fil-conseiller-tete .kicker { margin: 0 0 6px; }
+.ec .fil-conseiller-tete h2 { margin: 0; font-family: var(--display); font-size: 32px; font-weight: 600; line-height: .95; }
+
+/* Le pied de page garde de la place pour la bulle : rien ne reste caché dessous en fin de page. */
+.ec .site-foot { padding-bottom: 104px; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 640px) {
+  /* Ronde, jaune, à l'écart du bouton « Démo » (en bas à gauche). */
+  .ec .fil-bouton {
+    right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); width: 56px; height: 56px; padding: 0;
+    justify-content: center; background: var(--accent); color: var(--on-accent);
+    box-shadow: 0 14px 30px -12px rgba(11,17,24,.55), 0 0 0 1px rgba(17,24,32,.08);
+  }
+  .ec .fil-bouton-texte { display: none; }
+  .ec .fil-bouton-av { width: 56px; height: 56px; background: transparent; }
+  .ec .fil-pastille { left: auto; right: -3px; top: -3px; box-shadow: 0 0 0 2.5px #fff; }
+  .ec .fil-bouton[data-ouvert] { display: none; }
+  /* Le panneau prend tout l'écran. */
+  .ec .fil-fenetre { inset: 0; width: 100%; height: 100dvh; border-radius: 0; animation: ec-filMonter .42s var(--ease); }
+  @keyframes ec-filMonter { from { transform: translateY(100%); } }
+  .ec .fil-entete { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .ec .fil-saisie { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .ec .fil-pile { max-width: 86%; }
+  .ec .fil-carte { height: 74vh; min-height: 440px; margin-inline: calc(var(--gutter) * -1); border-radius: 0; border-inline: 0; }
+  .ec .fil-page .fil-corps { padding: 18px 14px 10px; }
+  .ec .fil-page .fil-saisie { padding: 10px 10px 10px; }
+  .ec .fil-aide { margin-left: 52px; }
+  .ec .fil-aide-clavier { display: none; }
+  .ec .site-foot { padding-bottom: 92px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ec .fil-bouton, .ec .fil-fenetre, .ec .fil-groupe, .ec .fil-pastille { animation: none; }
+}

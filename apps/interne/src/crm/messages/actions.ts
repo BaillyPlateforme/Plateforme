@@ -73,6 +73,7 @@ const EXEMPLE_ESPACE: Record<string, unknown> = {
   salutation: "Madame Exemple", prenom: "Camille", document: "Attestation d'assurance", nb: 30, jour: "samedi 14 novembre", debut: "9 h 00", fin: "10 h 00",
   adresse: "1 rue de l'Exemple, 75001 Paris", contact: "Camille Exemple", telephone: TEL_AGENCE, montant: "360,00 €", libelle: "Arrhes 30 % · devis DV-2026-0001",
   reference: "pi_exemple", numero: "SAV-2026-001", objets: "Une table basse", trajet: "Paris → Lyon", chemin: "/espace-client", lien_avis: "#",
+  conseiller: "Camille Martin", dossier: "BD-2026-0001",
   signature: { nom: "Votre conseiller", role: "Votre contact", telephone: TEL_AGENCE },
 };
 

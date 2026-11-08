@@ -1,3 +1,4 @@
+import { servirPiece } from "@/lib/espace-client/discussion";
 import { servirFichier } from "@/lib/espace-client/fichiers";
 import { clientConnecte, lireDonneesClient } from "@/lib/espace-client/session";
 
@@ -19,6 +20,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
   const client = await clientConnecte();
   if (!client) return new Response("Introuvable.", { status: 404, headers: { "Cache-Control": "no-store" } });
   const d = await lireDonneesClient();
+  // La pièce jointe d'un message de la discussion : celle d'un dossier du client, et de lui seul.
+  if (type === "msg") return servirPiece(id, new URL(req.url), (dossierId) => d.dossiers.some((x) => x.id === dossierId && x.client_id === client.id));
   return servirFichier(d, type, id, new URL(req.url), (dossier, titulaire) => {
     if (dossier.client_id !== client.id || titulaire.id !== client.id) return false;
     if (type === "devis" && titulaire.masquer_devis) return false;

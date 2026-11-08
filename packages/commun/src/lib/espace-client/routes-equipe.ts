@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { adressePublique } from "./config";
 import { lireDonnees } from "./depot";
+import { servirPiece } from "./discussion";
 import { servirFichier } from "./fichiers";
 import { pdfBons, reponsePdf } from "./pdf";
 import { lireVue } from "./vues-equipe";
@@ -27,6 +28,7 @@ export async function repondreEquipe(req: Request, chemin: string[], { demo = fa
     }
     if (chemin[0] === "fichier" && chemin.length === 3) {
       // L'équipe a droit à tous les dossiers, masquages compris : c'est elle qui les tient.
+      if (chemin[1] === "msg") return servirPiece(chemin[2], new URL(req.url), () => true);
       return servirFichier(await lireDonnees(), chemin[1], chemin[2], new URL(req.url), () => true);
     }
     if (chemin[0] === "bons") {

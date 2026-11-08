@@ -104,6 +104,9 @@ function lienJournal(d: D): Phrase["lien"] {
       return { href: "/dashboard/equipe", libelle: "Ouvrir l'équipe" };
     case "message":
       return { href: "/dashboard/envois", libelle: "Journal des envois" };
+    // La discussion d'un client (src/crm/discussion) : objet_id est le dossier de son espace.
+    case "discussion":
+      return id ? { href: `/dashboard/espace-client/messages?dossier=${id}`, libelle: "Ouvrir la discussion" } : null;
     default:
       return null;
   }
@@ -201,10 +204,11 @@ export function phraseDe(src: string, d: D, contexte: Contexte): Phrase {
     case "journal": {
       const supprime = /\.(supprime|retire|supprimes|retires)$/.test(String(d.action));
       const estMessage = d.action === "message.envoye";
+      const discussion = String(d.action).startsWith("message_client.");
       return {
         texte: d.libelle,
-        icone: supprime ? "corbeille" : estMessage ? (d.canal === "sms" ? "sms" : "courrier") : "horloge",
-        ton: supprime ? "rouge" : estMessage ? "violet" : "indigo",
+        icone: supprime ? "corbeille" : estMessage ? (d.canal === "sms" ? "sms" : "courrier") : discussion ? "courrier" : "horloge",
+        ton: supprime ? "rouge" : estMessage ? "violet" : discussion ? (d.action === "message_client.recu" ? "vert" : "violet") : "indigo",
         statut: estMessage ? issueEnvoi(d.statut) : null,
         lien: lienJournal(d),
       };

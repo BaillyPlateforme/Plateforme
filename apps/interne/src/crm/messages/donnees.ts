@@ -81,6 +81,7 @@ const LIBELLES_VARIABLES: Record<string, string> = {
   salutation: "Madame / Monsieur Nom", document: "Document", nb: "Nombre de cartons", jour: "Jour", debut: "Début du créneau", fin: "Fin du créneau",
   adresse: "Adresse", contact: "Personne présente", telephone: "Téléphone du conseiller", prenom: "Prénom", libelle: "Objet du paiement",
   reference: "Référence de la transaction", numero: "Numéro de déclaration", objets: "Objets abîmés", trajet: "Trajet", pieces: "Pièces manquantes",
+  conseiller: "Qui a répondu (prénom et nom)", dossier: "Référence du dossier",
 };
 
 function etapeQuestionnaire(event: string): Etape {

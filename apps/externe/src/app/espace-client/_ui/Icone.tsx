@@ -43,9 +43,14 @@ const TRACES: Record<string, React.ReactNode> = {
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
   // L'édition de l'espace par l'équipe (bandeau de l'aperçu).
   crayon: <><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z" /><path d="m14.5 7.5 3 3" /></>,
+  // La discussion avec le conseiller.
+  bulle: <><path d="M20.5 11.5a8 8 0 0 1-11.9 7l-4.6 1.4 1.4-4.4a8 8 0 1 1 15.1-4z" /><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" /></>,
+  trombone: <path d="m20.5 11.2-8.4 8.4a5.2 5.2 0 0 1-7.4-7.4l8.6-8.6a3.5 3.5 0 0 1 4.9 4.9l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l7.9-7.9" />,
+  envoi: <><path d="M21 3 10.2 13.8" /><path d="m21 3-6.8 18-4-7.2L3 9.8z" /></>,
+  vu: <path d="m2.5 12.5 4 4L14 9M10.5 15.5l1 1L19 9" />,
 };
 
-const EPAIS: Record<string, number> = { check: 2.4, chevL: 2, chevR: 2, close: 2, plus: 2 };
+const EPAIS: Record<string, number> = { check: 2.4, chevL: 2, chevR: 2, close: 2, plus: 2, vu: 2, envoi: 1.9 };
 
 export function Icone({ nom, className, style }: { nom: string; className?: string; style?: React.CSSProperties }) {
   return (

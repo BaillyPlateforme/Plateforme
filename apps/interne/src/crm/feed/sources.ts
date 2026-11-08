@@ -77,7 +77,7 @@ const PAR_LE_CLIENT = `(a.utilisateur_id is null and a.libelle ~* '(par le clien
 
 /** Le type d'événement d'une ligne du journal des gestes, d'après son objet. */
 const GENRES_JOURNAL = `(case when j.action ~ '\\.(supprime|retire|supprimes|retires)$' then array['suppression'] else array[]::text[] end) || array[case
-  when j.objet_type in ('message') then 'message'
+  when j.objet_type in ('message', 'discussion') then 'message'
   when j.objet_type in ('demande', 'rappel', 'devis_questionnaire') then 'demande'
   when j.objet_type in ('devis', 'devis_espace') then 'devis'
   when j.objet_type in ('reglement', 'facture', 'facture_espace') then 'facture'
