@@ -191,6 +191,7 @@ export interface DonneesFacturation {
   derniereDate: string | null;
 }
 
+// Un devis libre (formule « libre ») n'a pas de formule à nommer : le libellé ne dit que son numéro.
 const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
 const ville = (a: string | null | undefined) => {
   if (!a) return null;
@@ -255,7 +256,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
     solde: { genre: "solde", objet: `Déménagement${trajet ? ` ${trajet}` : ""}`, lignes: lignesSolde, affecter: libres.map((r) => r.id), devisId: devis?.id ?? null },
     acompte: {
       genre: "acompte", objet: devis ? `Arrhes sur le devis ${devis.numero}` : "Arrhes du déménagement",
-      lignes: [{ genre: "prestation", libelle: devis ? `Arrhes · devis ${devis.numero} (formule ${FORMULE[devis.formule] ?? devis.formule})` : "Arrhes du déménagement", detail: trajet || null, quantite: 1, prixUnitaireHt: htDepuisTtc(montantArrhes, taux), tauxTva: taux }],
+      lignes: [{ genre: "prestation", libelle: devis ? `Arrhes · devis ${devis.numero}${FORMULE[devis.formule] ? ` (formule ${FORMULE[devis.formule]})` : ""}` : "Arrhes du déménagement", detail: trajet || null, quantite: 1, prixUnitaireHt: htDepuisTtc(montantArrhes, taux), tauxTva: taux }],
       affecter: arrhesLibres.map((r) => r.id), devisId: devis?.id ?? null,
     },
     facture: { genre: "facture", objet: "Prestation complémentaire", lignes: [{ genre: "prestation", libelle: "", quantite: 1, prixUnitaireHt: 0, tauxTva: taux }], affecter: [], devisId: devis?.id ?? null },

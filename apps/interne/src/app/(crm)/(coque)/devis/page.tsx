@@ -1,22 +1,145 @@
 import Link from "next/link";
-import { tousDevis } from "@/crm/lib/data";
-import { eur, nomClient, dateFr } from "@/crm/lib/format";
+import { q1 } from "@/crm/lib/db";
+import { currentUser } from "@/crm/lib/auth";
+import { dateFr, m3, nomClient } from "@/crm/lib/format";
 import Bandeau from "@/ui/Bandeau";
+import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
+import { htDe, listeDevis } from "@/crm/devis/donnees";
+import { creerDevis, retirerDevis } from "@/crm/devis/actions";
+import { nomDevis } from "@/crm/devis/modele";
+import NouveauDevis from "@/crm/devis/composants/NouveauDevis";
+import { euros } from "@/crm/devis/format";
+import s from "@/crm/devis/liste.module.css";
 
 export const dynamic = "force-dynamic";
-const ST: Record<string, [string, string]> = { brouillon: ["Brouillon", "i"], envoye: ["Envoyé", "w"], signe: ["Signé", "g"], refuse: ["Refusé", "r"] };
-export default async function Devis({ searchParams }: { searchParams: Promise<{ statut?: string; dossier?: string }> }) {
+
+/*
+ * L'onglet Devis (Créagidem, section H) : la liste, d'un dossier ou de tous,
+ * avec les colonnes de Créagidem, et la barre Nouveau / Modifier / Copier /
+ * Devis (PDF) / Retirer. Ouverte depuis un dossier (?dossier=), elle reste
+ * sur ce dossier et propose de créer un devis.
+ */
+
+/** Une icône au trait, pour les actions de ligne. */
+const Pic = ({ d }: { d: string }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
+);
+const ETAT: Record<string, [string, string]> = { brouillon: ["Brouillon", "i"], envoye: ["Envoyé", "w"], signe: ["Signé", "g"], refuse: ["Non retenu", "r"] };
+const FILTRES: [string, string][] = [["", "Tous"], ["brouillon", "Brouillons"], ["envoye", "Envoyés"], ["signe", "Signés"], ["refuse", "Non retenus"], ["retire", "Retirés"]];
+
+export default async function Devis({ searchParams }: { searchParams: Promise<{ statut?: string; dossier?: string; vue?: string; nouveau?: string; erreur?: string }> }) {
+  await currentUser();
   const sp = await searchParams;
-  const st = sp.statut;
-  // Ouvert depuis un dossier : ses seuls devis (on reste sur le dossier).
   const dossier = sp.dossier && /^\d+$/.test(sp.dossier) ? Number(sp.dossier) : null;
-  const rows = (await tousDevis()).filter((r) => (!st || r.statut === st) && (!dossier || r.did === dossier));
-  const refDossier = dossier ? rows[0]?.ref ?? null : null;
+  const statut = FILTRES.some(([k]) => k === sp.statut) ? sp.statut ?? "" : "";
+  const signatures = sp.vue === "signatures";
+  const [rows, d] = await Promise.all([
+    listeDevis({ dossier, statut: statut || null, signatures }),
+    dossier ? q1(`select d.id, d.ref, d.volume::float8 as volume, c.nom, c.prenom, c.societe, c.type from dossiers d join clients c on c.id=d.client_id where d.id=$1`, [dossier]) : null,
+  ]);
+  const base = (p: Record<string, string>) => {
+    const u = new URLSearchParams({ ...(dossier ? { dossier: String(dossier) } : {}), ...p });
+    const t = u.toString();
+    return `/devis${t ? `?${t}` : ""}`;
+  };
+  const nouveau = ["libre", "formules", "copie"].includes(sp.nouveau ?? "") ? (sp.nouveau as "libre" | "formules" | "copie") : null;
+
   return (
-    <div className="view"><Bandeau surtitre={`Commercial · ${rows.length} devis`} titre="Devis" texte={dossier ? `Les devis du dossier ${refDossier ?? ""}` : "Toutes les formules établies, de l’envoi à la signature."}>{dossier && <><Link href={`/dossiers/${dossier}`} data-ton="contour">Fiche du dossier</Link><Link href="/devis" data-ton="contour">Tous les devis</Link></>}</Bandeau>
-      <div className="filters"><Link href="/devis" className={!st ? "on" : ""}>Tous</Link>{Object.entries(ST).map(([k, v]) => <Link key={k} href={`/devis?statut=${k}`} className={st === k ? "on" : ""}>{v[0]}</Link>)}</div>
-      <div className="card tcard"><table className="tbl"><thead><tr><th>N°</th><th>Client</th><th>Formule</th><th>Statut</th><th>Envoyé</th><th>Montant</th></tr></thead><tbody>
-        {rows.map((r) => <tr key={r.id} className="row"><td><Link href={`/dossiers/${r.did}`}><b>{r.numero}</b></Link></td><td>{nomClient(r)}<small> · {r.ref}</small></td><td style={{ textTransform: "capitalize" }}>{r.formule}</td><td><i className={`st ${ST[r.statut][1]}`}>{ST[r.statut][0]}</i></td><td>{dateFr(r.envoye_le)}</td><td className="num"><b>{eur(r.montant)}</b></td></tr>)}
-      </tbody></table></div></div>
+    <div className="view">
+      <Bandeau
+        surtitre={d ? `Dossier ${d.ref} · ${nomClient(d)}` : `Commercial · ${rows.length} devis`}
+        titre={d ? "Devis du dossier" : signatures ? "Toutes signatures" : "Devis"}
+        texte={d ? `${rows.length} devis · ${m3(d.volume)}` : signatures ? "Chaque lien de signature envoyé, et où il en est." : "Toutes les propositions, de l'établissement à la signature."}
+        secondaire={d ? { label: "Fiche du dossier", href: `/dossiers/${d.id}` } : undefined}
+      >
+        {d && <Link href={nouveau ? base({}) : base({ nouveau: "libre" })} data-ton={nouveau ? "contour" : "plein"}>{nouveau ? "Fermer" : "Nouveau devis"}</Link>}
+      </Bandeau>
+      <AvecMenu
+        menu={
+          <MenuVertical
+            titre="Devis"
+            groupes={[
+              { titre: "État", items: FILTRES.map(([k, l]) => ({ href: base(k ? { statut: k } : {}), label: l, actif: !signatures && statut === k, icone: k === "signe" ? "commande" : k === "" ? "devis" : undefined })) },
+              { titre: "Vues", items: [{ href: base({ vue: "signatures" }), label: "Toutes signatures", icone: "badge", actif: signatures }, ...(dossier ? [{ href: "/devis", label: "Tous les dossiers", icone: "grille" as const }] : [])] },
+              { titre: "Réglages", items: [{ href: "/devis/parametres", label: "Paramètres du devis", icone: "reglages" }] },
+            ]}
+          />
+        }
+      >
+        <div className={s.page}>
+          {d && nouveau && (
+            <section className={s.carte}>
+              <header className={s.carteTete}>
+                <p>Nouveau</p>
+                <h2>Créer un devis pour {nomClient(d)}</h2>
+                {d.type === "militaire" && <span className={s.alerte}>Dossier militaire : en règle générale, pas de devis (commande sans devis depuis la fiche).</span>}
+              </header>
+              <NouveauDevis dossierId={d.id} volume={d.volume} initial={nouveau} erreur={sp.erreur} />
+            </section>
+          )}
+
+          <section className={s.carte}>
+            {rows.length === 0 ? (
+              <div className={s.vide}>
+                <b>Aucun devis{statut ? " dans cet état" : ""}.</b>
+                {d && !nouveau && <Link href={base({ nouveau: "libre" })} className={s.lienPlein}>Créer le premier devis</Link>}
+              </div>
+            ) : (
+              <div className={s.defile}>
+                <table className={s.table}>
+                  <thead>
+                    <tr>
+                      <th>Devis</th><th>État</th>{!d && <th>Client</th>}<th>Date</th><th>Type</th><th>Com.</th><th>Catégorie</th>
+                      <th className={s.num}>HT</th><th className={s.num}>TTC</th><th className={s.num}>Vol.</th>
+                      {signatures ? <><th>Envoyé</th><th>Signé</th></> : <><th>Chargement</th><th>Livraison</th></>}
+                      <th>Réf. interne</th><th aria-label="Actions" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const [libelle, ton] = r.retire_le ? ["Retiré", "r"] : ETAT[r.statut] ?? [r.statut, "i"];
+                      const lien = `/dossiers/${r.did}/devis/${r.id}`;
+                      return (
+                        <tr key={r.id} data-retire={r.retire_le ? "" : undefined}>
+                          <td><Link href={lien} className={s.numero}>{r.numero}</Link></td>
+                          <td><i className={s.etat} data-ton={ton}>{libelle}</i></td>
+                          {!d && <td><Link href={`/devis?dossier=${r.did}`} className={s.client}>{nomClient(r)}<small>{r.ref}</small></Link></td>}
+                          <td>{dateFr(r.date_devis, { day: "2-digit", month: "2-digit", year: "2-digit" })}</td>
+                          <td><span className={s.type}>{r.mode === "forfait" ? "Forfait" : "5 P"}</span></td>
+                          <td>{r.com ?? "—"}</td>
+                          <td className={s.categorie}>{nomDevis(r)}</td>
+                          <td className={s.num}>{euros(htDe(r))}</td>
+                          <td className={s.num}><b>{euros(Number(r.montant))}</b></td>
+                          <td className={s.num}>{m3(r.volume)}</td>
+                          {signatures ? (
+                            <><td>{r.envoye_le ? dateFr(r.envoye_le, { day: "2-digit", month: "short" }) : "—"}</td><td>{r.signe_le ? dateFr(r.signe_le, { day: "2-digit", month: "short" }) : "—"}</td></>
+                          ) : (
+                            <><td className={s.court} title={r.periode ?? undefined}>{r.date_chargement ? dateFr(r.date_chargement, { day: "2-digit", month: "2-digit" }) : r.periode ?? "—"}</td><td className={s.court} title={r.arrivee ?? undefined}>{r.date_livraison ? dateFr(r.date_livraison, { day: "2-digit", month: "2-digit" }) : r.arrivee ?? "—"}</td></>
+                          )}
+                          <td className={s.court} title={r.ref_interne ?? undefined}>{r.ref_interne ?? "—"}</td>
+                          <td>
+                            <div className={s.actions}>
+                              <Link href={lien} title="Modifier" aria-label={`Modifier le devis ${r.numero}`}><Pic d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" /></Link>
+                              <form action={creerDevis.bind(null, r.did)}>
+                                <input type="hidden" name="genre" value="copie" /><input type="hidden" name="source" value={r.id} />
+                                <button title="Copier ce devis dans son dossier" aria-label={`Copier le devis ${r.numero}`}><Pic d="M8 8h11v11H8zM5 16V5h11" /></button>
+                              </form>
+                              <Link href={`/imprimer/${r.did}?doc=devis&v=${r.id}`} target="_blank" title="Aperçu PDF" aria-label={`PDF du devis ${r.numero}`}><Pic d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 14h6M9 17h4" /></Link>
+                              {r.statut !== "signe" && !r.retire_le && (
+                                <form action={retirerDevis.bind(null, r.id)}><button title={r.statut === "brouillon" ? "Supprimer le brouillon" : "Retirer de la proposition"} aria-label={`${r.statut === "brouillon" ? "Supprimer" : "Retirer"} le devis ${r.numero}`} data-danger=""><Pic d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></button></form>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+      </AvecMenu>
+    </div>
   );
 }

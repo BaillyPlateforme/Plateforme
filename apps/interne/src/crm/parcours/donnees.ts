@@ -50,7 +50,7 @@ const ISO = (d: unknown): string | null => (d == null ? null : d instanceof Date
 const PARIS = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" });
 const jourParis = (d: Date | string) => PARIS.format(new Date(d));
 const eur = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
+const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium", libre: "Devis libre" };
 const lundi = (d: Date) => {
   const x = new Date(d);
   x.setDate(x.getDate() - ((x.getDay() + 6) % 7));

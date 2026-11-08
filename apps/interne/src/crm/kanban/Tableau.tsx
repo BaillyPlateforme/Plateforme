@@ -427,7 +427,7 @@ function CarteDossier({
 
 /* ───────── La petite fenêtre du dépôt ───────── */
 
-const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
+const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium", libre: "Devis libre" };
 const STATUT_DEVIS: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", signe: "Signé", refuse: "Non retenu" };
 const demain = () => {
   const d = new Date();

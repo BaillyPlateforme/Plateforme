@@ -469,11 +469,13 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       ) : (
         <>
           <b>Pas encore de devis</b>
-          {d.volume <= 0 ? "Renseignez d’abord l’inventaire." : "« Nouveau » génère les 3 formules."}
+          {d.volume <= 0 ? "Renseignez d’abord l’inventaire, ou partez d’un devis libre (« Nouveau »)." : "« Nouveau » : devis libre, formules au choix ou copie ; « 3 formules » les génère d’un coup."}
         </>
       ),
     gestes: {
-      nouveau: transfertDevis,
+      // « Nouveau » : la page des devis du dossier, ouverte sur ses trois départs (libre, formules choisies, copie d'un autre client).
+      nouveau: d.type === "militaire" ? off("Dossier militaire : pas de devis.") : signe ? off("Un devis est déjà signé.") : { lien: `/devis?dossier=${id}&nouveau=libre` },
+      formules: transfertDevis,
       imprimer: d.devis.length ? { lien: `/imprimer/${id}?doc=devis` } : off("Pas encore de devis."),
       email: d.email && d.devis.length ? { lien: mailto } : off(d.email ? "Pas encore de devis." : "Pas d'adresse e-mail sur la fiche client."),
       ...(d.type === "militaire"
@@ -482,6 +484,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     },
     libelles: { imprimer: "Aperçu client" },
     extras: [
+      { cle: "formules", libelle: "3 formules", picto: "rafraichir" },
       { cle: "email", libelle: "E-mail", picto: "mail" },
       ...(d.type === "militaire" ? [{ cle: "sansdevis", libelle: "Commande sans devis", picto: "coche" } as Outil] : []),
     ],

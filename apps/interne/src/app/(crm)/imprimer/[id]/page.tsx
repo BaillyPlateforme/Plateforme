@@ -9,10 +9,12 @@ import { FicheVisiteBailly, LettreVoitureBailly, SousTraitanceBailly } from "@/c
 import FactureBailly, { AvisMentions, mentionsManquantes } from "@/crm/documents/FactureBailly";
 import { factureComplete, mentionsDeLaFacture, mentionsEmetteur } from "@/crm/facturation/donnees";
 import { versInterne } from "@/lib/adresses";
+import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
+import { effectifs } from "@/crm/devis/parametres";
 
 export const dynamic = "force-dynamic";
 
-export default async function Imprimer({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string; lv?: string; f?: string }> }) {
+export default async function Imprimer({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ doc?: string; lv?: string; f?: string; v?: string }> }) {
   await currentUser();
   const idDossier = Number((await params).id);
   const sp = await searchParams;
@@ -47,11 +49,15 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
   const lv = d.lettres.find((l: Row) => String(l.id) === sp.lv);
   // Le devis est un document client : il a sa mise en page aux couleurs de Bailly.
   if (doc === "devis") {
+    // Le devis complet (module devis) : toutes ses colonnes, les paramètres de Bailly, un seul devis avec ?v=.
+    const [devis, parametres] = await Promise.all([devisPourDocument(d.id), lireParametres()]);
+    const eff = effectifs(parametres);
+    const un = sp.v && /^\d+$/.test(sp.v) && devis.some((x) => x.id === Number(sp.v)) ? Number(sp.v) : undefined;
     return (
       <>
-        <style>{"body{background:#ececec}@media print{body{background:#fff}}"}</style>
-        <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
-        <DevisBailly d={d} lienSignature={(token) => versInterne(`/signature/${token}`)} />
+        <style>{"body{background:#ececec}@page{size:A4;margin:0}@media print{body{background:#fff}}"}</style>
+        <div className="pdf-bar"><Link href={un ? `/dossiers/${d.id}/devis/${un}` : `/dossiers/${d.id}`}>{un ? "← Retour au devis" : "← Retour au dossier"}</Link><PrintButton /></div>
+        <DevisBailly d={{ ...d, devis }} devisId={un} parametres={{ cgv: parametres.cgv, tvaAssurance: eff.tvaAssurance, arrhesPct: eff.arrhesPct }} apercu lienSignature={(token) => versInterne(`/signature/${token}`)} />
       </>
     );
   }

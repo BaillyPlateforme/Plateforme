@@ -160,7 +160,8 @@ export async function genererDevis(id: number) {
   await exiger();
   const d = await q1<Row>("select volume::float8 as volume, statut from dossiers where id=$1", [id]);
   if (!d) return;
-  await q("delete from devis where dossier_id=$1 and statut='brouillon'", [id]);
+  // Seuls les brouillons du générateur sont remplacés : un devis libre ou copié (module devis) reste.
+  await q("delete from devis where dossier_id=$1 and statut='brouillon' and coalesce(origine,'formules')='formules'", [id]);
   for (const fo of formules(d.volume) as Formule[]) {
     await q("insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite) values($1,$2,$3,$4,$5,$6,current_date + 60)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant, JSON.stringify(prestationsPour(fo.cle))]);
   }

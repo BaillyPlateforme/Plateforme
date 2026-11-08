@@ -64,7 +64,7 @@ export type Faits = {
 };
 
 const PALIER: Record<string, number> = { prospect: 0, visite: 1, devis: 3, commande: 6, planifie: 7, termine: 11 };
-const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium" };
+const FORMULE: Record<string, string> = { economique: "Économique", standard: "Standard", premium: "Premium", libre: "Devis libre" };
 
 const eur = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 /** Une date sans heure (AAAA-MM-JJ ou minuit UTC) : lue en UTC, pour ne pas glisser d'un jour. */
