@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
 import Filtres, { type Filtre } from "@/ui/Filtres";
+import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
+import type { NomIcone } from "@/ui/icones";
 import { etatEnvois } from "@/lib/envois";
 import { currentUser } from "@/crm/lib/auth";
 import { q1 } from "@/crm/lib/db";
@@ -17,10 +19,10 @@ import s from "@/crm/relances/relances.module.css";
 export const dynamic = "force-dynamic";
 
 type Vue = "kanban" | "previsions" | "historique";
-const VUES: { cle: Vue; libelle: string }[] = [
-  { cle: "kanban", libelle: "Kanban" },
-  { cle: "previsions", libelle: "Prévisions" },
-  { cle: "historique", libelle: "Historique" },
+const VUES: { cle: Vue; libelle: string; icone: NomIcone }[] = [
+  { cle: "kanban", libelle: "Kanban", icone: "kanban" },
+  { cle: "previsions", libelle: "Prévisions", icone: "calendrier" },
+  { cle: "historique", libelle: "Historique", icone: "horloge" },
 ];
 const PERIODES = [
   { valeur: "7", libelle: "7 derniers jours" },
@@ -36,15 +38,16 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? "s" : ""}`;
 
 /**
  * Les relances, en une page (simplification du 08/11/2026 : le tableau de
- * bord, le Kanban et l'historique fusionnés, plus de menu à gauche). Trois
- * vues en pilules dans la rangée du bas du bandeau :
+ * bord, le Kanban et l'historique fusionnés). Trois vues au menu de gauche
+ * (choix de David, 08/11/2026 : les vues à gauche, les filtres dans la bande) :
  * - le Kanban (par défaut) : à venir, aujourd'hui, en retard, envoyées,
  *   désactivées ; le bandeau en dit l'essentiel en une ligne ;
  * - les prévisions : les relances prévues jour par jour, par type et par canal ;
  * - l'historique : les relances parties ou tentées, puis les envois des 30
  *   derniers jours et ce que les relances ont donné.
- * Les filtres sont des listes déroulantes à côté des vues ; `?dossier=` garde
- * le dossier ouvert. Les règles et les alertes sont dans Réglages.
+ * Les filtres sont des listes déroulantes dans la rangée du bas du bandeau ;
+ * `?dossier=` garde le dossier ouvert. Les règles et les alertes sont dans
+ * Réglages.
  */
 export default async function Relances({
   searchParams,
@@ -99,7 +102,23 @@ export default async function Relances({
       ? `${pluriel(lignes.length, "relance")} partie${lignes.length > 1 ? "s" : ""} ou tentée${lignes.length > 1 ? "s" : ""}${periode ? ` · ${PERIODES.find((p) => Number(p.valeur) === periode)!.libelle}` : ""}`
       : `${dues ? `${pluriel(dues, "relance")} à faire aujourd’hui ou en retard` : "Aucune relance à faire aujourd’hui"} · ${j7} dans les 7 prochains jours`;
 
-  const vues = <Pilules label="Vues des relances" items={VUES.map((v) => ({ href: lienRelances("/relances", dossier, { vue: v.cle === "kanban" ? null : v.cle, type }), label: v.libelle, actif: vue === v.cle }))} />;
+  // Le Kanban porte le nombre des relances à faire aujourd'hui ou en retard (celui du bandeau).
+  const menu = (
+    <MenuVertical
+      titre="Relances"
+      groupes={[
+        {
+          items: VUES.map((v) => ({
+            href: lienRelances("/relances", dossier, { vue: v.cle === "kanban" ? null : v.cle, type }),
+            label: v.libelle,
+            icone: v.icone,
+            actif: vue === v.cle,
+            nombre: v.cle === "kanban" ? dues : undefined,
+          })),
+        },
+      ]}
+    />
+  );
   const parType = (n: (t: TypeRelance) => number | null): Filtre => ({
     cle: "type",
     libelle: "Tous les types",
@@ -128,7 +147,6 @@ export default async function Relances({
         etiquettes={[vue !== "historique" && `Envoi : ${envoi.libelle.toLowerCase()}`, vue !== "historique" && "Délais provisoires", exclu ? "Dossier marqué « ne pas relancer »" : null]}
         bas={
           <div className={s.basBandeau}>
-            {vues}
             {/* Les filtres lisent l'adresse côté navigateur : une frontière Suspense. */}
             <Suspense>
               <Filtres filtres={filtres} garder={["dossier", "vue", "horizon"]} />
@@ -150,42 +168,44 @@ export default async function Relances({
         {dossier && <Link href={lienRelances("/relances", null, { vue: vue === "kanban" ? null : vue })} data-ton="contour">Toutes les relances</Link>}
       </Bandeau>
 
-      <div className={s.page}>
-        {vue === "kanban" && <Kanban relances={relances} aujourdhui={aujourdhui} borneRattrapage={plus(aujourdhui, -RATTRAPAGE_JOURS)} />}
-        {vue === "previsions" && <Previsions relances={relances} regles={regles} tentatives={tentatives} type={type} horizon={horizon} aujourdhui={aujourdhui} />}
-        {vue === "historique" && (
-          <>
-            <TableHistorique lignes={lignes} filtre={!!(sp.type || sp.canal || sp.issue || sp.origine || periode)} />
-            <div className={s.grille}>
-              <EnvoisTrenteJours tentatives={tentatives} aujourdhui={aujourdhui} />
-              <section className={`${s.carte} ${s.c4}`}>
-                <div className={s.carteTete}>
-                  <div>
-                    <p className={s.surtitre}>Effet</p>
-                    <h2 className={s.titre}>Ce que les relances ont donné</h2>
+      <AvecMenu menu={menu}>
+        <div className={s.page}>
+          {vue === "kanban" && <Kanban relances={relances} aujourdhui={aujourdhui} borneRattrapage={plus(aujourdhui, -RATTRAPAGE_JOURS)} />}
+          {vue === "previsions" && <Previsions relances={relances} regles={regles} tentatives={tentatives} type={type} horizon={horizon} aujourdhui={aujourdhui} />}
+          {vue === "historique" && (
+            <>
+              <TableHistorique lignes={lignes} filtre={!!(sp.type || sp.canal || sp.issue || sp.origine || periode)} />
+              <div className={s.grille}>
+                <EnvoisTrenteJours tentatives={tentatives} aujourdhui={aujourdhui} />
+                <section className={`${s.carte} ${s.c4}`}>
+                  <div className={s.carteTete}>
+                    <div>
+                      <p className={s.surtitre}>Effet</p>
+                      <h2 className={s.titre}>Ce que les relances ont donné</h2>
+                    </div>
                   </div>
-                </div>
-                <ul className={s.effets}>
-                  {effets
-                    .filter((e) => !type || e.type === type)
-                    .map((e) => (
-                      <li key={e.type} className={s.effet} data-mesurable={e.mesurable} style={{ ["--c" as string]: RELANCES.find((d) => d.type === e.type)!.couleur }}>
-                        <i />
-                        <span>{e.libelle}</span>
-                        <b>{e.mesurable ? `${e.suivis} / ${e.relances}` : "—"}</b>
-                        <p>{e.mesurable ? `${e.texte}${e.delaiMedian != null ? ` · délai médian ${e.delaiMedian} j` : ""}` : e.texte}</p>
-                      </li>
-                    ))}
-                </ul>
-                <p className={s.mise}>
-                  Seuls comptent les envois réellement partis (statut « envoyé »). Un dossier réglé après une relance ne l’a pas forcément été grâce à elle : c’est une
-                  corrélation, pas une preuve.
-                </p>
-              </section>
-            </div>
-          </>
-        )}
-      </div>
+                  <ul className={s.effets}>
+                    {effets
+                      .filter((e) => !type || e.type === type)
+                      .map((e) => (
+                        <li key={e.type} className={s.effet} data-mesurable={e.mesurable} style={{ ["--c" as string]: RELANCES.find((d) => d.type === e.type)!.couleur }}>
+                          <i />
+                          <span>{e.libelle}</span>
+                          <b>{e.mesurable ? `${e.suivis} / ${e.relances}` : "—"}</b>
+                          <p>{e.mesurable ? `${e.texte}${e.delaiMedian != null ? ` · délai médian ${e.delaiMedian} j` : ""}` : e.texte}</p>
+                        </li>
+                      ))}
+                  </ul>
+                  <p className={s.mise}>
+                    Seuls comptent les envois réellement partis (statut « envoyé »). Un dossier réglé après une relance ne l’a pas forcément été grâce à elle : c’est une
+                    corrélation, pas une preuve.
+                  </p>
+                </section>
+              </div>
+            </>
+          )}
+        </div>
+      </AvecMenu>
     </div>
   );
 }
