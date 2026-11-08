@@ -11,9 +11,9 @@ import s from "./menu-vertical.module.css";
 export type ItemMenu = { href: string; label: string; icone?: NomIcone; actif?: boolean; nombre?: number };
 export type GroupeMenu = { titre?: string; items: ItemMenu[] };
 
-export default function MenuVertical({ titre, groupes }: { titre: string; groupes: GroupeMenu[] }) {
+export default function MenuVertical({ titre, groupes, dense = false }: { titre: string; groupes: GroupeMenu[]; /** Des lignes plus serrées, pour un long menu (Réglages). */ dense?: boolean }) {
   return (
-    <nav className={s.menu} aria-label={titre}>
+    <nav className={dense ? `${s.menu} ${s.dense}` : s.menu} aria-label={titre}>
       <p className={s.titre}>{titre}</p>
       {groupes.map((g, i) => (
         <div key={g.titre ?? i} className={s.groupe}>

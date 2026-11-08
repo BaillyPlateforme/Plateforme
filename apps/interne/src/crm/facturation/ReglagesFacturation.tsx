@@ -7,9 +7,10 @@ import { TVA_DEFAUT_CODE } from "./calcul";
 /*
  * Paramètres › Facturation : les mentions et les conditions des factures.
  * Toutes vides tant que Bailly ne les a pas données : rien n'est proposé ni
- * inventé. Le SIRET et l'adresse de la carte « Entreprise » restent où ils
- * sont ; la facture les reprend. Composant de l'espace équipe (Tailwind),
- * posé sur la page des Paramètres.
+ * inventé. Le SIRET et l'adresse de la carte « Entreprise » (Réglages ›
+ * Paramètres) restent où ils sont ; la facture les reprend. Composant de
+ * l'espace équipe (Tailwind), page Réglages › Facturation
+ * (/dashboard/parametres/facturation).
  */
 
 type Valeurs = Record<keyof Reglages, string>;
@@ -75,7 +76,7 @@ export default function ReglagesFacturation() {
   ].filter(Boolean) as string[] : [];
 
   return (
-    <section id="facturation" className="mt-6 max-w-4xl scroll-mt-28 rounded-[18px] bg-card p-6">
+    <section id="facturation" className="max-w-4xl scroll-mt-28 rounded-[18px] bg-card p-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-3">
         <h3 className="eyebrow text-ink-soft">Facturation · mentions et conditions</h3>
         {manque.length > 0 && <span className="text-xs font-medium text-warn">{manque.length} mention{manque.length > 1 ? "s" : ""} à faire fournir par Bailly</span>}
@@ -83,7 +84,7 @@ export default function ReglagesFacturation() {
       <p className="mb-4 text-sm text-ink-soft">
         Imprimées sur les factures et les avoirs dès qu&apos;elles sont renseignées. Rien n&apos;est prérempli : ces valeurs viennent de Bailly.
         {entreprise && (
-          <> Le SIRET ({entreprise.siret ?? "vide"}) et l&apos;adresse ({entreprise.adresse ?? "vide"}) de la carte « Entreprise » ci-dessus sont repris.</>
+          <> Le SIRET ({entreprise.siret ?? "vide"}) et l&apos;adresse ({entreprise.adresse ?? "vide"}) de la carte « Entreprise », dans les Paramètres, sont repris.</>
         )}
       </p>
       {erreurLecture && <p className="mb-3 text-sm text-warn">{erreurLecture}</p>}

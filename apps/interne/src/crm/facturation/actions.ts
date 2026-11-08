@@ -526,7 +526,7 @@ export async function enregistrerReglagesFacturation(saisie: Partial<Record<keyo
   const maj = CHAMPS_REGLAGES.map((k) => `${k}=excluded.${k}`).join(",");
   await q(`insert into facturation_reglages(id, ${cols}, maj_le, maj_par) values(true, ${params}, now(), $${CHAMPS_REGLAGES.length + 1})
       on conflict (id) do update set ${maj}, maj_le=now(), maj_par=excluded.maj_par`, [...valeurs, u.nom]);
-  revalidatePath("/dashboard/parametres");
+  revalidatePath("/dashboard/parametres/facturation");
   revalidatePath("/(interne)", "layout");
   return { ok: true };
 }

@@ -1,0 +1,88 @@
+/* Réglages, la vue d'ensemble : une carte par page, rangées par groupe. */
+.ensemble {
+  display: grid;
+  gap: 26px;
+}
+.groupe {
+  display: grid;
+  gap: 12px;
+}
+.groupeTitre {
+  margin: 0 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.cartes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.carte {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 92px;
+  padding: 18px 44px 18px 18px;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.04), 0 20px 46px -34px rgba(46, 31, 158, 0.45);
+  color: #14121f;
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.carte:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.04), 0 24px 46px -26px rgba(46, 31, 158, 0.55);
+}
+.carte:focus-visible {
+  outline: 2px solid #4b2fe0;
+  outline-offset: 2px;
+}
+.picto {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px rgba(75, 47, 224, 0.9);
+}
+.corps {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.corps b {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.corps small {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #6f6c80;
+}
+.fleche {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f4f4f7;
+  color: #4b2fe0;
+  transform: translateY(-50%);
+  transition: background-color 0.15s, color 0.15s;
+}
+.carte:hover .fleche {
+  background: #4b2fe0;
+  color: #fff;
+}
