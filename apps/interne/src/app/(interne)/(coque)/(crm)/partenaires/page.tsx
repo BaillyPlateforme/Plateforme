@@ -1,9 +1,11 @@
 import Link from "next/link";
-import Bandeau, { Pilules } from "@/ui/Bandeau";
+import Bandeau from "@/ui/Bandeau";
 import { Icone } from "@/ui/icones";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { eur, dateFr, ilYa, initiales } from "@/crm/lib/format";
 import { annuaire, filtresAnnuaire } from "@/crm/partenaires/donnees";
-import { CATEGORIES, estCategorie, type Categorie } from "@/crm/partenaires/categories";
+import { CATEGORIES, estCategorie } from "@/crm/partenaires/categories";
+import MenuPartenaires, { type VuePartenaires as Vue } from "@/crm/partenaires/MenuPartenaires";
 import NouveauPartenaire from "@/crm/partenaires/NouveauPartenaire";
 import { BarreBas, RechercheVerre } from "@/crm/exploitation/ui/Bas";
 import { equipesConnues, listerAgents, type AgentListe } from "@/terrain/lib/agents";
@@ -19,17 +21,15 @@ export const metadata = { title: "Partenaires" };
  * comptes des déménageurs pour l'outil terrain (anciennement /demenageurs)
  * et les sociétés avec qui Bailly travaille — sous-traitants, agences,
  * partenaires, transitaires… (anciennement /sous-traitants, audit Créagidem).
- * Une seule page, des vues dans la rangée basse du bandeau : « Tous », les
- * déménageurs (gestion des comptes et des mots de passe), puis une vue par
- * famille de sociétés. La fiche d'une société vit sous /partenaires/<id>.
+ * Une seule page, ses vues dans le menu de gauche (décision de David du
+ * 08/11/2026) : « Tous », les déménageurs (gestion des comptes et des mots de
+ * passe), puis une vue par famille de sociétés. La recherche reste dans la
+ * rangée basse du bandeau. La fiche d'une société vit sous /partenaires/<id>.
  */
-type Vue = "tous" | "demenageurs" | Categorie;
 type Params = { vue?: string; q?: string; zone?: string; inactifs?: string; ok?: string };
 
 const nomAgent = (a: { prenom: string; nom: string | null }) => [a.prenom, a.nom].filter(Boolean).join(" ");
 const sansAccent = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-/* Dans une page nommée « Partenaires », la famille du même nom garde son libellé complet (« Partenaire / confrère »). */
-const pilule = (k: Categorie) => (k === "partenaire" ? "Partenaires / confrères" : CATEGORIES[k].pluriel);
 
 export default async function Partenaires({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
@@ -57,8 +57,6 @@ export default async function Partenaires({ searchParams }: { searchParams: Prom
   };
   // Changer de vue garde la recherche, pas la zone ni les fiches désactivées (propres aux sociétés).
   const versVue = (v: Vue) => lien({ vue: v === "tous" ? undefined : v, zone: undefined, inactifs: undefined });
-  const societes = [...filtres.categories.values()].reduce((a, b) => a + b, 0);
-  const familles = (Object.keys(CATEGORIES) as Categorie[]).filter((k) => filtres.categories.get(k) || vue === k);
 
   const texte =
     sp.zone && avecSocietes ? (
@@ -88,14 +86,6 @@ export default async function Partenaires({ searchParams }: { searchParams: Prom
         action={vue === "demenageurs" ? { label: "Ouvrir l'outil terrain", href: "/terrain", icone: "fleche" } : undefined}
         bas={
           <BarreBas>
-            <Pilules
-              label="Annuaire"
-              items={[
-                { href: versVue("tous"), label: "Tous", actif: vue === "tous", nombre: societes + filtres.demenageurs },
-                { href: versVue("demenageurs"), label: "Déménageurs", actif: vue === "demenageurs", nombre: filtres.demenageurs },
-                ...familles.map((k) => ({ href: versVue(k), label: pilule(k), actif: vue === k, nombre: filtres.categories.get(k) ?? 0 })),
-              ]}
-            />
             <RechercheVerre
               action="/partenaires"
               valeur={sp.q}
@@ -108,60 +98,62 @@ export default async function Partenaires({ searchParams }: { searchParams: Prom
         {vue !== "demenageurs" && <NouveauPartenaire />}
       </Bandeau>
 
-      {vue === "demenageurs" ? (
-        <GestionDemenageurs agents={agents} equipes={equipes} />
-      ) : (
-        <div className={u.ecran}>
-          {sp.ok === "supprime" && <p className={u.message}>Fiche supprimée de l&apos;annuaire.</p>}
-          {vide && (
-            <div className={`${u.carte} ${u.vide}`}>
-              <i>
-                <Icone nom="partenaires" taille={24} />
-              </i>
-              <b>{recherche || sp.zone || vue !== "tous" ? "Personne ne correspond." : "L'annuaire est vide."}</b>
-              <span>Ajoutez une société avec « Nouvelle société » : ses lettres de voiture s&apos;y relieront.</span>
-            </div>
-          )}
-
-          {visibles.length > 0 && (
-            <section className={s.groupe}>
-              <h2 className={s.groupeTitre}>
-                Déménageurs <small>{visibles.length}</small>
-                <Link href={versVue("demenageurs")} className={s.groupeLien}>
-                  Gérer les comptes
-                  <Icone nom="fleche" taille={14} />
-                </Link>
-              </h2>
-              <div className={s.grille}>
-                {visibles.map((a) => (
-                  <CarteDemenageur key={a.id} a={a} href={versVue("demenageurs")} />
-                ))}
+      <AvecMenu menu={<MenuPartenaires actif={vue} filtres={filtres} href={versVue} />}>
+        {vue === "demenageurs" ? (
+          <GestionDemenageurs agents={agents} equipes={equipes} />
+        ) : (
+          <div className={u.ecran}>
+            {sp.ok === "supprime" && <p className={u.message}>Fiche supprimée de l&apos;annuaire.</p>}
+            {vide && (
+              <div className={`${u.carte} ${u.vide}`}>
+                <i>
+                  <Icone nom="partenaires" taille={24} />
+                </i>
+                <b>{recherche || sp.zone || vue !== "tous" ? "Personne ne correspond." : "L'annuaire est vide."}</b>
+                <span>Ajoutez une société avec « Nouvelle société » : ses lettres de voiture s&apos;y relieront.</span>
               </div>
-            </section>
-          )}
+            )}
 
-          {rows.length > 0 && (
-            <section className={s.groupe}>
-              {vue === "tous" && (
+            {visibles.length > 0 && (
+              <section className={s.groupe}>
                 <h2 className={s.groupeTitre}>
-                  Sociétés <small>{rows.length}</small>
+                  Déménageurs <small>{visibles.length}</small>
+                  <Link href={versVue("demenageurs")} className={s.groupeLien}>
+                    Gérer les comptes
+                    <Icone nom="fleche" taille={14} />
+                  </Link>
                 </h2>
-              )}
-              <div className={s.grille}>
-                {rows.map((r) => (
-                  <CarteSociete key={r.id} r={r} zone={(z) => lien({ zone: z })} />
-                ))}
-              </div>
-            </section>
-          )}
+                <div className={s.grille}>
+                  {visibles.map((a) => (
+                    <CarteDemenageur key={a.id} a={a} href={versVue("demenageurs")} />
+                  ))}
+                </div>
+              </section>
+            )}
 
-          <p className={u.aide} style={{ textAlign: "center" }}>
-            <Link className={u.lien} href={lien({ inactifs: inactifs ? undefined : "1" })}>
-              {inactifs ? "Masquer les fiches désactivées" : "Voir aussi les fiches désactivées"}
-            </Link>
-          </p>
-        </div>
-      )}
+            {rows.length > 0 && (
+              <section className={s.groupe}>
+                {vue === "tous" && (
+                  <h2 className={s.groupeTitre}>
+                    Sociétés <small>{rows.length}</small>
+                  </h2>
+                )}
+                <div className={s.grille}>
+                  {rows.map((r) => (
+                    <CarteSociete key={r.id} r={r} zone={(z) => lien({ zone: z })} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <p className={u.aide} style={{ textAlign: "center" }}>
+              <Link className={u.lien} href={lien({ inactifs: inactifs ? undefined : "1" })}>
+                {inactifs ? "Masquer les fiches désactivées" : "Voir aussi les fiches désactivées"}
+              </Link>
+            </p>
+          </div>
+        )}
+      </AvecMenu>
     </div>
   );
 }
