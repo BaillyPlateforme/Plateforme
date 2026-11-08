@@ -576,3 +576,68 @@ a.signal:hover {
     color: #6f6c80;
   }
 }
+
+/*
+ * Une carte dans une colonne étroite (le tableau tient dans l'écran,
+ * kanban.module.css) : la référence passe sous le nom, les puces et les
+ * gestes se resserrent ; rien ne disparaît.
+ */
+@container colonne (max-width: 230px) {
+  .carte {
+    gap: 6px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 14px;
+  }
+  .haut {
+    flex-wrap: wrap;
+    row-gap: 1px;
+    gap: 6px;
+  }
+  .titre {
+    font-size: 13.5px;
+  }
+  .ref {
+    order: 3;
+    flex-basis: 100%;
+    max-width: 100%;
+    font-size: 10.5px;
+  }
+  .trajet {
+    gap: 4px;
+    font-size: 12px;
+  }
+  /* Départ et arrivée se partagent la ligne : le plus court n'est plus réduit à une lettre. */
+  .trajet > span {
+    flex: 1 1 0;
+  }
+  .puce {
+    font-size: 11px;
+  }
+  .signaux {
+    flex-basis: auto;
+  }
+  .actions {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    margin-left: 0;
+  }
+  .action {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 6px;
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+  .action svg {
+    display: none;
+  }
+}
+/* Plus étroite encore (écran de 1280 px) : les gestes l'un sous l'autre, en entier. */
+@container colonne (max-width: 175px) {
+  .actions {
+    flex-wrap: wrap;
+  }
+  .action {
+    flex: 1 1 100%;
+  }
+}

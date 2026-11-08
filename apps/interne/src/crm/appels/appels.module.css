@@ -334,10 +334,12 @@ button > .pastilleAppels {
   display: grid;
   /* Le numéro tient sa colonne ; le nom et le motif prennent toute la largeur au-dessus. */
   grid-template-columns: 38px auto minmax(0, 1fr) auto;
+  /* Le numéro, puis les gestes sur leur propre ligne : « Fermer » et « Fait » en entier, côte à côte. */
   grid-template-areas:
     "pic tete tete score"
     "pic corps corps corps"
-    "pic tel gestes gestes"
+    "pic tel tel tel"
+    "pic gestes gestes gestes"
     "pic forme forme forme";
   column-gap: 12px;
   row-gap: 9px;
@@ -999,4 +1001,103 @@ button > .pastilleAppels {
     justify-items: start;
     text-align: left;
   }
+}
+
+/*
+ * Les deux gestes (David, 08/11/2026) : « Fait » plein vert, « Fermer » orange,
+ * en un clic ; « Plus tard » n'est plus qu'une icône.
+ */
+.geste.fait {
+  border-color: #14c27d !important;
+  background: #14c27d !important;
+  color: #fff !important;
+  box-shadow: 0 8px 18px -12px rgba(20, 194, 125, 0.9);
+}
+.geste.fait:hover {
+  border-color: #0fa86b !important;
+  background: #0fa86b !important;
+}
+.geste.fermer {
+  border-color: rgba(245, 158, 11, 0.55) !important;
+  background: #fff7e8 !important;
+  color: #b45309 !important;
+}
+.geste.fermer:hover {
+  border-color: #f59e0b !important;
+  background: #f59e0b !important;
+  color: #fff !important;
+}
+.geste.gesteIcone {
+  justify-content: center;
+  width: 34px;
+  padding: 0;
+  color: #8a86a0 !important;
+}
+.etatFerme {
+  color: #b45309;
+}
+
+/* Le bouton de la barre du haut : une pilule « Appels », plus grande qu'un rond. */
+.boutonBarre {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 8px 0 14px;
+  border: 1px solid #c9eedc;
+  border-radius: 999px;
+  background: #effbf5;
+  color: #0a7f51;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.2s, background-color 0.15s;
+}
+.boutonBarre:hover {
+  border-color: #14c27d;
+  box-shadow: 0 10px 22px -16px rgba(20, 194, 125, 0.9);
+}
+.boutonBarre[aria-expanded="true"] {
+  border-color: #14c27d;
+  background: #14c27d;
+  color: #fff;
+}
+.boutonBarre .compte {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #14c27d;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.boutonBarre[aria-expanded="true"] .compte {
+  background: #fff;
+  color: #0a7f51;
+}
+.boutonBarre .zero {
+  background: #d9f3e7;
+  color: #0a7f51;
+}
+/* Comme « Nouveau dossier » (coque.module.css) : sous 1320 px, l'icône et le nombre seulement. */
+@media (max-width: 1320px) {
+  .boutonBarre .libelle {
+    display: none;
+  }
+}
+
+/* Dans le panneau, les gestes partent de la gauche, sous le numéro ; la flèche reste au bout. */
+.liste[data-variante="panneau"] .gestes {
+  justify-content: flex-start;
+}
+.liste[data-variante="panneau"] .gestes .ouvrir {
+  margin-left: auto;
+}
+.geste {
+  flex-shrink: 0;
 }

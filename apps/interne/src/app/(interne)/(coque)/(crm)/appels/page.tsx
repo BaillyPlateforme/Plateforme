@@ -152,7 +152,7 @@ function ListeFaits({ faits }: { faits: AppelFait[] }) {
   if (!faits.length)
     return (
       <div className={s.videCarte}>
-        <Vide titre="Aucun appel noté" texte={`Les appels notés « Fait » ces ${FAITS_JOURS} derniers jours viendront ici, avec leur note.`} />
+        <Vide titre="Aucun appel noté" texte={`Les appels notés « Fait » ou « Fermé » ces ${FAITS_JOURS} derniers jours viendront ici.`} />
       </div>
     );
   return (
@@ -171,8 +171,8 @@ function ListeFaits({ faits }: { faits: AppelFait[] }) {
               {f.note && <p className={s.note}>« {f.note} »</p>}
             </div>
             <div className={s.faitMeta}>
-              <span>
-                <Icone nom="coche" taille={13} /> {f.quandLibelle}
+              <span className={f.etat === "ferme" ? s.etatFerme : undefined}>
+                <Icone nom={f.etat === "ferme" ? "fermer" : "coche"} taille={13} /> {f.etat === "ferme" ? "Fermé" : "Fait"} {f.quandLibelle}
               </span>
               <small>
                 {f.par ? `par ${f.par}` : ""}

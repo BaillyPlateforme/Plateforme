@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icone } from "@/ui/icones";
-import c from "@/ui/coque.module.css";
 import Interrupteur from "./Interrupteur";
 import ListeAppels from "./ListeAppels";
 import { RAFRAICHIR_SECONDES, type Appel } from "./regles";
@@ -87,17 +86,19 @@ export default function BoutonAppels() {
   const n = donnees?.aFaire.length ?? 0;
   return (
     <>
+      {/* Une pilule « Appels » et son nombre, plus visible qu'un rond (David, 08/11/2026 : « un peu plus grand »). */}
       <button
         type="button"
-        className={c.rond}
+        className={s.boutonBarre}
         aria-label={n ? `Appels à passer : ${n}` : "Appels à passer"}
         title="Appels à passer"
         aria-expanded={ouvert}
         aria-haspopup="dialog"
         onClick={basculer}
       >
-        <Icone nom="telephone" />
-        {n > 0 && <span className={`${c.pastille} ${s.pastilleAppels}`}>{n > 99 ? "99+" : n}</span>}
+        <Icone nom="telephone" taille={18} />
+        <span className={s.libelle}>Appels</span>
+        <span className={n > 0 ? s.compte : `${s.compte} ${s.zero}`}>{n > 99 ? "99+" : n}</span>
       </button>
       {ouvert && createPortal(<Panneau donnees={donnees} fermer={() => setOuvert(false)} />, document.body)}
     </>

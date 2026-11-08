@@ -141,10 +141,11 @@ export interface Appel {
   reporteLibelle: string | null;
 }
 
-/** Un appel noté « fait » (vue « Faits » de la page). */
+/** Un appel noté « fait », ou fermé sans appel (vue « Faits » de la page). */
 export interface AppelFait {
   cle: string;
   source: SourceAppel;
+  etat: "fait" | "ferme";
   client: string;
   motif: string;
   telephone: string | null;

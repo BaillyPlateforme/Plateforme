@@ -259,7 +259,7 @@ async function calculer(sources: SourceAppel[], maintenant: number): Promise<App
   return lots.flat().map((b) => finir(b, maintenant));
 }
 
-type Decision = { source: string; objet_id: string; occurrence: string; etat: "fait" | "reporte"; reporte_au: Date | null };
+type Decision = { source: string; objet_id: string; occurrence: string; etat: "fait" | "reporte" | "ferme"; reporte_au: Date | null };
 
 async function decisions(appels: Appel[]): Promise<Map<string, Decision>> {
   if (!appels.length) return new Map();
@@ -283,7 +283,7 @@ export async function lireAppels(): Promise<{ aFaire: Appel[]; reportes: Appel[]
   const reportes: Appel[] = [];
   for (const a of tous) {
     const d = dec.get(a.cle);
-    if (d?.etat === "fait") continue;
+    if (d?.etat === "fait" || d?.etat === "ferme") continue;
     if (d?.etat === "reporte" && d.reporte_au && d.reporte_au.getTime() > maintenant) {
       const au = d.reporte_au.toISOString();
       reportes.push({ ...a, reporteAu: au, reporteLibelle: momentFr(au, maintenant) });
@@ -300,12 +300,12 @@ export async function trouverAppel(source: SourceAppel, objetId: string, occurre
   return l.find((a) => a.objetId === objetId && a.occurrence === occurrence) ?? null;
 }
 
-/** Les appels notés « faits » ces derniers jours, du plus récent au plus ancien. */
+/** Les appels notés « faits » ou « fermés » ces derniers jours, du plus récent au plus ancien. */
 export async function appelsFaits(jours = FAITS_JOURS): Promise<AppelFait[]> {
   const maintenant = Date.now();
   const rows = await q(
-    `select source, objet_id, occurrence, client, motif, telephone, note, par_nom, quand, lien from crm.appels
-      where etat = 'fait' and quand > now() - make_interval(days => $1) order by quand desc limit 200`,
+    `select source, objet_id, occurrence, etat, client, motif, telephone, note, par_nom, quand, lien from crm.appels
+      where etat in ('fait', 'ferme') and quand > now() - make_interval(days => $1) order by quand desc limit 200`,
     [jours],
   ).catch(() => []);
   return rows.map((r) => {
@@ -313,6 +313,7 @@ export async function appelsFaits(jours = FAITS_JOURS): Promise<AppelFait[]> {
     return {
       cle: cleAppel(r.source, r.objet_id, r.occurrence),
       source: sourceDe(r.source)?.cle ?? "rappel",
+      etat: r.etat === "ferme" ? "ferme" : "fait",
       client: r.client ?? "Client",
       motif: r.motif ?? "",
       telephone: r.telephone ?? null,

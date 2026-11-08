@@ -18,13 +18,17 @@ import { lireCle, NOTE_MAX, REPORT_MAX_JOURS, type Appel } from "./regles";
  *   des rappels (Demandes › À rappeler) ; pour les autres sources, l'appel
  *   est noté dans crm.appels. Dans les deux cas, la ligne de crm.appels
  *   garde la note, et le journal des gestes l'inscrit (le Feed le montre).
+ * - « Fermer » (David, 08/11/2026 : « soit c'est fait, soit on ferme ») :
+ *   l'appel quitte la liste sans avoir été passé ; un rappel demandé passe
+ *   à « clos » par la même action des rappels. La demande ou le dossier,
+ *   eux, ne changent pas.
  * - « Plus tard » : l'appel quitte la liste jusqu'à l'heure choisie.
  * - « Maintenant » : un appel reporté revient tout de suite.
  */
 
 export type Resultat = { ok: boolean; message: string };
 
-async function noter(a: Appel, etat: "fait" | "reporte", o: { note?: string | null; reporteAu?: Date | null }, u: { id: number; nom: string }) {
+async function noter(a: Appel, etat: "fait" | "reporte" | "ferme", o: { note?: string | null; reporteAu?: Date | null }, u: { id: number; nom: string }) {
   await q(
     `insert into crm.appels(source, objet_id, occurrence, etat, reporte_au, note, par_id, par_nom, quand, dossier_id, request_id, client, motif, telephone, lien)
      values ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9, $10, $11, $12, $13, $14)
@@ -72,6 +76,29 @@ export async function marquerAppelFait(cle: string, note?: string | null): Promi
   });
   rafraichir(a);
   return { ok: true, message: `Appel à ${a.client} noté.` };
+}
+
+export async function fermerAppel(cle: string): Promise<Resultat> {
+  const u = await currentUser();
+  const a = await retrouver(cle);
+  if (!a) return { ok: false, message: "Cet appel n'est plus à faire : la liste a changé." };
+  try {
+    if (a.source === "rappel") await deplacerRappel(a.objetId, "clos");
+    await noter(a, "ferme", {}, u);
+  } catch (e) {
+    console.error("Appels : fermeture non notée", e instanceof Error ? e.message : e);
+    return { ok: false, message: "L'appel n'a pas pu être fermé : réessayez dans un instant." };
+  }
+  await journaliser({
+    action: "appel.ferme",
+    libelle: `Appel fermé sans suite : ${a.client} (${a.resume})`,
+    objet: a.objetFeed,
+    dossierId: a.dossierId,
+    requestId: a.requestId,
+    details: { source: a.source },
+  });
+  rafraichir(a);
+  return { ok: true, message: `${a.client} : retiré de la liste.` };
 }
 
 export async function reporterAppel(cle: string, jusqua: string): Promise<Resultat> {

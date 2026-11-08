@@ -753,3 +753,66 @@
     grid-template-columns: 1fr;
   }
 }
+
+/*
+ * Tout le tableau tient dans la largeur de l'écran (David, 08/11/2026 : « tout
+ * doit tenir sans avoir à scroller horizontalement ») : sur un écran de
+ * bureau, les colonnes se partagent la largeur au lieu de garder chacune
+ * 268 px ; une colonne étroite resserre son en-tête et ses cartes (requêtes
+ * de conteneur ci-dessous et dans carte.module.css). Le défilement horizontal
+ * ne reste qu'au téléphone.
+ */
+@media (min-width: 761px) {
+  .planche {
+    gap: 10px;
+  }
+  .colonne {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    container: colonne / inline-size;
+  }
+  .repliee {
+    flex-basis: 48px;
+  }
+}
+@container colonne (max-width: 230px) {
+  .tete {
+    padding: 14px 10px 10px 12px;
+  }
+  .teteHaut {
+    gap: 6px;
+  }
+  .teteHaut h2 {
+    font-size: 13px;
+  }
+  .nombre {
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+  /* « Détail », « Relances » : la flèche seule, le titre au survol. */
+  .lienColonne {
+    gap: 0;
+    padding: 0 6px;
+    font-size: 0;
+  }
+  .sous {
+    height: 30px;
+    margin-top: 6px;
+  }
+  .sens {
+    font-size: 11px;
+  }
+  .somme b {
+    font-size: 16px;
+  }
+  .somme span {
+    font-size: 11px;
+  }
+  .corps {
+    gap: 8px;
+    padding: 4px 6px 10px;
+  }
+}

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { Icone } from "@/ui/icones";
-import { marquerAppelFait, remettreAppel, reporterAppel } from "./actions";
-import { detailScore, HEURE_REPRISE, ICONE_SOURCE, NOTE_MAX, sourceDe, telAffiche, telLien, trier, type Appel } from "./regles";
+import { fermerAppel, marquerAppelFait, remettreAppel, reporterAppel } from "./actions";
+import { detailScore, HEURE_REPRISE, ICONE_SOURCE, sourceDe, telAffiche, telLien, trier, type Appel } from "./regles";
 import { APPELS_CHANGES, useTri } from "./tri";
 import s from "./appels.module.css";
 
@@ -12,8 +12,10 @@ import s from "./appels.module.css";
  * La liste des appels, dans le panneau de la barre du haut comme sur la page
  * /appels : pour chaque appel, le client et pourquoi l'appeler, son numéro
  * (un clic pour appeler), depuis quand, la pertinence, le lien vers la
- * demande ou le dossier, et deux gestes — « Fait » (avec une note
- * facultative) et « Plus tard » (demain, ou l'heure choisie).
+ * demande ou le dossier, et deux gestes en un clic (David, 08/11/2026) :
+ * « Fait » en vert (l'appel est passé), « Fermer » en orange (retiré de la
+ * liste sans appel) ; « Plus tard » (demain, ou l'heure choisie) reste, en
+ * petit.
  *
  * Après un geste, la carte dit ce qui a été noté, puis la liste se relit :
  * le bouton de la barre écoute APPELS_CHANGES (BoutonAppels.tsx).
@@ -91,8 +93,7 @@ function Carte({
   mode: "afaire" | "reportes";
   onNaviguer?: () => void;
 }) {
-  const [forme, setForme] = useState<null | "fait" | "report">(null);
-  const [note, setNote] = useState("");
+  const [forme, setForme] = useState<null | "report">(null);
   const [choisi, setChoisi] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
   const [fini, setFini] = useState<string | null>(null);
@@ -126,10 +127,10 @@ function Carte({
     );
   }
 
-  const ouvrir = (f: "fait" | "report") => {
+  const ouvrirReport = () => {
     setErreur(null);
-    setForme((x) => (x === f ? null : f));
-    if (f === "report" && !choisi) setChoisi(pourChamp(jourA(1)));
+    setForme((x) => (x === "report" ? null : "report"));
+    if (!choisi) setChoisi(pourChamp(jourA(1)));
   };
 
   return (
@@ -174,17 +175,41 @@ function Carte({
       </div>
 
       <div className={s.gestes}>
+        {/* Deux gestes simples (David, 08/11/2026) : « Fait » en vert, « Fermer » en orange ; « Plus tard » reste, en petit. */}
         {mode === "reportes" ? (
           <button type="button" className={s.geste} disabled={enCours} onClick={() => agir(() => remettreAppel(a.cle))}>
             Maintenant
           </button>
         ) : (
-          <button type="button" className={s.geste} aria-expanded={forme === "report"} disabled={enCours} onClick={() => ouvrir("report")}>
-            <Icone nom="sablier" taille={14} />
-            Plus tard
+          <button
+            type="button"
+            className={`${s.geste} ${s.gesteIcone}`}
+            aria-expanded={forme === "report"}
+            aria-label={`Rappeler ${a.client} plus tard`}
+            title="Plus tard"
+            disabled={enCours}
+            onClick={ouvrirReport}
+          >
+            <Icone nom="sablier" taille={15} />
           </button>
         )}
-        <button type="button" className={`${s.geste} ${s.fait}`} aria-expanded={forme === "fait"} disabled={enCours} onClick={() => ouvrir("fait")}>
+        <button
+          type="button"
+          className={`${s.geste} ${s.fermer}`}
+          disabled={enCours}
+          title={a.source === "rappel" ? "Retirer de la liste sans appeler : le rappel passe à « clos »" : "Retirer de la liste sans appeler"}
+          onClick={() => agir(() => fermerAppel(a.cle))}
+        >
+          <Icone nom="fermer" taille={14} />
+          Fermer
+        </button>
+        <button
+          type="button"
+          className={`${s.geste} ${s.fait}`}
+          disabled={enCours}
+          title={a.source === "rappel" ? "Appel passé : le rappel passe à « rappelé »" : "Appel passé"}
+          onClick={() => agir(() => marquerAppelFait(a.cle))}
+        >
           <Icone nom="coche" taille={15} />
           Fait
         </button>
@@ -205,37 +230,6 @@ function Carte({
         </span>
         {variante === "page" && <small>pertinence</small>}
       </span>
-
-      {forme === "fait" && (
-        <form
-          className={s.forme}
-          onSubmit={(e) => {
-            e.preventDefault();
-            agir(() => marquerAppelFait(a.cle, note));
-          }}
-        >
-          <label className={s.formeTitre} htmlFor={`note-${a.cle}`}>
-            Appel passé à {a.client}
-            {a.source === "rappel" && <small> · le rappel passera à « rappelé »</small>}
-          </label>
-          <div className={s.formeLigne}>
-            <input
-              id={`note-${a.cle}`}
-              type="text"
-              className={s.champ}
-              value={note}
-              maxLength={NOTE_MAX}
-              placeholder="Une note, si besoin : ce qui a été dit, la suite…"
-              onChange={(e) => setNote(e.target.value)}
-              autoFocus
-            />
-            <button type="submit" className={`${s.valider} ${s.validerVert}`} disabled={enCours}>
-              {enCours ? "Un instant…" : "Noter l'appel"}
-            </button>
-          </div>
-          {erreur && <p className={s.erreur}>{erreur}</p>}
-        </form>
-      )}
 
       {forme === "report" && (
         <div className={s.forme}>
