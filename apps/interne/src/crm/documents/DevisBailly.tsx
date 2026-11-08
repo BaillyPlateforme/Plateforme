@@ -147,10 +147,11 @@ function Pied() {
   );
 }
 
-function Accord({ lien, cgv }: { lien: string | null; cgv: boolean }) {
+function Accord({ lien, cgv, signeLe }: { lien: string | null; cgv: boolean; signeLe?: unknown }) {
   return (
     <div className={s.accord}>
       <b>Bon pour accord</b>
+      {!!signeLe && <span className={s.enLigne}>Devis signé le {dateFr(signeLe as string, { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}</span>}
       <p>Date et signature précédées de la mention « bon pour accord »{cgv ? ", valant acceptation des conditions générales jointes" : ""}.</p>
       <div className={s.signature} />
       {lien && <div className={s.enLigne}>Ou signez en ligne : {lien}</div>}
@@ -173,7 +174,7 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
   const bailly = prestations.filter((x) => x.charge === "bailly"), client = prestations.filter((x) => x.charge === "client");
   const arrhesPct = v.arrhes_pct != null ? Number(v.arrhes_pct) : p.arrhesPct;
   const a = ch.assurance;
-  const contact = [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
+  const contact = [d.prenom, d.nom].filter(Boolean).join(" ");
   const lien = v.token && !v.signe_le && lienSignature ? lienSignature(v.token) : null;
   const tauxUniques = c.parTaux.length;
   const transport = [
@@ -307,7 +308,7 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
             {p.cgv.trim() && <li>Conditions générales de vente jointes (page 2).</li>}
           </ul>
         </div>
-        <Accord lien={lien} cgv={!!p.cgv.trim()} />
+        <Accord lien={lien} cgv={!!p.cgv.trim()} signeLe={v.signe_le} />
       </section>
       <Pied />
     </article>
@@ -332,7 +333,7 @@ function Proposition({ d, liste, p, lienSignature }: { d: any; liste: any[]; p: 
     ref.deplacement === "urbain" ? "Déménagement urbain" : ref.deplacement === "route" ? "Déménagement par la route" : null,
     ref.groupage === true ? "En groupage avec d’autres clients" : ref.groupage === false ? "Camion dédié" : null,
   ].filter(Boolean) as string[];
-  const contact = [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
+  const contact = [d.prenom, d.nom].filter(Boolean).join(" ");
 
   return (
     <article className={`${s.feuille} ${s.compact}`}>

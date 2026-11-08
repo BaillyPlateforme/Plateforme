@@ -385,12 +385,12 @@
  * Les classes communes (en-tête, cases, pied) restent celles de la fiche de
  * visite (FeuilleBailly) : la variante ne les resserre que dans le devis. */
 .compact.feuille {
-  padding: 11mm 12mm 8mm;
+  padding: 9mm 12mm 7mm;
   font-size: 8.8pt;
   line-height: 1.4;
 }
 .compact .entete {
-  padding-bottom: 4.5mm;
+  padding-bottom: 3.8mm;
 }
 .compact .logo {
   width: 44mm;
@@ -407,7 +407,7 @@
   font-size: 8pt;
 }
 .compact .resume {
-  margin-top: 4.5mm;
+  margin-top: 3.6mm;
   gap: 2.5mm;
 }
 .compact .case {
@@ -425,7 +425,7 @@
   font-size: 7.6pt;
 }
 .compact .titre {
-  margin: 4.6mm 0 2mm;
+  margin: 3.6mm 0 1.8mm;
   font-size: 10.4pt;
 }
 .compact .titre::before {
@@ -433,7 +433,7 @@
   height: 4mm;
 }
 .compact .bas {
-  margin-top: 4.5mm;
+  margin-top: 3.6mm;
   gap: 4mm;
 }
 .compact .conditions,
@@ -453,7 +453,7 @@
   font-size: 7.6pt;
 }
 .compact .signature {
-  min-height: 13mm;
+  min-height: 11mm;
   margin-top: 2mm;
 }
 .compact .enLigne {
@@ -462,7 +462,7 @@
   font-size: 7.4pt;
 }
 .compact .pied {
-  padding-top: 3.5mm;
+  padding-top: 2.6mm;
   font-size: 6.8pt;
 }
 .compact .formule {
@@ -729,7 +729,7 @@
 /* Qui fait quoi : deux listes */
 .quiFait {
   display: grid;
-  grid-template-columns: 1.55fr 1fr;
+  grid-template-columns: 2.7fr 1fr;
   gap: 4mm;
 }
 .quiFait small {
@@ -743,15 +743,21 @@
 }
 .quiFait ul {
   display: grid;
-  gap: 0.7mm 4mm;
+  gap: 0.6mm 4mm;
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 7.6pt;
-  line-height: 1.3;
+  font-size: 7.3pt;
+  line-height: 1.25;
 }
 .quiFait > div:first-child ul {
-  grid-template-columns: 1fr 1fr;
+  display: block;
+  column-count: 2;
+  column-gap: 4mm;
+}
+.quiFait > div:first-child li {
+  margin-bottom: 0.6mm;
+  break-inside: avoid;
 }
 .quiFait li {
   display: grid;
