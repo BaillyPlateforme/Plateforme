@@ -1,0 +1,1002 @@
+/*
+ * Les appels à passer, dans le design « Quantum » modernisé : le panneau du
+ * bouton de la barre (à droite, sa tête sur la bande indigo) et la page
+ * /appels. Une carte blanche par appel, la couleur de sa source sur le bord
+ * gauche ; le numéro en pilule indigo, prêt à appeler.
+ *
+ * Palette : indigo #4b2fe0, indigo profond #2e1f9e, violet #7a52ff, vert
+ * #14c27d, ambre #f59e0b, encre #14121f, gris #6f6c80, filet #e8e6ef.
+ * Couleurs des sources : visite ambre, rappel indigo, devis violet,
+ * nouvelle demande vert.
+ */
+
+/* ─────────────── Les sources ─────────────── */
+
+.carte[data-source="visite"],
+.pictogramme[data-source="visite"],
+.puce[data-source="visite"] {
+  --c: #f59e0b;
+  --c-doux: #fff3dc;
+  --c-texte: #a35a00;
+}
+.carte[data-source="rappel"],
+.pictogramme[data-source="rappel"],
+.puce[data-source="rappel"] {
+  --c: #4b2fe0;
+  --c-doux: #ece8ff;
+  --c-texte: #3a22c4;
+}
+.carte[data-source="devis"],
+.pictogramme[data-source="devis"],
+.puce[data-source="devis"] {
+  --c: #7a52ff;
+  --c-doux: #f1ecff;
+  --c-texte: #5a35dc;
+}
+.carte[data-source="nouvelle"],
+.pictogramme[data-source="nouvelle"],
+.puce[data-source="nouvelle"] {
+  --c: #14c27d;
+  --c-doux: #e2f7ee;
+  --c-texte: #0a7f51;
+}
+
+/* ─────────────── Le bouton de la barre ─────────────── */
+
+button > .pastilleAppels {
+  background: #14c27d;
+}
+
+/* ─────────────── Le panneau ─────────────── */
+
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  border: 0;
+  background: rgba(20, 18, 31, 0.26);
+  backdrop-filter: blur(1.5px);
+  cursor: default;
+  animation: fondu 0.2s ease-out;
+}
+.tiroir {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 81;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100vw);
+  background: #f5f4f9;
+  color: #14121f;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  box-shadow: -36px 0 80px -36px rgba(20, 18, 31, 0.6);
+  outline: none;
+  animation: entree 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes entree {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+}
+@keyframes fondu {
+  from {
+    opacity: 0;
+  }
+}
+
+/* La tête : la bande indigo des pages, en petit. */
+.tiroirTete {
+  position: relative;
+  isolation: isolate;
+  padding: 20px 22px 18px;
+  color: #fff;
+  background:
+    radial-gradient(420px 220px at 92% -30%, rgba(196, 160, 255, 0.95), transparent 62%),
+    radial-gradient(320px 200px at 50% 140%, rgba(255, 92, 205, 0.36), transparent 64%),
+    radial-gradient(360px 220px at -6% 120%, rgba(14, 6, 70, 0.95), transparent 62%),
+    linear-gradient(112deg, #170c5c 0%, #2e1f9e 36%, #4b2fe0 68%, #7a52ff 100%);
+}
+.tiroirDecor {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tiroirDecor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse at 80% 10%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(ellipse at 80% 10%, #000 0%, transparent 72%);
+}
+.tiroirDecor::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -46px;
+  width: 170px;
+  height: 170px;
+  transform: rotate(-8deg);
+  background: #fff;
+  opacity: 0.09;
+  -webkit-mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
+  mask: url("/marque/bailly-symbole.svg") center / contain no-repeat;
+}
+.tiroirTitre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.embleme {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+}
+.surtitre {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ddd3ff;
+}
+.tiroirTitre h2 {
+  margin: 1px 0 0;
+  font-size: 23px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: #fff;
+}
+.fermer {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.fermer:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+.fermer svg {
+  transform: rotate(45deg);
+}
+.tiroirTexte {
+  margin: 12px 0 14px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.76);
+}
+.tiroirTexte b {
+  color: #fff;
+}
+.tiroirListe {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 14px 20px;
+  overscroll-behavior: contain;
+}
+.tiroirPied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px 12px 20px;
+  border-top: 1px solid #e8e6ef;
+  background: #fff;
+}
+.tiroirPied > span {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8e8aa3;
+}
+.toutVoir {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #4b2fe0;
+  color: #fff !important;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 10px 22px -12px rgba(46, 31, 158, 0.85);
+  transition: background-color 0.15s;
+}
+.toutVoir:hover {
+  background: #2e1f9e;
+}
+.alerte {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff6e5;
+  color: #8a4b00;
+  font-size: 12.5px;
+}
+.chargement {
+  display: grid;
+  gap: 10px;
+}
+.chargement i {
+  display: block;
+  height: 132px;
+  border-radius: 18px;
+  background: linear-gradient(100deg, #fff 30%, #f1eff8 50%, #fff 70%) 0 0 / 300% 100%;
+  animation: reflet 1.3s linear infinite;
+}
+@keyframes reflet {
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* ─────────────── Le switch Chronologique | Pertinence ─────────────── */
+
+.interrupteur {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  flex-shrink: 0;
+  padding: 4px;
+  border-radius: 999px;
+}
+.interrupteur button {
+  position: relative;
+  z-index: 1;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.curseur {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  border-radius: 999px;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.interrupteur[data-tri="pertinence"] .curseur {
+  transform: translateX(100%);
+}
+.interrupteur[data-variante="verre"] {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.interrupteur[data-variante="verre"] button {
+  color: rgba(255, 255, 255, 0.82);
+}
+.interrupteur[data-variante="verre"] button[aria-checked="true"] {
+  color: #2e1f9e;
+}
+.interrupteur[data-variante="verre"] .curseur {
+  background: #fff;
+  box-shadow: 0 6px 14px -8px rgba(10, 6, 40, 0.6);
+}
+.interrupteur[data-variante="clair"] {
+  background: #efedf6;
+}
+.interrupteur[data-variante="clair"] button {
+  color: #5b5870;
+}
+.interrupteur[data-variante="clair"] button[aria-checked="true"] {
+  color: #2e1f9e;
+}
+.interrupteur[data-variante="clair"] .curseur {
+  background: #fff;
+  box-shadow: 0 2px 8px -2px rgba(20, 18, 31, 0.18);
+}
+
+/* ─────────────── La liste ─────────────── */
+
+.liste {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.carte {
+  position: relative;
+  display: grid;
+  /* Le numéro tient sa colonne ; le nom et le motif prennent toute la largeur au-dessus. */
+  grid-template-columns: 38px auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "pic tete tete score"
+    "pic corps corps corps"
+    "pic tel gestes gestes"
+    "pic forme forme forme";
+  column-gap: 12px;
+  row-gap: 9px;
+  padding: 14px 14px 13px 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid #eeecf5;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 18px 40px -32px rgba(46, 31, 158, 0.45);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.carte::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 18px;
+  bottom: 18px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--c);
+}
+.carte:hover,
+.carte[data-ouverte] {
+  border-color: #ddd6fb;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 22px 44px -28px rgba(46, 31, 158, 0.5);
+}
+.carte[aria-busy="true"] {
+  opacity: 0.7;
+}
+.pictogramme {
+  grid-area: pic;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--c-doux);
+  color: var(--c);
+}
+.tete {
+  grid-area: tete;
+  min-width: 0;
+  align-self: center;
+}
+.client {
+  display: block;
+  overflow: hidden;
+  font-size: 14.5px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #14121f;
+}
+.motif {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #3a3650;
+}
+.corps {
+  grid-area: corps;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.corps:empty {
+  display: none;
+}
+.detail {
+  margin: 0;
+  overflow: hidden;
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #8e8aa3;
+}
+.puces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.puce {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--c-doux);
+  color: var(--c-texte);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.neutre {
+  background: #f1f0f6;
+  color: #5b5870;
+}
+.reporte {
+  background: #fff3dc;
+  color: #a35a00;
+}
+.quand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e8aa3;
+  white-space: nowrap;
+}
+
+/* Le numéro : un clic pour appeler. */
+.tel {
+  grid-area: tel;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.appeler {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff !important;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 10px 20px -12px rgba(75, 47, 224, 0.9);
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.appeler:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px -12px rgba(75, 47, 224, 0.95);
+}
+.sansTel {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #b0acc2;
+}
+
+/* Les gestes. */
+.gestes {
+  grid-area: gestes;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.geste {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #e3e0ee !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #3a3650 !important;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.geste:hover {
+  border-color: #cfc3ff !important;
+  background: #faf9fe !important;
+}
+.geste[aria-expanded="true"] {
+  border-color: #4b2fe0 !important;
+  background: #f4f1ff !important;
+  color: #4b2fe0 !important;
+}
+.geste:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.geste.fait {
+  border-color: rgba(20, 194, 125, 0.4) !important;
+  background: #effbf5 !important;
+  color: #0a7f51 !important;
+}
+.geste.fait:hover {
+  border-color: #14c27d !important;
+  background: #e2f7ee !important;
+}
+.geste.fait[aria-expanded="true"] {
+  border-color: #14c27d !important;
+  background: #14c27d !important;
+  color: #fff !important;
+}
+.ouvrir {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f4f3f9;
+  color: #6f6c80 !important;
+  transition: background-color 0.15s, color 0.15s;
+}
+.ouvrir:hover {
+  background: #ece8ff;
+  color: #4b2fe0 !important;
+}
+
+/* La pertinence : un anneau, plein à 100. */
+.score {
+  grid-area: score;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  align-self: start;
+}
+.anneau {
+  --sc: #a7a3b8;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: conic-gradient(var(--sc) calc(var(--v) * 1%), #eeebf7 0);
+}
+.anneau::before {
+  content: "";
+  position: absolute;
+  inset: 3.5px;
+  border-radius: 50%;
+  background: #fff;
+}
+.anneau b {
+  position: relative;
+  font-size: 12.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc);
+}
+.score[data-niveau="haut"] .anneau {
+  --sc: #4b2fe0;
+}
+.score[data-niveau="moyen"] .anneau {
+  --sc: #7a52ff;
+}
+.score[data-avant] .anneau {
+  box-shadow: 0 0 0 4px #f1eeff;
+}
+.score small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a7a3b8;
+}
+
+/* « Fait » et « Plus tard » : un volet sous la carte. */
+.forme {
+  grid-area: forme;
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f7f6fb;
+  border: 1px solid #eeecf5;
+  animation: deplie 0.18s ease-out;
+}
+@keyframes deplie {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.formeTitre {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #3a3650;
+}
+.formeTitre small {
+  font-size: 12px;
+  font-weight: 550;
+  color: #8e8aa3;
+}
+.formeLigne {
+  display: flex;
+  gap: 8px;
+}
+.champ {
+  flex: 1;
+  width: auto !important;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px !important;
+  border: 1px solid #e3e0ee !important;
+  border-radius: 11px !important;
+  background: #fff !important;
+  color: #14121f;
+  font: inherit;
+  font-size: 13.5px !important;
+  outline: 0;
+}
+.champ:focus {
+  border-color: #b9a1f5 !important;
+  box-shadow: 0 0 0 4px rgba(75, 47, 224, 0.1);
+}
+.valider {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 16px;
+  border: 0 !important;
+  border-radius: 11px !important;
+  background: #4b2fe0 !important;
+  color: #fff !important;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.valider:hover {
+  background: #2e1f9e !important;
+}
+.validerVert {
+  background: #14c27d !important;
+}
+.validerVert:hover {
+  background: #0fa86b !important;
+}
+.valider:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.propositions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.proposition {
+  height: 32px;
+  padding: 0 13px;
+  border: 1px solid #e3e0ee !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+  color: #3a3650 !important;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.proposition:hover {
+  border-color: #4b2fe0 !important;
+  color: #4b2fe0 !important;
+}
+.erreur {
+  margin: 0;
+  font-size: 12.5px;
+  color: #be123c;
+}
+
+/* Le geste fait : la carte le dit, puis la liste se relit. */
+.fini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #e9f9f1;
+  border: 1px solid rgba(20, 194, 125, 0.32);
+  color: #0a7048;
+  font-size: 13.5px;
+  font-weight: 650;
+  animation: deplie 0.2s ease-out;
+}
+.fini span {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #14c27d;
+  color: #fff;
+}
+
+/* Rien à appeler. */
+.vide {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 44px 24px;
+  text-align: center;
+}
+.videIcone {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 6px;
+  border-radius: 18px;
+  background: #e2f7ee;
+  color: #14c27d;
+  box-shadow: 0 0 0 6px #f1fbf6;
+}
+.vide b {
+  font-size: 15px;
+  font-weight: 750;
+  color: #14121f;
+}
+.vide small {
+  max-width: 340px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8e8aa3;
+}
+
+/* ─────────────── La page /appels ─────────────── */
+
+.basBandeau {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  min-width: 0;
+}
+.basBandeau > .interrupteur {
+  margin-left: auto;
+}
+.page {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.enTeteListe {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 2px 4px 0;
+}
+.enTeteListe h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  color: #14121f;
+}
+.legende {
+  font-size: 13px;
+  color: #8e8aa3;
+}
+.videCarte {
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #efedf5;
+  box-shadow: 0 24px 50px -36px rgba(46, 31, 158, 0.42);
+}
+
+/* La carte, en large : une ligne par appel. */
+.liste[data-variante="page"] .carte {
+  grid-template-columns: 44px minmax(0, 1fr) minmax(170px, auto) auto 62px;
+  grid-template-areas:
+    "pic tete tel gestes score"
+    "pic corps tel gestes score"
+    "pic forme forme forme forme";
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 6px;
+  padding: 16px 18px 16px 20px;
+}
+.liste[data-variante="page"] .pictogramme {
+  align-self: start;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+.liste[data-variante="page"] .client {
+  font-size: 15px;
+}
+.liste[data-variante="page"] .tete {
+  align-self: end;
+}
+.liste[data-variante="page"] .corps {
+  align-self: start;
+}
+.liste[data-variante="page"] .score {
+  align-self: center;
+}
+.liste[data-variante="page"] .anneau {
+  width: 42px;
+  height: 42px;
+}
+.liste[data-variante="page"] .anneau b {
+  font-size: 13.5px;
+}
+.liste[data-variante="page"] .forme {
+  margin-top: 8px;
+}
+.liste[data-variante="page"] .formeLigne {
+  max-width: 760px;
+}
+
+/* Les appels faits. */
+.faits {
+  display: grid;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #efedf5;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 50px -36px rgba(46, 31, 158, 0.42);
+}
+.faits li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 12px;
+  border-radius: 14px;
+}
+.faits li + li {
+  border-top: 1px solid #f2f0f7;
+}
+/* Les lignes des appels faits n'ont pas de zones nommées : le pictogramme prend la première colonne. */
+.faits .pictogramme {
+  grid-area: auto;
+}
+.faits li:hover {
+  background: #faf9fd;
+}
+.faitCorps {
+  min-width: 0;
+}
+.note {
+  display: inline-block;
+  max-width: 100%;
+  margin: 6px 0 0;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: #f5f3fb;
+  font-size: 12.5px;
+  color: #3a3650;
+}
+.faitMeta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+.faitMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #0a7f51;
+  white-space: nowrap;
+}
+.faitMeta small {
+  font-size: 12px;
+  color: #a7a3b8;
+  white-space: nowrap;
+}
+.faitMeta a {
+  color: #4b2fe0;
+  font-weight: 600;
+}
+
+/* D'où viennent les appels : une note dépliable sous la liste. */
+.regles {
+  padding: 2px 4px;
+  font-size: 13px;
+  color: #6f6c80;
+}
+.regles summary {
+  width: fit-content;
+  font-weight: 650;
+  color: #4b2fe0;
+  cursor: pointer;
+}
+.regles ul {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 10px;
+  padding-left: 18px;
+  list-style: disc;
+}
+.regles p {
+  margin: 0;
+  line-height: 1.55;
+}
+.regles b {
+  color: #3a3650;
+}
+
+/* ─────────────── Écrans plus étroits ─────────────── */
+
+@media (max-width: 1180px) {
+  .liste[data-variante="page"] .carte {
+    grid-template-columns: 40px auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pic tete tete score"
+      "pic corps corps corps"
+      "pic tel gestes gestes"
+      "pic forme forme forme";
+    row-gap: 9px;
+  }
+  .liste[data-variante="page"] .pictogramme {
+    width: 40px;
+    height: 40px;
+  }
+  .liste[data-variante="page"] .score small {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .basBandeau {
+    height: auto;
+    flex-wrap: wrap;
+  }
+  .basBandeau > .interrupteur {
+    margin-left: 0;
+  }
+  .carte,
+  .liste[data-variante="page"] .carte {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pic tete score"
+      "pic corps corps"
+      "tel tel tel"
+      "gestes gestes gestes"
+      "forme forme forme";
+  }
+  .gestes {
+    justify-content: flex-start;
+  }
+  .formeLigne {
+    flex-wrap: wrap;
+  }
+  .faits li {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+  }
+  .faitMeta {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+}
