@@ -763,7 +763,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
           </footer>
         </form>
 
-        {/* ---------- le rail : partir de… (les plus proches en tête), les raccourcis ---------- */}
+        {/* ---------- le rail : partir de… (points de départ et modèles en tête, immobiles ; les plus proches dessous), les raccourcis ---------- */}
         <aside className={s.rail}>
           <section className={`${s.carte} ${s.partir}`} aria-label="Partir de…">
             <header className={s.carteTete}>
@@ -772,7 +772,9 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                 <p>Seul ce qui se réutilise est repris.</p>
               </div>
             </header>
-            {blocProches("rail")}
+            {/* Les points de départ restent en tête et ne bougent plus : les « plus proches », qui changent à chaque
+                frappe, s'inséraient au-dessus et décalaient la liste sous la souris (David, 08/11/2026 : « quand je
+                clique sur Partir de… ça ne marche pas »). */}
             <div className={s.groupeTete}>
               <span>Points de départ</span>
             </div>
@@ -810,6 +812,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                 ))}
               </ul>
             )}
+            {blocProches("rail")}
           </section>
 
           <section className={`${s.carte} ${s.aide}`} aria-label="Raccourcis clavier">
