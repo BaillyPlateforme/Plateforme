@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Barlow, Barlow_Condensed } from "next/font/google";
 import { Suspense } from "react";
 import { Apparitions } from "../_ui/Apparitions";
+import { BandeauApercu } from "../_ui/BandeauApercu";
 import { Toast } from "../_ui/Toast";
 import "../espace-client.css";
 
@@ -41,6 +42,8 @@ export const viewport: Viewport = { themeColor: "#12110f" };
 export default function EspaceClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`ec ${barlow.variable} ${condensee.variable}`}>
+      {/* L'aperçu de l'équipe, ouvert depuis le CRM : un bandeau collé en haut de chaque page. Rien hors aperçu. */}
+      <BandeauApercu />
       {children}
       <Apparitions />
       <Suspense>

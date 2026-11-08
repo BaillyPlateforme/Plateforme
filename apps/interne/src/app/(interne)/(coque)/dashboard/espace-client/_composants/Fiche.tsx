@@ -75,6 +75,13 @@ export function Fiche({ id, ouvrirApercu }: { id: string; ouvrirApercu: Ouvrir }
           <button type="button" disabled={action.enCours} onClick={() => action.lancer(() => envoyerAcces(id), (r) => r.ok && r.apercu && ouvrirApercu(r.apercu))}>
             Envoyer le lien d&apos;accès
           </button>
+          {/* L'espace tel que le client le voit, en lecture seule (aperçu de l'équipe). Un <a> et jamais un <Link> :
+              un préchargement noterait une ouverture et émettrait un jeton. Absent du cadre de démonstration sans connexion. */}
+          {!porte.demo && (
+            <a href={`/espace-client-apercu/${id}`} target="_blank" rel="noopener" data-ton="contour">
+              Voir comme le client
+            </a>
+          )}
           {donnees.crm != null && !porte.demo && (
             <Link href={`/dossiers/${donnees.crm}#espace-client`} data-ton="contour">
               Dossier du CRM

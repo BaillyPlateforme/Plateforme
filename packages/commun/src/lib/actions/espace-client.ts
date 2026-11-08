@@ -26,7 +26,7 @@ import {
   ficheCartonsSchema, lireAcceptations, lireAvarie, lireConditions, lireDeclaration, lireFicheCartons, messageSchema,
   TYPES_DOCUMENTS, verifierFichier, verifierPhotos, type Erreurs,
 } from "@/lib/espace-client/schemas";
-import { exigerClient, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo } from "@/lib/espace-client/session";
+import { exigerClientPourAgir, fermerSession, lireDonneesClient, ouvrirSessionBase, ouvrirSessionDemo, refuserEnApercu } from "@/lib/espace-client/session";
 import { VERSIONS } from "@/lib/espace-client/textes";
 import type { Acceptation, Client, PieceJointe, TypeAcceptation } from "@/lib/espace-client/types";
 import { TEL_AGENCE } from "@/lib/messaging";
@@ -40,12 +40,17 @@ import { TEL_AGENCE } from "@/lib/messaging";
  *   3. le schéma (le même que celui du navigateur),
  *   4. l'écriture, par la clé de service, puis le message éventuel.
  * La clé publique, elle, n'écrit rien : la base le refuse.
+ *
+ * Pendant un aperçu de l'équipe (session.ts), toutes refusent, d'entrée :
+ * celles du client par `exigerClientPourAgir` (dans `contexte`), celles de
+ * la connexion par `refuserEnApercu` — un lien du client ne doit pas être
+ * consommé, ni une session ouverte, depuis le navigateur de l'équipe.
  */
 
 export type EtatFormulaire = { ok?: boolean; erreurs?: Erreurs; message?: string };
 
 async function contexte(reference: string) {
-  const client = await exigerClient();
+  const client = await exigerClientPourAgir();
   const d = await lireDonneesClient();
   const dossier = d.dossiers.find((x) => x.reference === reference && x.client_id === client.id);
   if (!dossier) throw new Error("Dossier introuvable.");
@@ -87,6 +92,7 @@ async function profilDemo(email: string): Promise<Client | null> {
 }
 
 export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<EtatFormulaire> {
+  await refuserEnApercu();
   const r = connexionSchema.safeParse({ email: String(fd.get("email") ?? "").trim() });
   if (!r.success) return { erreurs: erreursDe(r.error) };
   let apercu = "";
@@ -108,6 +114,7 @@ export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<Eta
 
 /** Ouvre la session du client d'un lien qu'on vient de consommer, puis l'emmène à son dossier. */
 async function entrer(jeton: string, destination?: string | null): Promise<never> {
+  await refuserEnApercu();
   const r = await consommerLien(jeton);
   if (!r.ok) redirect(`/espace-client/connexion?erreur=${r.raison}`);
   if (estDemo()) await ouvrirSessionDemo(r.client);
@@ -122,6 +129,7 @@ async function entrer(jeton: string, destination?: string | null): Promise<never
 
 /** Le clic « Accéder à mon espace » de la page d'arrivée : c'est lui qui consomme le lien. */
 export async function entrerAvecJeton(fd: FormData) {
+  await refuserEnApercu();
   await entrer(String(fd.get("token_hash") ?? ""));
 }
 
@@ -131,6 +139,7 @@ export async function entrerAvecJeton(fd: FormData) {
  * ouverte comme au clic « Accéder » — sans passer par la boîte de réception.
  */
 export async function entrerDemo(fd: FormData) {
+  await refuserEnApercu();
   const client = await profilDemo(String(fd.get("email") ?? ""));
   if (!client) redirect("/espace-client/connexion");
   const reference = String(fd.get("reference") ?? "") || null;
@@ -142,6 +151,7 @@ export async function entrerDemo(fd: FormData) {
 
 /** Démonstration seulement : émettre le lien d'un profil et ouvrir l'e-mail « reçu ». */
 export async function voirEmailDemo(fd: FormData) {
+  await refuserEnApercu();
   const client = await profilDemo(String(fd.get("email") ?? ""));
   if (!client) redirect("/espace-client/connexion");
   const n = await envoyerLienAuClient(client, { reference: String(fd.get("reference") ?? "") || null });
@@ -150,6 +160,7 @@ export async function voirEmailDemo(fd: FormData) {
 
 /** Démonstration en mémoire seulement : tout revient à l'état de départ. */
 export async function reinitialiserDemo() {
+  await refuserEnApercu();
   if (!estDemo()) return;
   await depot().reinitialiser();
   await fermerSession();
@@ -448,8 +459,9 @@ export async function payerFacture(reference: string, factureId: string) {
  * Stripe est réglé.
  */
 export async function issuePaiementSimule(sessionId: string, fd: FormData) {
+  await refuserEnApercu();
   if (stripeConfigure()) redirect("/espace-client");
-  const client = await exigerClient();
+  const client = await exigerClientPourAgir();
   const d = await lireDonneesClient();
   const session = d.sessions_paiement.find((s) => s.id === sessionId);
   const dossier = session && d.dossiers.find((x) => x.id === session.dossier_id && x.client_id === client.id);

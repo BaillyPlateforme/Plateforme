@@ -112,6 +112,8 @@ export function ParcoursCartons({
         <form
           className="card"
           noValidate
+          // La fiche ne part pas au serveur : elle mène au calendrier, que l'aperçu de l'équipe peut voir (GardeApercu).
+          data-apercu-libre
           onSubmit={(ev) => {
             ev.preventDefault();
             const fd = new FormData(ev.currentTarget);
@@ -157,7 +159,7 @@ export function ParcoursCartons({
             ) : sansCartons ? (
               <span className="note">Vous aviez indiqué ne pas avoir besoin de cartons.</span>
             ) : (
-              <button type="button" className="link-arrow link-btn" onClick={() => pasBesoinDeCartons(reference)}>
+              <button type="button" className="link-arrow link-btn" data-apercu-bloque onClick={() => pasBesoinDeCartons(reference)}>
                 Je n&apos;ai pas besoin de cartons
               </button>
             )}
@@ -268,7 +270,7 @@ export function ParcoursCartons({
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
             {choisi ? <span style={{ fontWeight: 600 }}>Samedi {jourMois(choisi)} · {dateCourte(choisi)}</span> : <span className="muted">Aucun samedi sélectionné</span>}
-            <button type="button" className="btn btn-primary" disabled={!choisi || enCours} onClick={confirmer}>
+            <button type="button" className="btn btn-primary" data-apercu-bloque disabled={!choisi || enCours} onClick={confirmer}>
               {enCours ? "Confirmation…" : "Confirmer"} <Icone nom="arrow" />
             </button>
           </div>

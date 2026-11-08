@@ -1000,3 +1000,46 @@ html.ec-anim .ec .apparait.vu { opacity: 1; transform: none; }
 @media (max-width: 860px) {
   .ec .step .flag-etape { grid-column: 2; margin-top: 2px; }
 }
+
+/* ---------- L'aperçu de l'équipe ----------
+   Un membre de l'équipe voit l'espace d'un client depuis le CRM, en lecture
+   seule (lib/espace-client/apercu.ts). Le bandeau, collé en haut, est dans la
+   nuit et le jaune de l'espace : il ne se confond pas avec une page du
+   client. La barre des rubriques et les colonnes collantes descendent d'autant. */
+.ec { --apercu-h: 0px; }
+.ec:has(> .apercu-equipe) { --apercu-h: 52px; }
+.ec .apercu-equipe {
+  position: sticky; top: 0; z-index: 70; height: var(--apercu-h);
+  background: var(--night); color: #fff; border-bottom: 2px solid var(--accent);
+}
+.ec .apercu-equipe-in {
+  display: flex; align-items: center; gap: 14px; height: 100%;
+  max-width: 1320px; margin: 0 auto; padding: 0 var(--gutter);
+}
+.ec .apercu-equipe-badge {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent);
+  font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+}
+.ec .apercu-equipe-badge svg { width: 16px; height: 16px; }
+.ec .apercu-equipe p { flex: 1; min-width: 0; margin: 0; font-size: 14.5px; color: rgba(255,255,255,.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ec .apercu-equipe p b { color: #fff; font-weight: 600; }
+.ec .apercu-equipe .btn { flex: none; min-height: 34px; padding: 0 16px; font-size: 14px; box-shadow: none; }
+.ec .sticky-nav { top: var(--apercu-h); }
+.ec .aside-sticky, .ec .toc { top: calc(92px + var(--apercu-h)); }
+/* Ce qui enverrait quelque chose est grisé : l'écran le dit au clic (GardeApercu), et le serveur refuse. */
+.ec:has(> .apercu-equipe) form:not([data-apercu-libre]) :is(button:not([type="button"]), .btn),
+.ec:has(> .apercu-equipe) [data-apercu-bloque],
+.ec:has(> .apercu-equipe) label:has(input[type="file"]) { opacity: .5; cursor: not-allowed; }
+.ec .toast.apercu-refus svg { color: var(--accent); }
+
+/* Sur téléphone : l'œil seul dans la pastille, et le nom du client sur deux lignes au plus. */
+@media (max-width: 640px) {
+  .ec:has(> .apercu-equipe) { --apercu-h: 60px; }
+  .ec .apercu-equipe-in { gap: 10px; padding: 0 16px; }
+  .ec .apercu-equipe-long { display: none; }
+  .ec .apercu-equipe-badge { width: 30px; height: 30px; padding: 0; justify-content: center; }
+  .ec .apercu-equipe-badge span { display: none; }
+  .ec .apercu-equipe p { white-space: normal; font-size: 13.5px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .ec .apercu-equipe .btn { padding: 0 12px; font-size: 13px; }
+}
