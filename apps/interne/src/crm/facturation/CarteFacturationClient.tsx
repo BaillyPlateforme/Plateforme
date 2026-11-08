@@ -176,9 +176,9 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
                   <div className={s.montants}>
                     <span className={s.montant}><b className={r.montant < 0 ? s.rouge : undefined}>{euros2(r.montant)}</b>{r.saisiPar && <small>saisi par {r.saisiPar}</small>}{r.enLigne && <small>paiement en ligne</small>}</span>
                     <span className={s.actionsRangee}>
-                      <button type="button" className={s.boutonFantome} onClick={() => (lock ? setMessage(lock) : setOuverte({ genre: "reaffecter", reglement: r }))}>Réaffecter</button>
-                      <button type="button" className={s.boutonFantome} onClick={() => (lock ? setMessage(lock) : setOuverte({ genre: "modifier", reglement: r }))}>Modifier</button>
-                      <button type="button" className={s.boutonFantome} data-danger onClick={() => {
+                      <button type="button" className={s.boutonFantome} aria-disabled={!!lock} title={lock ?? undefined} onClick={() => (lock ? setMessage(lock) : setOuverte({ genre: "reaffecter", reglement: r }))}>Réaffecter</button>
+                      <button type="button" className={s.boutonFantome} aria-disabled={!!lock} title={lock ?? undefined} onClick={() => (lock ? setMessage(lock) : setOuverte({ genre: "modifier", reglement: r }))}>Modifier</button>
+                      <button type="button" className={s.boutonFantome} data-danger aria-disabled={!!lock} title={lock ?? undefined} onClick={() => {
                         if (lock) return setMessage(lock);
                         if (!window.confirm(`Supprimer le règlement de ${euros2(r.montant)} du ${fr(r.recuLe)} ?`)) return;
                         lancer(async () => { const x = await supprimerReglement(r.id); if (!x.ok) setMessage(x.erreur); });
@@ -223,7 +223,7 @@ export default function CarteFacturationClient({ d }: { d: DonneesFacturation })
         <FenetreFacture
           dossierId={d.dossierId} genre={ouverte.type} brouillons={d.brouillons} aujourdhui={d.aujourdhui} chargement={d.chargement} livraison={d.livraison}
           derniereDate={d.derniereDate} taux={d.taux} delai={d.delai} conditions={d.conditions} payeur={payeur} payeurDistinct={!!d.payeur}
-          bonCommande={d.bonCommande} reglementsLibres={libres} onFermer={fermer} onChangerPayeur={() => setOuverte({ genre: "payeur", puis: ouverte })}
+          bonCommande={d.bonCommande} reglementsLibres={libres} soldeExistant={d.factures.find((f) => f.genre === "solde" && f.statut !== "annulee")?.numero ?? null} onFermer={fermer} onChangerPayeur={() => setOuverte({ genre: "payeur", puis: ouverte })}
         />
       )}
       {ouverte?.genre === "avoir" && (

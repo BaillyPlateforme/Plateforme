@@ -24,6 +24,8 @@ export interface PropsFenetreFacture {
   payeurDistinct: boolean;
   bonCommande: string | null;
   reglementsLibres: ReglementLibre[];
+  /** Une facture de solde déjà émise (et pas annulée) sur ce dossier. */
+  soldeExistant?: string | null;
   onFermer: () => void;
   onChangerPayeur: () => void;
 }
@@ -184,6 +186,7 @@ export default function FenetreFacture(p: PropsFenetreFacture) {
                 <textarea id={`${id}-cond`} value={conditions} onChange={(e) => setConditions(e.target.value)} style={{ minHeight: 56 }} />
               </Champ>
             </div>
+            {genre === "solde" && p.soldeExistant && <p className={s.avertissement}>Le dossier a déjà sa facture de solde ({p.soldeExistant}) : une seconde facturerait deux fois le déménagement. Pour la corriger, annulez-la par un avoir ; pour un supplément, choisissez « Facture libre ».</p>}
             {avantDerniere && <p className={s.avertissement}>Cette date précède celle de la dernière facture émise ({fr(p.derniereDate)}) : la numérotation doit rester chronologique, l&apos;émission sera refusée.</p>}
           </div>
 

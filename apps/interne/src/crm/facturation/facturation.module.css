@@ -119,6 +119,9 @@
   background: #f4f3f9;
   color: var(--encre);
 }
+.boutonFantome[aria-disabled="true"] {
+  opacity: 0.42;
+}
 .boutonFantome[data-danger] {
   color: #b4233a;
 }
