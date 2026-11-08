@@ -15,6 +15,7 @@ const MESSAGES: Record<string, string> = {
   avarie: "Déclaration d'avarie enregistrée : votre conseiller est prévenu.",
   paiement: "Paiement reçu, merci ! Votre frise est à jour.",
   "paiement-annule": "Paiement annulé : aucun montant n'a été débité.",
+  "devis-signe": "Devis signé : votre acceptation est horodatée.",
   message: "Message envoyé à votre conseiller.",
   service: "Demande transmise à votre conseiller.",
   bienvenue: "Bienvenue dans votre espace client.",

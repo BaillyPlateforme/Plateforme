@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { suiviDesReponses } from "@/lib/espace-client/devis-reponses";
+import { lireFil } from "@/lib/espace-client/discussion";
 import { chargerEspace } from "@/lib/espace-client/espace";
 import { lienFichier } from "@/lib/espace-client/fichiers";
-import { aujourdhui, dateCourte, euros, eurosAffiches, jourMois } from "@/lib/espace-client/format";
+import { aujourdhui, dateCourte, dateLongue, euros, eurosAffiches, jourMois, periode } from "@/lib/espace-client/format";
 import { STATUT_DEVIS, STATUT_FACTURE, TYPE_FACTURE } from "@/lib/espace-client/libelles";
-import { arrhesPayees, devisRetenu, factureArrhes, montantArrhes } from "@/lib/espace-client/progression";
-import { accepterDevis, payerArrhes, payerFacture } from "@/lib/actions/espace-client";
+import { aAccepte, arrhesPayees, devisRetenu, factureArrhes, montantArrhes } from "@/lib/espace-client/progression";
+import { payerFacture } from "@/lib/actions/espace-client";
 import { segmentDe } from "@/lib/espace-client/segments";
+import { apercuEquipe } from "@/lib/espace-client/session";
+import { VERSIONS } from "@/lib/espace-client/textes";
+import type { Devis } from "@/lib/espace-client/types";
 import { PageHero } from "../../../_ui/PageHero";
 import { TitreChapitre } from "../../../_ui/Cadre";
 import { Icone } from "../../../_ui/Icone";
+import { ActionsDevis } from "./ActionsDevis";
+import { Comparateur } from "./Comparateur";
+import type { DevisAConfirmer, RecapDossier } from "./Confirmation";
+import "../../../_ui/devis.css";
 
 export const metadata: Metadata = { title: "Mes devis et factures" };
 
@@ -50,7 +59,7 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
   }
 
   const retenu = devisRetenu(e.devis);
-  const tries = [...e.devis].sort((a, b) => ORDRE[a.statut] - ORDRE[b.statut] || b.emis_le.localeCompare(a.emis_le));
+  const tries = [...e.devis].sort((a, b) => ORDRE[a.statut] - ORDRE[b.statut] || b.emis_le.localeCompare(a.emis_le) || a.montant_ttc - b.montant_ttc);
   const factures = e.factures;
   const total = retenu?.montant_ttc ?? 0;
   const paye = factures.filter((f) => f.statut === "payee" && f.type !== "garde_meubles").reduce((n, f) => n + f.montant_ttc, 0);
@@ -61,9 +70,57 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
   let n = 0;
   const numero = () => String(++n).padStart(2, "0");
 
+  // Ce que le client a déjà répondu sur chaque devis (refus, modification, nouveau devis) : lu dans sa discussion.
+  const apercu = await apercuEquipe();
+  const fil = vis.devis ? await lireFil(dossier.id, apercu ? "service" : "session").catch(() => []) : [];
+  const suivi = suiviDesReponses(
+    fil.map((m) => ({ auteur: m.auteur, corps: m.corps, le: new Date(m.created_at).toISOString() })),
+    tries,
+  );
+  const expire = (v: Devis) => v.statut === "expire" || (v.statut === "envoye" && v.valide_jusqu_au < jour);
+  // Les formules qui attendent encore une réponse du client : ni expirées, ni refusées par lui.
+  const ouverts = tries.filter((v) => v.statut === "envoye" && !expire(v) && !suivi[v.id]?.refus);
+  const cgv = aAccepte(e.acceptations, "cgv");
+  const recap = (v: Devis): RecapDossier => ({
+    reference: dossier.reference,
+    depart: { ville: dossier.ville_depart, adresse: dossier.adresse_depart },
+    arrivee: { ville: dossier.ville_arrivee, adresse: dossier.adresse_arrivee },
+    periode: periode(dossier.periode_debut, dossier.periode_fin),
+    volume: dossier.volume_m3,
+    logement: dossier.logement,
+    autresFormules: ouverts.filter((x) => x.id !== v.id).length,
+    cgvAccepteesLe: cgv && cgv.version_texte === VERSIONS.cgv ? dateCourte(cgv.accepted_at) : null,
+  });
+  const aConfirmer = (v: Devis): DevisAConfirmer => ({
+    id: v.id,
+    numero: v.numero,
+    formule: v.formule,
+    montant_ttc: v.montant_ttc,
+    arrhes: montantArrhes(v),
+    arrhes_pourcentage: v.arrhes_pourcentage,
+    valable: dateLongue(v.valide_jusqu_au),
+  });
+  const quand = (iso: string | null | undefined) => (iso ? jourMois(iso) : null);
+  const comparer = vis.devis && ouverts.length >= 2;
+
+  const blocComparaison = comparer && (
+    <section className="dv-comparer">
+      <TitreChapitre n={numero()}>Comparer les formules</TitreChapitre>
+      <p className="chapter-intro apparait">
+        {ouverts.length} formules attendent votre réponse : les voici côte à côte. Le détail de chacune suit plus bas.
+      </p>
+      <Comparateur
+        colonnes={[...ouverts].sort((a, b) => a.montant_ttc - b.montant_ttc).map((v) => ({ devis: v, confirmer: aConfirmer(v), recap: recap(v) }))}
+        peutSigner={particulier}
+      />
+    </section>
+  );
+
   const blocDevis = vis.devis && (
     <>
-      <TitreChapitre n={numero()}>Devis du dossier</TitreChapitre>
+      <div style={comparer ? { marginTop: "clamp(56px,7vw,88px)" } : undefined}>
+        <TitreChapitre n={numero()}>Devis du dossier</TitreChapitre>
+      </div>
       {tries.length === 0 && (
         <div className="empty-slot apparait">
           <Icone nom="devis" />
@@ -72,15 +129,21 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
         </div>
       )}
       {tries.map((v, i) => {
-        const terne = v.statut === "refuse" || v.statut === "expire";
-        const arrhes = montantArrhes(v);
+        const perime = expire(v);
+        const s = suivi[v.id];
+        const refuseParLeClient = v.statut === "envoye" && !perime && !!s?.refus;
+        const terne = v.statut === "refuse" || perime || refuseParLeClient;
         const payees = factureArrhes(v, factures);
-        const expire = v.statut === "envoye" && v.valide_jusqu_au < jour;
+        const etat = v.statut === "envoye" && !perime ? "en_attente" : perime ? "expire" : v.statut === "accepte" && !arrhesPayees(v, factures) ? "arrhes_dues" : "clos";
         return (
-          <article key={v.id} className={`card quote apparait${terne ? " muted" : ""}`} style={d(i)}>
+          <article key={v.id} id={`devis-${v.id}`} className={`card quote dv-carte apparait${terne ? " muted" : ""}`} style={d(i)}>
             <div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-                <span className={`badge ${STATUT_DEVIS[v.statut].ton === "neutre" ? "" : STATUT_DEVIS[v.statut].ton}`}>{expire ? "Expiré" : STATUT_DEVIS[v.statut].label}</span>
+                {refuseParLeClient ? (
+                  <span className="badge">Refusé par vous</span>
+                ) : (
+                  <span className={`badge ${STATUT_DEVIS[v.statut].ton === "neutre" ? "" : STATUT_DEVIS[v.statut].ton}`}>{perime ? "Expiré" : STATUT_DEVIS[v.statut].label}</span>
+                )}
                 {payees && particulier && <span className="badge ok">Arrhes payées le {jourMois(payees.payee_le!)}</span>}
               </div>
               <h3>Formule {v.formule}</h3>
@@ -121,33 +184,16 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
                 </div>
               </div>
             )}
-            <div className="quote-actions">
-              <a className="link-arrow" href={lienFichier("devis", v.id)} target="_blank" rel="noopener">
-                <Icone nom="download" /> Télécharger le devis
-              </a>
-              {particulier && v.statut === "envoye" && !expire && v.arrhes_pourcentage > 0 && (
-                <form action={payerArrhes.bind(null, ref, v.id)} data-reserve-client>
-                  <button className="btn btn-primary">Accepter et payer les arrhes · {euros(arrhes)}</button>
-                </form>
-              )}
-              {particulier && v.statut === "envoye" && !expire && v.arrhes_pourcentage === 0 && (
-                <form action={accepterDevis.bind(null, ref, v.id)} data-reserve-client>
-                  <button className="btn btn-primary">Accepter ce devis</button>
-                </form>
-              )}
-              {particulier && v.statut === "accepte" && !arrhesPayees(v, factures) && (
-                <form action={payerArrhes.bind(null, ref, v.id)} data-reserve-client>
-                  <button className="btn btn-primary">Payer les arrhes · {euros(arrhes)}</button>
-                </form>
-              )}
-              {!particulier && v.statut === "envoye" && <span className="note">Votre conseiller valide ce devis avec votre entreprise.</span>}
-              {expire && <span className="note">Ce devis a expiré : votre conseiller peut le renouveler.</span>}
-            </div>
-            {particulier && v.statut === "envoye" && !expire && (
-              <p className="note" style={{ gridColumn: "1 / -1" }}>
-                En réglant les arrhes, vous acceptez ce devis et les conditions générales de vente ; l&apos;acceptation est horodatée. Le paiement s&apos;effectue sur la page sécurisée de notre prestataire.
-              </p>
-            )}
+            <ActionsDevis
+              telecharger={lienFichier("devis", v.id)}
+              devis={aConfirmer(v)}
+              dossier={recap(v)}
+              etat={etat}
+              peutSigner={particulier}
+              conseiller={e.conseiller.prenom}
+              expireLe={dateLongue(v.valide_jusqu_au)}
+              suivi={{ refus: quand(s?.refus), modification: quand(s?.modification), renouvellement: quand(s?.renouvellement), repondu: !!s?.reponduLe }}
+            />
           </article>
         );
       })}
@@ -280,6 +326,7 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
         <div className="wrap">
           <div className={aside ? "split" : ""}>
             <div>
+              {blocComparaison}
               {blocDevis}
               {blocFactures}
             </div>
