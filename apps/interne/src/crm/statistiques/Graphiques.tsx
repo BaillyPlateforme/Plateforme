@@ -253,7 +253,7 @@ export function Colonnes({ mois, valeurs, format, detail, retenus = [] }: { mois
         </div>
       </div>
       <div className={s.axeColonnes}>
-        {mois.map((m, i) => (
+        {mois.map((m) => (
           <span key={m}>{moisCourt(m, annees && m.endsWith("-01"))}</span>
         ))}
       </div>
