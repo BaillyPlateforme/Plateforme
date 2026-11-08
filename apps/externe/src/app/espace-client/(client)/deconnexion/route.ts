@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { fermerSession } from "@/lib/espace-client/session";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
  * Pendant un aperçu de l'équipe, elle ne fait que le quitter (session.ts) :
  * la page de connexion le dit, et l'onglet peut se fermer.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   const { apercu } = await fermerSession();
-  return NextResponse.redirect(new URL(apercu ? "/espace-client/connexion?vue-equipe=terminee" : "/espace-client/connexion?au-revoir=1", req.url));
+  // Une adresse relative : derrière le proxy de Railway, req.url est l'adresse interne (https://localhost:8080),
+  // et une redirection absolue bâtie dessus envoyait le client sur une page introuvable.
+  return new NextResponse(null, { status: 307, headers: { Location: apercu ? "/espace-client/connexion?vue-equipe=terminee" : "/espace-client/connexion?au-revoir=1" } });
 }

@@ -20,10 +20,16 @@ export const dynamic = "force-dynamic";
 
 const entetes = { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" };
 
-const versConnexion = (req: NextRequest) => NextResponse.redirect(new URL("/espace-client/connexion?vue-equipe=invalide", req.url), { status: 303, headers: entetes });
+/*
+ * Des redirections RELATIVES : derrière le proxy de Railway, req.url est l'adresse interne
+ * (https://localhost:8080) ; une adresse absolue bâtie dessus partait là, et le navigateur
+ * la refusait (form-action de la page d'ouverture).
+ */
+const versChemin = (chemin: string) => new NextResponse(null, { status: 303, headers: { ...entetes, Location: chemin } });
+const versConnexion = () => versChemin("/espace-client/connexion?vue-equipe=invalide");
 
-function refus(req: NextRequest) {
-  const r = versConnexion(req);
+function refus() {
+  const r = versConnexion();
   // Un aperçu précédent ne prend pas la place de celui qu'on vient de refuser.
   r.cookies.delete({ name: COOKIE_APERCU, path: "/espace-client" });
   return r;
@@ -32,18 +38,18 @@ function refus(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const fd = await req.formData().catch(() => null);
   const jeton = lireJetonApercu(typeof fd?.get("jeton") === "string" ? (fd!.get("jeton") as string) : null);
-  if (!jeton) return refus(req);
+  if (!jeton) return refus();
   const client = await depot()
     .trouver("clients", jeton.c)
     .catch(() => null);
-  if (!client) return refus(req);
+  if (!client) return refus();
 
-  const r = NextResponse.redirect(new URL(`/espace-client/${encodeURIComponent(jeton.r)}`, req.url), { status: 303, headers: entetes });
+  const r = versChemin(`/espace-client/${encodeURIComponent(jeton.r)}`);
   r.cookies.set(COOKIE_APERCU, scellerCookieApercu(jeton), optionsCookieApercu());
   return r;
 }
 
 /** Sans jeton (une adresse ouverte à la main) : la connexion, avec le même message, sans rien effacer. */
-export async function GET(req: NextRequest) {
-  return versConnexion(req);
+export async function GET() {
+  return versConnexion();
 }

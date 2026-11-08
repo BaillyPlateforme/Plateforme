@@ -68,7 +68,8 @@ const message = (titre: string, texte: string, statut: number) =>
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // 1. L'équipe, et elle seule. Le proxy l'a déjà vérifié ; on le refait ici.
   const acces = await getAcces().catch(() => null);
-  if (!acces) return NextResponse.redirect(new URL(`/login?redirect=${encodeURIComponent(req.nextUrl.pathname)}`, req.url));
+  // Relative : derrière le proxy de Railway, req.url est l'adresse interne du conteneur.
+  if (!acces) return new NextResponse(null, { status: 307, headers: { Location: `/login?redirect=${encodeURIComponent(req.nextUrl.pathname)}` } });
   if (acces.role !== "equipe") return message("Accès réservé à l'équipe", "L'aperçu de l'espace client est réservé à l'équipe Bailly.", 403);
   const site = req.headers.get("sec-fetch-site");
   if (site && site !== "same-origin" && site !== "none") {
