@@ -85,6 +85,30 @@ export function etapeDeDossier(statut: string, archive: boolean): CleEtapeRh {
   }
 }
 
+/* ─────────────────────────── Qui paie ─────────────────────────── */
+
+/**
+ * Qui règle une mobilité, du point de vue de l'entreprise :
+ *  - « entreprise » : le payeur du dossier au CRM est un client rattaché à
+ *    l'entreprise (crm.clients.espace_pro_id) — ou, sans payeur à part, le
+ *    client du dossier lui-même ;
+ *  - « salarie » : le dossier a un payeur (ou un client) qui n'est pas
+ *    rattaché à l'entreprise ;
+ *  - « a_confirmer » : une demande de l'espace pro sans dossier au CRM —
+ *    personne n'a encore dit qui paie.
+ * Seul ce que l'entreprise paie entre dans son budget et ses factures.
+ */
+export type PayeurRh = "entreprise" | "salarie" | "a_confirmer";
+/* TEXTES À VALIDER */
+export const PAYEURS_RH: Record<PayeurRh, { label: string; aide: string }> = {
+  entreprise: { label: "Payé par l'entreprise", aide: "Le payeur du dossier est rattaché à votre entreprise : il entre dans votre budget." },
+  salarie: { label: "Payé par le salarié", aide: "Le collaborateur règle lui-même ce déménagement : il n'entre pas dans votre budget." },
+  a_confirmer: { label: "Payeur à confirmer", aide: "Demande pas encore reprise en dossier par Bailly : elle n'entre pas encore dans votre budget." },
+};
+
+/** L'espace pro standard n'est celui d'aucune entreprise : il n'a pas d'espace RH, et aucun client ne s'y rattache. */
+export const aUnEspaceRh = (e: { slug: string }) => e.slug !== "standard";
+
 /* ─────────────────────────── Les formules ─────────────────────────── */
 
 export type FormuleRh = "eco" | "standard" | "luxe";
@@ -146,9 +170,14 @@ export interface MobiliteRh {
   distance_km: number | null;
   formule: FormuleRh | null;
   etape: CleEtapeRh;
+  /** Qui règle la mobilité : seul ce que l'entreprise paie entre dans son budget. */
+  payeur: PayeurRh;
   cree_le: string;
   maj_le: string;
-  /** Rien si l'entreprise n'a pas accès aux coûts, ou si rien n'est encore chiffré. */
+  /**
+   * Rien si l'entreprise n'a pas accès aux coûts, si rien n'est encore
+   * chiffré, ou si le salarié paie lui-même (son prix ne regarde que lui).
+   */
   montant: MontantRh | null;
   /** Le total facturé TTC (avoirs déduits) — 0 sans accès aux coûts. */
   facture_ttc: number;
@@ -194,7 +223,7 @@ export interface DonneesRh {
   factures: FactureRh[];
   contact: ContactRh;
   /** Ce qui a été lu, pour le dire à l'écran : le CRM peut ne pas répondre. */
-  sources: { demandes: number; dossiers: number; crm: boolean };
+  sources: { demandes: number; dossiers: number; clients: number; crm: boolean };
 }
 
 /* ─────────────────────────── Outils ─────────────────────────── */
@@ -287,7 +316,9 @@ export function exempleRh(graine: string, avecCouts: boolean, maintenant = Date.
     if (["devis", "signe", "planifie", "termine"].includes(etape)) chronologie.push({ date: iso(cree + 8 * J), libelle: "Devis envoyé", detail: `Formule ${FORMULES_RH[formule]}` });
     if (signe) chronologie.push({ date: iso(cree + 12 * J), libelle: "Devis signé" });
     if (["planifie", "termine"].includes(etape)) chronologie.push({ date: jourIso(date), libelle: "Chargement" });
-    const factureTtc = avecCouts && etape === "termine" ? Math.round(ht * 1.2) : 0;
+    // Les demandes sans dossier n'ont pas encore de payeur ; un dossier sur six est réglé par le salarié.
+    const payeur: PayeurRh = !dossier ? "a_confirmer" : hasard() < 0.17 ? "salarie" : "entreprise";
+    const factureTtc = avecCouts && etape === "termine" && payeur === "entreprise" ? Math.round(ht * 1.2) : 0;
     if (factureTtc) {
       const emise = date + 2 * J;
       const payee = emise + 20 * J < maintenant;
@@ -327,10 +358,11 @@ export function exempleRh(graine: string, avecCouts: boolean, maintenant = Date.
       distance_km: distance,
       formule,
       etape,
+      payeur,
       cree_le: iso(cree),
       maj_le: iso(cree + Math.floor(hasard() * 10) * J),
       montant:
-        avecCouts && chiffre
+        avecCouts && chiffre && payeur !== "salarie"
           ? { ht, ttc: Math.round(ht * 1.2), nature: signe ? "signe" : ["devis", "visite"].includes(etape) ? "devis" : "estimation", reference: `DEV-EX-${1000 + i}`, valide_jusqu: jourIso(cree + 30 * J) }
           : null,
       facture_ttc: factureTtc,

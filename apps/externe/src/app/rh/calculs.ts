@@ -3,7 +3,7 @@
  * par le serveur et de son heure (`maintenant`) — jamais de l'horloge du
  * navigateur, pour que tout le monde compte les mêmes jours.
  */
-import { ETAPE_RH, FORMULES_ORDRE, FORMULES_RH, moisDe, type CleEtapeRh, type FactureRh, type FormuleRh, type MobiliteRh } from "@/lib/rh-modele";
+import { ETAPE_RH, FORMULES_ORDRE, FORMULES_RH, PAYEURS_RH, moisDe, type CleEtapeRh, type FactureRh, type FormuleRh, type MobiliteRh } from "@/lib/rh-modele";
 
 export const JOUR = 86_400_000;
 
@@ -54,9 +54,21 @@ export const trajet = (m: Pick<MobiliteRh, "depart" | "arrivee">) => `${m.depart
 
 /* ─────────────────────────── Ce qui compte ─────────────────────────── */
 
-/** Une mobilité qui pèse sur le budget : tout sauf « Sans suite » et « Clôturée ». */
+/** Une mobilité vivante : tout sauf « Sans suite » et « Clôturée ». */
 export const vivante = (m: MobiliteRh) => m.etape !== "sans_suite" && m.etape !== "cloturee";
 export const enCours = (m: MobiliteRh) => ETAPE_RH[m.etape].ouverte;
+/**
+ * Une mobilité qui pèse sur le budget de l'entreprise : vivante, chiffrée, et
+ * payée par elle. Celles que le salarié règle, et les demandes dont le payeur
+ * reste à confirmer, sont listées mais hors des montants.
+ */
+export const auBudget = (m: MobiliteRh) => vivante(m) && m.payeur === "entreprise" && !!m.montant;
+
+/** Ce qui reste hors du budget, pour le dire sous les montants. */
+export function horsBudget(mobilites: MobiliteRh[]) {
+  const v = mobilites.filter(vivante);
+  return { salarie: v.filter((m) => m.payeur === "salarie").length, aConfirmer: v.filter((m) => m.payeur === "a_confirmer").length };
+}
 
 export interface Budget {
   /** Engagé : estimations, devis envoyés et devis signés des mobilités vivantes. */
@@ -73,7 +85,7 @@ export function budget(mobilites: MobiliteRh[], factures: FactureRh[]): Budget {
     ttc: l.reduce((s, m) => s + (m.montant?.ttc ?? 0), 0),
     n: l.length,
   });
-  const chiffrees = mobilites.filter((m) => vivante(m) && m.montant);
+  const chiffrees = mobilites.filter(auBudget);
   const signees = chiffrees.filter((m) => m.montant!.nature === "signe");
   const enAttente = chiffrees.filter((m) => m.montant!.nature !== "signe");
   const valides = factures.filter((f) => f.statut !== "annulee");
@@ -121,7 +133,7 @@ export function budgetParMois(mobilites: MobiliteRh[], mois: string[]): { serie:
   let horsFenetre = 0;
   let sansDate = 0;
   for (const m of mobilites) {
-    if (!vivante(m) || !m.montant) continue;
+    if (!auBudget(m) || !m.montant) continue;
     const cle = moisDe(m);
     if (!cle) {
       sansDate++;
@@ -141,7 +153,7 @@ export function budgetParMois(mobilites: MobiliteRh[], mois: string[]): { serie:
 
 export function budgetParFormule(mobilites: MobiliteRh[]): { cle: FormuleRh | "aucune"; label: string; ht: number; n: number }[] {
   const lignes = [...FORMULES_ORDRE, "aucune" as const].map((cle) => {
-    const liste = mobilites.filter((m) => vivante(m) && m.montant && (m.formule ?? "aucune") === cle);
+    const liste = mobilites.filter((m) => auBudget(m) && (m.formule ?? "aucune") === cle);
     return { cle, label: cle === "aucune" ? "Non précisée" : FORMULES_RH[cle], ht: liste.reduce((s, m) => s + m.montant!.ht, 0), n: liste.length };
   });
   return lignes.filter((l) => l.n > 0 || l.cle !== "aucune");
@@ -249,14 +261,14 @@ export function csvMobilites(mobilites: MobiliteRh[], couts: boolean): string {
   const nombre = (n: number | null | undefined) => (n == null ? "" : String(Math.round(n * 100) / 100).replace(".", ","));
   const entetes = [
     "Collaborateur", "Référence Bailly", "Ville de départ", "CP départ", "Ville d'arrivée", "CP arrivée",
-    "Date du déménagement", "Date fixée", "Mois prévu", "Période", "Volume (m³)", "Distance (km)", "Formule", "Étape", "Demandée le",
+    "Date du déménagement", "Date fixée", "Mois prévu", "Période", "Volume (m³)", "Distance (km)", "Formule", "Étape", "Payeur", "Demandée le",
     ...(couts ? ["Montant HT (€)", "Montant TTC (€)", "Nature du montant", "Facturé TTC (€)"] : []),
   ];
   const nature = { estimation: "Estimation", devis: "Devis envoyé", signe: "Devis signé" } as const;
   const lignes = mobilites.map((m) => [
     m.nom, m.reference ?? "", m.depart ?? "", m.depart_cp ?? "", m.arrivee ?? "", m.arrivee_cp ?? "",
     m.date ?? "", m.date ? (m.date_fixee ? "oui" : "non (souhaitée)") : "", m.mois ?? "", m.periode ?? "",
-    nombre(m.volume_m3), nombre(m.distance_km), m.formule ? FORMULES_RH[m.formule] : "", ETAPE_RH[m.etape].label, m.cree_le.slice(0, 10),
+    nombre(m.volume_m3), nombre(m.distance_km), m.formule ? FORMULES_RH[m.formule] : "", ETAPE_RH[m.etape].label, PAYEURS_RH[m.payeur].label, m.cree_le.slice(0, 10),
     ...(couts ? [nombre(m.montant?.ht), nombre(m.montant?.ttc), m.montant ? nature[m.montant.nature] : "", nombre(m.facture_ttc || null)] : []),
   ]);
   const cellule = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;

@@ -1,7 +1,7 @@
 import "server-only";
 import { espaceEffectif, type EspacePro } from "@/lib/espaces";
 import { listEspaces, lireRegles } from "@/lib/espaces-pro";
-import { aUnEspaceRh } from "@/lib/rh";
+import { aUnEspaceRh } from "@/lib/rh-modele";
 import { getAcces, type Acces } from "@/lib/supabase/auth";
 
 export type EspaceDeSession =

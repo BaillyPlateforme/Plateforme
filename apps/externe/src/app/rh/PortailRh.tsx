@@ -304,8 +304,10 @@ function BandeauApercu({ fictif, sources, nom, onBascule }: { fictif: boolean; s
             "Rien de ce qui s'affiche n'est réel ; les RH ne le voient jamais."
           ) : (
             <>
-              Données réelles : {sources.demandes} demande{sources.demandes > 1 ? "s" : ""} de l&apos;espace pro, {sources.dossiers} dossier{sources.dossiers > 1 ? "s" : ""} du CRM
+              Données réelles : {sources.demandes} demande{sources.demandes > 1 ? "s" : ""} de l&apos;espace pro, {sources.dossiers} dossier{sources.dossiers > 1 ? "s" : ""} du CRM,{" "}
+              {sources.clients} client{sources.clients > 1 ? "s" : ""} rattaché{sources.clients > 1 ? "s" : ""}
               {sources.crm ? "." : " (le CRM n'a pas répondu)."}
+              {sources.crm && sources.clients === 0 && " Un client se rattache à l'entreprise depuis sa fiche, au CRM."}
             </>
           )}
         </span>

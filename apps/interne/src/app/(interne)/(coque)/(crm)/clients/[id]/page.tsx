@@ -11,6 +11,7 @@ import FilClient from "@/crm/discussion/FilClient";
 import Fil from "@/crm/feed/Fil";
 import { filtresDe, lireFeed, paramsDe } from "@/crm/feed/donnees";
 import { ficheClient } from "@/crm/clients/donnees";
+import { entreprisesPro } from "@/crm/clients/entreprises";
 import { emailValide, lienTelephone, nomAffiche, telephoneLisible } from "@/crm/clients/commun";
 import { Argent, Demandes, Doublons, Dossiers, Espaces, Identite, RendezVous, Section } from "@/crm/clients/Sections";
 import { MenuAncres, type Ancre } from "@/app/(interne)/(coque)/dashboard/espace-client/_composants/suivi/MenuAncres";
@@ -49,7 +50,14 @@ export default async function PageClient({ params, searchParams }: { params: Pro
   await currentUser();
   const id = Number((await params).id);
   const sp = await searchParams;
-  const f = await ficheClient(id);
+  // La liste des espaces pro n'empêche jamais la fiche de s'ouvrir : sans elle, le rattachement se lit sans se modifier.
+  const [f, entreprises] = await Promise.all([
+    ficheClient(id),
+    entreprisesPro().catch((e) => {
+      console.error("Client : lecture des espaces pro impossible", e instanceof Error ? e.message : e);
+      return [];
+    }),
+  ]);
   if (!f) notFound();
   const c = f.client;
   const nom = nomAffiche(c);
@@ -133,6 +141,7 @@ export default async function PageClient({ params, searchParams }: { params: Pro
               contactOuvert={sp.contact === "1"}
               erreur={sp.erreur ?? null}
               espaceOuvert={espaceOuvert}
+              entreprises={entreprises}
               avant={
                 <>
                   {sp.enregistre === "1" && (

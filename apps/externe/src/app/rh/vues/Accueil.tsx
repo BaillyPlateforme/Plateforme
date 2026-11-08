@@ -2,10 +2,10 @@
 
 import { useMemo } from "react";
 import type { CleEtapeRh, FactureRh, MobiliteRh } from "@/lib/rh-modele";
-import { Carte, PastilleEtape, Tuile, Vide } from "../_ui/briques";
+import { Carte, NoteHorsBudget, PastilleEtape, Tuile, Vide } from "../_ui/briques";
 import { BarresEtapes } from "../_ui/graphiques";
 import { Picto, type NomPicto } from "../_ui/Icones";
-import { aVenir, alertes, budget, cleMois, parEtape, dansJours, enCours, euro, joursAvant, moisLong, quand, trajet, versDate, type Alerte } from "../calculs";
+import { aVenir, alertes, budget, cleMois, horsBudget, parEtape, dansJours, enCours, euro, joursAvant, moisLong, quand, trajet, versDate, type Alerte } from "../calculs";
 
 /*
  * Le tableau de bord : l'état d'aujourd'hui, sans filtre de période — une
@@ -144,6 +144,7 @@ export default function VueAccueil({
             }
           >
             <EntonnoirBudget b={b} />
+            <NoteHorsBudget {...horsBudget(mobilites)} className="mt-5 border-t border-line pt-4" />
           </Carte>
         ) : (
           <Carte titre="Dernières demandes" sous="Les plus récentes">

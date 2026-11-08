@@ -9,6 +9,7 @@ type Donnees = {
   espaces: EspacePro[];
   regles: Regles;
   demandes: Record<string, number>;
+  clients?: Record<string, number>;
   base: string;
   entreprise: { nom: string | null; email: string | null; tel: string | null };
 };
@@ -27,6 +28,7 @@ export default function EspacesProPage() {
           espaces={donnees.espaces}
           regles={donnees.regles}
           demandes={donnees.demandes}
+          clients={donnees.clients ?? {}}
           base={donnees.base}
           entreprise={donnees.entreprise}
         />

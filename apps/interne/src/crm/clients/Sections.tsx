@@ -8,6 +8,8 @@ import { ajouterContactClient, majClient, supprimerContactClient } from "./actio
 import { Confirmer, Enregistrer } from "./Boutons";
 import { emailValide, lienTelephone, telephoneLisible, TEINTE_TYPE } from "./commun";
 import { villeDe, type DossierClient, type EspaceClient, type FicheClient } from "./donnees";
+import type { Entreprise } from "./entreprises";
+import PuceEntreprise from "./PuceEntreprise";
 import s from "./clients.module.css";
 
 /*
@@ -115,9 +117,9 @@ export function Doublons({ doublons }: { doublons: FicheClient["doublons"] }) {
 
 /* ─────────── Identité et contacts ─────────── */
 
-function Fait({ libelle, children, large }: { libelle: string; children: React.ReactNode; large?: boolean }) {
+function Fait({ libelle, children, large, accent }: { libelle: string; children: React.ReactNode; large?: boolean; accent?: boolean }) {
   return (
-    <div className={s.fait} data-large={large ? "" : undefined}>
+    <div className={s.fait} data-large={large ? "" : undefined} data-accent={accent ? "" : undefined}>
       <dt>{libelle}</dt>
       <dd>{children ?? <span className={s.manque}>—</span>}</dd>
     </div>
@@ -143,6 +145,7 @@ export function Identite({
   contactOuvert,
   erreur,
   espaceOuvert,
+  entreprises,
   avant,
 }: {
   f: FicheClient;
@@ -150,11 +153,14 @@ export function Identite({
   contactOuvert: boolean;
   erreur: string | null;
   espaceOuvert: boolean;
+  /** Les espaces pro auxquels le client peut être rattaché (lib/espaces-pro.ts) ; vide si la liste ne se lit pas. */
+  entreprises: Entreprise[];
   /** Sous le titre : l'enregistrement fait, les doublons possibles. */ avant?: React.ReactNode;
 }) {
   const c = f.client;
   const id = c.id as number;
   const email = emailValide(c.email) ? String(c.email).trim() : null;
+  const entreprise = c.espace_pro_id ? (entreprises.find((e) => e.id === c.espace_pro_id) ?? null) : null;
   const adresse = [c.facturation_adresse, [c.facturation_cp, c.facturation_ville].filter(Boolean).join(" "), c.facturation_pays].filter((x) => x && String(x).trim());
   return (
     <Section
@@ -173,7 +179,7 @@ export function Identite({
     >
       {avant}
       {modifier ? (
-        <FormulaireClient c={c} espaceOuvert={espaceOuvert} erreur={erreur} />
+        <FormulaireClient c={c} espaceOuvert={espaceOuvert} erreur={erreur} entreprises={entreprises} />
       ) : (
         <div className={s.identite}>
           <dl className={s.faits}>
@@ -182,6 +188,19 @@ export function Identite({
             <Fait libelle="Société">{c.societe || null}</Fait>
             <Fait libelle="Type de client">
               <Pastille label={TYPES[c.type] ?? c.type} teinte={TEINTE_TYPE[c.type] ?? "indigo"} />
+            </Fait>
+            {/* Le rattachement à une entreprise ouvre les dossiers du client à l'espace RH de celle-ci. Mis en avant pour un compte. */}
+            <Fait libelle="Entreprise (espace pro)" accent={c.type === "compte"}>
+              {entreprise ? (
+                <PuceEntreprise e={entreprise} />
+              ) : c.espace_pro_id ? (
+                <span className={s.aRattacher}>Espace « {c.espace_pro_id} » introuvable</span>
+              ) : c.type === "compte" ? (
+                <span className={s.aRattacher}>Aucune · à rattacher pour l’espace RH</span>
+              ) : (
+                <span className={s.manque}>Aucune</span>
+              )}
+              {entreprise && <small className={s.aide}>ses dossiers paraissent dans l’espace RH de {entreprise.nom}</small>}
             </Fait>
             <p className={s.groupeTitre}>Coordonnées</p>
             <Fait libelle="Téléphone">{c.telephone ? <Telephone t={c.telephone} /> : null}</Fait>
@@ -214,9 +233,9 @@ export function Identite({
   );
 }
 
-function Champ({ l = 6, titre, aide, children }: { l?: 2 | 3 | 4 | 6 | 8 | 12; titre: string; aide?: string; children: React.ReactNode }) {
+function Champ({ l = 6, titre, aide, accent, children }: { l?: 2 | 3 | 4 | 6 | 8 | 12; titre: string; aide?: string; accent?: boolean; children: React.ReactNode }) {
   return (
-    <label className={s.champ} data-l={l}>
+    <label className={s.champ} data-l={l} data-accent={accent ? "" : undefined}>
       <span>
         {titre}
         {aide && <small> · {aide}</small>}
@@ -227,7 +246,7 @@ function Champ({ l = 6, titre, aide, children }: { l?: 2 | 3 | 4 | 6 | 8 | 12; t
 }
 
 /** Le formulaire de la fiche : les champs de la fenêtre « Fiche » d'un dossier, plus la facturation et les notes. */
-function FormulaireClient({ c, espaceOuvert, erreur }: { c: Row; espaceOuvert: boolean; erreur: string | null }) {
+function FormulaireClient({ c, espaceOuvert, erreur, entreprises }: { c: Row; espaceOuvert: boolean; erreur: string | null; entreprises: Entreprise[] }) {
   return (
     <form action={majClient.bind(null, c.id)} className={s.formulaire}>
       {erreur === "nom" && <p className={s.erreur}>Le nom du client est obligatoire.</p>}
@@ -259,6 +278,20 @@ function FormulaireClient({ c, espaceOuvert, erreur }: { c: Row; espaceOuvert: b
               ))}
             </select>
           </Champ>
+          {/* Sans la liste des espaces, pas de champ : l'enregistrement garde alors le rattachement tel quel. */}
+          {entreprises.length > 0 && (
+            <Champ l={6} titre="Entreprise (espace pro)" aide="ouvre ses dossiers à l'espace RH" accent={c.type === "compte"}>
+              <select name="espace_pro_id" defaultValue={c.espace_pro_id ?? ""}>
+                <option value="">Aucune</option>
+                {entreprises.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nom}
+                    {e.actif ? "" : " (espace en pause)"}
+                  </option>
+                ))}
+              </select>
+            </Champ>
+          )}
         </div>
       </fieldset>
       <fieldset>

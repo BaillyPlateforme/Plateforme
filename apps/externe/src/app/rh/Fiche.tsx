@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ETAPE_RH, ETAPES_EN_COURS, type FactureRh, type MobiliteRh } from "@/lib/rh-modele";
-import { PastilleEtape } from "./_ui/briques";
+import { ETAPE_RH, ETAPES_EN_COURS, PAYEURS_RH, type FactureRh, type MobiliteRh } from "@/lib/rh-modele";
+import { PastilleEtape, PastillePayeur } from "./_ui/briques";
 import { Picto } from "./_ui/Icones";
 import { euro, formule, jourLong, joursAvant, quand, versDate } from "./calculs";
 import { Initiales } from "./vues/Collaborateurs";
@@ -77,6 +77,9 @@ export default function Fiche({
               </p>
             </div>
           </div>
+          <div className="mt-4">
+            <PastillePayeur payeur={m.payeur} grande />
+          </div>
         </div>
 
         <div className="space-y-6 px-6 py-6">
@@ -107,7 +110,12 @@ export default function Fiche({
           {couts && (
             <section className="rounded-[20px] bg-card p-5 ring-1 ring-line">
               <h3 className="text-[11.5px] font-bold uppercase tracking-[0.12em] text-ink-soft">Coût</h3>
-              {m.montant ? (
+              {m.payeur === "salarie" ? (
+                // TEXTE À VALIDER
+                <p className="mt-2 text-[13.5px] leading-relaxed text-ink-mid">
+                  Votre collaborateur règle lui-même ce déménagement : son prix et ses factures n&apos;apparaissent pas dans votre espace, ni dans votre budget.
+                </p>
+              ) : m.montant ? (
                 <>
                   <div className="mt-2 flex flex-wrap items-baseline gap-x-2.5">
                     <span className="text-[30px] font-bold leading-none tracking-[-0.02em]">{euro(m.montant.ht)}</span>
@@ -122,6 +130,9 @@ export default function Fiche({
                       : ""}
                   </p>
                   {m.facture_ttc !== 0 && <p className="mt-1 text-[12.5px] text-ink-mid">Facturé : {euro(m.facture_ttc)} TTC</p>}
+                  {m.payeur === "a_confirmer" && (
+                    <p className="mt-3 rounded-[12px] border border-dashed border-line-strong px-3 py-2 text-[12px] leading-snug text-ink-soft">{PAYEURS_RH.a_confirmer.aide}</p>
+                  )}
                 </>
               ) : (
                 <p className="mt-2 text-[13.5px] text-ink-mid">Pas encore chiffrée : l&apos;estimation arrive après l&apos;étude de la demande.</p>
@@ -142,6 +153,7 @@ export default function Fiche({
                   ...(m.periode && m.date ? [["Période indiquée", m.periode]] : []),
                   ["Volume", m.volume_m3 != null ? `${m.volume_m3.toLocaleString("fr-FR")} m³` : "—"],
                   ["Formule", formule(m.formule)],
+                  ["Prise en charge", PAYEURS_RH[m.payeur].label],
                   ...(m.email ? [["E-mail", m.email]] : []),
                   ...(m.tel ? [["Téléphone", m.tel]] : []),
                 ] as [string, string][]

@@ -102,6 +102,8 @@ export interface LigneClient {
   activite: string;
   /** Une relance attend (en retard ou du jour) sur un de ses dossiers. */
   aRelancer: boolean;
+  /** L'entreprise (espace pro) à laquelle le client est rattaché, ou rien. */
+  entreprise: string | null;
   /** Pour la recherche : le texte normalisé, et les chiffres de ses téléphones. */
   texte: string;
   telephones: string;

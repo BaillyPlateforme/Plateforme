@@ -5,6 +5,7 @@ import { TEL_AGENCE } from "@/lib/messaging";
 import {
   ETAPE_RH,
   FORMULES_RH,
+  aUnEspaceRh,
   etapeDeDemande,
   etapeDeDossier,
   formuleRh,
@@ -14,6 +15,7 @@ import {
   type JalonRh,
   type MobiliteRh,
   type MontantRh,
+  type PayeurRh,
 } from "@/lib/rh-modele";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { RequestRow, SettingsRow } from "@/lib/types";
@@ -111,11 +113,13 @@ export async function changerMotDePasseRh(id: string, motDePasse: string) {
  *  1. les demandes arrivées par son espace pro (public.requests, qui retient
  *     l'identifiant de l'espace, ou son nom de lien pour les toutes premières) ;
  *  2. au CRM, les dossiers issus de ces demandes (crm.dossiers.request_id) ;
- *  3. au CRM, les dossiers d'un client « compte » dont la société porte
- *     exactement le nom de l'entreprise (« Safran » ↔ espace Safran ; accents,
- *     majuscules et tirets ignorés, rien de plus : « Groupe Casino » ne vaut pas
- *     « Casino »), ou dont ce client est le payeur ;
- *  4. les factures de ces dossiers, et celles dont ce client est le payeur.
+ *  3. au CRM, les dossiers dont le client OU le payeur est un client rattaché
+ *     à l'entreprise par l'équipe (crm.clients.espace_pro_id = l'identifiant
+ *     de l'espace, posé depuis la fiche du client). Aucun rapprochement par
+ *     le nom : un client non rattaché n'ouvre rien ;
+ *  4. les factures que l'entreprise paie : celles dont le payeur est un client
+ *     rattaché, ou, sans payeur sur la facture, celles d'un dossier qu'elle
+ *     paie (voir payeurDuDossier).
  *
  * Chaque requête porte ces identifiants en paramètres : aucune ne lit une
  * ligne hors du périmètre. On ne lit que les colonnes montrées : ni l'adresse,
@@ -137,7 +141,7 @@ type DevisSite = { request_id: string; reference: string; montant_ht: number; mo
 type Evenement = { request_id: string; type: string; payload: { status?: string } | null; created_at: string };
 
 type Dossier = {
-  id: number; ref: string; statut: string; request_id: string | null; client_id: number; commercial_id: number | null;
+  id: number; ref: string; statut: string; request_id: string | null; client_id: number; payeur_client_id: number | null; commercial_id: number | null;
   date_chargement: string | null; date_livraison: string | null; mois: string | null; periode: string | null; volume: number;
   cree_le: Date | string; maj_le: Date | string; archive: boolean;
   prenom: string | null; nom: string | null; societe: string | null; email: string | null; telephone: string | null;
@@ -147,14 +151,15 @@ type DevisCrm = { dossier_id: number; numero: string; formule: string; statut: "
 type FactureCrm = {
   id: number; dossier_id: number | null; numero: string; objet: string; genre: FactureRh["genre"]; statut: FactureRh["statut"];
   emise_le: string; echeance_le: string | null; payee_le: string | null; ttc: number; ht: number | null; reste: number | null;
+  /** Le payeur figé sur la facture (colonne, ou client du payeur enregistré), s'il y en a un. */
+  payeur_id: number | null;
 };
 type Visite = { dossier_id: number; type: "phys" | "visio"; debut: Date };
 
 const enIso = (v: Date | string | null | undefined) => (v == null ? null : v instanceof Date ? v.toISOString() : String(v));
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 
-/** L'espace pro standard n'est celui d'aucune entreprise : il n'a pas d'espace RH. */
-export const aUnEspaceRh = (e: Pick<EspacePro, "slug">) => e.slug !== "standard";
+export { aUnEspaceRh };
 
 /** Les demandes arrivées par l'espace pro de l'entreprise. */
 async function demandesDeLEspace(espace: EspaceRh): Promise<Demande[]> {
@@ -176,17 +181,40 @@ function nomCollaborateur(d: Pick<Dossier, "prenom" | "nom" | "societe">): strin
   return personne || d.societe || "—";
 }
 
+/**
+ * Les clients du CRM rattachés à l'entreprise. Tant que l'app interne n'a pas
+ * posé la colonne (elle le fait à son démarrage), aucun : l'espace montre
+ * alors les seuls dossiers issus de ses demandes.
+ */
+async function clientsRattaches(lire: Lire, espace: EspaceRh): Promise<number[]> {
+  try {
+    return (await lire<{ id: number }>(`select id from crm.clients where espace_pro_id = $1`, [espace.id])).map((c) => c.id);
+  } catch (e) {
+    if ((e as { code?: string }).code === "42703") {
+      console.warn("Espace RH : crm.clients.espace_pro_id manque encore (schéma du CRM pas encore appliqué)");
+      return [];
+    }
+    throw e;
+  }
+}
+
+/**
+ * Qui paie un dossier, pour l'entreprise : son payeur s'il en a un, sinon son
+ * client. Rattaché à l'entreprise, c'est elle ; sinon, c'est le salarié.
+ */
+export function payeurDuDossier(d: { client_id: number; payeur_client_id: number | null }, rattaches: Set<number>): PayeurRh {
+  return rattaches.has(d.payeur_client_id ?? d.client_id) ? "entreprise" : "salarie";
+}
+
 /** Ce que le CRM sait de l'entreprise : ses dossiers, leurs devis, factures et visites, et son interlocuteur. */
 async function lireCrm(lire: Lire, espace: EspaceRh, idsDemandes: string[]) {
-  // Les clients « compte » qui SONT l'entreprise : comparaison exacte des noms normalisés.
-  const cibles = new Set([slugifier(espace.nom), espace.slug].filter((s) => s.length >= 2));
-  const comptes = (await lire<{ id: number; societe: string }>(`select id, societe from crm.clients where type = 'compte' and coalesce(societe, '') <> ''`))
-    .filter((c) => cibles.has(slugifier(c.societe)))
-    .map((c) => c.id);
-  if (comptes.length === 0 && idsDemandes.length === 0) return null;
+  const rattaches = await clientsRattaches(lire, espace);
+  const lies = new Set(rattaches);
+  if (rattaches.length === 0 && idsDemandes.length === 0)
+    return { dossiers: [] as Dossier[], devis: [] as DevisCrm[], factures: [] as FactureCrm[], visites: [] as Visite[], avecPdf: new Set<number>(), contact: null, rattaches: lies };
 
   const dossiers = await lire<Dossier>(
-    `select d.id, d.ref, d.statut, d.request_id::text as request_id, d.client_id, d.commercial_id,
+    `select d.id, d.ref, d.statut, d.request_id::text as request_id, d.client_id, d.payeur_client_id, d.commercial_id,
         to_char(d.date_chargement, 'YYYY-MM-DD') as date_chargement, to_char(d.date_livraison, 'YYYY-MM-DD') as date_livraison,
         to_char(d.mois_ca, 'YYYY-MM') as mois, d.periode, d.volume::float8 as volume, d.cree_le, d.maj_le, d.archive_le is not null as archive,
         c.prenom, c.nom, c.societe, c.email, c.telephone,
@@ -195,11 +223,12 @@ async function lireCrm(lire: Lire, espace: EspaceRh, idsDemandes: string[]) {
        from crm.dossiers d join crm.clients c on c.id = d.client_id
       where d.client_id = any($1::int[]) or d.payeur_client_id = any($1::int[]) or d.request_id = any($2::uuid[])
       order by d.cree_le desc`,
-    [comptes, idsDemandes],
+    [rattaches, idsDemandes],
   );
   const ids = dossiers.map((d) => d.id);
+  const parId = new Map(dossiers.map((d) => [d.id, d]));
 
-  const [devis, factures, visites] = await Promise.all([
+  const [devis, toutesFactures, visites] = await Promise.all([
     ids.length
       ? lire<DevisCrm>(
           `select v.dossier_id, v.numero, v.formule, v.statut, v.montant::float8 as ttc,
@@ -210,20 +239,30 @@ async function lireCrm(lire: Lire, espace: EspaceRh, idsDemandes: string[]) {
             order by v.cree_le`,
           [ids],
         )
-      : Promise.resolve([]),
+      : Promise.resolve([] as DevisCrm[]),
     lire<FactureCrm>(
-      `select f.id, f.dossier_id, f.numero, f.objet, f.genre, f.statut,
-          to_char(f.emise_le, 'YYYY-MM-DD') as emise_le, to_char(f.echeance_le, 'YYYY-MM-DD') as echeance_le,
-          to_char(f.payee_le, 'YYYY-MM-DD') as payee_le, f.montant::float8 as ttc, f.montant_ht::float8 as ht, s.reste::float8 as reste
-         from crm.factures f left join crm.factures_soldes s on s.id = f.id
-        where f.dossier_id = any($1::int[]) or f.payeur_client_id = any($2::int[])
-        order by f.emise_le desc, f.id desc`,
-      [ids, comptes],
+      `select * from (
+         select f.id, f.dossier_id, f.numero, f.objet, f.genre, f.statut,
+            to_char(f.emise_le, 'YYYY-MM-DD') as emise_le, to_char(f.echeance_le, 'YYYY-MM-DD') as echeance_le,
+            to_char(f.payee_le, 'YYYY-MM-DD') as payee_le, f.montant::float8 as ttc, f.montant_ht::float8 as ht, s.reste::float8 as reste,
+            coalesce(f.payeur_client_id, case when f.payeur->>'clientId' ~ '^[0-9]+$' then (f.payeur->>'clientId')::int end) as payeur_id
+           from crm.factures f left join crm.factures_soldes s on s.id = f.id
+       ) x
+        where x.dossier_id = any($1::int[]) or x.payeur_id = any($2::int[])
+        order by x.emise_le desc, x.id desc`,
+      [ids, rattaches],
     ),
     ids.length
       ? lire<Visite>(`select dossier_id, type, debut from crm.rendez_vous where dossier_id = any($1::int[]) and type in ('phys', 'visio') order by debut`, [ids])
-      : Promise.resolve([]),
+      : Promise.resolve([] as Visite[]),
   ]);
+
+  // Seules les factures que l'entreprise paie : son payeur sur la facture, ou, sans payeur, un dossier qu'elle paie.
+  const factures = toutesFactures.filter((f) => {
+    if (f.payeur_id != null) return lies.has(f.payeur_id);
+    const d = f.dossier_id != null ? parId.get(f.dossier_id) : undefined;
+    return !!d && payeurDuDossier(d, lies) === "entreprise";
+  });
 
   // Les factures qui ont leur version dans l'espace client du collaborateur : c'est elle qui se télécharge.
   const avecPdf = factures.length
@@ -246,7 +285,7 @@ async function lireCrm(lire: Lire, espace: EspaceRh, idsDemandes: string[]) {
       )
     : [];
 
-  return { dossiers, devis, factures, visites, avecPdf, contact: contact ?? null };
+  return { dossiers, devis, factures, visites, avecPdf, contact: contact ?? null, rattaches: lies };
 }
 
 /** Le dernier d'une liste selon une date. */
@@ -258,7 +297,7 @@ export interface LectureRh {
   mobilites: MobiliteRh[];
   factures: FactureRh[];
   contact: ContactRh;
-  sources: { demandes: number; dossiers: number; crm: boolean };
+  sources: { demandes: number; dossiers: number; clients: number; crm: boolean };
 }
 
 /**
@@ -296,7 +335,7 @@ export async function lireEspaceRh(espace: EspaceRh, settings: Pick<SettingsRow,
   for (const e of (evenements ?? []) as Evenement[]) evenementsParDemande.set(e.request_id, [...(evenementsParDemande.get(e.request_id) ?? []), e]);
 
   // Le CRM : par la petite connexion des modules partagés. S'il ne répond pas, l'espace montre les demandes seules, et le dit.
-  let crm: Awaited<ReturnType<typeof lireCrm>> = null;
+  let crm: Awaited<ReturnType<typeof lireCrm>> | null = null;
   let crmLu = false;
   const lire = baseCrm();
   if (lire && aUnEspaceRh(espace)) {
@@ -368,7 +407,15 @@ export async function lireEspaceRh(espace: EspaceRh, settings: Pick<SettingsRow,
           if (f.payee_le) jalons.push({ date: f.payee_le, libelle: `Facture ${f.numero} réglée` });
         }
 
+      // Le prix d'un déménagement que le salarié règle lui-même ne regarde que lui : ni montant, ni facture.
+      const payeur: PayeurRh = payeurDuDossier(d, crm.rattaches);
       const montantDemandeAbsorbee = demande ? montantDemande(demande) : null;
+      const montant: MontantRh | null =
+        !couts || payeur !== "entreprise"
+          ? null
+          : retenu
+            ? { ht: retenu.ht, ttc: retenu.ttc, nature: signe ? "signe" : "devis", reference: retenu.numero, valide_jusqu: retenu.validite }
+            : montantDemandeAbsorbee;
       mobilites.push({
         id,
         origine: "dossier",
@@ -388,12 +435,11 @@ export async function lireEspaceRh(espace: EspaceRh, settings: Pick<SettingsRow,
         distance_km: retenu?.distance_km ?? demande?.distance_km ?? null,
         formule: formuleRh(retenu?.formule) ?? formuleRh(demande?.formule),
         etape: etapeDeDossier(d.statut, d.archive),
+        payeur,
         cree_le: demande?.created_at ?? enIso(d.cree_le)!,
         maj_le: enIso(d.maj_le)!,
-        montant:
-          couts && retenu
-            ? { ht: retenu.ht, ttc: retenu.ttc, nature: signe ? "signe" : "devis", reference: retenu.numero, valide_jusqu: retenu.validite }
-            : montantDemandeAbsorbee,
+        montant,
+        // Les factures lues sont déjà celles que l'entreprise paie (lireCrm).
         facture_ttc: couts ? arrondi(sesFactures.reduce((s, f) => s + (f.genre === "avoir" ? -Math.abs(f.ttc) : f.ttc), 0)) : 0,
         chronologie: jalons.sort((a, b) => a.date.localeCompare(b.date)),
       });
@@ -422,6 +468,8 @@ export async function lireEspaceRh(espace: EspaceRh, settings: Pick<SettingsRow,
       distance_km: r.distance_km != null ? Number(r.distance_km) : null,
       formule: formuleRh(r.formule),
       etape: etapeDeDemande(r.status),
+      // Sans dossier au CRM, personne n'a encore dit qui paie : hors budget tant que ce n'est pas confirmé.
+      payeur: "a_confirmer",
       cree_le: r.created_at,
       maj_le: r.updated_at,
       montant: montantDemande(r),
@@ -469,6 +517,6 @@ export async function lireEspaceRh(espace: EspaceRh, settings: Pick<SettingsRow,
     mobilites,
     factures,
     contact,
-    sources: { demandes: demandes.length, dossiers: crm?.dossiers.length ?? 0, crm: crmLu },
+    sources: { demandes: demandes.length, dossiers: crm?.dossiers.length ?? 0, clients: crm?.rattaches.size ?? 0, crm: crmLu },
   };
 }

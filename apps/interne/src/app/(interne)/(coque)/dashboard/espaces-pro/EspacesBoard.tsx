@@ -81,12 +81,15 @@ export default function EspacesBoard({
   espaces,
   regles: reglesInitiales,
   demandes,
+  clients = {},
   base,
   entreprise,
 }: {
   espaces: EspacePro[];
   regles: Regles;
   demandes: Record<string, number>;
+  /** Les clients du CRM rattachés à chaque espace (crm.clients.espace_pro_id). */
+  clients?: Record<string, number>;
   base: string;
   entreprise: Entreprise;
 }) {
@@ -322,6 +325,7 @@ export default function EspacesBoard({
               regles={regles}
               actif={!general && e.id === brouillon.id}
               n={demandes[e.slug] ?? 0}
+              rattaches={clients[e.id] ?? 0}
               onClick={() => ouvrir(e)}
             />
           ))}
@@ -379,6 +383,17 @@ export default function EspacesBoard({
                   {brouillon.slug !== "standard" && (
                     <a href={`/rh?apercu=${encodeURIComponent(brouillon.id)}`} target="_blank" rel="noreferrer" className="font-medium text-brand-ink transition hover:text-ink">
                       Espace RH ↗
+                    </a>
+                  )}
+                  {/* Les clients du CRM rattachés à l'entreprise : leurs dossiers paraissent dans son espace RH. */}
+                  {brouillon.slug !== "standard" && (
+                    <a
+                      href={`/clients?entreprise=${encodeURIComponent(brouillon.id)}`}
+                      data-clients-rattaches
+                      title="Les clients du CRM rattachés à cette entreprise : leurs dossiers paraissent dans son espace RH. Le rattachement se fait depuis la fiche d'un client."
+                      className="font-medium text-brand-ink transition hover:text-ink"
+                    >
+                      {clients[brouillon.id] ?? 0} client{(clients[brouillon.id] ?? 0) > 1 ? "s" : ""} rattaché{(clients[brouillon.id] ?? 0) > 1 ? "s" : ""} →
                     </a>
                   )}
                   <button
@@ -1165,6 +1180,7 @@ function LigneEspace({
   regles,
   actif,
   n,
+  rattaches = 0,
   brouillon = false,
   onClick,
 }: {
@@ -1172,6 +1188,8 @@ function LigneEspace({
   regles: Regles;
   actif: boolean;
   n: number;
+  /** Les clients du CRM rattachés à l'entreprise. */
+  rattaches?: number;
   brouillon?: boolean;
   onClick: () => void;
 }) {
@@ -1201,6 +1219,7 @@ function LigneEspace({
           {" · "}
           {applique.afficher_estimation ? "prix affiché" : "prix masqué"}
           {applique.ajustement_volume !== 0 ? ` · volume ${applique.ajustement_volume > 0 ? "+" : ""}${applique.ajustement_volume} %` : ""}
+          {rattaches > 0 ? ` · ${rattaches} client${rattaches > 1 ? "s" : ""} rattaché${rattaches > 1 ? "s" : ""}` : ""}
         </span>
       </span>
       {n > 0 && (

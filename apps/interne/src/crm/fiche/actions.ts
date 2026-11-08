@@ -4,6 +4,7 @@ import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
+import { entrepriseValide } from "@/crm/clients/entreprises";
 import { conflit, occupation } from "@/crm/visites/creneaux";
 import { estVisite } from "@/crm/visites/cycle";
 import { instantParis, momentVisite } from "@/lib/visite/regles";
@@ -79,6 +80,11 @@ export async function majIdentite(id: number, f: FormData) {
   // Le type de client fixe le parcours de l'espace client (segment, cahier des charges §2).
   const type = s(f, "type_client");
   if (type && TYPES_CLIENT.includes(type)) await q("update clients set type=$2 where id=(select client_id from dossiers where id=$1)", [id, type]);
+  // L'entreprise (espace pro) du client : un espace qui existe, ou aucune. Champ absent ou valeur inconnue : rien ne change.
+  if (f.has("espace_pro_id")) {
+    const entreprise = await entrepriseValide(f.get("espace_pro_id"));
+    if (entreprise !== undefined) await q("update clients set espace_pro_id=$2 where id=(select client_id from dossiers where id=$1)", [id, entreprise]);
+  }
   await noter(id, "Fiche client mise à jour");
   rafraichir(id);
 }

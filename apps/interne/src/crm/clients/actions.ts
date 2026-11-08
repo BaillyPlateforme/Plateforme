@@ -6,6 +6,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { TYPES } from "@/crm/lib/format";
+import { entrepriseValide } from "./entreprises";
 
 /*
  * Les gestes de la fiche d'un client (/clients/<id>) : son identité, sa
@@ -45,6 +46,8 @@ const CHAMPS: [cle: string, libelle: string, max?: number][] = [
   ["facturation_pays", "pays"],
   ["siren", "SIREN"],
   ["tva_intracom", "TVA intracommunautaire"],
+  // L'entreprise (espace pro) : ses dossiers paraissent dans l'espace RH de celle-ci. Vérifiée plus bas.
+  ["espace_pro_id", "entreprise (espace pro)"],
 ];
 
 async function espacesDu(clientId: number): Promise<number[]> {
@@ -75,6 +78,10 @@ export async function majClient(id: number, f: FormData) {
   // L'identifiant de l'espace client ne se change pas d'ici ; un type inconnu non plus.
   if (espaces.length) valeurs.email = avant.email ?? null;
   if (!valeurs.type || !(valeurs.type in TYPES)) valeurs.type = avant.type;
+  // Le rattachement à une entreprise : seulement un espace pro qui existe (pas l'espace standard). Champ absent
+  // du formulaire (liste des espaces illisible) ou valeur inconnue : le rattachement reste tel quel.
+  const entreprise = f.has("espace_pro_id") ? await entrepriseValide(f.get("espace_pro_id")) : undefined;
+  valeurs.espace_pro_id = entreprise === undefined ? (avant.espace_pro_id ?? null) : entreprise;
 
   const changes = CHAMPS.filter(([cle]) => (avant[cle] ?? null) !== (valeurs[cle] ?? null));
   if (changes.length) {

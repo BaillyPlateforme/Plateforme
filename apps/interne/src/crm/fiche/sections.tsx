@@ -101,6 +101,8 @@ export type Contexte = {
   litiges: Row[];
   etatsSms: Map<number, EtatAffiche>;
   espaceOuvert: boolean;
+  /** Les espaces pro auxquels le client peut être rattaché (fenêtre « Fiche ») ; vide si la liste ne se lit pas. */
+  entreprises?: { id: string; nom: string; actif: boolean }[];
   /**
    * `planifie` : le rendez-vous que le planificateur vient de poser (retour de /planning/nouveau), ou de
    * modifier (`modifie=1`, retour de /planning/<id>).
@@ -123,7 +125,7 @@ export function visiteDuSousTitre(rdvs: Row[], maintenant: number) {
 export function construireFiche(c: Contexte) {
   const fenetres: Record<string, FenetreFiche> = {};
   const { d } = c;
-  fenetres.fiche = { surtitre: `Client n° ${d.client_id}`, titre: `Fiche · ${nomClient(d)}`, contenu: <FenetreIdentite d={d} espaceOuvert={c.espaceOuvert} /> };
+  fenetres.fiche = { surtitre: `Client n° ${d.client_id}`, titre: `Fiche · ${nomClient(d)}`, contenu: <FenetreIdentite d={d} espaceOuvert={c.espaceOuvert} entreprises={c.entreprises} /> };
   fenetres.adresses = { surtitre: "Fenêtre de visite", titre: "Adresses et accès", contenu: <FenetreAdresses d={d} />, large: true };
   fenetres.inventaire = { surtitre: `Inventaire · ${m3(d.volume)}`, titre: "Inventaire du logement", contenu: <FenetreInventaire d={d} />, large: true };
   fenetres.suivi = { surtitre: `Dossier ${d.ref}`, titre: "Suivi et observations", contenu: <FenetreSuivi d={d} utilisateurs={c.utilisateurs} /> };

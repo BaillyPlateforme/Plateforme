@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ETAPE_RH, ETAPES_EN_COURS, type CleEtapeRh } from "@/lib/rh-modele";
+import { ETAPE_RH, ETAPES_EN_COURS, PAYEURS_RH, type CleEtapeRh, type PayeurRh } from "@/lib/rh-modele";
 import { Picto, type NomPicto } from "./Icones";
 
 /* Les briques de l'espace RH : cartes, tuiles chiffrées, pastilles d'étape, états vides. */
@@ -89,6 +89,52 @@ export function PastilleEtape({ etape, grande = false }: { etape: CleEtapeRh; gr
       </span>
       {e.label}
     </span>
+  );
+}
+
+/**
+ * Qui paie la mobilité. L'entreprise : la couleur de l'entreprise, pâle ; le
+ * salarié : un contour ; à confirmer : un contour pointillé. Pas de couleur
+ * d'état (vert, rouge) : ce n'est ni un succès ni une alerte.
+ */
+export function PastillePayeur({ payeur, grande = false }: { payeur: PayeurRh; grande?: boolean }) {
+  const p = PAYEURS_RH[payeur];
+  const ton =
+    payeur === "entreprise"
+      ? "bg-brand-soft text-brand-ink"
+      : payeur === "salarie"
+        ? "border border-line-strong bg-card text-ink-mid"
+        : "border border-dashed border-line-strong text-ink-soft";
+  return (
+    <span
+      title={p.aide}
+      data-payeur={payeur}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full font-semibold ${ton} ${grande ? "px-3 py-1.5 text-[12.5px]" : "px-2.5 py-1 text-[11.5px]"}`}
+    >
+      <Picto nom={payeur === "entreprise" ? "immeuble" : payeur === "salarie" ? "personnes" : "horloge"} taille={grande ? 14 : 12.5} />
+      {p.label}
+    </span>
+  );
+}
+
+/**
+ * Ce qui reste hors des montants : les mobilités que le salarié paie, les
+ * demandes dont le payeur reste à confirmer. Rien quand tout est compté.
+ * TEXTE À VALIDER.
+ */
+export function NoteHorsBudget({ salarie, aConfirmer, className = "" }: { salarie: number; aConfirmer: number; className?: string }) {
+  if (!salarie && !aConfirmer) return null;
+  const parties = [
+    salarie ? `${salarie} mobilité${salarie > 1 ? "s" : ""} payée${salarie > 1 ? "s" : ""} par le salarié` : null,
+    aConfirmer ? `${aConfirmer} demande${aConfirmer > 1 ? "s" : ""} dont le payeur reste à confirmer` : null,
+  ].filter(Boolean);
+  return (
+    <p data-hors-budget className={`flex items-start gap-2 text-[12.5px] leading-snug text-ink-soft ${className}`}>
+      <Picto nom="info" taille={15} className="mt-px shrink-0" />
+      <span>
+        Hors budget : {parties.join(" et ")}. {salarie + aConfirmer > 1 ? "Elles restent listées" : "Elle reste listée"} dans Collaborateurs, sans compter dans ces montants.
+      </span>
+    </p>
   );
 }
 

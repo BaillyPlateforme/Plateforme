@@ -14,15 +14,15 @@ import s from "./clients.module.css";
 /*
  * Les filtres de la liste des clients, dans la rangée du bas de la bande —
  * la même forme que ceux du Parcours (recherche, commerciaux en avatars, type
- * de client) et le tri. Tout vit dans l'adresse (?q=, ?commercial=, ?type=,
- * ?tri=) : un lien partagé ou un rechargement les garde. La recherche part
+ * de client), l'entreprise (espace pro) et le tri. Tout vit dans l'adresse
+ * (?q=, ?commercial=, ?type=, ?entreprise=, ?tri=) : un lien partagé ou un rechargement les garde. La recherche part
  * d'elle-même après une courte pause de frappe ; changer un filtre revient à
  * la première page et garde la vue.
  */
 
 const prenom = (nom: string) => nom.split(/\s+/)[0];
 
-export default function FiltresClients({ commerciaux }: { commerciaux: Commercial[] }) {
+export default function FiltresClients({ commerciaux, entreprises = [] }: { commerciaux: Commercial[]; entreprises?: { id: string; nom: string; n: number }[] }) {
   const router = useRouter();
   const chemin = usePathname();
   const sp = useSearchParams();
@@ -64,7 +64,8 @@ export default function FiltresClients({ commerciaux }: { commerciaux: Commercia
   const commercial = sp.get("commercial");
   const type = sp.get("type") ?? "";
   const tri = sp.get("tri") ?? "recents";
-  const actifs = !!(qAdresse || commercial || type);
+  const entreprise = sp.get("entreprise") ?? "";
+  const actifs = !!(qAdresse || commercial || type || entreprise);
 
   return (
     <div className={`${k.filtres} ${s.filtres}`}>
@@ -119,6 +120,23 @@ export default function FiltresClients({ commerciaux }: { commerciaux: Commercia
           </option>
         ))}
       </select>
+      {/* L'entreprise (espace pro) à laquelle le client est rattaché, avec le nombre de ses clients. */}
+      {entreprises.length > 0 && (
+        <select
+          className={h.choix}
+          value={entreprise}
+          data-actif={entreprise ? "" : undefined}
+          onChange={(e) => aller({ entreprise: e.target.value || null })}
+          aria-label="Entreprise"
+        >
+          <option value="">Toutes les entreprises</option>
+          {entreprises.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.nom} ({e.n})
+            </option>
+          ))}
+        </select>
+      )}
       <select className={`${h.choix} ${s.tri}`} value={tri} onChange={(e) => aller({ tri: e.target.value === "recents" ? null : e.target.value })} aria-label="Trier les clients">
         {TRIS.map((t) => (
           <option key={t.cle} value={t.cle}>
@@ -133,7 +151,7 @@ export default function FiltresClients({ commerciaux }: { commerciaux: Commercia
           onClick={() => {
             setFrappe(false);
             setQ("");
-            aller({ q: null, commercial: null, type: null });
+            aller({ q: null, commercial: null, type: null, entreprise: null });
           }}
         >
           Effacer

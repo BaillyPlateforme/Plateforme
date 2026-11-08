@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ETAPE_RH, FORMULES_ORDRE, FORMULES_RH, type CleEtapeRh, type FormuleRh, type MobiliteRh } from "@/lib/rh-modele";
-import { PastilleEtape, Vide } from "../_ui/briques";
+import { PastilleEtape, PastillePayeur, Vide } from "../_ui/briques";
 import { Picto } from "../_ui/Icones";
 import { csvMobilites, euro, formule, nomDeFichier, quand, telecharger } from "../calculs";
 
@@ -153,7 +153,7 @@ export default function VueCollaborateurs({
       {/* ── Sur ordinateur : un tableau ── */}
       <div className="bloc hidden overflow-hidden rounded-[24px] border border-line bg-card md:block">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-[13.5px]">
+          <table className="w-full min-w-[1020px] text-left text-[13.5px]">
             <thead>
               <tr className="border-b border-line bg-subtle/60 text-[11px] uppercase tracking-[0.08em] text-ink-soft">
                 <th className="px-5 py-3 font-semibold">Collaborateur</th>
@@ -161,6 +161,7 @@ export default function VueCollaborateurs({
                 <th className="px-4 py-3 font-semibold">Déménagement</th>
                 <th className="px-4 py-3 font-semibold">Formule</th>
                 <th className="px-4 py-3 font-semibold">Étape</th>
+                <th className="px-4 py-3 font-semibold">Payeur</th>
                 {couts && <th className="px-5 py-3 text-right font-semibold">Montant HT</th>}
               </tr>
             </thead>
@@ -197,16 +198,12 @@ export default function VueCollaborateurs({
                   <td className="px-4 py-3.5">
                     <PastilleEtape etape={m.etape} />
                   </td>
+                  <td className="px-4 py-3.5">
+                    <PastillePayeur payeur={m.payeur} />
+                  </td>
                   {couts && (
                     <td className="px-5 py-3.5 text-right">
-                      {m.montant ? (
-                        <>
-                          <div className="font-semibold tabular-nums">{euro(m.montant.ht)}</div>
-                          <div className="text-[11.5px] text-ink-soft">{NATURE[m.montant.nature]}</div>
-                        </>
-                      ) : (
-                        <span className="text-ink-soft">à chiffrer</span>
-                      )}
+                      <Montant m={m} />
                     </td>
                   )}
                 </tr>
@@ -232,14 +229,17 @@ export default function VueCollaborateurs({
                     </div>
                   </div>
                 </div>
-                {couts && m.montant && <div className="shrink-0 text-right text-[14px] font-bold tabular-nums">{euro(m.montant.ht)}</div>}
+                {couts && m.montant && (
+                  <div className={`shrink-0 text-right text-[14px] font-bold tabular-nums ${m.payeur === "entreprise" ? "" : "text-ink-soft"}`}>{euro(m.montant.ht)}</div>
+                )}
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+              <p className="mt-2 text-[12.5px] text-ink-mid">
+                <Picto nom="calendrier" taille={13} className="mr-1 inline -translate-y-px" />
+                {quand(m)}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 <PastilleEtape etape={m.etape} />
-                <span className="text-[12.5px] text-ink-mid">
-                  <Picto nom="calendrier" taille={13} className="mr-1 inline -translate-y-px" />
-                  {quand(m)}
-                </span>
+                <PastillePayeur payeur={m.payeur} />
               </div>
             </button>
           </li>
@@ -247,6 +247,31 @@ export default function VueCollaborateurs({
         {lignes.length === 0 && <p className="py-8 text-center text-[13.5px] text-ink-soft">Aucune mobilité ne correspond à ces critères.</p>}
       </ul>
     </div>
+  );
+}
+
+/**
+ * Le montant d'une mobilité dans la liste. Ce que l'entreprise paie, en noir ;
+ * une estimation dont le payeur reste à confirmer, en gris, « hors budget » ;
+ * un déménagement payé par le salarié, sans montant.
+ */
+function Montant({ m }: { m: MobiliteRh }) {
+  if (m.payeur === "salarie")
+    return (
+      <span className="text-[12.5px] text-ink-soft" title="Le collaborateur règle lui-même ce déménagement : son prix n'apparaît pas ici.">
+        hors budget
+      </span>
+    );
+  if (!m.montant) return <span className="text-ink-soft">à chiffrer</span>;
+  const compte = m.payeur === "entreprise";
+  return (
+    <>
+      <div className={`font-semibold tabular-nums ${compte ? "" : "text-ink-soft"}`}>{euro(m.montant.ht)}</div>
+      <div className="text-[11.5px] text-ink-soft">
+        {NATURE[m.montant.nature]}
+        {compte ? "" : " · hors budget"}
+      </div>
+    </>
   );
 }
 

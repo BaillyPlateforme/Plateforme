@@ -449,6 +449,13 @@ create index if not exists idx_litiges_dossier on crm.litiges(dossier_id);
 alter table crm.dossiers add column if not exists archive_le timestamptz;
 alter table crm.dossiers add column if not exists archive_par int references crm.utilisateurs(id) on delete set null;
 create index if not exists idx_dossiers_archive on crm.dossiers(archive_le) where archive_le is not null;
+-- Espace RH : le client rattaché à une entreprise cliente, par l'identifiant de
+-- son espace pro (lib/espaces.ts, celui de app_metadata.espace_id des comptes
+-- RH). Posé à la main depuis la fiche du client ; vide, le client n'est celui
+-- d'aucune entreprise. Les RH voient les dossiers dont ce client est le client
+-- ou le payeur (lib/rh.ts).
+alter table crm.clients add column if not exists espace_pro_id text;
+create index if not exists idx_clients_espace_pro on crm.clients(espace_pro_id) where espace_pro_id is not null;
 alter table crm.reglages_exploitation enable row level security;
 alter table crm.sous_traitants enable row level security;
 alter table crm.sous_traitant_contacts enable row level security;

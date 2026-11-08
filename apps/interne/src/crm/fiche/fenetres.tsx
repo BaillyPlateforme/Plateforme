@@ -40,7 +40,7 @@ function Champ({ l = 6, titre, aide, children }: { l?: 2 | 3 | 4 | 6 | 8 | 12; t
 }
 
 /** « Fiche » : l'identité du client, reprise du formulaire de l'ancienne fiche (deux téléphones). */
-export function FenetreIdentite({ d, espaceOuvert }: { d: Row; espaceOuvert: boolean }) {
+export function FenetreIdentite({ d, espaceOuvert, entreprises = [] }: { d: Row; espaceOuvert: boolean; entreprises?: { id: string; nom: string; actif: boolean }[] }) {
   return (
     <form action={F.majIdentite.bind(null, d.id)}>
       <div className={s.grille}>
@@ -75,9 +75,23 @@ export function FenetreIdentite({ d, espaceOuvert }: { d: Row; espaceOuvert: boo
         <Champ l={6} titre="Autre téléphone">
           <input type="tel" name="client_telephone2" defaultValue={d.telephone2 ?? ""} />
         </Champ>
-        <Champ l={12} titre="E-mail" aide={espaceOuvert ? "identifiant de l'espace client : il se modifie depuis la fiche de l'espace" : undefined}>
+        <Champ l={entreprises.length ? 6 : 12} titre="E-mail" aide={espaceOuvert ? "identifiant de l'espace client : il se modifie depuis l'espace" : undefined}>
           <input type="email" name="client_email" defaultValue={d.email ?? ""} readOnly={espaceOuvert} />
         </Champ>
+        {/* Le rattachement du client à une entreprise : ses dossiers paraissent dans l'espace RH de celle-ci. Sans la liste, pas de champ. */}
+        {entreprises.length > 0 && (
+          <Champ l={6} titre="Entreprise (espace pro)" aide="ouvre ses dossiers à l'espace RH">
+            <select name="espace_pro_id" defaultValue={d.espace_pro_id ?? ""}>
+              <option value="">Aucune</option>
+              {entreprises.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nom}
+                  {e.actif ? "" : " (espace en pause)"}
+                </option>
+              ))}
+            </select>
+          </Champ>
+        )}
       </div>
       <div className={s.pied}>
         <p>

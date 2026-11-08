@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { moisDe, type FactureRh, type MobiliteRh } from "@/lib/rh-modele";
-import { Carte, Segments, Tuile, Vide } from "../_ui/briques";
+import { Carte, NoteHorsBudget, Segments, Tuile, Vide } from "../_ui/briques";
 import { BarresSimples, ColonnesMois } from "../_ui/graphiques";
 import { Picto } from "../_ui/Icones";
-import { budget, budgetParFormule, budgetParMois, cleMois, euro, jourMoyen, moisDeLaFenetre, vivante } from "../calculs";
+import { auBudget, budget, budgetParFormule, budgetParMois, cleMois, euro, horsBudget, jourMoyen, moisDeLaFenetre } from "../calculs";
 
 /*
  * Le budget : ce qui est engagé, signé, facturé — en HT et TTC —, mois par
@@ -35,7 +35,7 @@ export default function VueBudget({
     const s = new Set<string>([annee]);
     for (const m of mobilites) {
       const c = moisDe(m);
-      if (c && vivante(m) && m.montant) s.add(c.slice(0, 4));
+      if (c && auBudget(m)) s.add(c.slice(0, 4));
     }
     for (const f of factures) s.add(f.emise_le.slice(0, 4));
     return [...s].sort();
@@ -67,8 +67,19 @@ export default function VueBudget({
       />
     );
 
-  const sansMontant = mobilites.every((m) => !m.montant) && factures.length === 0;
-  if (sansMontant) return <Vide picto="euro" titre="Rien n'est encore chiffré" texte="Le budget apparaîtra ici dès la première estimation d'une mobilité." />;
+  // Rien que l'entreprise paie, ni facture : un état vide, qui dit pourquoi.
+  const hors = horsBudget(mobilites);
+  if (!mobilites.some(auBudget) && factures.length === 0)
+    return (
+      <div className="space-y-4">
+        <Vide
+          picto="euro"
+          titre="Rien n'entre encore dans votre budget"
+          texte="Le budget compte les mobilités que votre entreprise paie, dès leur première estimation ou leur premier devis."
+        />
+        <NoteHorsBudget {...hors} className="px-1" />
+      </div>
+    );
 
   return (
     <div className="space-y-5">
@@ -88,6 +99,7 @@ export default function VueBudget({
           note={b.facture.n ? `${euro(b.facture.ht)} HT${b.facture.reste > 0 ? ` · ${euro(b.facture.reste)} à régler` : " · tout est réglé"}` : "aucune facture sur la période"}
         />
       </div>
+      <NoteHorsBudget {...horsBudget(dansPeriode)} className="-mt-1 px-1" />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Carte
@@ -153,7 +165,7 @@ export default function VueBudget({
 }
 
 function CoutM3({ mobilites }: { mobilites: MobiliteRh[] }) {
-  const avecVolume = mobilites.filter((m) => vivante(m) && m.montant && (m.volume_m3 ?? 0) > 0);
+  const avecVolume = mobilites.filter((m) => auBudget(m) && (m.volume_m3 ?? 0) > 0);
   const volume = avecVolume.reduce((s, m) => s + (m.volume_m3 ?? 0), 0);
   if (!volume) return <div />;
   const total = avecVolume.reduce((s, m) => s + m.montant!.ht, 0);

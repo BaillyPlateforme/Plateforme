@@ -11,6 +11,7 @@ import { litiges as getLitiges } from "@/crm/lib/data2";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
 import { ficheDossier } from "@/crm/fiche/donnees";
+import { entreprisesPro } from "@/crm/clients/entreprises";
 import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sections";
 import Fiche from "@/crm/fiche/Fiche";
 import { parcoursDossier } from "@/crm/parcours/donnees";
@@ -39,14 +40,14 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   const sp = await searchParams;
   const d = await getDossier(id);
   if (!d) notFound();
-  const [lit, etatsSms, users, data, espace, client, parcours, superAdmin] = await Promise.all([
+  const [lit, etatsSms, users, data, espace, client, parcours, superAdmin, entreprises] = await Promise.all([
     getLitiges(id),
     etatsRdv(d.rdvs.map((r: Row) => r.id)),
     q("select id,nom,role from utilisateurs order by id"),
     ficheDossier(d),
     // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
     q<{ id: string }>("select id from public.ec_dossiers where crm_dossier_id=$1 order by created_at desc limit 1", [id]).catch(() => []),
-    q<{ telephone2: string | null }>("select telephone2 from clients where id=$1", [d.client_id]),
+    q<{ telephone2: string | null; espace_pro_id: string | null }>("select telephone2, espace_pro_id from clients where id=$1", [d.client_id]),
     // Le parcours n'empêche jamais la fiche de s'ouvrir : sans lui, la fiche reste entière.
     parcoursDossier(id).catch((e) => {
       console.error("Dossier : lecture du parcours impossible", e instanceof Error ? e.message : e);
@@ -54,8 +55,11 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     }),
     // « Modifier son espace » n'apparaît qu'aux super admins ; la route le revérifie de toute façon.
     estSuperAdmin().catch(() => false),
+    // Les entreprises (espaces pro) de la fenêtre « Fiche » : sans elles, la fenêtre s'ouvre sans le champ.
+    entreprisesPro().catch(() => []),
   ]);
   d.telephone2 = client[0]?.telephone2 ?? null;
+  d.espace_pro_id = client[0]?.espace_pro_id ?? null;
   // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
   const solde = Math.max(0, (await soldeDossier(id)).reste);
 
@@ -66,7 +70,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     ? `vu par le client le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" }).format(new Date(parcours.espace.derniereConnexion))}`
     : "jamais consulté par le client";
 
-  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, sp, solde, maintenant: instant });
+  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, entreprises, sp, solde, maintenant: instant });
 
   return (
     <div className="view dossier">

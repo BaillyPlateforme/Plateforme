@@ -11,6 +11,8 @@ import { commerciauxKanban } from "@/crm/kanban/donnees";
 import { etapeDossier } from "@/crm/kanban/etapes";
 import { lignesClients } from "@/crm/clients/donnees";
 import FiltresClients from "@/crm/clients/FiltresClients";
+import { entreprisesPro, type Entreprise } from "@/crm/clients/entreprises";
+import PuceEntreprise from "@/crm/clients/PuceEntreprise";
 import {
   PAR_PAGE,
   TEINTE_TYPE,
@@ -41,7 +43,9 @@ export const metadata: Metadata = { title: "Clients" };
  *
  * Les filtres resserrent la même liste, dans la rangée du bas de la bande :
  * recherche (nom, société, e-mail, téléphone, ville, référence de dossier),
- * commercial de son dernier dossier, type de client, et le tri. Les vues,
+ * commercial de son dernier dossier, type de client, entreprise (l'espace
+ * pro auquel le client est rattaché, ?entreprise=<id> — le lien des
+ * Espaces pro y mène), et le tri. Les vues,
  * quatre, vont au menu (compact : il passe au-dessus de la liste) : Tous,
  * avec un dossier en cours, à relancer ou reste à payer, sans dossier. La
  * bande garde son titre d'une vue à l'autre. La liste se lit par pages.
@@ -88,9 +92,21 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
   const type = sp.type && sp.type in TYPES ? sp.type : null;
   const commercial = sp.commercial && /^\d+$/.test(sp.commercial) ? Number(sp.commercial) : null;
 
-  const [toutes, commerciaux] = await Promise.all([lignesClients(), commerciauxKanban()]);
+  const [toutes, commerciaux, entreprises] = await Promise.all([
+    lignesClients(),
+    commerciauxKanban(),
+    // Sans la liste des espaces pro, la liste s'affiche quand même : sans pastille ni filtre d'entreprise.
+    entreprisesPro().catch((e) => {
+      console.error("Clients : lecture des espaces pro impossible", e instanceof Error ? e.message : e);
+      return [] as Entreprise[];
+    }),
+  ]);
+  const parEntreprise = new Map(entreprises.map((e) => [e.id, e]));
+  const entreprise = sp.entreprise && parEntreprise.has(sp.entreprise) ? sp.entreprise : null;
   const maintenant = instant();
-  const filtrees = toutes.filter((l) => (!type || l.type === type) && (!commercial || l.dernier?.commercialId === commercial) && correspond(q, l.texte, l.telephones));
+  const filtrees = toutes.filter(
+    (l) => (!type || l.type === type) && (!commercial || l.dernier?.commercialId === commercial) && (!entreprise || l.entreprise === entreprise) && correspond(q, l.texte, l.telephones),
+  );
   const nombres = Object.fromEntries(VUES.map((v) => [v.cle, filtrees.filter((l) => dansVue(l, v.cle)).length])) as Record<Vue, number>;
   const lignes = trier(
     filtrees.filter((l) => dansVue(l, vue)),
@@ -107,6 +123,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
       q: q || null,
       type,
       commercial: commercial ? String(commercial) : null,
+      entreprise,
       tri: tri === "recents" ? null : tri,
       vue: vue === "tous" ? null : vue,
       page: null,
@@ -124,7 +141,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
     />
   );
 
-  const filtre = !!(q || type || commercial);
+  const filtre = !!(q || type || commercial || entreprise);
   const total = toutes.length;
   const texte = filtre
     ? `${filtrees.length} client${filtrees.length > 1 ? "s" : ""} sur ${total} répond${filtrees.length > 1 ? "ent" : ""} aux filtres`
@@ -139,7 +156,10 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
         texte={texte}
         bas={
           <Suspense>
-            <FiltresClients commerciaux={commerciaux} />
+            <FiltresClients
+              commerciaux={commerciaux}
+              entreprises={entreprises.map((e) => ({ id: e.id, nom: e.nom, n: toutes.filter((l) => l.entreprise === e.id).length }))}
+            />
           </Suspense>
         }
       />
@@ -161,12 +181,12 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
                 <Icone nom="clients" taille={26} />
               </i>
               <b>{filtre ? "Aucun client ne répond à ces filtres." : vue === "sans_dossier" ? "Tous les clients ont au moins un dossier." : "Aucun client dans cette vue."}</b>
-              {filtre && <Link href={lien({ q: null, type: null, commercial: null })}>Effacer les filtres</Link>}
+              {filtre && <Link href={lien({ q: null, type: null, commercial: null, entreprise: null })}>Effacer les filtres</Link>}
             </div>
           ) : (
             <ol className={s.lignes}>
               {visibles.map((l, i) => (
-                <Ligne key={l.id} l={l} maintenant={maintenant} rang={i} />
+                <Ligne key={l.id} l={l} maintenant={maintenant} rang={i} entreprise={l.entreprise ? (parEntreprise.get(l.entreprise) ?? null) : null} />
               ))}
             </ol>
           )}
@@ -208,7 +228,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
   );
 }
 
-function Ligne({ l, maintenant, rang }: { l: LigneClient; maintenant: number; rang: number }) {
+function Ligne({ l, maintenant, rang, entreprise }: { l: LigneClient; maintenant: number; rang: number; entreprise: Entreprise | null }) {
   const nom = nomAffiche(l);
   const teinte = TEINTE_TYPE[l.type] ?? "indigo";
   const tel = telephoneLisible(l.telephone) ?? telephoneLisible(l.telephone2);
@@ -230,6 +250,7 @@ function Ligne({ l, maintenant, rang }: { l: LigneClient; maintenant: number; ra
           </Link>
           <span className={s.sous}>
             <Pastille label={TYPES[l.type] ?? l.type} teinte={teinte} />
+            {entreprise && <PuceEntreprise e={entreprise} mini />}
             <span className={s.sousTexte}>{contact ?? (l.villes.length ? l.villes.slice(0, 2).join(" → ") : `Client n° ${l.id}`)}</span>
           </span>
         </span>

@@ -44,7 +44,7 @@ with par_dossier as (
     from public.ec_dossiers x where x.crm_dossier_id = d.id
   ) ec on true
 )
-select c.id, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone, c.telephone2, c.cree_le,
+select c.id, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone, c.telephone2, c.cree_le, c.espace_pro_id,
   count(p.id)::int as nb_dossiers,
   count(p.id) filter (where p.en_cours)::int as en_cours,
   coalesce(sum(p.engage), 0)::float8 as ca,
@@ -124,6 +124,7 @@ export async function lignesClients(): Promise<LigneClient[]> {
       derniereConnexion: iso(r.derniere_connexion),
       activite: iso(r.activite) ?? iso(r.cree_le)!,
       aRelancer: dossiers.some((id) => relancer.has(id)),
+      entreprise: r.espace_pro_id ?? null,
       texte: normaliser([r.prenom, r.nom, r.societe, r.email, r.telephone, r.telephone2, r.refs, adresses.join(" "), `n° ${r.id}`].filter(Boolean).join(" ")),
       telephones: [r.telephone, r.telephone2].map(chiffresTelephone).filter(Boolean).join(" "),
     };

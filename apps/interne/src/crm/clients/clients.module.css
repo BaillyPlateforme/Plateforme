@@ -1499,3 +1499,80 @@ a.pageLien:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── L'entreprise (espace pro) d'un client : son logo et son nom, en bleu ciel (la teinte des comptes). ── */
+.entreprise {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 10px 2px 3px;
+  border: 1px solid #cfe9f8;
+  border-radius: 999px;
+  background: #f1f9fe;
+  color: #0b5c86;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.entreprise[data-mini] {
+  /* Dans la ligne d'un client : la pastille garde sa place, c'est le texte voisin qui s'efface. */
+  flex-shrink: 0;
+  max-width: 132px;
+  gap: 5px;
+  padding: 1px 8px 1px 2px;
+  font-size: 11.5px;
+  line-height: 17px;
+}
+.entreprise > i {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #dcecf6;
+}
+.entreprise[data-mini] > i {
+  width: 17px;
+  height: 17px;
+}
+.entreprise > i img {
+  max-width: 78%;
+  max-height: 78%;
+  object-fit: contain;
+}
+.entreprise > i b {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+.entreprise > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Pour un compte, le rattachement compte : la ligne et le champ se détachent, en bleu ciel. */
+.fait[data-accent] {
+  margin: 0 -10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f4fafe;
+  box-shadow: inset 0 0 0 1px #d6ecf8;
+}
+.champ[data-accent] > span {
+  color: #0b5c86;
+}
+.champ[data-accent] select {
+  border-color: #9fd6f3;
+  background: #f6fbfe;
+}
+.aRattacher {
+  color: #a16207;
+  font-size: 12.5px;
+  font-weight: 650;
+}
