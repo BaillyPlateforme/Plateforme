@@ -10,6 +10,7 @@ import type { CanalEnvoi } from "./envoi";
 import { blocRelance, elementsChoisis, MARQUE_LISTE, texteAEnvoyer, texteLisible, varsRelance, versTexteCarte } from "./courrier";
 import { canalEnClair, defCourrier, libelleCanal, type Canal } from "./regles";
 import { IconeCanal } from "./Section";
+import Piste from "@/crm/suivi/Piste";
 import s from "./panneau.module.css";
 
 /*
@@ -473,6 +474,26 @@ export default function PanneauEnvoi({
                   </div>
                 )}
               </section>
+
+              {/* ── 3 · Les e-mails déjà partis pour cette relance, et leur suivi (src/crm/suivi) ── */}
+              {prep.historique.length > 0 && (
+                <section className={s.section} aria-labelledby="relance-historique">
+                  <div className={s.sectionTete}>
+                    <div>
+                      <h3 id="relance-historique">Déjà envoyé pour cette relance</h3>
+                      <p>Ce que le suivi a relevé : ouvert, cliqué, venu sur le portail.</p>
+                    </div>
+                  </div>
+                  <ul className={s.historique}>
+                    {prep.historique.map((h) => (
+                      <li key={h.suivi.envoiId}>
+                        <b>Relance {h.rang}</b>
+                        <Piste suivi={h.suivi} compacte />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </>
           )}
         </div>

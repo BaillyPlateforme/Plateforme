@@ -239,6 +239,10 @@
   color: #57536b;
   overflow-wrap: anywhere;
 }
+/* La piste d'un e-mail au client (src/crm/suivi/Piste.tsx), sous son détail. */
+.pisteEv {
+  margin: 7px 0 2px;
+}
 .meta {
   display: flex;
   align-items: center;

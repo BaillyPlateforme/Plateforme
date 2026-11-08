@@ -4,7 +4,7 @@ import { nomClient } from "@/crm/lib/format";
 import { lireDemandes } from "@/crm/demandes/donnees";
 import { etapeDe } from "@/crm/demandes/etapes";
 import {
-  cleAppel, DEVIS_SANS_REPONSE_JOURS, FAITS_JOURS, NOUVELLES_QUALIFIEES_JOURS, scoreAppel, sourceDe,
+  cleAppel, DEVIS_SANS_REPONSE_JOURS, FAITS_JOURS, NOUVELLES_QUALIFIEES_JOURS, scoreAppel, SIGNAL_CHAUD_HEURES, sourceDe,
   type Appel, type AppelFait, type SourceAppel,
 } from "./regles";
 
@@ -97,7 +97,7 @@ function finir(b: Brut, maintenant: number): Appel {
     cle: cleAppel(b.source, b.objetId, b.occurrence),
     depuis: depuis(b.echeance, maintenant),
     echeanceLibelle: momentFr(b.echeance, maintenant),
-    score: scoreAppel({ source: b.source, potentiel: b.potentiel, montant: b.montant, attenteHeures }),
+    score: scoreAppel({ source: b.source, potentiel: b.potentiel, montant: b.montant, attenteHeures, chaud: !!b.signal }),
     reporteAu: null,
     reporteLibelle: null,
   };
@@ -172,7 +172,15 @@ async function devis(maintenant: number): Promise<Brut[]> {
   const rows = await q(
     `select d.id, d.ref, d.request_id::text as request_id, c.nom, c.prenom, c.societe, c.telephone, c.type as segment,
             max(v.envoye_le) as envoye, array_agg(v.numero order by v.numero) as numeros, max(v.montant)::float8 as montant,
-            (array_agg(v.id order by v.envoye_le desc))[1] as devis_id, q.score_potentiel
+            (array_agg(v.id order by v.envoye_le desc))[1] as devis_id, q.score_potentiel,
+            -- Le signal chaud (regles.ts, SIGNAL_CHAUD_HEURES) : la dernière ouverture ou le dernier clic CERTAINS de l'e-mail
+            -- d'un devis de ce dossier (clé crm:devis:…) ou de sa relance (relance:devis:…), relevés par le suivi des e-mails
+            -- (src/crm/suivi, tables posées au démarrage).
+            (select jsonb_build_object('quand', e.cree_le, 'type', e.type, 'lien', e.lien_libelle)
+               from public.envois_evenements e join public.envois x on x.id = e.envoi_id
+              where (x.cle like 'crm:devis:%' or x.cle like 'relance:devis:%') and x.reference = d.ref
+                and e.type in ('ouverture', 'clic') and not e.automatique and e.cree_le > now() - make_interval(hours => $2)
+              order by e.cree_le desc limit 1) as signal
        from crm.devis v join crm.dossiers d on d.id = v.dossier_id join crm.clients c on c.id = d.client_id
        left join public.requests q on q.id = d.request_id
       where v.statut = 'envoye' and v.envoye_le is not null and d.statut = 'devis' and d.archive_le is null
@@ -180,13 +188,15 @@ async function devis(maintenant: number): Promise<Brut[]> {
         and not exists (select 1 from crm.relances_exclusions e where e.dossier_id = d.id and e.type in ('*', 'devis'))
       group by d.id, d.ref, d.request_id, c.nom, c.prenom, c.societe, c.telephone, c.type, q.score_potentiel
      having max(v.envoye_le) < now() - make_interval(days => $1)`,
-    [DEVIS_SANS_REPONSE_JOURS],
+    [DEVIS_SANS_REPONSE_JOURS, SIGNAL_CHAUD_HEURES],
   );
   return rows.map((r) => {
     const envoye = iso(r.envoye);
     const numeros = (r.numeros as string[]) ?? [];
     const echeance = new Date(Date.parse(envoye) + DEVIS_SANS_REPONSE_JOURS * 864e5).toISOString();
+    const signal = r.signal as { quand: string; type: string; lien: string | null } | null;
     return {
+      signal: signal ? `${signal.type === "clic" ? `A cliqué${signal.lien ? ` « ${signal.lien} »` : " le devis"}` : "A ouvert le devis"} ${momentFr(signal.quand, maintenant)}` : null,
       source: "devis",
       objetId: String(r.id),
       occurrence: envoye,

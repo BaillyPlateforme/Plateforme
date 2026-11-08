@@ -2,6 +2,7 @@ import { eur, m3 } from "@/crm/lib/format";
 import { MODELES_MESSAGE } from "@/lib/espace-client/libelles";
 import { alerteDe } from "@/lib/alertes-equipe/catalogue";
 import { STATUTS as STATUTS_LEAD } from "@/lib/suivi-commun";
+import { PAGES } from "@/lib/suivi-envois/regles";
 import type { NomIcone } from "@/ui/icones";
 
 /*
@@ -294,6 +295,33 @@ export function phraseDe(src: string, d: D, contexte: Contexte): Phrase {
       return { texte: `Avarie déclarée dans l'espace client (SAV ${d.numero})`, icone: "litige", ton: "ambre", lien: { href: "/dashboard/espace-client/sav", libelle: "Ouvrir le SAV" } };
     case "cartons":
       return { texte: `Livraison de ${d.nb ?? "—"} cartons demandée${d.samedi ? ` pour le ${jourCourt(d.samedi)}` : ""}`, icone: "caisse", ton: "vert" };
+    // Le suivi des e-mails au client (src/crm/suivi) : une ouverture relevée par une machine se dit « probable ».
+    case "ouverture": {
+      const quoi = d.sujet || d.modele || "sans objet";
+      return d.automatique
+        ? { texte: `E-mail « ${quoi} » : ouverture probable (relevé automatique)`, icone: "oeil", ton: "gris", statut: { libelle: "Probable", ton: "ambre" }, lien: { href: "/dashboard/envois", libelle: "Journal des envois" } }
+        : { texte: `E-mail « ${quoi} » ouvert`, icone: "oeil", ton: "vert", statut: Number(d.n) > 1 ? { libelle: `${d.n} fois`, ton: "vert" } : null, lien: { href: "/dashboard/envois", libelle: "Journal des envois" } };
+    }
+    case "clic": {
+      const lien = d.lien || d.destination || "un lien";
+      const quoi = d.sujet || d.modele;
+      return d.automatique
+        ? { texte: `Lien « ${lien} » : clic probable (relevé automatique)${quoi ? ` · e-mail « ${quoi} »` : ""}`, icone: "externe", ton: "gris", statut: { libelle: "Probable", ton: "ambre" } }
+        : { texte: `Lien « ${lien} » cliqué${quoi ? ` dans l'e-mail « ${quoi} »` : ""}`, icone: "externe", ton: "vert", statut: Number(d.n) > 1 ? { libelle: `${d.n} fois`, ton: "vert" } : null };
+    }
+    case "portail": {
+      const cles: string[] = [...(d.pages ?? []), ...(d.gestes ?? [])];
+      const titre = cles.includes("pdf_devis")
+        ? "PDF du devis téléchargé"
+        : cles.includes("devis") || cles.includes("signature")
+          ? "Devis consulté sur le portail"
+          : cles.includes("paiement")
+            ? "Page de paiement ouverte"
+            : "Espace client consulté";
+      // Le geste le plus parlant d'abord, puis les pages vues ce jour-là (une ligne par jour et par dossier).
+      const pages = (d.pages ?? []).map((p: string) => PAGES[p] ?? p);
+      return { texte: [titre, pages.length ? `pages vues : ${pages.join(", ")}` : null, d.depuis_email ? "venu d'un e-mail" : null].filter(Boolean).join(" · "), icone: "connexion", ton: "vert" };
+    }
     case "paiement_en_ligne":
       return {
         texte: `Paiement en ligne commencé${d.libelle ? ` : ${d.libelle}` : ""} · ${eur(d.montant)}`,

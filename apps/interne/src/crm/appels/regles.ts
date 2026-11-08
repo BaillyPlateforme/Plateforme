@@ -50,6 +50,17 @@ export const FAITS_JOURS = 30;
  */
 export const NOUVELLES_QUALIFIEES_JOURS = 30;
 
+/**
+ * Le signal chaud d'un devis sans réponse (suivi des e-mails, src/crm/suivi) :
+ * le client a OUVERT ou CLIQUÉ l'e-mail du devis (ou de sa relance) dans les N dernières heures
+ * — une ouverture certaine, jamais un relevé automatique (Apple Mail, proxy,
+ * antivirus). L'appel l'affiche (« a ouvert le devis hier 14 h ») et gagne
+ * SIGNAL_CHAUD_POINTS au score : il passe devant un devis aussi ancien dont
+ * l'e-mail dort. À valider avec Bailly.
+ */
+export const SIGNAL_CHAUD_HEURES = 48;
+export const SIGNAL_CHAUD_POINTS = 10;
+
 /** Le bouton de la barre relit la liste toutes les N secondes (onglet visible), et à chaque changement de page. */
 export const RAFRAICHIR_SECONDES = 60;
 
@@ -97,11 +108,13 @@ export interface Score {
   potentiel: number;
   montant: number;
   attente: number;
+  /** Le signal chaud (SIGNAL_CHAUD_POINTS) : l'e-mail du devis ouvert ou cliqué récemment. */
+  signal: number;
 }
 
 const borne = (x: number) => Math.max(0, Math.min(1, Number.isFinite(x) ? x : 0));
 
-export function scoreAppel(a: { source: SourceAppel; potentiel: number | null; montant: number | null; attenteHeures: number }): Score {
+export function scoreAppel(a: { source: SourceAppel; potentiel: number | null; montant: number | null; attenteHeures: number; chaud?: boolean }): Score {
   const urgence = URGENCE[a.source];
   const potentiel = Math.round(POIDS.potentiel * borne((a.potentiel ?? POTENTIEL_INCONNU) / 100));
   const montant = Math.round(POIDS.montant * borne((a.montant ?? 0) / MONTANT_PLEIN));
@@ -110,11 +123,12 @@ export function scoreAppel(a: { source: SourceAppel; potentiel: number | null; m
     a.source === "visite"
       ? POIDS.attente
       : Math.round(POIDS.attente * (fraicheur ? 1 - borne(a.attenteHeures / ATTENTE_PLEINE_HEURES) : borne(a.attenteHeures / ATTENTE_PLEINE_HEURES)));
-  return { total: urgence + potentiel + montant + attente, urgence, potentiel, montant, attente };
+  const signal = a.chaud ? SIGNAL_CHAUD_POINTS : 0;
+  return { total: Math.min(100, urgence + potentiel + montant + attente + signal), urgence, potentiel, montant, attente, signal };
 }
 
 export const detailScore = (s: Score) =>
-  `Urgence ${s.urgence}/${URGENCE.visite} · potentiel ${s.potentiel}/${POIDS.potentiel} · montant ${s.montant}/${POIDS.montant} · attente ${s.attente}/${POIDS.attente}`;
+  `Urgence ${s.urgence}/${URGENCE.visite} · potentiel ${s.potentiel}/${POIDS.potentiel} · montant ${s.montant}/${POIDS.montant} · attente ${s.attente}/${POIDS.attente}${s.signal ? ` · signal chaud +${s.signal}` : ""}`;
 
 /* ─────────────── Un appel ─────────────── */
 
@@ -134,6 +148,8 @@ export interface Appel {
   detail: string | null;
   /** Une pastille de plus : « Incomplète », « Visio », « En cours »… */
   marque: string | null;
+  /** Le signal chaud d'un devis sans réponse : « A ouvert le devis hier 14 h » (SIGNAL_CHAUD_HEURES). */
+  signal?: string | null;
   /** ISO : depuis quand l'appel est dû (le tri chronologique). */
   echeance: string;
   /** « depuis 2 h », « depuis 6 j » : écrit par le serveur, au moment de la lecture. */

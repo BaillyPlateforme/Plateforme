@@ -439,6 +439,14 @@ button > .pastilleAppels {
   background: #f1f0f6;
   color: #5b5870;
 }
+/* Le signal chaud : l'e-mail du devis ouvert ou cliqué récemment (src/crm/suivi). */
+.chaud {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e6f6ee;
+  color: #0a7f51;
+}
 .reporte {
   background: #fff3dc;
   color: #a35a00;

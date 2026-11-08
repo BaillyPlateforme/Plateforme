@@ -5,6 +5,8 @@ import { MODELES_MESSAGE } from "@/lib/espace-client/libelles";
 import type { NomIcone } from "@/ui/icones";
 import { COLONNES, GENRES, SOURCES, requeteComptes, requetePage, type Cote, type Curseur, type Filtres, type Genre } from "./sources";
 import { habillageActivite, issueEnvoi, phraseDe, type Ton } from "./phrases";
+import { suiviDesEnvois } from "@/crm/suivi/donnees";
+import { etapesPiste, libellePage, MESURE_INDICATIVE } from "@/crm/suivi/etapes";
 
 /*
  * Le Feed : la lecture. Les filtres de l'adresse deviennent des Filtres
@@ -528,6 +530,28 @@ export async function lireDetail(src: string, id: string): Promise<Detail | null
       if (l.dossier_id) liens.unshift({ href: `/dossiers/${l.dossier_id}/devis/${id}`, libelle: "Ouvrir le devis" });
       return { lignes: lignesDe({ ...v, envoye_le: v.envoye_le ? (v.envoye_le as Date).toISOString() : null, signe_le: v.signe_le ? (v.signe_le as Date).toISOString() : null }), extrait: null, liens };
     }
+    // Le suivi d'un e-mail (src/crm/suivi) : sa piste entière, étape par étape, et ce que vaut la mesure.
+    case "ouverture":
+    case "clic": {
+      const envoiId = id.slice(2, 38);
+      const s = (await suiviDesEnvois([envoiId])).get(envoiId);
+      const lignes = [
+        ...lignesDe({ sujet: d.sujet, destinataire: d.destinataire, reference: d.reference }),
+        ...(s ? etapesPiste(s).map((e) => ({ libelle: e.libelle, valeur: e.titre.replace(` ${MESURE_INDICATIVE}`, "") })) : []),
+      ];
+      return { lignes, extrait: { titre: "Ce que vaut la mesure", texte: MESURE_INDICATIVE }, liens: [...liens, { href: "/dashboard/envois", libelle: "Journal des envois" }] };
+    }
+    case "portail":
+      return {
+        lignes: [
+          ...((d.pages ?? []) as string[]).length ? [{ libelle: "Pages vues", valeur: (d.pages as string[]).map(libellePage).join(", ") }] : [],
+          ...((d.gestes ?? []) as string[]).length ? [{ libelle: "Gestes", valeur: (d.gestes as string[]).map(libellePage).join(", ") }] : [],
+          ...(d.reference ? [{ libelle: "Référence", valeur: String(d.reference) }] : []),
+          { libelle: "Venu d'un e-mail", valeur: d.depuis_email ? "oui (lien suivi)" : "non, ou pas mesuré" },
+        ],
+        extrait: null,
+        liens,
+      };
     case "commentaire": {
       const c = await q1<{ auteur: string; texte: string }>("select auteur, texte from crm.conteneur_commentaires where id = $1", [Number(id)]);
       return c ? { lignes: [{ libelle: "Auteur", valeur: c.auteur }], extrait: extrait("Commentaire", c.texte), liens } : null;

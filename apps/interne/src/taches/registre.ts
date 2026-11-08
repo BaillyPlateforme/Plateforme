@@ -5,6 +5,7 @@ import { q } from "@/crm/lib/db";
 import { tacheCartons } from "./cartons";
 import { tacheRelances, tacheVeilleDemenagement } from "./relances";
 import { tacheRappelsVisites, type SourceRappels } from "./rappels-visites";
+import { tacheRetentionSuivi } from "./suivi";
 import type { Tache } from "./types";
 
 /*
@@ -31,4 +32,5 @@ const SOURCE_RAPPELS: SourceRappels = async (jour) => {
   return [...sms, ...visites.filter((r) => r.canal === "email" && !annules.has(r.rendezVousId))];
 };
 
-export const TACHES_VEILLE: Tache[] = [tacheCartons, tacheRappelsVisites(SOURCE_RAPPELS), tacheRelances, tacheVeilleDemenagement];
+// La conservation du suivi des e-mails (13 mois) passe en dernier : elle n'envoie rien.
+export const TACHES_VEILLE: Tache[] = [tacheCartons, tacheRappelsVisites(SOURCE_RAPPELS), tacheRelances, tacheVeilleDemenagement, tacheRetentionSuivi];

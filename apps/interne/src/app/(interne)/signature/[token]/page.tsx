@@ -8,6 +8,7 @@ import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 import { nomDevis } from "@/crm/devis/modele";
+import { noterSignatureVue } from "@/crm/suivi/signature";
 import s from "./signature.module.css";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export default async function Signature({ params }: { params: Promise<{ token: s
   if (!v) notFound();
   const dossier = await getDossier(v.dossier_id);
   if (!dossier) notFound();
+  // « A consulté son devis » au suivi de l'e-mail du devis (jamais quand c'est l'équipe qui l'ouvre).
+  await noterSignatureVue({ id: v.id, dossier_id: v.dossier_id, ref: v.ref });
   const signe = v.statut === "signe";
   // Une autre formule du dossier a été signée, ici ou dans l'espace client : celle-ci n'est plus ouverte.
   const ferme = v.statut === "refuse";

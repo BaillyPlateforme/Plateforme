@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Icone } from "@/ui/icones";
+import Piste from "@/crm/suivi/Piste";
 import type { Evenement, Famille } from "./donnees";
 import s from "./parcours.module.css";
 
@@ -83,6 +84,12 @@ export default function Frise({ evenements, aujourdhui }: { evenements: Evenemen
             {e.avenir && <span className={s.prevu}>Prévu</span>}
           </div>
           {e.detail && <p className={s.detailEv}>{e.detail}</p>}
+          {/* Un e-mail au client : envoyé, délivré, ouvert, cliqué, sur le portail (src/crm/suivi). */}
+          {e.suivi && (
+            <div className={s.pisteEv}>
+              <Piste suivi={e.suivi} compacte />
+            </div>
+          )}
           <div className={s.meta}>
             <span className={s.auteur}>
               <i aria-hidden>{initiales(e.auteur)}</i>

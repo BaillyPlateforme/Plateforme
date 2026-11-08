@@ -151,6 +151,12 @@ function Carte({
             {source.court}
           </span>
           {a.marque && <span className={`${s.puce} ${s.neutre}`}>{a.marque}</span>}
+          {/* Le signal chaud : l'e-mail du devis ouvert ou cliqué ces dernières 48 h (src/crm/suivi, regles.ts). */}
+          {a.signal && (
+            <span className={`${s.puce} ${s.chaud}`} title="Suivi de l'e-mail du devis : une ouverture ou un clic certains, ces dernières 48 heures. Mesure indicative.">
+              <Icone nom="oeil" taille={12} /> {a.signal}
+            </span>
+          )}
           {mode === "reportes" && a.reporteLibelle ? (
             <span className={`${s.puce} ${s.reporte}`}>
               <Icone nom="sablier" taille={12} /> Reporté à {a.reporteLibelle}

@@ -9,7 +9,8 @@
 
 export const VERSIONS = {
   cgv: "CGV-2026.1",
-  rgpd: "RGPD-2026.1",
+  // 2026.2 : ajout de « Mesure d'ouverture des e-mails » (suivi des e-mails, lib/suivi-envois) — texte à valider par Bailly.
+  rgpd: "RGPD-2026.2",
   conditions_livraison: "COND-LIV-2026.1",
   declaration_valeurs: "DECL-VAL-2026.1",
 } as const;
@@ -27,6 +28,12 @@ export const RGPD = [
   { titre: "Responsable du traitement", texte: "Bailly Déménagement traite vos données pour organiser votre déménagement, gérer votre espace client et respecter ses obligations légales." },
   { titre: "Données traitées", texte: "Identité, coordonnées, adresses, informations d'accès, documents déposés, déclaration de valeurs, historique des paiements (sans données bancaires)." },
   { titre: "Durée de conservation", texte: "Les données du dossier sont conservées pendant la durée de la relation puis archivées selon les délais légaux." },
+  // À VALIDER par Bailly (et son conseil) : la mention du suivi des e-mails (lib/suivi-envois), ajoutée en novembre 2026.
+  {
+    titre: "Mesure d'ouverture des e-mails",
+    texte:
+      "Les e-mails que nous vous envoyons au sujet de votre dossier contiennent une image invisible et des liens qui nous indiquent s'ils ont été ouverts et quels liens ont été suivis, ainsi que les pages de votre espace client consultées. Nous l'utilisons uniquement pour le suivi de votre dossier, sans conserver votre adresse IP, et ces informations sont effacées au bout de 13 mois. Bloquer l'affichage des images dans votre messagerie suffit à empêcher la mesure d'ouverture.",
+  },
   { titre: "Vos droits", texte: "Vous pouvez demander l'accès, la rectification, l'effacement ou la portabilité de vos données en écrivant à votre conseiller." },
 ];
 
