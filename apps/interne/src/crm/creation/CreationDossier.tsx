@@ -22,10 +22,11 @@ import s from "./creation.module.css";
  * tout de suite, dès que le client a un nom et un moyen d'être joint.
  *
  * « Partir de… » préremplit ce qui se réutilise (segment, type de
- * déménagement, volume, options ; observations d'un modèle ; étapes et
- * observations quand c'est le même client). Un champ prérempli est marqué, et
- * la reprise s'annule d'un geste. Ce que l'utilisateur a tapé n'est jamais
- * écrasé.
+ * déménagement, volume, options ; observations d'un modèle ; d'un dossier, son
+ * trajet — départ, arrivée, étages, ascenseurs, accès —, et ses observations
+ * quand c'est le même client). Un champ prérempli est marqué, et la reprise
+ * s'annule d'un geste. Ce que l'utilisateur a tapé n'est jamais écrasé.
+ * L'identité et les coordonnées du client ne sont jamais reprises.
  */
 
 interface V {
@@ -61,9 +62,9 @@ function reprise(src: SourceDossier | SourceModele, clientId: number | null): Pa
   if (c.garde_meuble) r.garde_meuble = true;
   if (c.vehicule) r.vehicule = true;
   if (src.genre === "modele" && c.observations) r.observations = c.observations;
-  // Le même client : ses étapes, leurs accès et ses observations suivent.
-  if (src.genre === "dossier" && clientId && src.clientId === clientId) {
-    if (src.observations) r.observations = src.observations;
+  if (src.genre === "dossier") {
+    // D'un dossier, le trajet suit toujours : départ, arrivée, étages, ascenseurs, accès (David, 08/11/2026 :
+    // « si je clique sur un dossier, rien ne se remplit » — seuls le segment, le type et le volume, plus bas, l'étaient).
     for (const g of ["depart", "arrivee"] as const) {
       const e = src[g];
       if (!e?.adresse) continue;
@@ -72,6 +73,8 @@ function reprise(src: SourceDossier | SourceModele, clientId: number | null): Pa
       if (e.ascenseur) r[`${g}_asc`] = true;
       if (e.acces) r[`${g}_acces`] = e.acces;
     }
+    // Les observations parlent du client : elles ne suivent que pour le même client.
+    if (clientId && src.clientId === clientId && src.observations) r.observations = src.observations;
   }
   return r;
 }
