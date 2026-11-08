@@ -798,6 +798,8 @@
   background: linear-gradient(180deg, #f8f6ff, #f2effc);
   border-style: dashed;
   border-color: #ddd3fb;
+  /* Sa largeur est celle des autres colonnes, pas celle de la plus longue ligne d'une carte (écran étroit). */
+  min-width: 0;
 }
 .colonneDemandes[data-etat="interdit"] {
   opacity: 0.48;

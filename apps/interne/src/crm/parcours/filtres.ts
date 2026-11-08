@@ -28,7 +28,8 @@ export const ETAPES_FILTRE: { cle: string; label: string; statuts: Statut[] }[] 
   { cle: "prospect", label: "Nouveau", statuts: ["prospect"] },
   { cle: "visite", label: "Visite à faire", statuts: ["visite"] },
   { cle: "devis", label: "Devis envoyé", statuts: ["devis"] },
-  { cle: "commande", label: "Commandes (signés et planifiés)", statuts: ["commande", "planifie"] },
+  // Le libellé le plus long fixe la largeur du choix dans la bande : le mot de l'ancien menu, sans plus.
+  { cle: "commande", label: "Commandes", statuts: ["commande", "planifie"] },
   { cle: "signe", label: "Signé", statuts: ["commande"] },
   { cle: "planifie", label: "Planifié", statuts: ["planifie"] },
   { cle: "termine", label: "Terminé", statuts: ["termine"] },

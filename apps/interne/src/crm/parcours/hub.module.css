@@ -51,6 +51,11 @@
   color: #2e1f9e;
 }
 
+/* La recherche, un peu plus courte que celle du Kanban : la rangée porte aussi les vues et deux choix. */
+.recherche.recherche {
+  flex-basis: 220px;
+}
+
 /* Un commercial : ses initiales ; choisi, son prénom les suit (la classe répétée l'emporte sur kanban.module.css). */
 .avatar.avatar.avatar {
   padding: 0 5px;

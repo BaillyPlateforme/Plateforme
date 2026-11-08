@@ -126,7 +126,7 @@ export default function Hub({
           <div className={k.filtres}>
             <Vues vue={vue} filtres={filtres} choisir={setVue} />
             <i className={h.filet} aria-hidden />
-            <label className={k.recherche}>
+            <label className={`${k.recherche} ${h.recherche}`}>
               <Icone nom="recherche" taille={16} />
               <input type="search" value={filtres.q} onChange={(e) => poser({ q: e.target.value })} placeholder="Client, référence, ville…" aria-label="Rechercher un dossier ou une demande" />
             </label>
