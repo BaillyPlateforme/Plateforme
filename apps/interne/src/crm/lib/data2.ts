@@ -1,5 +1,6 @@
 import "server-only";
 import { q, q1, type Row } from "./db";
+import { prochaineEcheance } from "@/crm/garde-meuble/regles";
 
 /*
  * Les lectures des modules ajoutés après le face-à-face avec Créagidem :
@@ -26,12 +27,12 @@ export async function exploitation(lundi: Date) {
 }
 
 export async function gardeMeuble() {
-  const rows = await q("select id,client,nb_caisses,numeros,loyer_mensuel::float8 as loyer,periodicite,debut,derniere_facture,assurance,actif from garde_meuble where actif order by client");
+  const rows = await q("select id,client,nb_caisses,numeros,loyer_mensuel::float8 as loyer,periodicite,debut,derniere_facture,echeance as echeance_saisie,assurance,actif from garde_meuble where actif order by client");
   const now = Date.now();
   return rows.map((r) => {
-    const base = new Date(r.derniere_facture ?? r.debut);
     const mois = r.periodicite === "trimestrielle" ? 3 : 1;
-    const echeance = new Date(base); echeance.setMonth(echeance.getMonth() + mois);
+    // L'échéance saisie sur le contrat, sinon une période après la dernière facture (src/crm/garde-meuble/regles.ts).
+    const echeance = new Date(`${prochaineEcheance({ debut: r.debut, derniere_facture: r.derniere_facture, echeance: r.echeance_saisie, periodicite: r.periodicite })}T00:00:00Z`);
     const retard = Math.floor((now - +echeance) / 864e5);
     return { ...r, montant: r.loyer * mois, echeance, retard, afacturer: retard >= 0 } as Row;
   });

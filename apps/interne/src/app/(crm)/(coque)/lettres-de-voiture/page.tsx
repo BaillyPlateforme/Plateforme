@@ -5,6 +5,7 @@ import { lettresDeVoiture, nomsExecutants } from "@/crm/partenaires/donnees";
 import ChoixPrestataire from "@/crm/partenaires/ChoixPrestataire";
 import { BarreBas, RechercheVerre } from "@/crm/exploitation/ui/Bas";
 import u from "@/crm/exploitation/ui/ui.module.css";
+import s from "@/crm/partenaires/partenaires.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Lettres de voiture" };
@@ -78,7 +79,7 @@ export default async function Lettres({ searchParams }: { searchParams: Promise<
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td>
-                      <Link href={`/dossiers/${r.did}`} className={u.ref}>
+                      <Link href={`/dossiers/${r.did}`} className={`${u.ref} ${u.nowrap}`}>
                         {r.numero}
                       </Link>
                     </td>
@@ -92,16 +93,20 @@ export default async function Lettres({ searchParams }: { searchParams: Promise<
                       {r.date_livraison && +new Date(r.date_livraison) !== +new Date(r.date_chargement ?? 0) && <small>→ {dateFr(r.date_livraison)}</small>}
                     </td>
                     <td>
-                      {r.sous_traitant_id ? (
-                        <Link href={`/sous-traitants/${r.sous_traitant_id}`} className={u.lien}>
-                          {r.st_nom}
-                        </Link>
-                      ) : (
-                        <span>{r.prestataire}</span>
+                      {!r.sous_traitant_id && (
+                        <span className={s.libre}>
+                          {r.prestataire}
+                          <em>Texte libre</em>
+                        </span>
                       )}
-                      <div style={{ marginTop: 6 }}>
-                        <ChoixPrestataire lettre={r.id} lie={r.sous_traitant_id} texte={r.prestataire} annuaire={annuaire} />
-                      </div>
+                      <span className={s.ligneChoix}>
+                        <ChoixPrestataire lettre={r.id} lie={r.sous_traitant_id} annuaire={annuaire} />
+                        {r.sous_traitant_id && (
+                          <Link href={`/sous-traitants/${r.sous_traitant_id}`} className={u.lien} title={`Fiche de ${r.st_nom}`}>
+                            Fiche
+                          </Link>
+                        )}
+                      </span>
                     </td>
                     <td>
                       {r.equipe ?? "—"}

@@ -259,3 +259,26 @@
   font: inherit;
   font-size: 13px;
 }
+.libre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.libre em {
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: #f1f0f5;
+  color: #6f6c80;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ligneChoix {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

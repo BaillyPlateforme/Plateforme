@@ -12,12 +12,10 @@ import s from "./partenaires.module.css";
 export default function ChoixPrestataire({
   lettre,
   lie,
-  texte,
   annuaire,
 }: {
   lettre: number;
   lie: number | null;
-  texte: string;
   annuaire: { id: number; nom: string }[];
 }) {
   const [valeur, setValeur] = useState(lie ? String(lie) : "");
@@ -40,7 +38,7 @@ export default function ChoixPrestataire({
           });
         }}
       >
-        <option value="">{lie ? "Retirer le lien" : `Texte libre · ${texte}`}</option>
+        <option value="">{lie ? "Retirer le lien (texte libre)" : "Relier à l’annuaire…"}</option>
         {annuaire.map((a) => (
           <option key={a.id} value={a.id}>
             {a.nom}
