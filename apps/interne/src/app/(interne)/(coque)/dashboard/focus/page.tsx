@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/* Focus est devenu le filtre « Fort potentiel » de Parcours › Analyse des demandes (unification du 08/11/2026). */
+/* Focus (les demandes à fort potentiel) est devenu Demandes › Top demandes, filtre « Fort potentiel ». */
 export default function FocusPage() {
-  redirect("/parcours?vue=demandes&potentiel=fort&tri=potentiel");
+  redirect("/demandes?vue=top&potentiel=fort");
 }

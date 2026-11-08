@@ -1,10 +1,6 @@
 import { redirect } from "next/navigation";
 
-/*
- * Le Kanban des demandes : depuis la simplification du 08/11/2026, les
- * demandes du site pas encore entrées au CRM ouvrent les colonnes du
- * Parcours (« Nouvelles demandes »), suivies des dossiers, étape par étape.
- */
+/* Le Kanban des demandes : Demandes › Kanban, ses étapes détaillées jusqu'au dossier. */
 export default function AncienKanbanDemandes() {
-  redirect("/parcours");
+  redirect("/demandes");
 }

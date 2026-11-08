@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/* Les rappels sont une vue de Parcours › Analyse des demandes (unification du 08/11/2026). */
+/* Les rappels sont une vue de Demandes (Analyse › À rappeler). */
 export default function AnciensRappels() {
-  redirect("/parcours?vue=rappels");
+  redirect("/demandes?vue=rappels");
 }

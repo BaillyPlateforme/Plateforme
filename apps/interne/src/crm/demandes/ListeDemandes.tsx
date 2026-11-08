@@ -5,18 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { RequestRow } from "@/lib/types";
 import { STATUTS } from "@/crm/lib/format";
 import { STATUS_META, scoreColor, sourceLabel, sourceClass, isIncomplete, ESPACE_CLASSE, espaceLabel, parcoursBadge, PARCOURS_CLASSE } from "@/app/(interne)/(coque)/dashboard/status";
-import { demandeClose, libelleDemande, sousStatut, type DossierDeDemande } from "../demandes-commun";
+import { libelleDemande, sousStatut, type DossierDeDemande } from "@/crm/parcours/demandes-commun";
 import { lireFiltres, type EtapeDemande } from "./FiltresDemandes";
-
-/** Le seuil du « fort potentiel » (l'ancienne vue Focus) : 70/100. */
-export const SEUIL = 70;
 
 /** L'étape d'une demande dans le Parcours : celle de son dossier s'il existe, sinon sa sous-étape. */
 const etapeDe = (r: RequestRow, dossier: DossierDeDemande | undefined): Exclude<EtapeDemande, "all"> => (dossier ? "dossier" : sousStatut(r.status));
 
 /**
  * Parcours › Analyse des demandes › Demandes : toutes les demandes du site,
- * filtrées et triées. Ses filtres (recherche, étape, origine, fort potentiel,
+ * filtrées et triées. Ses filtres (recherche, étape, origine,
  * tri) sont dans la rangée basse du bandeau (FiltresDemandes) : l'adresse les
  * porte, la liste les lit là.
  *
@@ -27,14 +24,13 @@ const etapeDe = (r: RequestRow, dossier: DossierDeDemande | undefined): Exclude<
  */
 export default function ListeDemandes({ requests, dossiers }: { requests: RequestRow[]; dossiers: Record<string, DossierDeDemande> }) {
   const router = useRouter();
-  const { q, etape, origine, tri, potentiel } = lireFiltres(useSearchParams());
-  const filtres = !!(q.trim() || etape !== "all" || origine !== "all" || potentiel);
+  const { q, etape, origine, tri } = lireFiltres(useSearchParams());
+  const filtres = !!(q.trim() || etape !== "all" || origine !== "all");
 
   const rows = useMemo(() => {
     let out = requests;
     if (etape !== "all") out = out.filter((r) => etapeDe(r, dossiers[r.id]) === etape);
     if (origine !== "all") out = out.filter((r) => r.source === origine);
-    if (potentiel) out = out.filter((r) => (r.score_potentiel ?? 0) >= SEUIL && !demandeClose(r.status));
     if (q.trim()) {
       const needle = q.trim().toLowerCase();
       const chiffres = needle.replace(/[^0-9]/g, "");
@@ -55,7 +51,7 @@ export default function ListeDemandes({ requests, dossiers }: { requests: Reques
               ? r.volume_m3 ?? -1
               : r.estimation_prix ?? -1;
     return [...out].sort((a, b) => val(b) - val(a));
-  }, [requests, dossiers, q, etape, origine, potentiel, tri]);
+  }, [requests, dossiers, q, etape, origine, tri]);
 
   return (
     <div>

@@ -44,7 +44,7 @@ const EQUIPE: App[] = [
     cle: "questionnaires",
     nom: "Questionnaires",
     sous: "Leads, demandes, rappels",
-    href: "/dashboard",
+    href: "/demandes",
     ton: "questionnaires",
     icone: (
       <svg viewBox="0 0 24 24" {...trait}>

@@ -8,7 +8,8 @@ import { Fenetre, Toast, type Message } from "@/crm/dispatch/composants/elements
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { useGlisser } from "@/crm/dispatch/composants/useGlisser";
 import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
-import { libelleDemande, sousStatut, type CarteDemande } from "@/crm/parcours/demandes-commun";
+import type { CarteDemande as Demande } from "@/crm/parcours/demandes-commun";
+import CarteDemande from "./CarteDemande";
 import { FenetreAccepter, FenetreRefuser, type DemandeADecider } from "@/crm/parcours/DecisionDemande";
 import { deplacerDossier, type Choix } from "./actions";
 import type { Carte, Commercial } from "./donnees";
@@ -57,7 +58,7 @@ export default function TableauKanban({
   /** Les colonnes à montrer, dans l'ordre (toutes, sauf filtre d'étape). */
   statuts: Statut[];
   /** Les demandes du site à montrer en tête, déjà filtrées ; null : pas de colonne. */
-  demandes: CarteDemande[] | null;
+  demandes: Demande[] | null;
   filtresActifs: boolean;
 }) {
   const router = useRouter();
@@ -142,7 +143,7 @@ export default function TableauKanban({
   };
 
   /* ── La colonne des demandes du site ── */
-  const colonneDemandes = (liste: CarteDemande[]) => {
+  const colonneDemandes = (liste: Demande[]) => {
     const total = liste.reduce((a, d) => a + (d.estimation ?? 0), 0);
     return (
       <section
@@ -156,6 +157,10 @@ export default function TableauKanban({
           <div className={s.teteHaut}>
             <i className={s.pastille} aria-hidden />
             <h2>Demandes</h2>
+            {/* Le résumé des demandes qui attendent une décision ; leurs étapes détaillées sont dans Demandes › Kanban. */}
+            <Link href="/demandes" className={s.voirDetail}>
+              Voir le détail
+            </Link>
             <span className={s.nombre}>{liste.length}</span>
           </div>
           <p className={s.somme}>
@@ -171,7 +176,7 @@ export default function TableauKanban({
         </header>
         <div className={s.corps}>
           {liste.map((d) => (
-            <CarteDeDemande key={d.id} demande={d} decider={(genre) => setDecision({ genre, demande: { id: d.id, client: d.client } })} />
+            <CarteDemande key={d.id} demande={d} decider={(genre) => setDecision({ genre, demande: { id: d.id, client: d.client } })} />
           ))}
           {liste.length === 0 && (
             <div className={s.vide}>
@@ -318,70 +323,6 @@ export default function TableauKanban({
       {decision?.genre === "refuser" && <FenetreRefuser demande={decision.demande} onFermer={() => setDecision(null)} onRefusee={setMessage} />}
       <Toast message={message} onFermer={fermerMessage} />
     </div>
-  );
-}
-
-/* ───────── Une demande du site ───────── */
-
-/**
- * Une demande du site : un clic l'ouvre (le nom du client est un lien qui
- * couvre la carte), et ses deux boutons décident sans l'ouvrir. Elle ne se
- * glisse pas.
- */
-function CarteDeDemande({ demande: d, decider }: { demande: CarteDemande; decider: (genre: "accepter" | "refuser") => void }) {
-  const date = d.dateSouhaitee ? dateFr(`${d.dateSouhaitee}T12:00:00Z`, { day: "numeric", month: "short", year: "numeric" }) : null;
-  return (
-    <article className={`${s.carte} ${s.carteDemande}`}>
-      <div className={s.carteHaut}>
-        <span className={s.source} title={d.source === "email" ? "Reçue par e-mail" : "Formulaire du site"}>
-          <Icone nom={d.source === "email" ? "courrier" : "globe"} taille={14} />
-        </span>
-        <Link href={`/dashboard/${d.id}`} className={`${s.client} ${s.lienCarte}`} aria-label={`${d.client}, demande du site. Ouvrir la demande`}>
-          {d.client}
-        </Link>
-        <span className={s.statutDemande} data-statut={sousStatut(d.statut)}>
-          {libelleDemande(d.statut)}
-        </span>
-      </div>
-      <div className={s.ligneRef}>
-        <span className={s.ref}>Reçue le {dateFr(d.recueLe, { day: "numeric", month: "short" })}</span>
-        <span className={s.segment} data-segment={d.parcours === "particulier" ? "particulier" : "compte"} title={d.parcoursLabel}>
-          {d.parcoursLabel}
-        </span>
-      </div>
-      <p className={s.trajet} title={[d.depart, d.arrivee].filter(Boolean).join(" → ")}>
-        <i className={s.point} />
-        <span>{d.depart ?? "Départ à préciser"}</span>
-        <Icone nom="fleche" taille={13} className={s.flecheTrajet} />
-        <span>{d.arrivee ?? "Arrivée à préciser"}</span>
-      </p>
-      <div className={s.pied}>
-        <span className={s.volume}>{d.volume != null && d.volume > 0 ? m3(d.volume) : "Volume ?"}</span>
-        <span className={s.date} title="Date souhaitée">
-          <Icone nom="calendrier" taille={13} />
-          {date ?? "Date à fixer"}
-        </span>
-        {d.estimation != null && (
-          <span className={s.montant} title="Estimation donnée par le site">
-            {eur(d.estimation)}
-          </span>
-        )}
-      </div>
-      <div className={s.decision}>
-        {d.incomplete && (
-          <span className={s.incomplete} title="Il manque le volume ou une adresse, ou le client n'a pas fini de compléter sa demande">
-            Incomplète
-          </span>
-        )}
-        <button type="button" className={s.refuser} onClick={() => decider("refuser")} title="Refuser : la demande passe en « Perdue »">
-          Refuser
-        </button>
-        <button type="button" className={s.accepter} onClick={() => decider("accepter")} title="Accepter : créer le dossier et l'espace client">
-          <Icone nom="coche" taille={14} />
-          Accepter
-        </button>
-      </div>
-    </article>
   );
 }
 

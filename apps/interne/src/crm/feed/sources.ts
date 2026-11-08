@@ -527,7 +527,24 @@ export interface Filtres {
   /** Un dossier ou une demande : leurs identifiants dans les trois mondes (CRM, demandes du site, espace client). */
   objet: { dossiers: number[]; demandes: string[]; espaces: string[] } | null;
   recherche: string | null;
+  /** Le fil des seules demandes du site (Demandes › Feed) : voir DU_FIL_DES_DEMANDES. */
+  demandes?: boolean;
 }
+
+/** Les sources qui disent la vie d'une demande : sa réception, son historique, ses messages, ses gestes, son dossier. */
+const SOURCES_DES_DEMANDES = ["demande", "evt", "rem", "envoi", "journal", "activite", "dossier"];
+/**
+ * Ce qui, dans ces sources, parle de la demande et non du dossier qu'elle est
+ * devenue : sa réception, son historique (complétée, incomplète, analysée,
+ * rappel, changements d'étape, notes), les messages envoyés à son sujet, les
+ * gestes du journal qui la visent, et sa naissance en dossier (« Dossier créé
+ * depuis une demande du site »). La suite de la vie du dossier reste au Feed.
+ */
+const DU_FIL_DES_DEMANDES = `s.request_id is not null and (
+  s.src in ('demande', 'evt', 'rem', 'dossier')
+  or (s.src = 'envoi' and s.dossier_id is null)
+  or (s.src = 'journal' and (s.dossier_id is null or s.d->>'objet_type' in ('demande', 'rappel', 'devis_questionnaire')))
+  or (s.src = 'activite' and s.d->>'libelle' like 'Dossier créé depuis une demande%'))`;
 
 export interface Curseur {
   quand: string;
@@ -539,6 +556,7 @@ const NOMS = `s(${COLONNES})`;
 /** Les sources qui peuvent répondre aux filtres (les autres ne sont pas lues). */
 function sourcesUtiles(f: Filtres, avecCote: boolean): Source[] {
   return SOURCES.filter((s) => {
+    if (f.demandes && !SOURCES_DES_DEMANDES.includes(s.cle)) return false;
     if (avecCote && f.cote && !s.cotes.some((c) => c === f.cote || c === "les_deux")) return false;
     if (f.genre && !s.genres.includes(f.genre)) return false;
     if (f.acteur === "auto" && !s.acteurs.includes("auto")) return false;
@@ -564,6 +582,7 @@ function conditions(f: Filtres, params: unknown[], avecCote: boolean): string[] 
       `(s.dossier_id = any(${p(f.objet.dossiers)}::int[]) or s.request_id = any(${p(f.objet.demandes)}::uuid[]) or s.ec_dossier_id = any(${p(f.objet.espaces)}::uuid[]))`,
     );
   }
+  if (f.demandes) w.push(DU_FIL_DES_DEMANDES);
   if (f.recherche) w.push(`s.texte ilike ${p(`%${f.recherche.replace(/[\\%_]/g, (c) => `\\${c}`)}%`)}`);
   return w;
 }

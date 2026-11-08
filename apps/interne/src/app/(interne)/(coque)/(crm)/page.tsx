@@ -57,7 +57,7 @@ export default async function Accueil() {
 
   const ecart = j.ca.prec ? Math.round(((j.ca.cur - j.ca.prec) / j.ca.prec) * 100) : null;
   const nombres: Nombre[] = [
-    { libelle: "Demandes du site à ouvrir", valeur: String(nouvelles), href: "/parcours?vue=demandes&statut=new", icone: "questionnaires", ton: s.violet },
+    { libelle: "Demandes du site à ouvrir", valeur: String(nouvelles), href: "/demandes?vue=liste&statut=new", icone: "questionnaires", ton: s.violet },
     { libelle: "Visites aujourd’hui", valeur: String(j.visitesDuJour), href: "/planning", icone: "oeil", ton: s.ciel },
     { libelle: "Déménagements · 7 jours", valeur: String(j.nombreChantiers), href: "/exploitation", icone: "camion", ton: s.vert },
     { libelle: "Devis à relancer", valeur: String(j.nombreRelances), href: "/devis", icone: "devis", ton: s.ambre },
@@ -174,7 +174,7 @@ export default async function Accueil() {
         <section className={`card ${s.carte} ${s.large}`}>
           <div className="card-h">
             <h3>Dernières demandes du site</h3>
-            <Link className={s.lien} href="/parcours?vue=demandes">Toutes les demandes</Link>
+            <Link className={s.lien} href="/demandes">Toutes les demandes</Link>
           </div>
           {demandes.length === 0 ? (
             <div className="empty">Aucune demande pour l’instant.</div>
