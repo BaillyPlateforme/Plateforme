@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Bandeau from "@/ui/Bandeau";
+import { AvecMenu } from "@/ui/MenuVertical";
 import { currentUser } from "@/crm/lib/auth";
+import MenuParcours from "@/crm/parcours/MenuParcours";
 import WorkflowBuilder from "@/crm/parcours/WorkflowBuilder";
 import { listAlerts } from "@/lib/alerts";
 import { listTemplates } from "@/lib/templates";
@@ -14,7 +16,8 @@ export const metadata: Metadata = { title: "Workflow des demandes" };
  * complet ou incomplet, devis créé, envoyé, accepté, refusé), les actions
  * automatiques — un e-mail ou un SMS au client. Il était sous Demandes
  * (/dashboard/workflow) ; depuis la simplification du 08/11/2026, il s'ouvre
- * du Parcours, dont il règle la première étape.
+ * du Parcours, dont il règle la première étape : c'est la dernière entrée
+ * de son menu de gauche.
  */
 export default async function Workflow() {
   await currentUser();
@@ -25,11 +28,12 @@ export default async function Workflow() {
         surtitre="Parcours · Demandes du site"
         titre="Workflow"
         texte="Le parcours d'une demande, étape par étape."
-        secondaire={{ label: "Parcours des dossiers", href: "/parcours" }}
       />
-      <div className={`vue-equipe ${h.equipe}`}>
-        <WorkflowBuilder rules={rules} templates={templates} />
-      </div>
+      <AvecMenu menu={<MenuParcours page="workflow" />}>
+        <div className={`vue-equipe ${h.equipe}`}>
+          <WorkflowBuilder rules={rules} templates={templates} />
+        </div>
+      </AvecMenu>
     </div>
   );
 }

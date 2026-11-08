@@ -8,8 +8,23 @@ import s from "./menu-vertical.module.css";
  * colonne fine et collante, en groupes, l'onglet actif en indigo.
  */
 
-export type ItemMenu = { href: string; label: string; icone?: NomIcone; actif?: boolean; nombre?: number };
+export type ItemMenu = {
+  href: string;
+  label: string;
+  icone?: NomIcone;
+  actif?: boolean;
+  nombre?: number;
+  /**
+   * Une vue qui bascule sans recharger la page (les colonnes et la liste du
+   * Parcours, mêmes données) : le clic simple l'appelle, l'adresse reste pour
+   * un nouvel onglet. Seulement depuis un composant client.
+   */
+  choisir?: () => void;
+};
 export type GroupeMenu = { titre?: string; items: ItemMenu[] };
+
+/** Un clic simple (ni Ctrl, ni Cmd, ni Maj, ni bouton du milieu) : celui qu'une vue peut prendre pour elle. */
+const clicSimple = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
 export default function MenuVertical({ titre, groupes, dense = false }: { titre: string; groupes: GroupeMenu[]; /** Des lignes plus serrées, pour un long menu (Réglages). */ dense?: boolean }) {
   return (
@@ -19,7 +34,21 @@ export default function MenuVertical({ titre, groupes, dense = false }: { titre:
         <div key={g.titre ?? i} className={s.groupe}>
           {g.titre && <p className={s.sousTitre}>{g.titre}</p>}
           {g.items.map((it) => (
-            <Link key={it.href} href={it.href} className={s.item} aria-current={it.actif ? "page" : undefined}>
+            <Link
+              key={it.href}
+              href={it.href}
+              className={s.item}
+              aria-current={it.actif ? "page" : undefined}
+              onClick={
+                it.choisir
+                  ? (e) => {
+                      if (!clicSimple(e)) return;
+                      e.preventDefault();
+                      it.choisir!();
+                    }
+                  : undefined
+              }
+            >
               {it.icone && <Icone nom={it.icone} taille={17} />}
               <span>{it.label}</span>
               {it.nombre !== undefined && it.nombre > 0 && <em>{it.nombre}</em>}
