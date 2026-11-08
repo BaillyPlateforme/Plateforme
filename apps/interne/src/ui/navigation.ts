@@ -64,6 +64,7 @@ export const GROUPES: Groupe[] = [
     entrees: [
       // Pilotage, tableau du jour et vue d'ensemble des demandes : une seule page.
       { href: "/", label: "Accueil", icone: "bord", actif: (c) => c === "/" || sous("/tableau-de-bord")(c) || sous("/dashboard/tableau-de-bord")(c) },
+      { href: "/a-la-une", label: "À la une", icone: "etoile" },
       // Commerciales et exploitation ; celles des demandes du site sont dans Demandes › Statistiques.
       { href: "/statistiques", label: "Statistiques", icone: "stats", actif: (c) => sous("/statistiques")(c) && !sous("/statistiques/demandes")(c) },
       { href: "/copilote", label: "Copilote", icone: "copilote" },
