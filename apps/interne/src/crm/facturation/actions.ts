@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { q, q1, transaction, type Db, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { totaux, arrondi, aujourdhuiParis, jourIso, MODE, GENRE, euros2, type LigneSaisie } from "./calcul";
 import { chercherClients, mentionsEmetteur, payeurDe, reglagesFacturation, tauxParDefaut, CHAMPS_REGLAGES, type Payeur, type Reglages } from "./donnees";
@@ -157,9 +158,17 @@ export async function supprimerReglement(id: number): Promise<Issue> {
   const m = await reglementModifiable(id);
   if (m.erreur) return refus(m.erreur);
   const r = m.reglement!;
-  await q("delete from paiements where id=$1", [id]);
-  await noter(r.dossier_id, `Règlement supprimé : ${r.libelle} (${fr(Number(r.montant))})`);
+  const parti = await q1("delete from paiements where id=$1 returning id", [id]);
+  const libelle = `Règlement supprimé : ${r.libelle} (${fr(Number(r.montant))})`;
+  await noter(r.dossier_id, libelle);
   await apres(r.dossier_id);
+  if (parti) {
+    await journaliser({
+      action: "reglement.supprime", libelle, objet: { type: "reglement", id }, dossierId: r.dossier_id,
+      details: { libelle: r.libelle, montant: Number(r.montant), mode: r.mode, recu_le: r.recu_le ? new Date(r.recu_le).toISOString().slice(0, 10) : null },
+      activite: libelle,
+    });
+  }
   return { ok: true };
 }
 

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAuthClient } from "@/lib/supabase/auth";
 import { q } from "@/crm/lib/db";
+import { ecrireJournal } from "@/lib/journal";
 import { exigerPorteur } from "./lib/acces";
 import { adresseDe, choisirMotDePasse } from "./lib/agents";
 import { photoParId, supprimer } from "./lib/photos";
@@ -61,11 +62,19 @@ export async function retirerPhoto(id: number): Promise<Resultat> {
     }
     const r = await supprimer(photo.id);
     if (r) {
-      await q("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [
-        r.dossierId,
-        p.genre === "bureau" ? p.utilisateurId : null,
-        `Photo de chantier retirée (${libelleCategorie(r.categorie).toLowerCase()}, envoyée par ${r.auteur}) par ${p.nom}`,
-      ]).catch(() => undefined);
+      const libelle = `Photo de chantier retirée (${libelleCategorie(r.categorie).toLowerCase()}, envoyée par ${r.auteur}) par ${p.nom}`;
+      await q("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [r.dossierId, p.genre === "bureau" ? p.utilisateurId : null, libelle]).catch(() => undefined);
+      // Le journal des gestes : un déménageur n'est pas un utilisateur du CRM, il signe de son nom.
+      await ecrireJournal(
+        {
+          action: "photo_chantier.supprime", libelle: `Photo de chantier retirée (${libelleCategorie(r.categorie).toLowerCase()}, envoyée par ${r.auteur})`,
+          objet: { type: "photo_chantier", id: photo.id }, dossierId: r.dossierId,
+          details: { categorie: r.categorie, auteur: r.auteur, prise_le: photo.priseLe, retiree_par: p.nom, depuis: p.genre === "agent" ? "outil terrain" : "bureau", agent_id: p.genre === "agent" ? p.agent.id : null },
+          activite: libelle,
+        },
+        p.genre === "bureau" ? { type: "staff", id: p.utilisateurId, nom: p.nom } : { type: "staff", nom: p.nom },
+        q,
+      );
     }
     return { ok: true };
   } catch (e) {

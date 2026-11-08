@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { q, q1, transaction } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { ident, journal, rafraichir, texte } from "@/crm/exploitation/commun";
 import { refuse, reussi, type Resultat } from "@/crm/exploitation/ui/resultat";
 import { estCategorie, zonesDe } from "./categories";
@@ -60,6 +61,7 @@ export async function creerPartenaire(f: FormData): Promise<Resultat> {
   // Les lettres de voiture déjà saisies à ce nom s'y relient d'elles-mêmes.
   await q("update lettres_voiture set prestataire = prestataire where sous_traitant_id is null and lower(btrim(prestataire)) = lower(btrim($1))", [c.nom]);
   rafraichir("/partenaires");
+  await journaliser({ action: "partenaire.cree", libelle: `Partenaire « ${c.nom} » ajouté à l'annuaire`, objet: { type: "partenaire", id }, details: { nom: c.nom, categorie: c.categorie, ville: c.ville } });
   if (f.get("ouvrir") === "1") redirect(`/partenaires/${id}`);
   return reussi(`${c.nom} ajouté à l'annuaire.`, id);
 }
@@ -69,10 +71,12 @@ export async function majPartenaire(id: number, f: FormData): Promise<Resultat> 
   const c = champs(f);
   if (!c.nom) return refuse("Le nom de la société est obligatoire.");
   if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) return refuse("L'adresse e-mail n'est pas valide.");
+  let ancien = c.nom;
   try {
     await transaction(async (db) => {
       const [avant] = await db.query<{ nom: string }>("select nom from sous_traitants where id=$1 for update", [id]);
       if (!avant) throw new Error("introuvable");
+      ancien = avant.nom;
       await db.query(
         `update sous_traitants set nom=$2,categorie=$3,siret=$4,adresse=$5,code_postal=$6,ville=$7,pays=$8,telephone=$9,email=$10,site=$11,zones=$12,notes=$13,
            actif=$14, maj_le=now() where id=$1`,
@@ -87,14 +91,21 @@ export async function majPartenaire(id: number, f: FormData): Promise<Resultat> 
     throw e;
   }
   rafraichir("/partenaires", `/partenaires/${id}`);
+  await journaliser({
+    action: "partenaire.modifie",
+    libelle: ancien !== c.nom ? `Fiche partenaire « ${ancien} » modifiée (devient « ${c.nom} »)` : `Fiche partenaire « ${c.nom} » modifiée`,
+    objet: { type: "partenaire", id },
+    details: { nom: c.nom, ancien_nom: ancien !== c.nom ? ancien : null, categorie: c.categorie, actif: f.get("actif") !== "non" },
+  });
   return reussi("Fiche enregistrée.");
 }
 
 /** Supprime une fiche. Les lettres et litiges reliés gardent leur texte ; seul le lien disparaît. */
 export async function supprimerPartenaire(id: number): Promise<Resultat> {
   await currentUser();
-  await q("delete from sous_traitants where id=$1", [id]);
+  const p = await q1<{ nom: string; categorie: string; ville: string | null }>("delete from sous_traitants where id=$1 returning nom, categorie, ville", [id]);
   rafraichir("/partenaires");
+  if (p) await journaliser({ action: "partenaire.supprime", libelle: `Partenaire « ${p.nom} » supprimé de l'annuaire`, objet: { type: "partenaire", id }, details: { nom: p.nom, categorie: p.categorie, ville: p.ville } });
   redirect("/partenaires?ok=supprime");
 }
 
@@ -135,8 +146,12 @@ export async function majContact(id: number, contact: number, f: FormData): Prom
 
 export async function supprimerContact(id: number, contact: number): Promise<Resultat> {
   await currentUser();
-  await q("delete from sous_traitant_contacts where id=$2 and sous_traitant_id=$1", [id, contact]);
+  const c = await q1<{ nom: string; fonction: string | null; societe: string | null }>(
+    "delete from sous_traitant_contacts k where k.id=$2 and k.sous_traitant_id=$1 returning k.nom, k.fonction, (select nom from sous_traitants where id = k.sous_traitant_id) as societe",
+    [id, contact],
+  );
   rafraichir(`/partenaires/${id}`);
+  if (c) await journaliser({ action: "contact_partenaire.supprime", libelle: `Contact ${c.nom} retiré de la fiche partenaire « ${c.societe ?? ""} »`, objet: { type: "contact_partenaire", id: contact }, details: { nom: c.nom, fonction: c.fonction, partenaire: c.societe, partenaire_id: id } });
   return reussi("Contact retiré.");
 }
 

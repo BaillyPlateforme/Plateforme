@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { encaisser } from "@/crm/facturation/actions";
@@ -298,11 +299,13 @@ export async function rechercherModeles(texteRecherche: string) {
  */
 export async function retirerDevis(devisId: number) {
   await exiger();
-  const v = await q1<{ dossier_id: number; numero: string; statut: string }>("select dossier_id, numero, statut from devis where id=$1", [devisId]);
+  const v = await q1<{ dossier_id: number; numero: string; statut: string; montant: number }>("select dossier_id, numero, statut, montant::float8 as montant from devis where id=$1", [devisId]);
   if (!v || v.statut === "signe") return;
   if (v.statut === "brouillon") {
-    await q("delete from devis where id=$1 and statut='brouillon'", [devisId]);
-    await noter(v.dossier_id, `Devis ${v.numero} supprimé (brouillon)`);
+    const parti = await q1("delete from devis where id=$1 and statut='brouillon' returning id", [devisId]);
+    const libelle = `Devis ${v.numero} supprimé (brouillon)`;
+    await noter(v.dossier_id, libelle);
+    if (parti) await journaliser({ action: "devis.supprime", libelle, objet: { type: "devis", id: devisId }, dossierId: v.dossier_id, details: { numero: v.numero, statut: v.statut, montant: v.montant }, activite: libelle });
   } else {
     await q("update devis set statut='refuse', retire_le=now(), maj_le=now() where id=$1 and statut in ('envoye','refuse')", [devisId]);
     await noter(v.dossier_id, `Devis ${v.numero} retiré de la proposition`);

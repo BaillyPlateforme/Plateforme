@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { q, q1, transaction, type Db } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { nomClient } from "@/crm/lib/format";
 import { ecrireReglage, ident, jour, journal, nombre, rafraichir, texte } from "@/crm/exploitation/commun";
 import { refuse, reussi, type Resultat } from "@/crm/exploitation/ui/resultat";
@@ -224,9 +225,20 @@ export async function supprimerContrat(id: number): Promise<Resultat> {
   const fact = await q1<{ n: number }>("select count(*)::int as n from factures where garde_meuble_id=$1", [id]);
   if (fact?.n) return refuse("Ce contrat a des factures : il se clôt, il ne se supprime pas.");
   const chemins = await q<{ chemin: string }>("select p.chemin from garde_meuble_photos p join garde_meuble_caisses k on k.id=p.caisse_id where k.contrat_id=$1", [id]);
-  const g = await q1<{ dossier_id: number | null }>("delete from garde_meuble where id=$1 returning dossier_id", [id]);
+  const g = await q1<{ dossier_id: number | null; client: string; nb_caisses: number; loyer: number }>(
+    "delete from garde_meuble where id=$1 returning dossier_id, client, nb_caisses, loyer_mensuel::float8 as loyer",
+    [id],
+  );
   await retirerFichiers(chemins.map((c) => c.chemin)).catch((e) => console.error("Garde-meuble : retrait des photos", e));
-  if (g) await journal(g.dossier_id, u.id, `Contrat de garde-meuble ${numeroContrat(id)} supprimé`);
+  if (g) {
+    const libelle = `Contrat de garde-meuble ${numeroContrat(id)} supprimé`;
+    await journal(g.dossier_id, u.id, libelle);
+    await journaliser({
+      action: "contrat_garde_meuble.supprime", libelle: `${libelle} (${g.client})`, objet: { type: "contrat_garde_meuble", id }, dossierId: g.dossier_id,
+      details: { numero: numeroContrat(id), client: g.client, caisses: g.nb_caisses, loyer_mensuel: g.loyer, photos: chemins.length },
+      activite: g.dossier_id ? libelle : null,
+    });
+  }
   rafraichir("/garde-meuble");
   redirect("/garde-meuble?ok=supprime");
 }
@@ -312,23 +324,39 @@ export async function majCaisse(contrat: number, caisse: number, f: FormData): P
 export async function supprimerCaisse(contrat: number, caisse: number): Promise<Resultat> {
   await currentUser();
   const chemins = await q<{ chemin: string }>("select chemin from garde_meuble_photos where caisse_id=$1", [caisse]);
-  await transaction(async (db) => {
-    await db.query("delete from garde_meuble_caisses where id=$2 and contrat_id=$1", [contrat, caisse]);
+  const k = await transaction(async (db) => {
+    const [r] = await db.query<{ numero: string; dossier_id: number | null }>(
+      "delete from garde_meuble_caisses k where k.id=$2 and k.contrat_id=$1 returning k.numero, (select dossier_id from garde_meuble where id = k.contrat_id) as dossier_id",
+      [contrat, caisse],
+    );
     await resynchroniser(db, contrat);
+    return r;
   });
   await retirerFichiers(chemins.map((c) => c.chemin)).catch((e) => console.error("Garde-meuble : retrait des photos", e));
   rafraichir("/garde-meuble", `/garde-meuble/${contrat}`);
+  if (k) {
+    await journaliser({
+      action: "caisse.supprime", libelle: `Caisse ${k.numero} retirée du contrat de garde-meuble ${numeroContrat(contrat)}`, objet: { type: "caisse", id: caisse }, dossierId: k.dossier_id,
+      details: { numero: k.numero, contrat: numeroContrat(contrat), contrat_id: contrat, photos: chemins.length },
+    });
+  }
   return reussi("Caisse retirée du contrat.");
 }
 
 export async function supprimerPhoto(contrat: number, photo: number): Promise<Resultat> {
   await currentUser();
-  const p = await q1<{ chemin: string }>(
-    "delete from garde_meuble_photos p using garde_meuble_caisses k where p.id=$2 and k.id=p.caisse_id and k.contrat_id=$1 returning p.chemin",
+  const p = await q1<{ chemin: string; caisse: string }>(
+    "delete from garde_meuble_photos p using garde_meuble_caisses k where p.id=$2 and k.id=p.caisse_id and k.contrat_id=$1 returning p.chemin, k.numero as caisse",
     [contrat, photo],
   );
   if (p) await retirerFichiers([p.chemin]).catch((e) => console.error("Garde-meuble : retrait d'une photo", e));
   rafraichir(`/garde-meuble/${contrat}`);
+  if (p) {
+    await journaliser({
+      action: "photo_caisse.supprime", libelle: `Photo retirée de la caisse ${p.caisse} (garde-meuble ${numeroContrat(contrat)})`, objet: { type: "photo_caisse", id: photo },
+      details: { caisse: p.caisse, contrat: numeroContrat(contrat), contrat_id: contrat },
+    });
+  }
   return reussi("Photo retirée.");
 }
 

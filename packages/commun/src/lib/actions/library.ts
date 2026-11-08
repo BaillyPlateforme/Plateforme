@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
+import { journaliserEquipe } from "@/lib/journal";
 
 export async function uploadLibraryPhotos(formData: FormData) {
   await exigerEquipe();
@@ -33,7 +34,10 @@ export async function uploadLibraryPhotos(formData: FormData) {
 export async function deleteLibraryPhoto(path: string) {
   await exigerEquipe();
   const supabase = createServiceClient();
-  await supabase.storage.from(env.libraryBucket()).remove([path]);
+  const { data } = await supabase.storage.from(env.libraryBucket()).remove([path]);
   revalidatePath("/dashboard/configuration");
   revalidatePath("/dashboard/playground");
+  if (data?.length) {
+    await journaliserEquipe({ action: "photo_bibliotheque.supprime", libelle: `Photo retirée de la bibliothèque (${path.split("/").pop()})`, objet: { type: "photo_bibliotheque", id: path }, details: { chemin: path } });
+  }
 }

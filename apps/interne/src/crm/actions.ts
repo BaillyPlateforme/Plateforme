@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
 import { oublierCandidats } from "@/crm/creation/donnees";
 import { instantParis } from "@/lib/visite/regles";
+import { journaliser } from "@/crm/lib/journal";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -152,7 +153,12 @@ export async function ajouterObjet(id: number, f: FormData) {
     [id, s(f, "piece") ?? "Divers", s(f, "libelle") ?? "Objet", n(f, "quantite") ?? 1, n(f, "volume") ?? 0, s(f, "destination") ?? "Arrivée", f.get("demontage") === "on"]);
   await recalcVolume(id); refresh(id);
 }
-export async function supprimerObjet(id: number, objet: number) { await exiger(); await q("delete from inventaire where id=$1 and dossier_id=$2", [objet, id]); await recalcVolume(id); refresh(id); }
+export async function supprimerObjet(id: number, objet: number) {
+  await exiger();
+  const o = await q1<{ piece: string; libelle: string; quantite: number; volume: number }>("delete from inventaire where id=$1 and dossier_id=$2 returning piece, libelle, quantite, volume::float8 as volume", [objet, id]);
+  await recalcVolume(id); refresh(id);
+  if (o) await journaliser({ action: "inventaire.supprime", libelle: `Objet « ${o.libelle} » (${o.piece}) retiré de l'inventaire`, objet: { type: "inventaire", id: objet }, dossierId: id, details: { libelle: o.libelle, piece: o.piece, quantite: o.quantite, volume: o.volume } });
+}
 export async function basculerDemontage(id: number, objet: number) { await exiger(); await q("update inventaire set demontage = not demontage where id=$1 and dossier_id=$2", [objet, id]); refresh(id); }
 
 /* ---------- devis ---------- */
@@ -297,4 +303,12 @@ export async function creerRdv(f: FormData) {
 // Un rendez-vous de visite terminé ou supprimé : l'espace client du dossier suit (visite technique, migration 0015).
 // « Terminé ✓ » ne défait jamais un devis établi : devis_etabli ne peut que passer à vrai (bug relevé par l'audit Créagidem).
 export async function terminerRdv(rdv: number, devisEtabli: boolean) { await exiger(); const r = await q1<{ dossier_id: number | null }>("update rendez_vous set termine=true, devis_etabli=(devis_etabli or $2) where id=$1 returning dossier_id", [rdv, devisEtabli]); await projeterEspace(r?.dossier_id); refresh(); }
-export async function supprimerRdv(rdv: number) { await exiger(); const r = await q1<{ dossier_id: number | null }>("delete from rendez_vous where id=$1 returning dossier_id", [rdv]); await projeterEspace(r?.dossier_id); refresh(); }
+export async function supprimerRdv(rdv: number) {
+  await exiger();
+  const r = await q1<{ dossier_id: number | null; titre: string; type: string; debut: Date }>("delete from rendez_vous where id=$1 returning dossier_id, titre, type, debut", [rdv]);
+  await projeterEspace(r?.dossier_id); refresh();
+  if (r) {
+    const le = new Date(r.debut).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Paris" });
+    await journaliser({ action: "rdv.supprime", libelle: `Rendez-vous « ${r.titre} » du ${le} supprimé`, objet: { type: "rdv", id: rdv }, dossierId: r.dossier_id, details: { titre: r.titre, type: r.type, debut: new Date(r.debut).toISOString() } });
+  }
+}

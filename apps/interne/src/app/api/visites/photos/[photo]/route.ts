@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { q1 } from "@/crm/lib/db";
+import { journaliser } from "@/crm/lib/journal";
 import { equipier, identifiant, refus } from "@/crm/visites/acces";
 import { retirerFichiers, urlSignee } from "@/terrain/lib/photos";
 
@@ -37,13 +38,17 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ photo: 
   const id = identifiant((await params).photo);
   if (!id) return refus("Photo introuvable.", 404);
   try {
-    const r = await q1<{ chemin: string; chemin_vignette: string | null }>(
+    const r = await q1<{ chemin: string; chemin_vignette: string | null; piece_nom: string | null; visite_id: number; dossier_id: number }>(
       `delete from visite_photos p using visites v where p.id = $1 and v.id = p.visite_id and v.statut = 'en_cours'
-       returning p.chemin, p.chemin_vignette`,
+       returning p.chemin, p.chemin_vignette, p.piece_nom, p.visite_id, v.dossier_id`,
       [id],
     );
     if (!r) return refus("Cette photo ne peut plus être retirée.", 409);
     await retirerFichiers([r.chemin, r.chemin_vignette]).catch(() => undefined);
+    await journaliser({
+      action: "photo_visite.supprime", libelle: `Photo de visite technique retirée${r.piece_nom ? ` (${r.piece_nom})` : ""}`, objet: { type: "photo_visite", id },
+      dossierId: r.dossier_id, details: { visite_id: r.visite_id, piece: r.piece_nom },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("Visite technique : retrait d'une photo", e);

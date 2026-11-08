@@ -1,6 +1,7 @@
 "use server";
 import { q, q1 } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { ident, jour, journal, nombre, rafraichir, texte } from "@/crm/exploitation/commun";
 import { refuse, reussi, type Resultat } from "@/crm/exploitation/ui/resultat";
 
@@ -67,10 +68,12 @@ export async function majLitige(id: number, f: FormData): Promise<Resultat> {
 
 export async function supprimerLitige(id: number): Promise<Resultat> {
   const u = await currentUser();
-  const r = await q1<{ dossier_id: number; objet: string }>("delete from litiges where id=$1 returning dossier_id, objet", [id]);
+  const r = await q1<{ dossier_id: number; objet: string; statut: string; montant: number | null }>("delete from litiges where id=$1 returning dossier_id, objet, statut, montant::float8 as montant", [id]);
   if (r) {
-    await journal(r.dossier_id, u.id, `Litige supprimé : ${r.objet}`);
+    const libelle = `Litige supprimé : ${r.objet}`;
+    await journal(r.dossier_id, u.id, libelle);
     rafraichir("/litiges", `/dossiers/${r.dossier_id}`);
+    await journaliser({ action: "litige.supprime", libelle, objet: { type: "litige", id }, dossierId: r.dossier_id, details: { objet: r.objet, statut: r.statut, montant: r.montant }, activite: libelle });
   }
   return reussi("Litige supprimé.");
 }

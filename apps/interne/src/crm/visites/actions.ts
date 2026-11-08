@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { q, q1, transaction } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { espacesDesDossiersCrm } from "@/lib/espace-client/crm";
 import { notifierCreneauxProposes } from "@/lib/espace-client/visite";
@@ -159,6 +160,10 @@ export async function retirerProposition(dossierId: number) {
   });
   if (r) await projeterEspace(dossierId);
   rafraichir(dossierId);
+  if (r) {
+    const libelle = "Proposition de créneaux de visite retirée";
+    await journaliser({ action: "proposition_visite.retire", libelle, objet: { type: "proposition_visite" }, dossierId, details: { propositions: r }, activite: libelle });
+  }
   versFiche(dossierId, "retire");
 }
 
@@ -258,11 +263,16 @@ export async function abandonnerVisite(visiteId: number) {
     "select p.chemin, p.chemin_vignette from visite_photos p join visites v on v.id = p.visite_id where v.id = $1 and v.statut = 'en_cours'",
     [visiteId],
   );
-  const v = await q1<{ dossier_id: number }>("delete from visites where id = $1 and statut = 'en_cours' returning dossier_id", [visiteId]);
+  const v = await q1<{ dossier_id: number; commencee_le: Date | null }>("delete from visites where id = $1 and statut = 'en_cours' returning dossier_id, commencee_le", [visiteId]);
   if (!v) return;
   await retirerFichiers(photos.flatMap((p) => [p.chemin, p.chemin_vignette])).catch(() => undefined);
   await q("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, 'Visite technique abandonnée (saisie conservée dans l''inventaire)')", [v.dossier_id, u.id]);
   await projeterEspace(v.dossier_id);
   rafraichir(v.dossier_id);
+  const libelle = "Visite technique abandonnée (saisie conservée dans l'inventaire)";
+  await journaliser({
+    action: "visite.supprime", libelle, objet: { type: "visite", id: visiteId }, dossierId: v.dossier_id,
+    details: { commencee_le: v.commencee_le ? new Date(v.commencee_le).toISOString() : null, photos: photos.length }, activite: libelle,
+  });
   versFiche(v.dossier_id, "abandon");
 }

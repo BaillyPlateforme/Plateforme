@@ -1,0 +1,548 @@
+/*
+ * Le Feed, dans le design « Quantum » modernisé : un fil par jour, sur une
+ * carte blanche à grands rayons ; à gauche l'heure, au centre un rail où
+ * chaque événement pose sa pastille colorée, à droite la phrase, son auteur,
+ * son dossier et son issue. Palette : indigo #4b2fe0, indigo profond
+ * #2e1f9e, violet #7a52ff, vert #14c27d, ambre #f59e0b, rose #e1306c,
+ * fond #f4f4f7, filet #e8e6ef.
+ */
+
+/* ── La rangée du bas du bandeau : les filtres, puis la recherche ── */
+.basBandeau {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  min-width: 0;
+}
+.basBandeau select {
+  max-width: 230px;
+  text-overflow: ellipsis;
+}
+.recherche {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  margin-left: auto;
+  padding: 0 6px 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.8);
+  flex: 0 1 280px;
+  min-width: 170px;
+}
+.recherche input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #fff !important;
+  font-size: 13.5px !important;
+  outline: none;
+}
+.recherche input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+.recherche button {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #2e1f9e;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+/* ── Le fil ── */
+.fil {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.jour {
+  position: relative;
+  padding: 6px 8px 8px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid #efedf5;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.03), 0 24px 50px -36px rgba(46, 31, 158, 0.42);
+}
+/* Le titre du jour reste en haut tant que son jour défile. */
+.jourTitre {
+  position: sticky;
+  /* Juste sous les deux étages du haut de la coque (et leur ligne d'aide) : rien ne passe entre les deux. */
+  top: 157px;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 2px;
+  padding: 12px 16px 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(6px);
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #14121f;
+}
+.jourTitre small {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #9b97b0;
+}
+.jourTitre small::first-letter {
+  text-transform: uppercase;
+}
+
+.liste {
+  position: relative;
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Le rail : un filet qui relie les pastilles d'un même jour. */
+.liste::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: calc(16px + 52px + 12px + 15px);
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(#ece8ff, #f3f1fa);
+}
+
+.item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px 32px minmax(0, 1fr) 32px;
+  align-items: start;
+  column-gap: 12px;
+  padding: 11px 12px 11px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.item:hover {
+  background: #f8f7fd;
+}
+.item[data-ouvert] {
+  background: #f6f4fd;
+}
+.heure {
+  padding-top: 7px;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: #8a86a0;
+  text-align: right;
+}
+
+/* La pastille de l'événement, à la couleur de son type. */
+.pastille {
+  --fond: #ece8ff;
+  --encre: #4b2fe0;
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: var(--fond);
+  color: var(--encre);
+  box-shadow: 0 0 0 4px #fff;
+}
+.item:hover .pastille,
+.item[data-ouvert] .pastille {
+  box-shadow: 0 0 0 4px #f8f7fd;
+}
+.item[data-ton="violet"] .pastille { --fond: #f1ebff; --encre: #7a52ff; }
+.item[data-ton="vert"] .pastille { --fond: #e2f7ee; --encre: #0e9f68; }
+.item[data-ton="ambre"] .pastille { --fond: #fff3dc; --encre: #c27803; }
+.item[data-ton="rouge"] .pastille { --fond: #fde7ee; --encre: #e1306c; }
+.item[data-ton="gris"] .pastille { --fond: #f1f0f5; --encre: #6b6880; }
+
+.corps {
+  min-width: 0;
+}
+.texte {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 6px 0 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+  color: #14121f;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.texte:focus-visible {
+  outline: 2px solid #7a52ff;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: #6b6880;
+}
+
+/* L'auteur : un membre de l'équipe (ses initiales), un client, ou l'outil lui-même. */
+.acteur {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 650;
+  color: #2b2840;
+  white-space: nowrap;
+}
+.acteur i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.acteur[data-type="auto"] {
+  color: #6b6880;
+}
+.acteur[data-type="auto"] i {
+  background: #ecebf2;
+  color: #6b6880;
+}
+.acteur em {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e2f7ee;
+  color: #0e9f68;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Le dossier, la demande ou l'espace client : une étiquette qui y mène. */
+.contexte {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #f4f3f9;
+  border: 1px solid #ebe9f3;
+  color: #4a475c;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.contexte b {
+  font-weight: 700;
+  color: #2e1f9e;
+}
+.contexte span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.contexte:hover {
+  background: #ece8ff;
+  border-color: #ddd6ff;
+}
+
+/* L'issue d'un envoi, d'un rappel… */
+.statut {
+  --c: #6b6880;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 11%, #fff);
+  color: color-mix(in srgb, var(--c) 82%, #14121f);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.statut::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.statut[data-ton="vert"] { --c: #14c27d; }
+.statut[data-ton="ambre"] { --c: #f59e0b; }
+.statut[data-ton="rouge"] { --c: #e1306c; }
+.statut[data-ton="indigo"] { --c: #4b2fe0; }
+.statut[data-ton="violet"] { --c: #7a52ff; }
+
+/* À droite : la page de l'objet, ou le repère d'un détail à ouvrir. */
+.ouvrir,
+.chevron {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-top: 1px;
+  border-radius: 10px;
+  color: #9b97b0;
+}
+.ouvrir {
+  border: 1px solid #ebe9f3;
+  background: #fff;
+  transition: color 0.15s, border-color 0.15s, transform 0.15s;
+}
+.ouvrir:hover {
+  color: #4b2fe0;
+  border-color: #ddd6ff;
+  transform: translateX(1px);
+}
+.chevron {
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.2s;
+}
+.item:hover .chevron {
+  opacity: 1;
+}
+.item[data-ouvert] .chevron {
+  opacity: 1;
+  transform: rotate(180deg);
+}
+
+/* Le détail, ouvert au clic. */
+.detail {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #ebe9f3;
+  font-size: 13px;
+  color: #4a475c;
+  cursor: auto;
+}
+.detail[data-charge] {
+  color: #9b97b0;
+}
+.champs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 22px;
+  margin: 0;
+}
+.champs div {
+  min-width: 0;
+}
+.champs dt {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9b97b0;
+}
+.champs dd {
+  margin: 0;
+  font-weight: 600;
+  color: #2b2840;
+  overflow-wrap: anywhere;
+}
+.extrait {
+  margin: 14px 0 0;
+}
+.extrait figcaption {
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.extrait blockquote {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid #ddd6ff;
+  border-radius: 0 10px 10px 0;
+  background: #faf9fe;
+  white-space: pre-line;
+  line-height: 1.5;
+  color: #2b2840;
+}
+.liens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #f0eef6;
+}
+.liens a {
+  font-weight: 700;
+  color: #4b2fe0;
+  text-decoration: none;
+}
+.liens a:hover {
+  text-decoration: underline;
+}
+
+/* La suite du fil. */
+.suite {
+  display: grid;
+  place-items: center;
+  padding: 6px 0 18px;
+}
+.voirPlus {
+  height: 42px;
+  padding: 0 26px;
+  border: 1px solid #ddd6ff;
+  border-radius: 999px;
+  background: #fff;
+  color: #2e1f9e;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 26px -18px rgba(46, 31, 158, 0.6);
+  transition: transform 0.15s, background-color 0.15s;
+}
+.voirPlus:hover {
+  background: #f6f4fd;
+  transform: translateY(-1px);
+}
+.voirPlus:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+}
+.fin {
+  margin: 0;
+  font-size: 13px;
+  color: #9b97b0;
+}
+.erreur {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e1306c;
+}
+
+/* La liste vide. */
+.vide {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 56px 24px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px dashed #ddd6ff;
+  text-align: center;
+  color: #6b6880;
+  font-size: 13.5px;
+}
+.vide p {
+  margin: 0;
+  max-width: 460px;
+}
+.videIcone {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 8px;
+  border-radius: 18px;
+  background: #ece8ff;
+  color: #4b2fe0;
+}
+.videTitre {
+  font-size: 16px;
+  font-weight: 750;
+  color: #14121f;
+}
+
+/* Le dossier ou la demande choisis : une étiquette dans la bande, à effacer d'un clic. */
+.objetChoisi {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #2e1f9e;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.objetChoisi a {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ece8ff;
+  color: #2e1f9e;
+  font-size: 15px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+@media (max-width: 1280px) {
+  .recherche {
+    flex-basis: 220px;
+  }
+}
+@media (max-width: 760px) {
+  .basBandeau {
+    flex-wrap: wrap;
+    height: auto;
+  }
+  .recherche {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+  .item {
+    grid-template-columns: 40px 28px minmax(0, 1fr);
+    column-gap: 10px;
+    padding: 10px 8px;
+  }
+  .liste::before {
+    left: calc(8px + 40px + 10px + 13px);
+  }
+  .pastille {
+    width: 28px;
+    height: 28px;
+  }
+  .ouvrir,
+  .chevron {
+    display: none;
+  }
+}

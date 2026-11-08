@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
+import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { envoyerSms } from "@/crm/actions2";
 import { conflit, occupation } from "@/crm/visites/creneaux";
@@ -118,13 +119,25 @@ export async function modifierRdv(id: number, f: FormData) {
 /** Supprime un rendez-vous (le bouton de sa page, après confirmation). */
 export async function supprimerRendezVous(id: number) {
   const u = await currentUser();
-  const r = await q1<{ dossier_id: number | null; debut: Date; type: string; journee: boolean }>(
-    "delete from rendez_vous where id = $1 returning dossier_id, debut, type, journee",
+  const r = await q1<{ dossier_id: number | null; debut: Date; type: string; journee: boolean; titre: string }>(
+    "delete from rendez_vous where id = $1 returning dossier_id, debut, type, journee, titre",
     [id],
   );
-  if (r && estVisite(r.type) && !r.journee) await noter(r.dossier_id, u.id, `Rendez-vous de visite du ${momentVisite(r.debut, true)} supprimé`);
+  const activite = r && estVisite(r.type) && !r.journee ? `Rendez-vous de visite du ${momentVisite(r.debut, true)} supprimé` : null;
+  if (activite) await noter(r!.dossier_id, u.id, activite);
   await projeterEspace(r?.dossier_id);
   rafraichir(r?.dossier_id);
+  if (r) {
+    const le = new Date(r.debut).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Paris" });
+    await journaliser({
+      action: "rdv.supprime",
+      libelle: activite ?? `Rendez-vous « ${r.titre} » du ${le} supprimé`,
+      objet: { type: "rdv", id },
+      dossierId: r.dossier_id,
+      details: { titre: r.titre, type: r.type, debut: new Date(r.debut).toISOString(), journee: r.journee },
+      activite,
+    });
+  }
   redirect(`/planning?semaine=${r ? new Date(r.debut).toISOString().slice(0, 10) : ""}&ok=supprime`);
 }
 

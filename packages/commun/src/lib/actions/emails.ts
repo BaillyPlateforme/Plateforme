@@ -10,6 +10,7 @@ import { getSettings } from "@/lib/settings";
 import { envoyerEmail } from "@/lib/envois";
 import { habillerTexte } from "@/lib/email-render";
 import { TEL_AGENCE } from "@/lib/messaging";
+import { journaliserEquipe } from "@/lib/journal";
 
 export interface EmailInput {
   destinataire: string;
@@ -52,6 +53,14 @@ export async function sendEmail(input: EmailInput) {
     template: input.template ?? null,
     status,
     erreur,
+  });
+
+  // Le journal des gestes signe l'e-mail de son auteur (le Feed le relie à l'envoi) : l'objet, jamais le texte.
+  await journaliserEquipe({
+    action: "message.envoye",
+    libelle: `E-mail envoyé à ${input.destinataire} : « ${input.sujet} »${status === "envoye" ? "" : status === "echec" ? " (échec)" : " (non parti)"}`,
+    objet: { type: "message" },
+    details: { canal: "email", destinataire: input.destinataire, sujet: input.sujet, modele: input.template ?? null, statut: status, motif: erreur },
   });
 
   revalidatePath("/dashboard/emails");

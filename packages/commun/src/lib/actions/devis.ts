@@ -11,6 +11,7 @@ import { estimerDemande } from "@/lib/pricing/engine";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import type { DevisStatus, RequestRow } from "@/lib/types";
+import { journaliserEquipe } from "@/lib/journal";
 
 function devisCtx(d: {
   reference: string; client_nom: string | null; client_email: string | null;
@@ -104,6 +105,16 @@ export async function updateDevisStatus(id: string, status: DevisStatus) {
 export async function deleteDevis(id: string) {
   await exigerEquipe();
   const supabase = createServiceClient();
-  await supabase.from("devis").delete().eq("id", id);
+  const { data } = await supabase.from("devis").delete().eq("id", id).select("reference, request_id, client_nom, montant_ttc, status");
   revalidatePath("/dashboard");
+  const d = data?.[0] as { reference: string; request_id: string | null; client_nom: string | null; montant_ttc: number | null; status: string } | undefined;
+  if (d) {
+    await journaliserEquipe({
+      action: "devis_questionnaire.supprime",
+      libelle: `Devis ${d.reference} supprimé${d.client_nom ? ` (${d.client_nom})` : ""}`,
+      objet: { type: "devis_questionnaire", id },
+      requestId: d.request_id,
+      details: { reference: d.reference, client: d.client_nom, montant_ttc: d.montant_ttc != null ? Number(d.montant_ttc) : null, statut: d.status },
+    });
+  }
 }

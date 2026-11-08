@@ -7,6 +7,7 @@ import { exigerEquipe } from "@/lib/supabase/auth";
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { Channel, TemplateOptions } from "@/lib/messaging";
+import { journaliserEquipe } from "@/lib/journal";
 
 export interface TemplateInput {
   name: string;
@@ -40,12 +41,28 @@ export async function saveTemplate(id: string | null, input: TemplateInput): Pro
 
   // Les modèles se gèrent dans Réglages › Courriers et SMS (l'ancienne messagerie y mène).
   revalidatePath("/modeles");
-  return (data?.id as string | undefined) ?? id ?? "";
+  const cible = (data?.id as string | undefined) ?? id ?? "";
+  await journaliserEquipe({
+    action: id ? "modele_courrier.modifie" : "modele_courrier.cree",
+    libelle: `Modèle ${input.channel === "sms" ? "de SMS" : "d'e-mail"} « ${input.name} » ${id ? "modifié" : "créé"}${input.active ? "" : " (désactivé)"}`,
+    objet: { type: "modele_courrier", id: cible },
+    details: { nom: input.name, canal: input.channel, evenement: input.event, actif: input.active },
+  });
+  return cible;
 }
 
 export async function deleteTemplate(id: string) {
   await exigerEquipe();
   const supabase = createServiceClient();
-  await supabase.from("message_templates").delete().eq("id", id);
+  const { data } = await supabase.from("message_templates").delete().eq("id", id).select("name, channel, event");
   revalidatePath("/modeles");
+  const t = data?.[0] as { name: string; channel: string; event: string } | undefined;
+  if (t) {
+    await journaliserEquipe({
+      action: "modele_courrier.supprime",
+      libelle: `Modèle ${t.channel === "sms" ? "de SMS" : "d'e-mail"} « ${t.name} » supprimé`,
+      objet: { type: "modele_courrier", id },
+      details: { nom: t.name, canal: t.channel, evenement: t.event },
+    });
+  }
 }
