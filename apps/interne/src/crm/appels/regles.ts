@@ -43,6 +43,12 @@ export const REPORT_MAX_JOURS = 60;
 
 /** La vue « Faits » de la page : les appels notés depuis N jours. */
 export const FAITS_JOURS = 30;
+/**
+ * Une demande du site qualifiée d'office par l'analyse (en une seconde, sans
+ * personne) reste « à appeler » pendant ce nombre de jours si personne ne l'a
+ * contactée (David, 08/11/2026 : sa demande n'apparaissait pas). À valider.
+ */
+export const NOUVELLES_QUALIFIEES_JOURS = 30;
 
 /** Le bouton de la barre relit la liste toutes les N secondes (onglet visible), et à chaque changement de page. */
 export const RAFRAICHIR_SECONDES = 60;
@@ -63,16 +69,21 @@ export const NOTE_MAX = 280;
  *                   site) : la moitié, 10 ;
  *   montant   0–20  le montant du devis (ou l'estimation du site) :
  *                   20 × montant / 5 000 €, plafonné à 20 ; inconnu : 0 ;
- *   attente   0–15  depuis quand l'appel est dû : 15 × heures / 72,
- *                   plafonné à 15 (trois jours d'attente = part pleine) ;
- *                   une visite de demain a d'emblée la part pleine : son
- *                   échéance est là.
+ *   attente   0–15  pour un devis sans réponse, depuis quand l'appel est
+ *                   dû : 15 × heures / 72, plafonné à 15 (trois jours
+ *                   d'attente = part pleine) ; pour un rappel demandé ou
+ *                   une nouvelle demande, la FRAÎCHEUR : 15 tout de suite,
+ *                   puis de moins en moins jusqu'à 0 à trois jours — un
+ *                   client qui vient d'écrire est le plus chaud (David,
+ *                   08/11/2026) ; une visite de demain a d'emblée la part
+ *                   pleine : son échéance est là.
  *
  * Ainsi une visite de demain passe devant un devis ancien et cher, et un
  * rappel récent à fort potentiel devant un rappel ancien et modeste.
  *
  * La « Pertinence » trie par score décroissant, puis par échéance ; la vue
- * « Chronologique » par échéance, la plus ancienne d'abord.
+ * « Chronologique » par échéance, la plus récente d'abord : ce qui vient
+ * d'arriver est en haut (David, 08/11/2026).
  */
 export const URGENCE: Record<SourceAppel, number> = { visite: 45, rappel: 35, devis: 20, nouvelle: 15 };
 export const POIDS = { potentiel: 20, montant: 20, attente: 15 } as const;
@@ -94,7 +105,11 @@ export function scoreAppel(a: { source: SourceAppel; potentiel: number | null; m
   const urgence = URGENCE[a.source];
   const potentiel = Math.round(POIDS.potentiel * borne((a.potentiel ?? POTENTIEL_INCONNU) / 100));
   const montant = Math.round(POIDS.montant * borne((a.montant ?? 0) / MONTANT_PLEIN));
-  const attente = a.source === "visite" ? POIDS.attente : Math.round(POIDS.attente * borne(a.attenteHeures / ATTENTE_PLEINE_HEURES));
+  const fraicheur = a.source === "rappel" || a.source === "nouvelle";
+  const attente =
+    a.source === "visite"
+      ? POIDS.attente
+      : Math.round(POIDS.attente * (fraicheur ? 1 - borne(a.attenteHeures / ATTENTE_PLEINE_HEURES) : borne(a.attenteHeures / ATTENTE_PLEINE_HEURES)));
   return { total: urgence + potentiel + montant + attente, urgence, potentiel, montant, attente };
 }
 
@@ -170,7 +185,7 @@ export type Tri = "chrono" | "pertinence";
 
 export function trier<T extends Pick<Appel, "echeance" | "score">>(appels: T[], tri: Tri): T[] {
   const t = (a: T) => Date.parse(a.echeance) || 0;
-  return [...appels].sort((a, b) => (tri === "pertinence" ? b.score.total - a.score.total || t(a) - t(b) : t(a) - t(b) || b.score.total - a.score.total));
+  return [...appels].sort((a, b) => (tri === "pertinence" ? b.score.total - a.score.total || t(b) - t(a) : t(b) - t(a) || b.score.total - a.score.total));
 }
 
 /* ─────────────── Le téléphone ─────────────── */

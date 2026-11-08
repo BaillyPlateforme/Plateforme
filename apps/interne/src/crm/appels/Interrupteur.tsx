@@ -33,7 +33,7 @@ export function LegendeTri({ utilisateur }: { utilisateur: number | null }) {
   const [tri] = useTri(utilisateur);
   return (
     <span className={s.legende}>
-      {tri === "pertinence" ? "Les plus pertinents d'abord : urgence, potentiel, montant, attente" : "Le plus ancien d'abord, par date d'échéance"}
+      {tri === "pertinence" ? "Les plus pertinents d'abord : urgence, potentiel, montant, attente" : "Le plus récent d'abord"}
     </span>
   );
 }

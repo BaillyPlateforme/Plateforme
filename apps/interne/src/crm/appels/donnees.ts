@@ -4,7 +4,7 @@ import { nomClient } from "@/crm/lib/format";
 import { lireDemandes } from "@/crm/demandes/donnees";
 import { etapeDe } from "@/crm/demandes/etapes";
 import {
-  cleAppel, DEVIS_SANS_REPONSE_JOURS, FAITS_JOURS, scoreAppel, sourceDe,
+  cleAppel, DEVIS_SANS_REPONSE_JOURS, FAITS_JOURS, NOUVELLES_QUALIFIEES_JOURS, scoreAppel, sourceDe,
   type Appel, type AppelFait, type SourceAppel,
 } from "./regles";
 
@@ -17,8 +17,10 @@ import {
  *             liste « À rappeler » de Demandes (lib/rappels.ts, OUVERTS) ;
  *   nouvelle  une demande du site dans la colonne « Nouvelle » ou
  *             « Incomplète » du Kanban de Demandes (etapeDe, demandes/
- *             etapes.ts), avec un téléphone, sans rappel ouvert (le rappel
- *             la porte déjà) ;
+ *             etapes.ts), ou « En analyse » / « Qualifiée » depuis moins de
+ *             NOUVELLES_QUALIFIEES_JOURS (l'analyse les qualifie d'office en
+ *             une seconde : personne ne les a encore appelées), avec un
+ *             téléphone, sans rappel ouvert (le rappel la porte déjà) ;
  *   devis     un dossier du CRM au statut « devis », non archivé, dont un
  *             devis est « envoyé » depuis plus de DEVIS_SANS_REPONSE_JOURS
  *             (le dernier envoi compte), aucun devis signé, et que l'équipe
@@ -142,7 +144,9 @@ async function nouvelles(maintenant: number): Promise<Brut[]> {
     .filter((d) => {
       const etape = etapeDe(d);
       const rappelOuvert = d.rappel === "a_rappeler" || d.rappel === "en_cours";
-      return (etape === "nouvelle" || etape === "incomplete") && !!d.telephone?.trim() && !rappelOuvert;
+      const recente = maintenant - Date.parse(d.recueLe) < NOUVELLES_QUALIFIEES_JOURS * 864e5;
+      const aContacter = etape === "nouvelle" || etape === "incomplete" || ((etape === "analyse" || etape === "qualifiee") && recente);
+      return aContacter && !!d.telephone?.trim() && !rappelOuvert;
     })
     .map((d) => ({
       source: "nouvelle",
