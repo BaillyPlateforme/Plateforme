@@ -107,7 +107,7 @@
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: #ede9fe;
+  background: #efebff;
   color: #3b0764;
 }
 .apres {
@@ -151,7 +151,7 @@
   color: rgba(255, 255, 255, 0.6);
 }
 .fait a {
-  color: #c4b5fd;
+  color: #b9a8ff;
   text-decoration: underline;
   text-underline-offset: 3px;
 }

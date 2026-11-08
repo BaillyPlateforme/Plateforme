@@ -47,7 +47,12 @@ export default function FenetreEncaissement({
   const [titulaire, setTitulaire] = useState(r?.titulaire ?? "");
   const [compte, setCompte] = useState(r?.compte ?? "");
   const [commentaire, setCommentaire] = useState(r?.commentaire ?? "");
-  const [facture, setFacture] = useState<number | null>(r ? r.factureId : factureInitiale);
+  // Un règlement saisi depuis la carte, sans facture désignée : s'il n'y a qu'une facture à régler, il la règle
+  // par défaut. Sinon la facture restait « à régler » quand le dossier était soldé (Parcours, page Factures et
+  // relance du solde la disaient impayée). « Aucune facture » reste au choix.
+  const [facture, setFacture] = useState<number | null>(
+    r ? r.factureId : factureInitiale ?? (natureInitiale === "reglement" && factures.length === 1 ? factures[0].id : null),
+  );
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, lancer] = useTransition();
 

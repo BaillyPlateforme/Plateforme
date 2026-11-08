@@ -135,7 +135,8 @@
   justify-content: flex-end;
   gap: 8px;
   max-width: 560px;
-  max-height: 88px;
+  /* Deux rangées entières : 4 px de marge + 40 + 8 + 40. À 88 px, la seconde perdait son bas (planning, exploitation, conteneurs). */
+  max-height: 92px;
   overflow: hidden;
   padding-top: 4px;
 }

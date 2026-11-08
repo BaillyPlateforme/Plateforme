@@ -18,7 +18,13 @@ export default async function NouveauRdv({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const [coms, dossiers, u] = await Promise.all([
     commerciaux(),
-    q("select d.id,d.ref,c.nom,c.prenom,c.societe from dossiers d join clients c on c.id=d.client_id where d.statut not in ('termine','perdu') order by d.maj_le desc limit 100"),
+    // Le dossier demandé (« Planifier une visite » depuis sa fiche) est toujours proposé, même terminé ou ancien :
+    // absent de la liste, il n'était pas présélectionné et le rendez-vous se créait sans dossier.
+    q(
+      `select d.id,d.ref,c.nom,c.prenom,c.societe from dossiers d join clients c on c.id=d.client_id
+        where d.statut not in ('termine','perdu') or d.id = $1 order by (d.id = $1) desc, d.maj_le desc limit 101`,
+      [/^\d+$/.test(sp.dossier ?? "") ? Number(sp.dossier) : 0],
+    ),
     currentUser(),
   ]);
   const demain = lendemain();

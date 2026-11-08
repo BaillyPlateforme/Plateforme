@@ -5,7 +5,7 @@ import { q, q1, transaction, type Db, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { projeterEspace } from "@/crm/lib/espace";
 import { totaux, arrondi, aujourdhuiParis, jourIso, MODE, GENRE, euros2, type LigneSaisie } from "./calcul";
-import { chercherClients, mentionsEmetteur, payeurDe, reglagesFacturation, CHAMPS_REGLAGES, type Payeur, type Reglages } from "./donnees";
+import { chercherClients, mentionsEmetteur, payeurDe, reglagesFacturation, tauxParDefaut, CHAMPS_REGLAGES, type Payeur, type Reglages } from "./donnees";
 
 /*
  * Les actions de l'encaissement et de la facturation. Comme toutes celles du
@@ -42,6 +42,20 @@ const jour = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide.");
 const texte = (max = 400) => z.string().trim().max(max).optional().nullable().transform((v) => (v ? v : null));
 const fr = (n: number) => euros2(n);
 const dateFr = (j: string) => j.split("-").reverse().join("/");
+
+/**
+ * La règle de « Marquer payée » (actions.ts, facturePayee) : un déménagement planifié dont la facture de solde
+ * est réglée est terminé. Un encaissement qui solde cette facture (règlement saisi ou réaffecté) suit la même
+ * règle : sinon le dossier restait « Planifié » au Kanban et au Parcours, payé.
+ */
+async function terminerSiSoldeRegle(dossierId: number) {
+  const r = await q1<{ id: number }>(
+    `update dossiers set statut='termine', maj_le=now() where id=$1 and statut='planifie'
+       and exists (select 1 from factures where dossier_id=$1 and genre='solde' and statut='payee') returning id`,
+    [dossierId],
+  );
+  if (r) await noter(dossierId, "Facture de solde réglée · dossier terminé");
+}
 
 /* ---------- encaisser ---------- */
 
@@ -100,6 +114,7 @@ export async function encaisser(saisie: SaisieReglement): Promise<Issue> {
   );
   const tete = s.nature === "arrhes" ? "Arrhes" : s.nature === "remboursement" ? "Remboursement" : "Règlement";
   await noter(s.dossierId, `${tete} de ${fr(s.montant)} enregistré${s.nature === "arrhes" ? "es" : ""} · ${MODE[s.mode].toLowerCase()}${numero ? ` · facture ${numero}` : ""}`);
+  if (s.factureId) await terminerSiSoldeRegle(s.dossierId);
   await apres(s.dossierId);
   return { ok: true, id: r?.id };
 }
@@ -184,6 +199,7 @@ export async function reaffecterReglement(id: number, cible: { factureId?: numbe
   } else {
     await noter(dossier, `Règlement de ${fr(Number(r.montant))} réaffecté ${vers}`);
   }
+  if (cible.factureId) await terminerSiSoldeRegle(dossier);
   await apres(r.dossier_id, dossier);
   return { ok: true };
 }
@@ -303,6 +319,70 @@ export async function emettreFacture(saisie: SaisieFacture): Promise<Issue> {
   await noter(s.dossierId, `${GENRE[s.genre]} ${r.numero} émise : ${fr(t.ttc)} TTC${affecte ? ` · ${fr(affecte)} déjà réglés` : ""}${modeDate}`);
   await apres(s.dossierId);
   revalidatePath("/factures");
+  return { ok: true, id: r.id, numero: r.numero };
+}
+
+/* ---------- facturer une période de garde-meuble ---------- */
+
+/**
+ * La facture d'une période d'un contrat de garde-meuble, émise comme les
+ * autres : numéro FA- sous verrou et chronologique, une ligne HT/TVA au taux
+ * par défaut, le payeur et les mentions figés. Le montant est recalculé ici
+ * (loyer × mois de la période), jamais repris du navigateur. Le loyer est lu
+ * TTC, comme tous les montants saisis du CRM.
+ */
+export async function facturerPeriodeGardeMeuble(contratId: number): Promise<Issue> {
+  const u = await exiger();
+  const g = await q1<Row>(
+    "select id, dossier_id, client, nb_caisses, periodicite, loyer_mensuel::float8 as loyer, actif from garde_meuble where id=$1",
+    [contratId],
+  );
+  if (!g) return refus("Contrat introuvable.");
+  if (!g.actif) return refus("Ce contrat est clos : il ne se facture plus.");
+  const mois = g.periodicite === "trimestrielle" ? 3 : 1;
+  const montant = arrondi(Number(g.loyer ?? 0) * mois);
+  if (montant <= 0) return refus("Le loyer du contrat est à 0 € : rien à facturer.");
+  const reglages = await reglagesFacturation();
+  const taux = tauxParDefaut(reglages);
+  const objet = `Garde-meuble (${g.periodicite}) : ${g.nb_caisses} caisse(s)`;
+  const t = totaux([{ genre: "prestation", libelle: objet, quantite: 1, prixUnitaireHt: arrondi(montant / (1 + taux / 100)), tauxTva: taux }]);
+  const date = aujourdhuiParis();
+  const p = g.dossier_id ? await payeurDuDossier(g.dossier_id) : null;
+  const payeur: Payeur = p?.payeur ?? {
+    clientId: null, type: null, nom: g.client, contact: null, email: null, telephone: null,
+    adresse: null, codePostal: null, ville: null, pays: null, siren: null, tvaIntracom: null,
+  };
+  const mentions = Object.fromEntries(Object.entries(await mentionsEmetteur()).filter(([, v]) => v != null && v !== ""));
+
+  let r: { id: number; numero: string } | { erreur: string };
+  try {
+    r = await transaction(async (db) => {
+      const numero = await prochainNumero(db, "FA", date.slice(0, 4));
+      const [dern] = await db.query<{ le: Date | null; numero: string | null }>("select emise_le as le, numero from factures where numero like 'FA-%' order by emise_le desc, id desc limit 1");
+      if (dern?.le && jourIso(dern.le)! > date) return { erreur: `La facture ${dern.numero} est datée du ${dateFr(jourIso(dern.le)!)} : la numérotation des factures doit rester chronologique.` };
+      const [f] = await db.query<{ id: number }>(
+        `insert into factures(dossier_id, garde_meuble_id, numero, objet, montant, montant_ht, montant_tva, statut, emise_le, genre, origine_client_id, payeur_client_id, payeur, mentions, emise_par)
+         values($1,$2,$3,$4,$5,$6,$7,'emise',$8,'facture',$9,$10,$11,$12,$13) returning id`,
+        [g.dossier_id, g.id, numero, objet, t.ttc, t.ht, t.tva, date, p?.origineId ?? null, p?.payeurId ?? null, JSON.stringify(payeur), JSON.stringify(mentions), u.id],
+      );
+      const l = t.lignes[0];
+      await db.query(
+        `insert into factures_lignes(facture_id, ordre, genre, libelle, quantite, prix_unitaire_ht, taux_tva, montant_ht, montant_tva, montant_ttc)
+         values($1,0,'prestation',$2,1,$3,$4,$5,$6,$7)`,
+        [f.id, objet, l.prixUnitaireHt, l.tauxTva, l.ht, l.tva, l.ttc],
+      );
+      await db.query("update garde_meuble set derniere_facture=$2 where id=$1", [g.id, date]);
+      return { id: f.id, numero };
+    });
+  } catch (e) {
+    return refus(`La facture n'a pas pu être enregistrée : ${e instanceof Error ? e.message : "erreur inconnue"}.`);
+  }
+  if ("erreur" in r) return refus(r.erreur);
+  await noter(g.dossier_id, `Facture de garde-meuble ${r.numero} émise (${g.client}) : ${fr(t.ttc)} TTC`);
+  await apres(g.dossier_id);
+  revalidatePath("/factures");
+  revalidatePath("/garde-meuble");
+  revalidatePath(`/garde-meuble/${g.id}`);
   return { ok: true, id: r.id, numero: r.numero };
 }
 

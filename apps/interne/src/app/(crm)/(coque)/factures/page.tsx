@@ -2,6 +2,7 @@ import Link from "next/link";
 import Bandeau, { Pilules } from "@/ui/Bandeau";
 import MenuVertical, { AvecMenu } from "@/ui/MenuVertical";
 import { currentUser } from "@/crm/lib/auth";
+import { q1 } from "@/crm/lib/db";
 import { arrhesAttendues, compteursFacturation, listeFactures, listeReglements, soldeDossier } from "@/crm/facturation/donnees";
 import { TableFactures, TableReglements } from "@/crm/facturation/Listes";
 import { MODES, euros2 } from "@/crm/facturation/calcul";
@@ -42,14 +43,19 @@ export default async function Factures({ searchParams }: { searchParams: Promise
     return `/factures${x ? `?${x}` : ""}`;
   };
 
-  const [compteurs, solde] = await Promise.all([compteursFacturation(dossier), dossier ? soldeDossier(dossier) : Promise.resolve(null)]);
+  const [compteurs, solde, dossierRef] = await Promise.all([
+    compteursFacturation(dossier),
+    dossier ? soldeDossier(dossier) : Promise.resolve(null),
+    // La référence du dossier, même sans facture ni règlement à lister (le bandeau disait « Dossier · reste à payer »).
+    dossier ? q1<{ ref: string }>("select ref from dossiers where id=$1", [dossier]) : Promise.resolve(undefined),
+  ]);
   const genres = vue === "acomptes" ? ["acompte"] : vue === "avoirs" ? ["avoir"] : ["facture", "solde", "acompte"];
   const factures = vue === "factures" || vue === "acomptes" || vue === "avoirs" ? await listeFactures({ genres, etat: vue === "avoirs" ? null : etat, dossier, q }) : [];
   const reglements = vue === "reglements" || vue === "arrhes"
     ? await listeReglements({ mode, dossier, q, nature: vue === "arrhes" ? "arrhes" : null, affectation: libres })
     : [];
   const attendues = vue === "arrhes" ? await arrhesAttendues(dossier) : [];
-  const refDossier = dossier ? (factures[0]?.ref ?? reglements[0]?.ref ?? (attendues[0]?.ref as string | undefined) ?? null) : null;
+  const refDossier = dossier ? (dossierRef?.ref ?? factures[0]?.ref ?? reglements[0]?.ref ?? (attendues[0]?.ref as string | undefined) ?? null) : null;
   const resteListe = factures.reduce((a, f) => a + f.reste, 0);
 
   const texte = dossier

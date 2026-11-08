@@ -21,7 +21,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#4c1d95",
+  themeColor: "#2e1f9e",
 };
 
 export default function TerrainLayout({ children }: Readonly<{ children: React.ReactNode }>) {

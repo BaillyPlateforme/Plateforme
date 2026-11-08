@@ -9,10 +9,10 @@
  * de 7:1 sur blanc, les boutons au-dessus de 4,5:1.
  */
 :root {
-  --violet: #6d28d9;
-  --violet-fonce: #4c1d95;
-  --violet-nuit: #2e1065;
-  --violet-doux: #f1ebfe;
+  --violet: #4b2fe0;
+  --violet-fonce: #2e1f9e;
+  --violet-nuit: #170c5c;
+  --violet-doux: #efebff;
   --violet-trait: #d9cbfb;
   --encre: #15122a;
   --gris: #47435f;

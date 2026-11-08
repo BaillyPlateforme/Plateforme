@@ -106,8 +106,9 @@ export default function OngletsTravail() {
       const sur = document.querySelector("main section h1")?.previousElementSibling?.textContent?.trim() ?? "";
       if (!h1) return;
       const ref = sur.match(/BD-\d{4}-\d{3,}/)?.[0];
-      // Un dossier ne prend son titre que sur sa fiche (pas sur un devis ou le parcours).
-      if (cleActive.startsWith("dossier:") && !ref) return;
+      // Un dossier ne prend son titre que sur sa fiche ou son parcours, dont le titre est le client :
+      // l'éditeur de devis porte aussi la référence, mais son titre est « Devis DV-… ».
+      if (cleActive.startsWith("dossier:") && (!ref || !/^\/(dossiers|parcours)\/\d+\/?$/.test(chemin))) return;
       const titre = cleActive.startsWith("dossier:") ? `${ref} · ${h1}` : h1;
       setEtat((e) => ({ ...e, onglets: e.onglets.map((o) => (o.cle === cleActive && o.titre !== titre ? { ...o, titre } : o)) }));
     }, 160);

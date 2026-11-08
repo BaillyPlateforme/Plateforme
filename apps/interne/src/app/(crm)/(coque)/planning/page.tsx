@@ -10,6 +10,8 @@ import MiniCalendrier from "@/crm/planning/MiniCalendrier";
 import { jourParis } from "@/lib/visite/regles";
 import s from "@/crm/planning/planning.module.css";
 import { etatsRdv } from "@/crm/rdv/sms";
+// Le numéro de semaine ISO, le même que le planning d'exploitation (l'ancien calcul donnait 45 pour la semaine 46).
+import { semaineIso } from "@/crm/exploitation/planning";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,6 @@ export default async function Planning({ searchParams }: { searchParams: Promise
     d.setUTCDate(d.getUTCDate() + delta);
     return `/planning?semaine=${d.toISOString().slice(0, 10)}${suffixe}`;
   };
-  const num = (d: Date) => Math.ceil(((+d - +new Date(d.getFullYear(), 0, 1)) / 864e5 + 1) / 7);
   const visites = evenements.filter((e) => e.etat);
   // L'état des SMS de rendez-vous : une pastille par rendez-vous (src/crm/rdv).
   const etatsSms = Object.fromEntries(await etatsRdv(evenements.map((e) => e.id)));
@@ -49,7 +50,7 @@ export default async function Planning({ searchParams }: { searchParams: Promise
   return (
     <div className="view planning">
       <Bandeau
-        surtitre={`Commercial · Semaine ${num(lun)}`}
+        surtitre={`Commercial · Semaine ${semaineIso(lundi)}`}
         titre={`Semaine du ${dateFr(lun, { day: "numeric", month: "long" })}`}
         texte={com ? coms.find((c) => c.id === com)?.nom : "Toute l’équipe commerciale"}
         action={{ label: "Nouveau RDV", href: "/planning/nouveau", icone: "plus" }}

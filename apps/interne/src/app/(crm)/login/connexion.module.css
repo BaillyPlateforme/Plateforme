@@ -61,6 +61,12 @@
   align-items: center;
   gap: 12px;
 }
+/* Le vrai logo de Bailly, en blanc. */
+.logo {
+  display: block;
+  width: auto;
+  height: 34px;
+}
 .monogramme {
   display: grid;
   place-items: center;

@@ -13,7 +13,11 @@ const MONTANT = `(select montant::float8 from devis where dossier_id=d.id and st
 const TRAJET = `(select adresse from etapes_trajet where dossier_id=d.id and genre='depart' order by ordre limit 1) as depart,
  (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee`;
 
-export async function listDossiers(f: { q?: string; type?: string; statuts?: string[] } = {}) {
+/**
+ * Les dossiers d'une liste. `prochains` : ceux dont le chargement est à venir (ou sans date), du plus proche
+ * au plus lointain — le Pilotage les listait par date de mise à jour, passés compris.
+ */
+export async function listDossiers(f: { q?: string; type?: string; statuts?: string[]; prochains?: boolean } = {}) {
   const w: string[] = [], p: unknown[] = [];
   // Un dossier archivé (src/crm/archivage) n'est plus listé ; la recherche le retrouve.
   if (!f.q) w.push("d.archive_le is null");
@@ -30,9 +34,11 @@ export async function listDossiers(f: { q?: string; type?: string; statuts?: str
   }
   if (f.type) { p.push(f.type); w.push(`c.type=$${p.length}`); }
   if (f.statuts?.length) { p.push(f.statuts); w.push(`d.statut = any($${p.length})`); }
+  if (f.prochains) w.push("(d.date_chargement >= current_date or d.date_chargement is null)");
+  const ordre = f.prochains ? "d.date_chargement nulls last, d.id" : "d.maj_le desc, d.id desc";
   return q(`select ${ARR}, ${MONTANT}, ${TRAJET} from dossiers d join clients c on c.id=d.client_id
     left join utilisateurs cm on cm.id=d.commercial_id left join utilisateurs tr on tr.id=d.traite_par_id
-    ${w.length ? "where " + w.join(" and ") : ""} order by d.maj_le desc, d.id desc limit 200`, p);
+    ${w.length ? "where " + w.join(" and ") : ""} order by ${ordre} limit 200`, p);
 }
 
 export async function getDossier(id: number) {
@@ -101,7 +107,7 @@ export async function stats() {
      (select count(*) from devis where statut='signe' and cree_le > now() - interval '30 days')::int as signes,
      (select count(*) from dossiers where statut in ('commande','planifie','termine') and date_chargement between current_date - 30 and current_date + 30)::int as planifies`);
   const repart = await q<{ type: string; n: number }>(`select c.type, count(*)::int as n from dossiers d join clients c on c.id=d.client_id where d.cree_le > now() - interval '90 days' group by 1 order by 2 desc`);
-  const prochains = await listDossiers({ statuts: ["commande", "planifie"] });
+  const prochains = await listDossiers({ statuts: ["commande", "planifie"], prochains: true });
   const relances = await q(`select * from (select distinct on (d.id) d.id, c.nom, c.prenom, c.societe, (current_date - v.envoye_le::date)::int as jours from devis v join dossiers d on d.id=v.dossier_id join clients c on c.id=d.client_id
      where v.statut='envoye' and d.statut='devis' and v.envoye_le < now() - interval '2 days' order by d.id, v.envoye_le) x order by jours desc limit 5`);
   return { ca, serie, t30, vis, arr: arr.n as number, semaines, tun, repart, prochains: prochains.slice(0, 5), relances, annee: now.getFullYear() };

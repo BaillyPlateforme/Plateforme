@@ -209,8 +209,20 @@ export async function commandeSansDevis(id: number) {
 }
 export async function planifierDemenagement(id: number, f: FormData) {
   await exiger();
-  await q("update dossiers set date_chargement=$2, date_livraison=$3, statut='planifie', maj_le=now() where id=$1", [id, s(f, "date_chargement"), s(f, "date_livraison") ?? s(f, "date_chargement")]);
-  await log(id, "Déménagement planifié"); refresh(id);
+  // Les dates changent ; le statut ne passe à « Planifié » que depuis la commande : « Modifier les dates »
+  // sur un dossier terminé le faisait revenir à « Planifié ».
+  const avant = await q1<{ dc: string | null; dl: string | null }>("select date_chargement::text as dc, date_livraison::text as dl from dossiers where id=$1", [id]);
+  const chargement = s(f, "date_chargement");
+  const livraison = s(f, "date_livraison") ?? chargement;
+  const r = await q1<{ statut: string }>(
+    "update dossiers set date_chargement=$2, date_livraison=$3, statut=case when statut in ('commande','planifie') then 'planifie' else statut end, maj_le=now() where id=$1 returning statut",
+    [id, chargement, livraison],
+  );
+  // Les lettres de voiture qui portaient les anciennes dates du dossier les suivent : le planning d'exploitation
+  // et l'outil terrain lisent les lettres, ils gardaient sinon l'ancienne date. Une date propre à une lettre reste.
+  if (avant?.dc) await q("update lettres_voiture set date_chargement=$2 where dossier_id=$1 and date_chargement=$3::date", [id, chargement, avant.dc]);
+  if (avant?.dl) await q("update lettres_voiture set date_livraison=$2 where dossier_id=$1 and date_livraison=$3::date", [id, livraison, avant.dl]);
+  await log(id, r?.statut === "planifie" ? "Déménagement planifié" : "Dates du déménagement modifiées"); refresh(id);
 }
 export async function creerLettres(id: number) {
   await exiger();

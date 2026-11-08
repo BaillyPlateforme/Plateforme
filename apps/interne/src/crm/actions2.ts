@@ -8,6 +8,7 @@ import { headers } from "next/headers";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { enregistrerReponseRdv, envoyerConfirmationRdv, marquerVu } from "@/crm/rdv/sms";
+import { facturerPeriodeGardeMeuble } from "@/crm/facturation/actions";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -32,20 +33,20 @@ async function log(dossierId: number | null, libelle: string) {
 }
 /** Rafraîchit les pages du CRM, et elles seules (voir actions.ts). */
 const refresh = (id?: number) => { revalidatePath("/(crm)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
-async function numero(prefixe: string, table: string) {
-  const col = table === "dossiers" ? "ref" : "numero"; const an = new Date().getFullYear();
-  const r = await q1<{ n: number }>(`select coalesce(max(substring(${col} from '[0-9]+$')::int),0) + 1 as n from ${table} where ${col} like $1`, [`${prefixe}-${an}-%`]);
-  return `${prefixe}-${an}-${String(r!.n).padStart(4, "0")}`;
-}
 
 /* ---------- garde-meuble ---------- */
-export async function facturerGardeMeuble(id: number, montant: number) {
-  await exiger();
-  const g = await q1<Row>("select * from garde_meuble where id=$1", [id]);
-  if (!g) return;
-  await q("insert into factures(dossier_id,garde_meuble_id,numero,objet,montant) values($1,$2,$3,$4,$5)", [g.dossier_id, id, await numero("FA", "factures"), `Garde-meuble (${g.periodicite}) : ${g.nb_caisses} caisse(s)`, montant]);
-  await q("update garde_meuble set derniere_facture=current_date where id=$1", [id]);
-  await log(g.dossier_id, `Facture de garde-meuble émise (${g.client})`); refresh();
+/**
+ * « Facturer » une période de garde-meuble. La facture passe par le module de
+ * facturation (numéro FA- sous verrou et chronologique, HT/TVA, ligne, payeur),
+ * comme toutes les autres : l'ancienne écriture directe n'avait ni HT, ni
+ * ligne, ni verrou de numérotation. Le montant est recalculé côté serveur ;
+ * le second argument, gardé pour les formulaires existants, est ignoré.
+ */
+export async function facturerGardeMeuble(id: number, _montant?: number) {
+  void _montant;
+  const r = await facturerPeriodeGardeMeuble(id);
+  if (!r.ok) console.error(`BaillyCRM : garde-meuble ${id} non facturé — ${r.erreur}`);
+  refresh();
 }
 
 /* ---------- conteneurs ---------- */

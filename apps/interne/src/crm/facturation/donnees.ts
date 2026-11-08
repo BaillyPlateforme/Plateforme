@@ -3,6 +3,8 @@ import { q, q1, type Row } from "@/crm/lib/db";
 import { getSettings } from "@/lib/settings";
 import { nomClient } from "@/crm/lib/format";
 import { TVA_DEFAUT_CODE, htDepuisTtc, jourIso, arrondi, aujourdhuiParis, type LigneSaisie } from "./calcul";
+import { lireParametres } from "@/crm/devis/donnees";
+import { effectifs } from "@/crm/devis/parametres";
 
 /*
  * Les lectures de l'encaissement et de la facturation. Tous les montants
@@ -184,7 +186,8 @@ export interface DonneesFacturation {
   chargement: string | null; livraison: string | null;
   client: Payeur; payeur: Payeur | null; bonCommande: string | null;
   adresses: { depart: string | null; arrivee: string | null };
-  devis: { id: number; numero: string; formule: string; montant: number } | null;
+  /** Le devis signé ; `arrhes` : le montant des arrhes, au pourcentage du devis (sinon celui des Paramètres du devis). */
+  devis: { id: number; numero: string; formule: string; montant: number; arrhesPct: number; arrhes: number } | null;
   solde: Solde; factures: FactureVue[]; reglements: ReglementVue[];
   brouillons: Record<"solde" | "acompte" | "facture", Brouillon>;
   taux: number; comptes: string[]; delai: number | null; conditions: string | null;
@@ -207,10 +210,10 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
       (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee
       from dossiers d where d.id=$1`, [id]);
   if (!d) return null;
-  const [client, payeur, devis, factures, reglements, solde, reglages, derniere, acomptesLignes] = await Promise.all([
+  const [client, payeur, devis, factures, reglements, solde, reglages, derniere, acomptesLignes, parametresDevis] = await Promise.all([
     q1(`select ${COLS_CLIENT} from clients where id=$1`, [d.client_id]),
     d.payeur_client_id ? q1(`select ${COLS_CLIENT} from clients where id=$1`, [d.payeur_client_id]) : Promise.resolve(undefined),
-    q1("select id, numero, formule, montant::float8 as montant, lignes, prestations from devis where dossier_id=$1 and statut='signe' order by signe_le desc nulls last, id desc limit 1", [id]),
+    q1("select id, numero, formule, montant::float8 as montant, arrhes_pct::float8 as arrhes_pct, lignes, prestations from devis where dossier_id=$1 and statut='signe' order by signe_le desc nulls last, id desc limit 1", [id]),
     q(`${SQL_FACTURES} where f.dossier_id=$1 order by f.emise_le, f.id`, [id]),
     q(`${SQL_REGLEMENTS} where p.dossier_id=$1 order by p.recu_le, p.id`, [id]),
     soldeDossier(id),
@@ -218,7 +221,12 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
     q1<{ le: Date | null }>("select max(emise_le) as le from factures where numero like 'FA-%'"),
     q(`select l.facture_id, l.taux_tva::float8 as taux, sum(l.montant_ht)::float8 as ht from factures_lignes l join factures f on f.id = l.facture_id
         where f.dossier_id=$1 and f.genre='acompte' and f.statut <> 'annulee' and l.genre <> 'texte' group by 1, 2`, [id]),
+    lireParametres(),
   ]);
+  // Les arrhes : le pourcentage du devis signé, sinon celui des Paramètres du devis (30 % tant qu'il est vide),
+  // comme l'éditeur du devis, la page de signature et le devis imprimé.
+  const arrhesPct = devis ? Number(devis.arrhes_pct ?? effectifs(parametresDevis).arrhesPct) : 0;
+  const arrhesDevis = devis ? Math.round((devis.montant * arrhesPct) / 100) : 0;
   const taux = tauxParDefaut(reglages);
   const fs = factures.map(versFacture);
   const rs = reglements.map(versReglement);
@@ -250,7 +258,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
   }
   const libres = rs.filter((r) => r.factureId == null && r.montant > 0);
   const arrhesLibres = libres.filter((r) => r.nature === "arrhes");
-  const montantArrhes = arrhesLibres.reduce((a, r) => a + r.montant, 0) || (devis ? Math.round(devis.montant * 0.3) : 0);
+  const montantArrhes = arrhesLibres.reduce((a, r) => a + r.montant, 0) || arrhesDevis;
 
   const brouillons: DonneesFacturation["brouillons"] = {
     solde: { genre: "solde", objet: `Déménagement${trajet ? ` ${trajet}` : ""}`, lignes: lignesSolde, affecter: libres.map((r) => r.id), devisId: devis?.id ?? null },
@@ -267,7 +275,7 @@ export async function facturationDossier(id: number): Promise<DonneesFacturation
     chargement: jourIso(d.date_chargement), livraison: jourIso(d.date_livraison),
     client: payeurDe(client)!, payeur: payeurDe(payeur), bonCommande: d.bon_commande ?? null,
     adresses: { depart: d.depart ?? null, arrivee: d.arrivee ?? null },
-    devis: devis ? { id: devis.id, numero: devis.numero, formule: devis.formule, montant: devis.montant } : null,
+    devis: devis ? { id: devis.id, numero: devis.numero, formule: devis.formule, montant: devis.montant, arrhesPct, arrhes: arrhesDevis } : null,
     solde, factures: fs, reglements: rs, brouillons,
     taux, comptes: comptesEncaissement(reglages), delai: reglages.delai_paiement_jours, conditions: reglages.conditions_reglement?.trim() || null,
     derniereDate: jourIso(derniere?.le),
