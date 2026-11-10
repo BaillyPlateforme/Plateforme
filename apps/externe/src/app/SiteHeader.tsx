@@ -1,5 +1,6 @@
 "use client";
 
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -41,15 +42,18 @@ export default function SiteHeader({
       className="site-header fixed inset-x-0 top-0 z-50 transition-[background-color,border-color] duration-300"
     >
       <div className="mx-auto flex h-[72px] w-full max-w-[1200px] items-center justify-between px-6 lg:px-10">
-        <Link href="/" className="relative block h-9 w-[150px] shrink-0" aria-label="Bailly Déménagement">
-          <Image
-            src="/marque/bailly-logo.svg"
-            alt="Bailly Déménagement"
-            fill
-            priority
-            className="object-contain object-left"
-          />
-        </Link>
+        <span className="flex shrink-0 items-center">
+          <Link href="/" className="relative block h-9 w-[150px] shrink-0" aria-label="Bailly Déménagement">
+            <Image
+              src="/marque/bailly-logo.svg"
+              alt="Bailly Déménagement"
+              fill
+              priority
+              className="object-contain object-left"
+            />
+          </Link>
+          <PastilleEnvironnement />
+        </span>
 
         <div className="flex items-center gap-2.5">
           <button

@@ -9,6 +9,8 @@ import type { DevisStatus } from "@/lib/types";
 import { DEVIS_ORDER, DEVIS_STATUS, scoreColor, sourceLabel, isIncomplete, missingFields, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
+import { envoyerDansCreagidem } from "@/crm/creagidem/actions";
+import type { EvenementCreagidem } from "@/lib/creagidem";
 import { deleteDevis, updateDevisStatus } from "@/lib/actions/devis";
 import TrajetMap from "@/components/TrajetMap";
 import LigneParcours from "@/crm/parcours/LigneParcours";
@@ -62,6 +64,7 @@ export default function RequestDetail({
   dossierCrm,
   parcours,
   araignee,
+  creagidem,
 }: {
   detail: Detail;
   photoUrls: Record<string, string>;
@@ -73,6 +76,8 @@ export default function RequestDetail({
   parcours: { etapes: Etape[]; perdu: boolean; dossier: boolean };
   /** L'araignée de la demande (six axes), celle de Demandes › Top demandes. */
   araignee: Araignee | null;
+  /** Créagidem : le dernier passage de la demande, et si une fiche partirait vraiment (garde-fou). */
+  creagidem: EtatCreagidem;
 }) {
   const { request: r } = detail;
   const [tab, setTab] = useState<Tab>("Infos");
@@ -138,7 +143,7 @@ export default function RequestDetail({
       </nav>
 
       <div className={s.panneau} role="tabpanel" aria-label={tab}>
-        {tab === "Infos" && <InfosTab detail={detail} araignee={araignee} />}
+        {tab === "Infos" && <InfosTab detail={detail} araignee={araignee} creagidem={creagidem} />}
         {tab === "Analyse" && <AnalyseTab detail={detail} />}
         {tab === "Trajet" && (
           <Card title="Trajet">
@@ -160,7 +165,7 @@ export default function RequestDetail({
 
 /* ---------- Onglet Infos ---------- */
 
-function InfosTab({ detail, araignee }: { detail: Detail; araignee: Araignee | null }) {
+function InfosTab({ detail, araignee, creagidem }: { detail: Detail; araignee: Araignee | null; creagidem: EtatCreagidem }) {
   const r = detail.request;
   const [notes, setNotes] = useState(r.score_notes ?? "");
   const [pending, start] = useTransition();
@@ -213,6 +218,7 @@ function InfosTab({ detail, araignee }: { detail: Detail; araignee: Araignee | n
             />
           </dl>
         </Card>
+        <CarteCreagidem requestId={r.id} etat={creagidem} />
       </div>
 
       {/* Évaluation automatique (lecture seule) + notes */}
@@ -609,6 +615,75 @@ function MissingBanner({ missing, token }: { missing: string[]; token: string | 
   );
 }
 
+/* ---------- Créagidem ---------- */
+
+type EtatCreagidem = { envoie: boolean; environnement: string; motif: string | null; dernier: (EvenementCreagidem & { le: string }) | null };
+
+const STATUT_CREAGIDEM: Record<EvenementCreagidem["statut"], { libelle: string; ton: string }> = {
+  envoyee: { libelle: "Envoyée", ton: "bg-good-soft text-good" },
+  preparee: { libelle: "Préparée, non envoyée", ton: "bg-paper text-ink-soft" },
+  incomplete: { libelle: "En attente de la demande complète", ton: "bg-warn-soft text-warn" },
+  echec: { libelle: "Refusée par Créagidem", ton: "bg-danger-soft text-danger" },
+};
+
+/**
+ * La fiche Créagidem de la demande (lib/creagidem) : où elle en est, la fiche
+ * telle qu'elle part, et « Envoyer dans Créagidem ». Hors production, le
+ * garde-fou le dit : rien ne part, la fiche est seulement préparée.
+ */
+function CarteCreagidem({ requestId, etat }: { requestId: string; etat: EtatCreagidem }) {
+  const d = etat.dernier;
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const statut = d ? STATUT_CREAGIDEM[d.statut] : null;
+  const quand = d ? new Date(d.le).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Paris" }) : null;
+  const libelleBouton = !etat.envoie ? "Préparer la fiche" : d?.statut === "envoyee" ? "Renvoyer dans Créagidem" : "Envoyer dans Créagidem";
+  return (
+    <Card title="Créagidem">
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          {statut ? (
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statut.ton}`}>{statut.libelle}</span>
+          ) : (
+            <span className="rounded-full bg-paper px-2.5 py-0.5 text-xs font-semibold text-ink-soft">Pas encore préparée</span>
+          )}
+          {quand && (
+            <span className="text-xs text-ink-soft">
+              le {quand} · {d!.origine === "manuel" ? `par ${d!.par ?? "l'équipe"}` : "automatiquement"} · {d!.environnement}
+            </span>
+          )}
+        </div>
+        {d?.motif && <p className="text-ink-soft">{d.motif}</p>}
+        {d?.statut === "echec" && d.reponse && <p className="text-xs text-danger">Réponse de Créagidem : {d.reponse}</p>}
+        {!etat.envoie && etat.motif && (!d || d.motif !== etat.motif) && <p className="text-ink-soft">{etat.motif}</p>}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={pending}
+            className="rounded-full border border-line bg-card px-4 py-1.5 text-sm font-semibold hover:border-ink disabled:opacity-50"
+            onClick={() => {
+              if (etat.envoie && d?.statut === "envoyee" && !confirm("Cette demande est déjà dans Créagidem. La renvoyer créera une seconde fiche. Continuer ?")) return;
+              start(async () => {
+                await envoyerDansCreagidem(requestId);
+                router.refresh();
+              });
+            }}
+          >
+            {pending ? "Un instant…" : libelleBouton}
+          </button>
+          {!etat.envoie && <span className="text-xs text-ink-soft">Rien ne part vers Créagidem depuis cet environnement.</span>}
+        </div>
+        {d?.fiche && (
+          <details>
+            <summary className="cursor-pointer text-xs font-semibold text-ink-soft">Voir la fiche {d.statut === "envoyee" ? "envoyée" : "préparée"}</summary>
+            <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-paper p-3 text-[11px] leading-relaxed">{JSON.stringify(d.fiche, null, 2)}</pre>
+          </details>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 /* ---------- Onglet Historique ---------- */
 
 function TimelineTab({ detail }: { detail: Detail }) {
@@ -670,6 +745,7 @@ function eventLabel(type: string): string {
     completed: "Demande complétée",
     rappel: "Demande de rappel",
     analysis: "Analyse de la demande",
+    creagidem: "Créagidem",
   };
   return map[type] ?? type;
 }

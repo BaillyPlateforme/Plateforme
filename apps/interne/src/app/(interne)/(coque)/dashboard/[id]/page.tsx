@@ -9,6 +9,7 @@ import { parcoursDossier } from "@/crm/parcours/donnees";
 import { sousStatut } from "@/crm/parcours/demandes-commun";
 import { etapesDeLaDemande } from "@/crm/parcours/etapes";
 import { araigneeDeLaDemande } from "@/crm/demandes/donnees";
+import { dernierEvenementCreagidem, reglageCreagidem } from "@/lib/creagidem";
 import RequestDetail from "./RequestDetail";
 
 export const dynamic = "force-dynamic";
@@ -81,9 +82,18 @@ export default async function RequestPage({ params }: { params: Promise<{ id: st
     return null;
   });
 
+  // Créagidem : ce qui est parti (ou serait parti) pour cette demande, et le garde-fou de l'environnement.
+  const reglage = reglageCreagidem();
+  const creagidem = {
+    envoie: reglage.envoie,
+    environnement: reglage.environnement,
+    motif: reglage.motif,
+    dernier: await dernierEvenementCreagidem(id).catch(() => null),
+  };
+
   return (
     <div>
-      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} parcours={parcours} araignee={araignee} />
+      <RequestDetail detail={detail} photoUrls={photoUrls} espaceClient={espaceClient} dossierCrm={dossierCrm ?? null} parcours={parcours} araignee={araignee} creagidem={creagidem} />
     </div>
   );
 }

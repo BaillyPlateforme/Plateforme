@@ -501,6 +501,8 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
         articles_lourds_detail: f.lourds === "oui" ? f.lourds_detail.trim() || undefined : undefined,
         commentaire: f.commentaire.trim() || undefined,
         details: {
+          // Prénom et nom séparés : la fiche Créagidem les veut à part (lib/creagidem).
+          contact: { prenom: f.prenom.trim(), nom: f.nom.trim() },
           parcours: "mutation",
           demenagement: f.demenagement || "complet",
           depart: detailAdresse(f.depart),

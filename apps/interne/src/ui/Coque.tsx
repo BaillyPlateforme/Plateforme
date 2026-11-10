@@ -1,5 +1,6 @@
 "use client";
 
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -154,6 +155,7 @@ function Entete({
           {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
           <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={94} height={30} />
           <span className={s.crm}>CRM</span>
+          <PastilleEnvironnement />
         </Link>
 
         <nav className={s.rubriques} aria-label="Rubriques">
@@ -248,6 +250,7 @@ function Tiroir({ chemin, compteur, fermer }: { chemin: string; compteur: (e: En
           {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly */}
           <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={88} height={28} />
           <b>CRM</b>
+          <PastilleEnvironnement />
           <button type="button" className={s.rond} aria-label="Fermer" onClick={fermer}>
             <Icone nom="plus" taille={18} />
           </button>

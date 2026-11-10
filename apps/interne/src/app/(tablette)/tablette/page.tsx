@@ -1,3 +1,4 @@
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@/crm/lib/auth";
@@ -133,6 +134,7 @@ export default async function Tablette({ searchParams }: { searchParams: Promise
             {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
             <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
             Visite technique
+            <PastilleEnvironnement />
           </span>
           <nav className={s.enteteLiens} aria-label="Affichage">
             {commercial && (

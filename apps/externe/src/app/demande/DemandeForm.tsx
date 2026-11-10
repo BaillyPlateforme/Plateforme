@@ -2032,6 +2032,8 @@ function buildPayload(form: FormState) {
     prestations: form.prestations as unknown as Record<string, string>,
     // tout le détail brut (adresses complètes, emballage, etc.) conservé
     details: {
+      // Prénom et nom séparés : la fiche Créagidem les veut à part (lib/creagidem).
+      contact: { prenom: form.prenom.trim(), nom: form.nom.trim() },
       depart: form.depart,
       arrivee: form.arrivee,
       emballage: form.emballage,

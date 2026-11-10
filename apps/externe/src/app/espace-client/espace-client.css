@@ -105,7 +105,8 @@
 
 /* ---------- Logo (placeholder) ---------- */
 .ec .logo {
-  display: inline-flex; flex-direction: column; text-decoration: none; color: #fff;
+  /* En ligne : le fichier du logo, puis la pastille DEV hors production (PastilleEnvironnement). */
+  display: inline-flex; flex-direction: row; align-items: center; text-decoration: none; color: #fff;
   font-family: var(--display); font-weight: 600; text-transform: uppercase; line-height: .95;
 }
 /* Le fichier de la charte : 130 px de large au moins, sans quoi « BD MOVING GROUP » ne se lit plus. */

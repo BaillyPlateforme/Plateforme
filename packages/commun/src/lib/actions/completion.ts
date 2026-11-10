@@ -5,6 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import { qualifyRequest } from "@/lib/qualification";
+import { transmettreACreagidem } from "@/lib/creagidem";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
 import type { RequestRow } from "@/lib/types";
 
@@ -83,6 +84,9 @@ export async function completeRequest(token: string, input: CompletionInput) {
       echec = e;
     }
   }
+
+  // La fiche Créagidem, si elle attendait les champs qui manquaient (une demande déjà envoyée ne repart pas).
+  if (before.source === "form") await transmettreACreagidem(before.id);
 
   // Déclenche les workflows liés à la complétion (mails/SMS configurables).
   const settings = await getSettings();

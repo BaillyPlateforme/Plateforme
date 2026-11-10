@@ -8,6 +8,7 @@ import { contexteDemande } from "@/lib/messaging";
 import { getEspaceParCodeOuJeton } from "@/lib/espaces-pro";
 import { instantane } from "@/lib/espaces";
 import { qualifyRequest } from "@/lib/qualification";
+import { transmettreACreagidem } from "@/lib/creagidem";
 import { creerRappel } from "@/lib/rappels";
 import { SANS_PRIX, parcoursDeLaDemande } from "@/lib/parcours";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
@@ -183,6 +184,15 @@ export async function createRequest(
    * la réponse partie.
    */
   const suite = async () => {
+    // La fiche Créagidem d'une demande du site, en parallèle du reste (garde-fou : lib/creagidem). Ne lève jamais.
+    const creagidem = created.source === "form" ? transmettreACreagidem(created.id) : null;
+    try {
+      await suiteSansCreagidem();
+    } finally {
+      await creagidem;
+    }
+  };
+  const suiteSansCreagidem = async () => {
     const settings = await getSettings();
     const base = (settings.base_url || "").replace(/\/$/, "");
     const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";

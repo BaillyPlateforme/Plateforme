@@ -1,3 +1,4 @@
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -51,6 +52,7 @@ export default function ConnexionRhPage() {
         />
         <div className="absolute left-5 top-5 flex items-center gap-3 rounded-full bg-white py-2 pl-4 pr-3.5 shadow-[0_10px_30px_-12px_rgba(27,26,24,0.45)] sm:left-8 sm:top-7 lg:left-10 lg:top-9">
           <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} priority className="h-auto w-[104px]" />
+          <PastilleEnvironnement style={{ marginLeft: 0 }} />
           <span className="h-5 w-px bg-line-strong" />
           <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-ink-mid">Espace RH</span>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
@@ -203,6 +204,7 @@ function Bandeau({ donnees, vue, setVue, nbEnCours, nbTotal }: { donnees: Donnee
           </div>
           <div className="flex shrink-0 items-center gap-2.5">
             <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={200} height={64} className="hidden h-auto w-[92px] opacity-90 md:block" />
+            <PastilleEnvironnement style={{ marginLeft: 0 }} />
             <span className="hidden h-7 w-px bg-white/15 md:block" />
             {donnees.apercu ? (
               <div className="flex items-center gap-1.5">
@@ -346,7 +348,10 @@ function ChoixEspace({ choix }: { choix: Choix[] }) {
         <span aria-hidden className="halo absolute -left-40 -top-56 h-[560px] w-[760px]" style={{ "--halo": "rgba(245, 208, 51, 0.22)" } as CSSProperties} />
         <div className="relative mx-auto max-w-[1080px] px-5 pb-10 pt-6 sm:px-8">
           <div className="flex items-center justify-between gap-4">
-            <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[120px]" />
+            <span className="flex items-center">
+              <Image src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[120px]" />
+              <PastilleEnvironnement />
+            </span>
             <a href={versInterne("/dashboard")} className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white/10 px-3.5 text-[12.5px] font-semibold transition hover:bg-white/20">
               <Picto nom="gauche" taille={15} /> Espace équipe
             </a>

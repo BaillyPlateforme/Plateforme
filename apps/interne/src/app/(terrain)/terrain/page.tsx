@@ -1,3 +1,4 @@
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -93,6 +94,7 @@ export default async function Terrain() {
             {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
             <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
             Terrain
+            <PastilleEnvironnement />
           </span>
           <Link href="/terrain/compte" className={s.avatar} aria-label="Mon compte">
             {initiales(p.nom)}

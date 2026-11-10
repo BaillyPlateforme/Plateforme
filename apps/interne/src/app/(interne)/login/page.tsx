@@ -1,3 +1,4 @@
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import { versExterne } from "@/lib/adresses";
 import FormulaireConnexion from "./FormulaireConnexion";
@@ -59,6 +60,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
         <div className={s.marque}>
           {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
           <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={110} height={35} className={s.logo} />
+          <PastilleEnvironnement />
           <small>Plateforme de l&apos;équipe</small>
         </div>
 

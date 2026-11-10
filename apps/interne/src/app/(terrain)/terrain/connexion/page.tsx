@@ -1,3 +1,4 @@
+import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import Connexion from "./Connexion";
 import s from "@/terrain/composants/terrain.module.css";
@@ -20,6 +21,7 @@ export default async function ConnexionTerrain({ searchParams }: { searchParams:
           {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
           <img src="/marque/bailly-logo-blanc.svg" alt="Bailly Déménagement" width={94} height={30} className={s.logo} />
           Terrain
+          <PastilleEnvironnement />
         </span>
         <h1>Vos chantiers et vos photos, sur le téléphone.</h1>
         <p>Les dossiers du jour, l&apos;adresse, l&apos;équipe, et les photos avant, après et de détail.</p>
