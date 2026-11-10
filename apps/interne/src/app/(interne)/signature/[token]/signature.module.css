@@ -79,7 +79,7 @@
   min-width: 0;
   overflow-x: auto;
 }
-.document > article {
+.document > div > article {
   margin: 0;
 }
 .carte {

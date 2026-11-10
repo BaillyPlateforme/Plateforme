@@ -4,6 +4,7 @@ import { devisParToken } from "@/crm/lib/data2";
 import { signerParToken } from "@/crm/actions2";
 import { dateFr, eur, m3, nomClient } from "@/crm/lib/format";
 import DevisBailly from "@/crm/documents/DevisBailly";
+import { AjusterA4 } from "@/crm/documents/AjusterA4";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
 import { effectifs, regleSesArrhesEnLigne } from "@/crm/devis/parametres";
@@ -98,7 +99,9 @@ export default async function Signature({ params, searchParams }: { params: Prom
 
       <div className={s.grille}>
         <div className={s.document}>
-          <DevisBailly d={document} parametres={{ cgv: cgv.texte, tvaAssurance: eff.tvaAssurance, arrhesPct }} />
+          <AjusterA4>
+            <DevisBailly d={document} parametres={{ cgv: cgv.texte, tvaAssurance: eff.tvaAssurance, arrhesPct }} />
+          </AjusterA4>
         </div>
 
         <aside className={s.carte}>

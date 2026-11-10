@@ -1,0 +1,11 @@
+.a4 {
+  min-width: 0;
+}
+.a4 > * {
+  zoom: var(--zoom, 1);
+}
+@media print {
+  .a4 > * {
+    zoom: 1;
+  }
+}

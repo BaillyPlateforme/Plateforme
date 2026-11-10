@@ -1,6 +1,7 @@
 import { getDossier } from "@/crm/lib/data";
 import { q1 } from "@/crm/lib/db";
 import DevisBailly from "@/crm/documents/DevisBailly";
+import { AjusterA4 } from "@/crm/documents/AjusterA4";
 import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 import { cgvDuClient } from "@/crm/devis/cgv";
@@ -59,7 +60,9 @@ export default async function DocumentDevis({ params }: { params: Promise<{ jeto
         Votre devis <b>{v.numero}</b> (dossier {v.ref}), tel que Bailly Déménagement l&apos;a établi, suivi des conditions générales de vente.
       </p>
       <div className={s.document}>
-        <DevisBailly d={{ ...dossier, devis: devis.filter((x) => x.id === v.id) }} devisId={v.id} parametres={{ cgv: cgvDuClient(parametres.cgv).texte, tvaAssurance: eff.tvaAssurance, arrhesPct }} />
+        <AjusterA4>
+          <DevisBailly d={{ ...dossier, devis: devis.filter((x) => x.id === v.id) }} devisId={v.id} parametres={{ cgv: cgvDuClient(parametres.cgv).texte, tvaAssurance: eff.tvaAssurance, arrhesPct }} />
+        </AjusterA4>
       </div>
     </div>
   );
