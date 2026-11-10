@@ -155,7 +155,8 @@ function Entete({
           {/* eslint-disable-next-line @next/next/no-img-element -- le logo vectoriel de Bailly, servi tel quel */}
           <img src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={94} height={30} />
           <span className={s.crm}>CRM</span>
-          <PastilleEnvironnement />
+          {/* Hors production, la pastille DEV coiffe l'étiquette CRM : elle ne prend aucune place dans la barre. */}
+          <PastilleEnvironnement style={{ position: "absolute", top: -9, right: -19, height: 15, padding: "0 5px", marginLeft: 0, fontSize: 8.5 }} />
         </Link>
 
         <nav className={s.rubriques} aria-label="Rubriques">
