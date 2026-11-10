@@ -146,7 +146,8 @@ function detailOperation(r: RequestRow, lienCrm: string | null): string {
   const nombre = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
   const lignes = [
     `Demande du site Bailly (${porte})${lienCrm ? ` : ${lienCrm}` : ""}`,
-    txt(p.societe) && `Société : ${txt(p.societe)}${txt(details.fonction) ? ` (contact : ${txt(details.fonction)})` : ""}`,
+    // Pour un muté, la société est son employeur ; pour une entreprise, le client lui-même.
+    txt(p.societe) && `${parcours === "mutation" || oui(p.mutation_pro) ? "Employeur" : "Société"} : ${txt(p.societe)}${txt(details.fonction) ? ` (contact : ${txt(details.fonction)})` : ""}`,
     nombre(details.postes) && `Postes de travail : ${details.postes}`,
     nombre(details.surface_locaux) && `Surface des locaux : ${details.surface_locaux} m²`,
     txt(details.creneau || details.rendez_vous) && `Rendez-vous souhaité : ${txt(details.creneau || details.rendez_vous)}`,
