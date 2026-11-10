@@ -124,7 +124,6 @@ function adresse(r: RequestRow, cote: "depart" | "arrivee", periode: string): Ad
 
 const SERVICES: Record<string, string> = { emballage: "emballage", demontage: "démontage", montage: "remontage", monte_meuble: "monte-meuble", garde_meuble: "garde-meuble" };
 const FORMULES: Record<string, string> = { eco: "Économique", standard: "Standard", luxe: "Luxe" };
-const PARCOURS: Record<string, string> = { mutation: "mutation professionnelle", entreprise: "entreprise", particulier: "particulier" };
 
 /** Le détail de l'opération : ce que le client a dit, en clair, et le lien de la demande dans le CRM. */
 function detailOperation(r: RequestRow, lienCrm: string | null): string {
@@ -135,9 +134,22 @@ function detailOperation(r: RequestRow, lienCrm: string | null): string {
     ? (p.charges_lourdes as unknown[]).map((x) => [txt(obj(x).label), txt(obj(x).poids)].filter(Boolean).join(" ")).filter(Boolean)
     : [];
   const parcours = txt(details.parcours);
+  const porte = details.express
+    ? "particulier, devis express"
+    : parcours === "entreprise"
+      ? `entreprise, ${details.transfert === "projet" ? "projet important" : "petit transfert"}`
+      : parcours === "mutation"
+        ? "mutation professionnelle"
+        : txt(p.type_client) === "entreprise"
+          ? "entreprise"
+          : "particulier, devis complet";
+  const nombre = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
   const lignes = [
-    `Demande du site Bailly (${details.express ? "devis express" : PARCOURS[parcours] ?? "formulaire"})${lienCrm ? ` : ${lienCrm}` : ""}`,
-    txt(p.societe) && `Société : ${txt(p.societe)}`,
+    `Demande du site Bailly (${porte})${lienCrm ? ` : ${lienCrm}` : ""}`,
+    txt(p.societe) && `Société : ${txt(p.societe)}${txt(details.fonction) ? ` (contact : ${txt(details.fonction)})` : ""}`,
+    nombre(details.postes) && `Postes de travail : ${details.postes}`,
+    nombre(details.surface_locaux) && `Surface des locaux : ${details.surface_locaux} m²`,
+    txt(details.creneau || details.rendez_vous) && `Rendez-vous souhaité : ${txt(details.creneau || details.rendez_vous)}`,
     r.volume_m3 != null && `Volume : ${Number(r.volume_m3).toLocaleString("fr-FR")} m³${r.volume_method === "ai" ? " (estimé sur photos)" : r.volume_method === "list" ? " (liste de meubles)" : ""}`,
     r.formule && `Formule : ${FORMULES[r.formule] ?? r.formule}`,
     txt(p.assurance) && `Garantie : ${txt(p.assurance)}`,
