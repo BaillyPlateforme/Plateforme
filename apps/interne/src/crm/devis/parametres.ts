@@ -39,3 +39,10 @@ export const effectifs = (p: ParametresDevis) => ({
  * « Chèque » et « Encaissements virements » (fenêtre « Valider un devis »).
  */
 export const VUS_DANS_CREAGIDEM = { reglementsSolde: ["Solde à la livraison"], modesReglement: ["Chèque"], comptes: ["Encaissements virements"] };
+
+/**
+ * Les clients qui règlent eux-mêmes leurs arrhes en ligne, dans leur espace :
+ * les particuliers et le logement social (la règle de ec_projeter_dossier_crm ;
+ * un compte, un partenaire ou un militaire voit son devis validé par l'équipe).
+ */
+export const regleSesArrhesEnLigne = (typeClient: unknown) => !["compte", "partenaire", "militaire"].includes(String(typeClient ?? ""));

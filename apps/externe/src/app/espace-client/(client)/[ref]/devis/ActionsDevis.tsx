@@ -128,7 +128,7 @@ export function ActionsDevis({
       <div className="dv-rangee">
         <div className="dv-sec">
           <a className="dv-geste" href={telecharger} target="_blank" rel="noopener">
-            <Icone nom="download" /> Télécharger le devis
+            <Icone nom="download" /> Voir le devis complet
           </a>
           {attente && (
             <>

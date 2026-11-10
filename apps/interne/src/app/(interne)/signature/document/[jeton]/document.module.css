@@ -1,0 +1,92 @@
+/*
+ * Le devis complet ouvert depuis l'espace client : la page Bailly de la
+ * signature (bandeau noir, logo), le document A4 au centre, et rien d'autre
+ * à l'impression que le document.
+ */
+.page {
+  min-height: 100dvh;
+  background: #ececec;
+  color: #1b1a18;
+  font-family: var(--font-jakarta), "Plus Jakarta Sans", "Helvetica Neue", Arial, sans-serif;
+}
+.bandeau {
+  background: #1b1a18;
+  color: #fff;
+}
+.interieur {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+.interieur img {
+  height: 36px;
+  width: auto;
+}
+.imprimer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #f5d033;
+  color: #1b1a18;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.imprimer:hover {
+  background: #e0b81a;
+}
+.intro {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 22px 24px 4px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #4a4740;
+}
+.intro b {
+  color: #1b1a18;
+}
+.document {
+  padding: 16px 16px 56px;
+  overflow-x: auto;
+}
+.introuvable {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 72px 24px;
+  text-align: center;
+}
+.introuvable h1 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.introuvable p {
+  margin: 0;
+  color: #615f68;
+  line-height: 1.6;
+}
+@media print {
+  .bandeau,
+  .intro {
+    display: none;
+  }
+  .page {
+    background: #fff;
+  }
+  .document {
+    padding: 0;
+    overflow: visible;
+  }
+}

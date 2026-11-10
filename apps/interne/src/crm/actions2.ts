@@ -5,6 +5,9 @@ import { q, q1, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { jetonValide } from "@/crm/lib/data2";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { cgvDuClient, TEXTE_ACCORD } from "@/crm/devis/cgv";
+import { lireParametres } from "@/crm/devis/donnees";
 import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { enregistrerReponseRdv, envoyerConfirmationRdv, marquerVu } from "@/crm/rdv/sms";
@@ -154,18 +157,37 @@ export async function envoyerPourSignature(dossierId: number, devisId: number) {
  * désigne le devis ; il ne signe qu'un devis encore ouvert (brouillon ou
  * envoyé), et seulement si aucun autre devis du dossier n'est déjà signé.
  *
- * La règle est tenue par la base (ec_signer_devis_crm, migration 0012) : la
- * même que pour l'acceptation dans l'espace client, sous le même verrou —
- * deux signatures simultanées, ici et dans l'espace, n'en font qu'une. Si le
- * dossier a un espace client, l'acceptation y est horodatée avec l'adresse IP
- * et le navigateur, et le devis signé y apparaît aussitôt.
+ * Trois contrôles du serveur, que le navigateur ne remplace pas :
+ *   - le devis n'a pas expiré (la validité du devis, sinon 60 jours après
+ *     l'envoi : la règle de l'espace client) ;
+ *   - la case « J'ai lu le devis et les CGV » est cochée ;
+ *   - la version des CGV affichées est celle qu'on inscrit.
+ *
+ * La règle « un seul devis signé » est tenue par la base
+ * (ec_signer_devis_crm, migration 0012), sous le même verrou que
+ * l'acceptation dans l'espace client. La preuve (jour, adresse IP, appareil,
+ * case, CGV) est gardée dans le devis ; si le dossier a un espace client,
+ * l'acceptation du devis et celle des CGV y sont aussi horodatées.
  */
-export async function signerParToken(token: string) {
+export async function signerParToken(token: string, f: FormData) {
   if (!jetonValide(token)) return;
-  const v = await q1<{ id: number; dossier_id: number }>("select id, dossier_id from devis where token=$1", [token]);
+  const v = await q1<{ id: number; dossier_id: number; numero: string; expire: boolean }>(
+    `select id, dossier_id, numero,
+       coalesce(validite, (coalesce(envoye_le, cree_le) at time zone 'Europe/Paris')::date + 60) < (now() at time zone 'Europe/Paris')::date as expire
+     from devis where token=$1`, [token]);
   if (!v) return;
+  if (v.expire) redirect(`/signature/${token}?erreur=expire`);
+  if (f.get("accord") !== "oui") redirect(`/signature/${token}?erreur=accord`);
+  const cgv = cgvDuClient((await lireParametres()).cgv);
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "inconnue";
-  await signerDevisUnique(v.id, "lien", { ip, userAgent: (h.get("user-agent") ?? "inconnu").slice(0, 400) });
+  const userAgent = (h.get("user-agent") ?? "inconnu").slice(0, 400);
+  const issue = await signerDevisUnique(v.id, "lien", { ip, userAgent });
+  if (issue === "signe") {
+    await q("update devis set signature_trace=$2 where id=$1", [v.id, JSON.stringify({ le: new Date().toISOString(), origine: "lien", ip, user_agent: userAgent, accord: TEXTE_ACCORD, cgv: cgv.version })]);
+    await q(`insert into public.ec_acceptations (dossier_id, type, version_texte, objet, ip, user_agent)
+             select x.id, 'cgv', $2, $3, left($4, 100), $5 from public.ec_dossiers x where x.crm_dossier_id = $1`,
+      [v.dossier_id, cgv.version, `Signature du devis ${v.numero}`, ip, userAgent]).catch((e) => console.error("Signature : CGV non inscrites dans l'espace client", e instanceof Error ? e.message : e));
+  }
   refresh(v.dossier_id); revalidatePath(`/signature/${token}`);
 }

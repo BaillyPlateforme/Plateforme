@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { DUREE_LIEN_MIN, estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
 import { PROFILS_DEMO } from "@/lib/espace-client/seed";
 import { clientConnecte } from "@/lib/espace-client/session";
+import { suiteValide } from "@/lib/espace-client/suite";
 import { entrerDemo, voirEmailDemo } from "@/lib/actions/espace-client";
 import { Icone } from "../../_ui/Icone";
 import { Logo } from "../../_ui/Logo";
@@ -36,7 +37,9 @@ const lu = (sp: Params, k: string) => (typeof sp[k] === "string" ? (sp[k] as str
  */
 export default async function Connexion({ searchParams }: { searchParams: Promise<Params> }) {
   const sp = await searchParams;
-  if (!lu(sp, "envoye") && (await clientConnecte())) redirect("/espace-client");
+  // La page visée avant la connexion (le devis d'un e-mail, par exemple) : déjà connecté, on y va tout de suite.
+  const suite = suiteValide(sp.suite);
+  if (!lu(sp, "envoye") && (await clientConnecte())) redirect(suite ?? "/espace-client");
   const envoye = lu(sp, "envoye");
   const email = lu(sp, "email") ?? "";
   const apercu = lu(sp, "apercu");
@@ -95,7 +98,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
                   <Icone nom="eye" /> Ouvrir l&apos;e-mail reçu (démonstration)
                 </Link>
               )}
-              <Link className="link-arrow mt-m" href="/espace-client/connexion">
+              <Link className="link-arrow mt-m" href={suite ? `/espace-client/connexion?suite=${encodeURIComponent(suite)}` : "/espace-client/connexion"}>
                 Utiliser une autre adresse <Icone nom="arrow" />
               </Link>
             </>
@@ -103,7 +106,11 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
             <>
               <p className="kicker">Connexion</p>
               <h2>Bonjour !</h2>
-              <p className="lede">Saisissez l&apos;adresse e-mail que vous avez donnée à votre conseiller Bailly : nous vous envoyons un lien de connexion.</p>
+              <p className="lede">
+                {suite?.endsWith("/devis")
+                  ? "Votre devis vous attend dans votre espace client. Saisissez l'adresse e-mail que vous avez donnée à votre conseiller Bailly : nous vous envoyons un lien de connexion qui vous y mène."
+                  : "Saisissez l'adresse e-mail que vous avez donnée à votre conseiller Bailly : nous vous envoyons un lien de connexion."}
+              </p>
               {lu(sp, "au-revoir") && <p className="flash ok">Vous êtes déconnecté. À bientôt !</p>}
               {vueEquipe && (
                 <p className={`flash ${vueEquipe.ton}`} role={vueEquipe.ton === "ko" ? "alert" : "status"}>
@@ -116,7 +123,7 @@ export default async function Connexion({ searchParams }: { searchParams: Promis
                   {ERREURS[erreur]}
                 </p>
               )}
-              <FormulaireConnexion />
+              <FormulaireConnexion suite={suite} />
 
               {demo && (
                 <div className="card mt-l" style={{ padding: 22 }}>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { lireLien } from "@/lib/espace-client/acces";
 import { DUREE_LIEN_MIN } from "@/lib/espace-client/config";
 import { entrerAvecJeton } from "@/lib/actions/espace-client";
+import { suiteValide } from "@/lib/espace-client/suite";
 import { Icone } from "../../_ui/Icone";
 
 export const metadata: Metadata = { title: "Connexion sécurisée", referrer: "no-referrer" };
@@ -27,6 +28,7 @@ export default async function Acces({ searchParams }: { searchParams: Promise<Re
   const etat = await lireLien(jeton);
 
   if (!etat.ok) {
+    const suite = suiteValide(sp.suite);
     const [titre, texte] = REFUS[etat.raison];
     return (
       <div className="gate">
@@ -36,7 +38,7 @@ export default async function Acces({ searchParams }: { searchParams: Promise<Re
           </div>
           <h1>{titre}</h1>
           <p>{texte} Demandez-en un nouveau : il arrive en quelques secondes.</p>
-          <Link className="btn btn-primary" href={`/espace-client/connexion?erreur=${etat.raison}`}>
+          <Link className="btn btn-primary" href={`/espace-client/connexion?erreur=${etat.raison}${suite ? `&suite=${encodeURIComponent(suite)}` : ""}`}>
             Recevoir un nouveau lien <Icone nom="arrow" />
           </Link>
         </div>
@@ -44,10 +46,12 @@ export default async function Acces({ searchParams }: { searchParams: Promise<Re
     );
   }
 
+  const suite = suiteValide(sp.suite);
   return (
     <div className="gate">
       <form className="inner" action={entrerAvecJeton} data-reserve-client>
         <input type="hidden" name="token_hash" value={jeton} />
+        {suite && <input type="hidden" name="suite" value={suite} />}
         <div className="ok">
           <Icone nom="check" />
         </div>

@@ -97,7 +97,7 @@ export default function DevisBailly({
     <>
       {liste.length === 1 ? <Detail d={d} v={liste[0]} p={p} lienSignature={lienSignature} /> : <Proposition d={d} liste={liste} p={p} lienSignature={lienSignature} />}
       {p.cgv.trim() ? (
-        <article className={`${s.feuille} ${s.compact} ${s.cgv}`}>
+        <article id="cgv" className={`${s.feuille} ${s.compact} ${s.cgv}`}>
           <h2 className={s.titre}>Conditions générales de vente</h2>
           <div className={s.cgvTexte}>{p.cgv}</div>
         </article>

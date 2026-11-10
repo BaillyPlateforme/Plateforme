@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { suiviDesReponses } from "@/lib/espace-client/devis-reponses";
 import { lireFil } from "@/lib/espace-client/discussion";
 import { chargerEspace } from "@/lib/espace-client/espace";
+import { lienDocumentDevis } from "@/lib/espace-client/document-devis";
 import { lienFichier } from "@/lib/espace-client/fichiers";
 import { aujourdhui, dateCourte, dateLongue, euros, eurosAffiches, jourMois, periode } from "@/lib/espace-client/format";
 import { STATUT_DEVIS, STATUT_FACTURE, TYPE_FACTURE } from "@/lib/espace-client/libelles";
@@ -25,6 +26,9 @@ export const metadata: Metadata = { title: "Mes devis et factures" };
 
 const ORDRE = { envoye: 0, accepte: 1, refuse: 2, expire: 3 } as const;
 const d = (n: number) => ({ "--d": n }) as CSSProperties;
+/** « TVA 20 % » quand tout le devis est à 20 %, « TVA » quand il mêle plusieurs taux (l'assurance, par exemple). */
+const tauxTva = (v: Pick<Devis, "montant_ht" | "montant_ttc">) =>
+  v.montant_ht > 0 && Math.abs(v.montant_ttc - v.montant_ht * 1.2) < 0.02 ? "TVA 20 %" : "TVA";
 
 /** Devis, factures et paiements — la page devis.html de la micro démo. */
 export default async function MesDevis({ params }: { params: Promise<{ ref: string }> }) {
@@ -175,7 +179,7 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
                   </div>
                 ))}
                 <div>
-                  <span>TVA 20 %</span>
+                  <span>{tauxTva(v)}</span>
                   <span>{euros(v.montant_ttc - v.montant_ht)}</span>
                 </div>
                 <div className="total">
@@ -185,7 +189,8 @@ export default async function MesDevis({ params }: { params: Promise<{ ref: stri
               </div>
             )}
             <ActionsDevis
-              telecharger={lienFichier("devis", v.id)}
+              // Un devis du CRM : le document complet, tel que le CRM l'imprime ; sinon le PDF de l'espace.
+              telecharger={typeof v.crm_devis_id === "number" ? lienDocumentDevis(v.crm_devis_id) : lienFichier("devis", v.id)}
               devis={aConfirmer(v)}
               dossier={recap(v)}
               etat={etat}

@@ -160,6 +160,20 @@
   line-height: 1.45;
   cursor: pointer;
 }
+.accord a {
+  color: #1b1a18;
+  font-weight: 700;
+}
+/* Le serveur a refusé la signature (case non cochée, devis expiré entre-temps). */
+.erreur {
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fdecea;
+  color: #9b2c1f;
+  font-size: 14px;
+  line-height: 1.45;
+}
 .accord input {
   width: 20px;
   height: 20px;
@@ -184,6 +198,9 @@
   cursor: pointer;
   box-shadow: 0 14px 28px -14px rgba(169, 138, 0, 0.9);
   transition: background-color 0.15s, transform 0.15s;
+}
+a.signer {
+  text-decoration: none;
 }
 .signer:hover {
   background: #e0b81a;

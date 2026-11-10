@@ -8,6 +8,7 @@ import { notifier } from "./notifier";
 import { calculerFrise } from "./progression";
 import { empreinte, jetonAleatoire } from "./signature";
 import { periode, salutation } from "./format";
+import { suiteValide } from "./suite";
 import type { Client, LienAcces, Notification } from "./types";
 
 /*
@@ -105,13 +106,13 @@ export async function clientParEmail(email: string): Promise<Client | null> {
 }
 
 /** Envoie un lien d'accès au client de cette adresse. Rien, sans bruit, si l'adresse est inconnue. */
-export async function envoyerLienAcces(email: string, options: { reference?: string | null } = {}): Promise<Notification | null> {
+export async function envoyerLienAcces(email: string, options: { reference?: string | null; suite?: string | null } = {}): Promise<Notification | null> {
   const client = await clientParEmail(email);
   if (!client) return null;
   return envoyerLienAuClient(client, options);
 }
 
-export async function envoyerLienAuClient(client: Client, options: { reference?: string | null } = {}): Promise<Notification> {
+export async function envoyerLienAuClient(client: Client, options: { reference?: string | null; suite?: string | null } = {}): Promise<Notification> {
   // Le jeton : celui de Supabase Auth en base, un aléa en démonstration.
   let jeton: string;
   let compte: string | null = null;
@@ -149,7 +150,8 @@ export async function envoyerLienAuClient(client: Client, options: { reference?:
       modele: "acces",
       destinataire: client.email,
       payload: {
-        lien: `${base}/espace-client/acces?token_hash=${encodeURIComponent(jeton)}`,
+        // La page visée avant la connexion (suite.ts), contrôlée encore à l'arrivée.
+        lien: `${base}/espace-client/acces?token_hash=${encodeURIComponent(jeton)}${suiteValide(options.suite) ? `&suite=${encodeURIComponent(options.suite!)}` : ""}`,
         salutation: salutation(client),
         email: client.email,
         reference: courant?.reference ?? "",

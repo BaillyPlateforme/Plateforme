@@ -6,7 +6,7 @@ import { connexionSchema, erreursDe } from "@/lib/espace-client/schemas";
 import { Icone } from "../../_ui/Icone";
 
 /** Une adresse, un bouton. L'adresse est vérifiée ici, puis à nouveau par le serveur. */
-export function FormulaireConnexion() {
+export function FormulaireConnexion({ suite = null }: { suite?: string | null }) {
   const [etat, action, enCours] = useActionState<EtatFormulaire, FormData>(demanderLien, {});
   const [locale, setLocale] = useState<string | null>(null);
   const erreur = locale ?? etat.erreurs?.email;
@@ -24,6 +24,7 @@ export function FormulaireConnexion() {
         } else setLocale(null);
       }}
     >
+      {suite && <input type="hidden" name="suite" value={suite} />}
       <div className={`field${erreur ? " has-error" : ""}`}>
         <label htmlFor="email">Adresse e-mail</label>
         <input id="email" name="email" type="email" className="input" autoComplete="email" placeholder="prenom.nom@exemple.fr" aria-invalid={!!erreur} aria-describedby={erreur ? "email-err" : undefined} />

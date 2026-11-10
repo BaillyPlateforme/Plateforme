@@ -467,15 +467,26 @@ export async function simulerRegle(type: TypeRelance, brouillon: Regle, aujourdh
 const RANG_STATUT = ["envoye", "bac_a_sable", "journalise", "bloque", "fictif", "incertain", "echec"];
 
 /**
- * Les liens d'une relance : la page de signature de chaque devis, et pour le
+ * Les liens d'une relance : pour chaque devis, « Mes devis » de l'espace
+ * client quand le client y signe et y règle ses arrhes (le même parcours que
+ * l'e-mail du devis, envois.ts), sinon la page de signature ; et pour le
  * bouton, la rubrique de l'espace client (pièces, conditions, factures) ou le
  * lien de dépôt d'avis. Sans espace client ni lien, pas de bouton.
  */
 export async function liensRelance(type: TypeCourrier, demande: DemandeRelance): Promise<LiensRelance> {
-  const espace = demande.espace ? `${await adressePublique()}/espace-client/${encodeURIComponent(demande.espace)}` : null;
+  const base = demande.espace ? await adressePublique() : null;
+  const espace = base ? `${base}/espace-client/${encodeURIComponent(demande.espace!)}` : null;
+  // Le client signe-t-il dans son espace ? Particulier ou logement social, devis visibles.
+  const signeDansLEspace =
+    !!demande.espace && demande.elements.some((e) => e.jeton) &&
+    !!(await q1(
+      "select 1 from public.ec_dossiers x join public.ec_clients c on c.id = x.client_id where x.reference = $1 and c.type in ('particulier', 'logement_social') and not coalesce(c.masquer_devis, false)",
+      [demande.espace],
+    ).catch(() => undefined));
+  const devisDansLEspace = signeDansLEspace ? `${base}/espace-client/connexion?suite=${encodeURIComponent(`/espace-client/${demande.espace}/devis`)}` : null;
   const parElement: Record<string, string> = {};
   for (const e of demande.elements) {
-    if (e.jeton) parElement[e.id] = versInterne(`/signature/${e.jeton}`);
+    if (e.jeton) parElement[e.id] = devisDansLEspace ?? versInterne(`/signature/${e.jeton}`);
     else if (e.chemin && espace) parElement[e.id] = `${espace}/${e.chemin}`;
   }
   if (type === "avis") return { parElement, principal: lienRegle() };

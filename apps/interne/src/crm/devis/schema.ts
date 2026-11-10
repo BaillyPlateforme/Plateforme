@@ -56,4 +56,66 @@ create table if not exists crm.devis_parametres (
   cle text primary key, valeur jsonb not null, maj_le timestamptz not null default now(), maj_par text
 );
 alter table crm.devis_parametres enable row level security;
+-- La preuve d'une signature par le lien de l'e-mail : le jour, l'adresse IP, l'appareil, la case cochée et les CGV lues.
+alter table crm.devis add column if not exists signature_trace jsonb;
+
+-- Le devis tel que le client le voit dans son espace (public.ec_devis) suit
+-- le devis du CRM, quelle que soit la fonction qui l'y écrit (projection du
+-- dossier, signature, paiement des arrhes) :
+--   - les arrhes : celles du devis (onglet Données contractuelles), sinon
+--     celles des paramètres du devis, sinon 30 % — et seulement pour les
+--     clients qui les règlent en ligne (la projection met 0 aux autres) ;
+--   - le hors-taxes de chaque ligne, à son propre taux de TVA (l'assurance au
+--     sien), et le total HT enregistré par le CRM ;
+--   - « Ce qui est inclus » : les prestations que Bailly assure.
+-- Une erreur ici ne bloque jamais la projection : la ligne garde ses valeurs.
+create or replace function crm.ec_devis_du_crm() returns trigger language plpgsql security definer set search_path = '' as $f$
+declare
+  v record;
+  p_arrhes numeric;
+  p_tva numeric;
+  p_tva_ass numeric;
+begin
+  if new.crm_devis_id is null then return new; end if;
+  begin
+    select d.arrhes_pct, d.montant_ht, d.lignes, d.prestations into v from crm.devis d where d.id = new.crm_devis_id;
+    if not found then return new; end if;
+    select case when jsonb_typeof(valeur) = 'number' then (valeur #>> '{}')::numeric end into p_arrhes from crm.devis_parametres where cle = 'arrhesPct';
+    select case when jsonb_typeof(valeur) = 'number' then (valeur #>> '{}')::numeric end into p_tva from crm.devis_parametres where cle = 'tvaDefaut';
+    select case when jsonb_typeof(valeur) = 'number' then (valeur #>> '{}')::numeric end into p_tva_ass from crm.devis_parametres where cle = 'tvaAssurance';
+    if new.arrhes_pourcentage > 0 then
+      new.arrhes_pourcentage := least(100, greatest(0, round(coalesce(v.arrhes_pct, p_arrhes, 30))))::smallint;
+    end if;
+    new.lignes := coalesce((
+      select jsonb_agg(
+               jsonb_build_object('libelle', l ->> 'libelle', 'montant_ht', round(coalesce((l ->> 'prix')::numeric, 0)
+                 / (1 + coalesce(case when jsonb_typeof(l -> 'tva') = 'number' then (l ->> 'tva')::numeric end,
+                                 case when l ->> 'auto' = 'assurance' then coalesce(p_tva_ass, p_tva) end, p_tva, 20) / 100), 2))
+               || case when coalesce(l ->> 'detail', '') <> '' then jsonb_build_object('detail', l ->> 'detail') else '{}'::jsonb end
+               order by o)
+        from jsonb_array_elements(case when jsonb_typeof(v.lignes) = 'array' then v.lignes else '[]'::jsonb end) with ordinality as t(l, o)
+       where coalesce(l ->> 'charge', 'bailly') <> 'client'
+    ), '[]'::jsonb);
+    if v.montant_ht is not null and v.montant_ht > 0 then new.montant_ht := v.montant_ht; end if;
+    new.inclus := coalesce((
+      select array_agg(btrim(x ->> 'libelle') order by o)
+        from jsonb_array_elements(case when jsonb_typeof(v.prestations) = 'array' then v.prestations else '[]'::jsonb end) with ordinality as t(x, o)
+       where x ->> 'charge' = 'bailly' and btrim(coalesce(x ->> 'libelle', '')) <> ''
+    ), '{}'::text[]);
+  exception when others then
+    raise warning 'BaillyCRM : devis % de l''espace client non aligné sur le CRM (%)', new.crm_devis_id, sqlerrm;
+  end;
+  return new;
+end $f$;
+do $$ begin
+  if to_regclass('public.ec_devis') is not null then
+    drop trigger if exists ec_devis_du_crm on public.ec_devis;
+    create trigger ec_devis_du_crm before insert or update on public.ec_devis for each row execute function crm.ec_devis_du_crm();
+    -- Les devis déjà dans les espaces : alignés une fois (la mise à jour passe par le déclencheur).
+    if not exists (select 1 from crm.devis_parametres where cle = '_ec_devis_aligne_v1') then
+      update public.ec_devis set crm_devis_id = crm_devis_id where crm_devis_id is not null;
+      insert into crm.devis_parametres(cle, valeur, maj_par) values ('_ec_devis_aligne_v1', 'true', 'démarrage') on conflict (cle) do nothing;
+    end if;
+  end if;
+end $$;
 `;

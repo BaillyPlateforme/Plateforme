@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { clientParEmail, consommerLien, envoyerLienAuClient, estClientDemo } from "@/lib/espace-client/acces";
+import { avecBienvenue, referenceDeLaSuite, suiteValide } from "@/lib/espace-client/suite";
 import { AdresseDejaPrise } from "@/lib/espace-client/comptes";
 import { bornesCartons, CAPACITE_SAMEDI } from "@/lib/espace-client/cartons";
 import { estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
@@ -143,7 +144,9 @@ export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<Eta
   let apercu = "";
   try {
     const client = await clientParEmail(r.data.email);
-    const n = client ? await envoyerLienAuClient(client) : null;
+    // La page visée avant la connexion (le devis d'un e-mail, par exemple) : le lien y mènera.
+    const suite = suiteValide(fd.get("suite"));
+    const n = client ? await envoyerLienAuClient(client, suite ? { reference: referenceDeLaSuite(suite), suite } : {}) : null;
     // En démonstration seulement, et pour un profil fictif : la page ouvre l'e-mail « reçu ».
     if (n && client && profilsDemoOuverts() && estClientDemo(client) && estProfilDemo(client.email)) apercu = `&apercu=${n.id}`;
   } catch (e) {
@@ -157,8 +160,8 @@ export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<Eta
   redirect(`/espace-client/connexion?envoye=1&email=${encodeURIComponent(r.data.email)}${apercu}`);
 }
 
-/** Ouvre la session du client d'un lien qu'on vient de consommer, puis l'emmène à son dossier. */
-async function entrer(jeton: string, destination?: string | null): Promise<never> {
+/** Ouvre la session du client d'un lien qu'on vient de consommer, puis l'emmène à son dossier (ou à la page qu'il visait). */
+async function entrer(jeton: string, destination?: string | null, suite?: string | null): Promise<never> {
   await refuserEnApercu();
   const r = await consommerLien(jeton);
   if (!r.ok) redirect(`/espace-client/connexion?erreur=${r.raison}`);
@@ -167,6 +170,7 @@ async function entrer(jeton: string, destination?: string | null): Promise<never
     const o = await ouvrirSessionBase(r.client, jeton, r.lien.auth_user_id!, await traces());
     if (!o.ok) redirect(`/espace-client/connexion?erreur=${o.raison}`);
   }
+  if (suite) redirect(avecBienvenue(suite));
   const vise = destination ?? r.lien.reference;
   // Le dossier visé n'est ouvert que s'il est bien au client : la page le revérifie de toute façon.
   redirect(vise ? `/espace-client/${encodeURIComponent(vise)}?ok=bienvenue` : "/espace-client?ok=bienvenue");
@@ -175,7 +179,7 @@ async function entrer(jeton: string, destination?: string | null): Promise<never
 /** Le clic « Accéder à mon espace » de la page d'arrivée : c'est lui qui consomme le lien. */
 export async function entrerAvecJeton(fd: FormData) {
   await refuserEnApercu();
-  await entrer(String(fd.get("token_hash") ?? ""));
+  await entrer(String(fd.get("token_hash") ?? ""), null, suiteValide(fd.get("suite")));
 }
 
 /**

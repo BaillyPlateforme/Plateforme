@@ -7,6 +7,8 @@ import { TEL_AGENCE } from "@/lib/messaging";
 import { getSettings } from "@/lib/settings";
 import { q1 } from "@/crm/lib/db";
 import { eur } from "@/crm/lib/format";
+import { regleSesArrhesEnLigne } from "@/crm/devis/parametres";
+import { adressePublique } from "@/lib/espace-client/config";
 import { modeleDe, raisonDeNePasEnvoyer, remplir } from "@/crm/messages/catalogue";
 import { composerEmailCrm, type BlocEmail, type ContexteEmail } from "@/crm/messages/rendu";
 
@@ -114,17 +116,31 @@ export async function contexteEmail(): Promise<ContexteEmail> {
 
 /**
  * Le devis à signer, par e-mail : le texte de la carte « Devis prêt », la
- * formule et son montant, et le bouton « Signer le devis » vers la page de
- * signature (/signature/<jeton>). Une fois par devis et par jour au plus :
- * un double clic n'envoie pas deux e-mails.
+ * formule et son montant, et le bouton « Signer le devis ». Une fois par
+ * devis et par jour au plus : un double clic n'envoie pas deux e-mails.
+ *
+ * Où mène le bouton : un seul parcours par client.
+ *   - Le dossier a un espace client et le client y règle ses arrhes
+ *     (particulier, logement social) : « Mes devis » de son espace, où il
+ *     compare, signe avec les CGV et paie ses arrhes. Sans session, il passe
+ *     d'abord par la connexion, qui le ramène à ses devis.
+ *   - Sinon : la page de signature (/signature/<jeton>), sans compte.
  */
 export async function envoyerDevisParEmail(dossierId: number, devis: { id: number; numero: string; formule: string; montant: number | string; token: string }): Promise<{ resultat: ResultatEnvoi | null; libelle: string }> {
   const c = await destinataire(dossierId);
   if (!c?.email) return { resultat: null, libelle: "pas d'adresse e-mail sur la fiche client : rien n'est parti" };
   const modele = await modeleDe("devis_pret");
-  const lien = versInterne(`/signature/${devis.token}`);
+  const espace = await q1<{ reference: string; type: string | null }>(
+    "select x.reference, c.type from public.ec_dossiers x join dossiers d on d.id = x.crm_dossier_id join clients c on c.id = d.client_id where x.crm_dossier_id = $1 limit 1",
+    [dossierId],
+  ).catch(() => undefined);
+  const dansLEspace = !!espace && regleSesArrhesEnLigne(espace.type);
+  const lien = dansLEspace
+    ? `${await adressePublique()}/espace-client/connexion?suite=${encodeURIComponent(`/espace-client/${espace!.reference}/devis`)}`
+    : versInterne(`/signature/${devis.token}`);
+  const autrement = dansLEspace ? "Ou ouvrez-le dans votre espace client" : "Ou signez en ligne";
   const formule = devis.formule.charAt(0).toUpperCase() + devis.formule.slice(1);
-  const ajout = [tableau([[`Formule ${formule} · devis ${devis.numero}`, eur(devis.montant)]]), boutonHtml("Signer le devis", lien), mention(`Ou signez en ligne : ${echapper(lien)}`)].join("\n");
+  const ajout = [tableau([[`Formule ${formule} · devis ${devis.numero}`, eur(devis.montant)]]), boutonHtml("Signer le devis", lien), mention(`${autrement} : ${echapper(lien)}`)].join("\n");
   const r = await rendreEmailCrm(modele ?? { objet: null, corps: "" }, variablesDossier(c), ajout, `Formule ${formule} · ${eur(devis.montant)}`);
   const resultat = await envoyerEmail({
     cle: `crm:devis:${devis.id}:${devis.token}:${jourParis()}`,
@@ -134,7 +150,7 @@ export async function envoyerDevisParEmail(dossierId: number, devis: { id: numbe
     a: c.email,
     sujet: r.sujet,
     html: r.html,
-    texte: `${r.texte}\n\nFormule ${formule} : ${eur(devis.montant)}\nSigner le devis : ${lien}`,
+    texte: `${r.texte}\n\nFormule ${formule} : ${eur(devis.montant)}\n${dansLEspace ? "Voir et signer le devis dans votre espace client" : "Signer le devis"} : ${lien}`,
     expediteur: r.expediteur,
     repondreA: c.commercial_email && !estAdresseFictive(c.commercial_email) ? c.commercial_email : null,
     fictif: await dossierFictif(dossierId, c),
