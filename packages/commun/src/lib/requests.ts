@@ -321,6 +321,11 @@ export async function modifierDemande(
   }
 
   const { colonnes, items, photos } = await preparerDemande(input);
+  // Mêmes villes : la distance déjà calculée reste (le formulaire ne l'envoie que si la ville a été choisie dans la liste).
+  const memesVilles = (["depart_ville", "depart_code_postal", "arrivee_ville", "arrivee_code_postal"] as const).every(
+    (k) => (colonnes[k] ?? null) === (demandeAvant[k] ?? null),
+  );
+  if (colonnes.distance_km == null && memesVilles) colonnes.distance_km = demandeAvant.distance_km;
   // On ne garde que ce que le formulaire peut changer ; le client et le canal restent.
   const complete = colonnes.volume_m3 != null && !!colonnes.depart_ville && !!colonnes.arrivee_ville;
   if (!complete) throw new ModificationRefusee("Il manque le volume ou une ville : complétez le formulaire.");

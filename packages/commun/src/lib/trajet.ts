@@ -47,8 +47,8 @@ async function situerVilleOsm(ville: string, codePostal?: string | null): Promis
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
       signal: AbortSignal.timeout(ATTENTE),
-      // Côté serveur, l'application se nomme ; le navigateur, lui, envoie son propre en-tête.
-      headers: typeof window === "undefined" ? { "User-Agent": "BaillyPlateforme/1.0 (+https://www.demenagements-bailly.com)", "Accept-Language": "fr" } : { "Accept-Language": "fr" },
+      // Côté serveur, l'application se nomme. Côté navigateur, aucun en-tête ajouté : Nominatim refuse alors la requête (CORS).
+      headers: typeof window === "undefined" ? { "User-Agent": "BaillyPlateforme/1.0 (+https://www.demenagements-bailly.com)" } : undefined,
     });
     if (!r.ok) return null;
     const j = (await r.json()) as { lat?: string; lon?: string }[];
