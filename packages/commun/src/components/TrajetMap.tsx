@@ -2,20 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import "leaflet/dist/leaflet.css";
+import { situerVille } from "@/lib/trajet";
 
 type Pt = { lat: number; lon: number };
 
+/** La ville sur la carte : la BAN, avec le repli sur OpenStreetMap quand elle est en panne (lib/trajet). */
 async function geocode(q: string): Promise<Pt | null> {
   if (!q) return null;
-  try {
-    const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=1&type=municipality`);
-    const j = await r.json();
-    const f = j?.features?.[0];
-    if (!f) return null;
-    return { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
-  } catch {
-    return null;
-  }
+  return situerVille(q);
 }
 
 async function routeGeo(a: Pt, b: Pt): Promise<[number, number][] | null> {
