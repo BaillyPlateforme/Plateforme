@@ -170,6 +170,14 @@ export function phraseDe(src: string, d: D, contexte: Contexte): Phrase {
           return { texte: `Notes de la demande modifiées : potentiel ${p.potentiel ?? "—"}, difficulté ${p.difficulte ?? "—"}`, icone: "stats", ton: "indigo", lien };
         case "estimated":
           return { texte: `Estimation recalculée : ${eur(p.ttc)} TTC`, icone: "euro", ton: "indigo", lien };
+        case "modified": {
+          const champs = Array.isArray(p.changes) ? p.changes.map((x: D) => x.champ).filter(Boolean) : [];
+          return { texte: `Demande modifiée par le client depuis son estimation${champs.length ? ` : ${champs.join(", ").toLowerCase()}` : ""}`, icone: "questionnaires", ton: "vert", lien };
+        }
+        case "creagidem": {
+          const etat = { envoyee: "envoyée dans Créagidem", preparee: "préparée pour Créagidem (non envoyée)", incomplete: "en attente pour Créagidem (incomplète)", echec: "refusée par Créagidem" }[String(p.statut)] ?? "Créagidem";
+          return { texte: `Fiche ${etat}`, icone: "fleche", ton: p.statut === "echec" ? "ambre" : "gris", lien };
+        }
         case "suivi": {
           const statut = STATUTS_LEAD.find((s) => s.key === p.statut)?.label ?? p.statut;
           return { texte: `Suivi du lead mis à jour : ${statut ?? "—"}${d.note ? " · note" : ""}`, icone: "tendance", ton: "indigo", lien };

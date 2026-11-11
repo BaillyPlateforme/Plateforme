@@ -26,14 +26,15 @@ export async function POST(req: Request) {
     req.headers.get("x-request-source") === "email" ? "email" : "form";
 
   try {
-    const { demande, suite } = await createRequest(parsed.data, source);
+    const { demande, suite, jetonModification } = await createRequest(parsed.data, source);
     // Le chiffrage, le devis et les messages partent après la réponse : le
     // client n'attend que l'enregistrement de sa demande. L'écran de résultat
     // vient chercher l'estimation dès qu'elle est prête.
     after(() =>
       suite().catch((e) => console.error(`[demande ${demande.id}] suite en échec :`, e instanceof Error ? e.message : e)),
     );
-    return NextResponse.json({ id: demande.id, status: demande.status }, { status: 201 });
+    // Le jeton de modification : seul ce navigateur pourra corriger la demande depuis l'écran de son estimation.
+    return NextResponse.json({ id: demande.id, status: demande.status, modification: jetonModification }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erreur inconnue";
     return NextResponse.json({ error: message }, { status: 500 });

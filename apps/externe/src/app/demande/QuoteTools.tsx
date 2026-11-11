@@ -20,6 +20,7 @@ export function InstantResult({
   volume,
   count = 1,
   onNewQuote,
+  onModifier,
   theme,
   marque,
 }: {
@@ -28,6 +29,8 @@ export function InstantResult({
   volume: number | null;
   count?: number;
   onNewQuote?: () => void;
+  /** « Modifier ma demande » : retour au formulaire rempli ; le renvoi met à jour la même demande. */
+  onModifier?: () => void;
   /** Les jetons de marque d'un espace pro. */
   theme?: CSSProperties;
   marque?: Marque | null;
@@ -215,6 +218,17 @@ export function InstantResult({
             Votre estimation <span className="gradient-text">est prête</span>
           </h1>
           <p className="reveal mt-3 text-[15px] text-ink-soft">Estimation établie selon les informations transmises.</p>
+          {/* Une information à corriger (volume, date, adresse) : on revient au formulaire, tout est gardé. */}
+          {onModifier && (
+            <button
+              type="button"
+              onClick={onModifier}
+              className="reveal mt-5 inline-flex h-11 items-center gap-2 rounded-full border border-line-strong bg-card px-5 text-[14px] font-semibold transition hover:border-ink active:scale-[0.98]"
+            >
+              <Icone nom="crayon" taille={15} />
+              Modifier ma demande
+            </button>
+          )}
         </div>
       </section>
 
@@ -312,7 +326,7 @@ export function InstantResult({
             un conseiller vous appelle, bloque votre date, et vous recevez un devis ferme sous
             24 heures ouvrées.
           </p>
-          <ActionsFin requestId={requestId} onNewQuote={onNewQuote} />
+          <ActionsFin requestId={requestId} onNewQuote={onNewQuote} onModifier={onModifier} />
           <p className="mt-6 text-[12px] text-ink-soft">
             Estimation indicative, valable 30 jours — elle ne vaut pas devis contractuel.
           </p>
@@ -339,7 +353,7 @@ function Puce({ children }: { children: React.ReactNode }) {
  * Le bouton tourne un instant, puis laisse la place à une confirmation —
  * sans elle, le client ne sait pas si son clic a été pris en compte.
  */
-function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?: () => void }) {
+function ActionsFin({ requestId, onNewQuote, onModifier }: { requestId: string; onNewQuote?: () => void; onModifier?: () => void }) {
   const [etat, setEtat] = useState<"repos" | "envoi" | "fait" | "echec">("repos");
 
   async function demander() {
@@ -410,6 +424,16 @@ function ActionsFin({ requestId, onNewQuote }: { requestId: string; onNewQuote?:
           <Icone nom="tel" taille={15} />
           {AGENCE.numero}
         </a>
+        {onModifier && (
+          <button
+            type="button"
+            onClick={onModifier}
+            className="inline-flex h-12 items-center gap-2 rounded-full border border-line-strong px-5 text-[14px] font-semibold transition hover:border-ink"
+          >
+            <Icone nom="crayon" taille={15} />
+            Modifier ma demande
+          </button>
+        )}
         {onNewQuote && (
           <button
             onClick={onNewQuote}

@@ -428,6 +428,8 @@ function ExpressForm({
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** La demande déjà envoyée, que « Modifier ma demande » met à jour au lieu d'en créer une autre. */
+  const [modif, setModif] = useState<Modif>(null);
   // L'écran d'envoi remplace le formulaire : on le montre par le haut.
   useEffect(() => { if (submitting) remonter(); }, [submitting]);
   const [departCoord, setDepartCoord] = useState<Place | null>(null);
@@ -517,9 +519,7 @@ function ExpressForm({
       const volumePayload = volMode === "ai"
         ? { method: "ai" as const, photos: f.photos }
         : { method: "explicit" as const, volume_m3: volume ?? 0 };
-      const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await envoyerOuModifier({
           client: { nom: f.nom, email: f.email, tel: f.tel || undefined },
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
           arrivee: { ville: f.arriveeVille || undefined },
@@ -533,13 +533,13 @@ function ExpressForm({
             ...(volMode === "logement" ? { repere_logement: { type: f.repere.type, resume: f.repere.type } } : {}),
           } as unknown as Record<string, unknown>,
           espace: espace?.slug, espace_code: espace?.code,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+        }, modif);
       await pause; // sans prix à calculer, l'écran d'envoi reste le temps d'être vu
+      if (data.modification) setModif({ id: data.id, jeton: data.modification });
       setDone(data.id);
     } catch (e) {
+      // Une modification refusée (délai passé, demande reprise par l'équipe) : le prochain envoi fera une nouvelle demande.
+      if (modif) setModif(null);
       setError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally { setSubmitting(false); }
   }
@@ -549,7 +549,8 @@ function ExpressForm({
   if (done || submitting) {
     return affichePrix ? (
       <InstantResult requestId={done} volume={volume} count={doneCount} theme={theme} marque={marque}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); remonter(); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); remonter(); }}
+        onModifier={modif ? () => { setDone(null); remonter(); } : undefined}
       />
     ) : !done ? (
       <Envoi theme={theme} marque={marque} />
@@ -575,7 +576,7 @@ function ExpressForm({
           base={{ nom: f.nom, email: f.email, tel: f.tel, departVille: f.departVille, departCP: f.departCP, arriveeVille: f.arriveeVille, date: f.date }}
           initial={{ volume: f.explicitVolume, distance: distanceKm != null ? String(distanceKm) : "" }}
           onClose={() => setCompare(false)}
-          onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
+          onDone={(count, firstId) => { setCompare(false); setModif(null); setDoneCount(count); setDone(firstId); }}
         />
       )}
       <Cadre
@@ -615,7 +616,7 @@ function ExpressForm({
               )}
             </div>
             <Bouton onClick={submit} disabled={manque !== null || submitting}>
-              {submitting ? "Envoi…" : espace && !espace.afficher_estimation ? "Envoyer ma demande" : "Obtenir mon estimation"}
+              {submitting ? "Envoi…" : modif ? "Mettre à jour mon estimation" : espace && !espace.afficher_estimation ? "Envoyer ma demande" : "Obtenir mon estimation"}
             </Bouton>
           </>
         }
@@ -763,6 +764,8 @@ function CompleteForm({
   const [compare, setCompare] = useState(false);
   const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** La demande déjà envoyée, que « Modifier ma demande » met à jour au lieu d'en créer une autre. */
+  const [modif, setModif] = useState<Modif>(null);
 
   const totalVolume = useMemo(() => computeVolume(form), [form]);
 
@@ -877,14 +880,13 @@ function CompleteForm({
     setError(null);
     const pause = new Promise((r) => setTimeout(r, affichePrix ? 0 : 900));
     try {
-      const res = await fetch("/api/requests", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug, espace_code: espace?.code }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+      const data = await envoyerOuModifier({ ...buildPayload(form), distance_km: distanceKm ?? undefined, espace: espace?.slug, espace_code: espace?.code }, modif);
       await pause; // sans prix à calculer, l'écran d'envoi reste le temps d'être vu
+      if (data.modification) setModif({ id: data.id, jeton: data.modification });
       setDone(data.id);
     } catch (e) {
+      // Une modification refusée (délai passé, demande reprise par l'équipe) : le prochain envoi fera une nouvelle demande.
+      if (modif) setModif(null);
       setError(e instanceof Error ? e.message : "Erreur inconnue");
     } finally { setSubmitting(false); }
   }
@@ -894,7 +896,8 @@ function CompleteForm({
   if (done || submitting) {
     return affichePrix ? (
       <InstantResult requestId={done} volume={totalVolume} count={doneCount} theme={theme} marque={marque}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setForm(initial); setStep(0); setTrajet(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setForm(initial); setStep(0); setTrajet(null); }}
+        onModifier={modif ? () => { setDone(null); remonter(); } : undefined}
       />
     ) : !done ? (
       <Envoi theme={theme} marque={marque} />
@@ -929,7 +932,7 @@ function CompleteForm({
             montage: form.prestations.demontage === "bailly",
           }}
           onClose={() => setCompare(false)}
-          onDone={(count, firstId) => { setCompare(false); setDoneCount(count); setDone(firstId); }}
+          onDone={(count, firstId) => { setCompare(false); setModif(null); setDoneCount(count); setDone(firstId); }}
         />
       )}
       <Cadre
@@ -991,7 +994,7 @@ function CompleteForm({
               )}
             </div>
             {derniere ? (
-              <Bouton onClick={submit} disabled={submitting}>{submitting ? "Envoi…" : "Envoyer ma demande"}</Bouton>
+              <Bouton onClick={submit} disabled={submitting}>{submitting ? "Envoi…" : modif ? "Mettre à jour ma demande" : "Envoyer ma demande"}</Bouton>
             ) : (
               <Bouton
                 onClick={() => {
@@ -1979,6 +1982,23 @@ function annonceDefauts(etape: EtapeCle, form: FormState, masque: Masque): strin
   return n === 1
     ? "1 question sans réponse : la valeur par défaut sera retenue."
     : `${n} questions sans réponse : les valeurs par défaut seront retenues.`;
+}
+
+/**
+ * Envoie la demande — ou, si le client vient de « Modifier ma demande »
+ * depuis son estimation, met à jour la même (PUT, avec le jeton reçu à la
+ * création) : pas de seconde demande, donc pas de doublon dans le CRM.
+ */
+type Modif = { id: string; jeton: string } | null;
+async function envoyerOuModifier(corps: unknown, modif: Modif): Promise<{ id: string; modification: string | null }> {
+  const res = await fetch(modif ? `/api/requests/${modif.id}` : "/api/requests", {
+    method: modif ? "PUT" : "POST",
+    headers: { "Content-Type": "application/json", ...(modif ? { "x-jeton-modification": modif.jeton } : {}) },
+    body: JSON.stringify(corps),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error ?? "Envoi impossible");
+  return { id: data.id as string, modification: (data.modification as string | null | undefined) ?? null };
 }
 
 function buildPayload(form: FormState) {

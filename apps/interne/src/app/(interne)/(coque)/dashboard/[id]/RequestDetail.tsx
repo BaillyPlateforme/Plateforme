@@ -218,7 +218,7 @@ function InfosTab({ detail, araignee, creagidem }: { detail: Detail; araignee: A
             />
           </dl>
         </Card>
-        <CarteCreagidem requestId={r.id} etat={creagidem} />
+        <CarteCreagidem requestId={r.id} etat={creagidem} modifieeLe={detail.events.filter((e) => e.type === "modified").map((e) => e.created_at).sort().at(-1) ?? null} />
       </div>
 
       {/* Évaluation automatique (lecture seule) + notes */}
@@ -631,7 +631,7 @@ const STATUT_CREAGIDEM: Record<EvenementCreagidem["statut"], { libelle: string; 
  * telle qu'elle part, et « Envoyer dans Créagidem ». Hors production, le
  * garde-fou le dit : rien ne part, la fiche est seulement préparée.
  */
-function CarteCreagidem({ requestId, etat }: { requestId: string; etat: EtatCreagidem }) {
+function CarteCreagidem({ requestId, etat, modifieeLe }: { requestId: string; etat: EtatCreagidem; modifieeLe: string | null }) {
   const d = etat.dernier;
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -654,6 +654,11 @@ function CarteCreagidem({ requestId, etat }: { requestId: string; etat: EtatCrea
           )}
         </div>
         {d?.motif && <p className="text-ink-soft">{d.motif}</p>}
+        {d?.statut === "envoyee" && modifieeLe && modifieeLe > d.le && (
+          <p className="rounded-xl bg-warn-soft px-3 py-2 text-xs font-medium text-warn">
+            Le client a modifié sa demande après l&apos;envoi : la fiche de Créagidem n&apos;est plus à jour. « Renvoyer dans Créagidem » crée une seconde fiche.
+          </p>
+        )}
         {d?.statut === "echec" && d.reponse && <p className="text-xs text-danger">Réponse de Créagidem : {d.reponse}</p>}
         {!etat.envoie && etat.motif && (!d || d.motif !== etat.motif) && <p className="text-ink-soft">{etat.motif}</p>}
         <div className="flex flex-wrap items-center gap-3">
@@ -688,16 +693,17 @@ function CarteCreagidem({ requestId, etat }: { requestId: string; etat: EtatCrea
 
 function TimelineTab({ detail }: { detail: Detail }) {
   // Les envois email/SMS ont leur propre onglet « Messages ».
-  const events = detail.events.filter((e) => e.type !== "message");
+  const events = detail.events.filter((e) => e.type !== "message" && e.type !== "jeton_modification");
   if (events.length === 0)
     return <div className="text-sm text-ink-soft">Aucun événement.</div>;
   return (
     <div className="relative space-y-4 pl-6">
       <div className="absolute inset-y-1 left-[7px] w-px bg-line" />
       {events.map((e) => {
-        const p = (e.payload ?? {}) as { manque?: string[]; rempli?: { champ: string; valeur: string }[] };
+        const p = (e.payload ?? {}) as { manque?: string[]; rempli?: { champ: string; valeur: string }[]; changes?: { champ: string; avant: string; apres: string }[] };
         const incomplete = e.type === "incomplete";
         const completed = e.type === "completed";
+        const modifiee = e.type === "modified";
         return (
           <div key={e.id} className="relative">
             <div className={`absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border-2 bg-card ${incomplete ? "border-warn/60" : completed ? "border-good" : "border-accent"}`} />
@@ -708,6 +714,20 @@ function TimelineTab({ detail }: { detail: Detail }) {
                 {p.manque.map((m) => (
                   <span key={m} className="rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">manque : {m}</span>
                 ))}
+              </div>
+            )}
+
+            {modifiee && (
+              <div className="mt-1 space-y-0.5 text-xs">
+                {Array.isArray(p.changes) && p.changes.length > 0 ? (
+                  p.changes.map((c, i) => (
+                    <div key={i} className="text-ink-soft">
+                      {c.champ} : <span className="line-through">{c.avant}</span> → <span className="text-ink">{c.apres}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-ink-soft">Renvoyée sans changement des informations principales.</div>
+                )}
               </div>
             )}
 
@@ -746,6 +766,7 @@ function eventLabel(type: string): string {
     rappel: "Demande de rappel",
     analysis: "Analyse de la demande",
     creagidem: "Créagidem",
+    modified: "Modifiée par le client depuis son estimation",
   };
   return map[type] ?? type;
 }

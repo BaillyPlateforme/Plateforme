@@ -145,7 +145,7 @@ export const SOURCES: Source[] = [
       concat_ws(' ', r.client_nom, r.depart_ville, r.arrivee_ville),
       jsonb_build_object('type', e.type, 'p', e.payload - 'lines' - 'note', 'note', e.payload ? 'note' and coalesce(e.payload->>'note', '') <> '')
     from public.request_events e left join public.requests r on r.id = e.request_id
-    where e.type not in ('message', 'created')`,
+    where e.type not in ('message', 'created', 'jeton_modification')`,
   },
   // ── Les envois : le journal unifié (public.envois), la source de référence. Les messages de
   // l'espace client y sont reliés par notification_id : ils se lisent depuis ec_notifications.

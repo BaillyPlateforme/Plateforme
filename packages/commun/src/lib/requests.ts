@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
@@ -12,7 +12,7 @@ import { transmettreACreagidem } from "@/lib/creagidem";
 import { creerRappel } from "@/lib/rappels";
 import { SANS_PRIX, parcoursDeLaDemande } from "@/lib/parcours";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
-import type { RequestRow, RequestSource } from "@/lib/types";
+import type { RequestRow, RequestSource, RequestStatus } from "@/lib/types";
 
 type ResolvedVolume = {
   volume_m3: number | null;
@@ -46,19 +46,37 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-/**
- * Crée une demande. Chemin unique pour le formulaire ET pour n8n (mail).
- *
- * Rend la demande dès qu'elle est enregistrée, et `suite` : le chiffrage, le
- * devis et les messages, à lancer une fois la réponse envoyée.
- */
-export async function createRequest(
-  input: CreateRequestInput,
-  source: RequestSource,
-): Promise<{ demande: RequestRow; suite: () => Promise<void> }> {
+/** Les meubles (volume par liste) et les photos analysées (volume par photos) d'une demande. */
+async function ecrireMeublesEtPhotos(requestId: string, items: ItemInput[], photos: AnalyzedPhotoInput[]) {
   const supabase = createServiceClient();
-  const { volume_m3, volume_method, items, photos } = resolveVolume(input.volume);
+  const [meubles, cliches] = await Promise.all([
+    items.length > 0
+      ? supabase.from("request_items").insert(
+          items.map((it) => ({ request_id: requestId, label: it.label, quantite: it.quantite, volume_unitaire_m3: it.volume_unitaire_m3 })),
+        )
+      : null,
+    photos.length > 0
+      ? supabase.from("request_photos").insert(
+          photos.map((p) => ({
+            request_id: requestId,
+            storage_path: p.storage_path,
+            piece: p.piece,
+            ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 },
+            volume_m3: p.volume_m3,
+          })),
+        )
+      : null,
+  ]);
+  if (meubles?.error) throw new Error(`Insertion des items échouée : ${meubles.error.message}`);
+  if (cliches?.error) throw new Error(`Insertion des photos échouée : ${cliches.error.message}`);
+}
 
+/**
+ * Les colonnes d'une demande, d'après ce que le formulaire a envoyé : la même
+ * règle à la création et à la modification par le client (modifierDemande).
+ */
+async function preparerDemande(input: CreateRequestInput) {
+  const { volume_m3, volume_method, items, photos } = resolveVolume(input.volume);
   // L'espace pro. Le formulaire n'envoie que son lien : ses réglages sont
   // relus ici, jamais crus sur parole — la cote sur le volume ne doit pas
   // pouvoir être choisie par celui qui remplit. Ils sont figés dans la
@@ -78,9 +96,7 @@ export async function createRequest(
   }
   const formule = espace?.actif && espace.formule_imposee ? espace.formule_imposee : input.formule;
 
-  const insert: Partial<RequestRow> & Pick<RequestRow, "source"> = {
-    source,
-    status: "new",
+  const colonnes: Partial<RequestRow> = {
     client_nom: input.client.nom,
     client_email: input.client.email,
     client_tel: input.client.tel ?? null,
@@ -110,6 +126,25 @@ export async function createRequest(
     raw_payload: charge,
   };
 
+  return { colonnes, items, photos };
+}
+
+/**
+ * Crée une demande. Chemin unique pour le formulaire ET pour n8n (mail).
+ *
+ * Rend la demande dès qu'elle est enregistrée, et `suite` : le chiffrage, le
+ * devis et les messages, à lancer une fois la réponse envoyée ; et, pour
+ * une demande du formulaire, le jeton qui permet au client de la modifier
+ * depuis l'écran de son estimation (modifierDemande).
+ */
+export async function createRequest(
+  input: CreateRequestInput,
+  source: RequestSource,
+): Promise<{ demande: RequestRow; suite: () => Promise<void>; jetonModification: string | null }> {
+  const supabase = createServiceClient();
+  const { colonnes, items, photos } = await preparerDemande(input);
+  const insert: Partial<RequestRow> & Pick<RequestRow, "source"> = { source, status: "new", ...colonnes };
+
   const { data: request, error } = await supabase
     .from("requests")
     .insert(insert)
@@ -123,32 +158,10 @@ export async function createRequest(
 
   // Les meubles, les photos et la trace de création ne dépendent pas les uns
   // des autres : ils s'écrivent ensemble, pas l'un après l'autre.
-  const [meubles, cliches] = await Promise.all([
-    items.length > 0
-      ? supabase.from("request_items").insert(
-          items.map((it) => ({
-            request_id: created.id,
-            label: it.label,
-            quantite: it.quantite,
-            volume_unitaire_m3: it.volume_unitaire_m3,
-          })),
-        )
-      : null,
-    photos.length > 0
-      ? supabase.from("request_photos").insert(
-          photos.map((p) => ({
-            request_id: created.id,
-            storage_path: p.storage_path,
-            piece: p.piece,
-            ai_analysis: { piece: p.piece, objets: p.objets, volume_m3: p.volume_m3 },
-            volume_m3: p.volume_m3,
-          })),
-        )
-      : null,
+  await Promise.all([
+    ecrireMeublesEtPhotos(created.id, items, photos),
     supabase.from("request_events").insert({ request_id: created.id, type: "created", payload: { source } }),
   ]);
-  if (meubles?.error) throw new Error(`Insertion des items échouée : ${meubles.error.message}`);
-  if (cliches?.error) throw new Error(`Insertion des photos échouée : ${cliches.error.message}`);
 
   // Les parcours sans prix — la mutation, l'entreprise — ne demandent pas de
   // volume : une visite ou une visio suit toujours. Leur en réclamer un par
@@ -247,7 +260,129 @@ export async function createRequest(
     }
   };
 
-  return { demande: created, suite };
+  // Le jeton de modification : le client corrige sa demande depuis l'écran de son estimation.
+  const jetonModification = source === "form" ? await emettreJetonModification(created.id) : null;
+
+  return { demande: created, suite, jetonModification };
+}
+
+/* ---------- Modifier sa demande, depuis l'écran de l'estimation ---------- */
+
+/*
+ * Le client qui voit son estimation peut revenir à son formulaire, déjà
+ * rempli, et le renvoyer corrigé (retour de Christian, 11/11/2026). La
+ * correction met à jour LA MÊME demande — pas une seconde, qui serait un
+ * doublon dans le CRM et dans Créagidem :
+ *   - le jeton, remis au navigateur qui a créé la demande et à lui seul,
+ *     n'est gardé que par son empreinte (request_events « jeton_modification »)
+ *     et vaut deux heures ;
+ *   - une demande que l'équipe a déjà reprise (devis envoyé, dossier ouvert,
+ *     perdue, archivée) ne se modifie plus : le client appelle son conseiller ;
+ *   - l'estimation brouillon est remplacée, et la suite rejouée comme à la
+ *     création (chiffrage, messages au client). Une fiche Créagidem déjà
+ *     envoyée ne repart pas d'elle-même : la page de la demande le signale.
+ */
+const DUREE_JETON_MODIFICATION_MS = 2 * 60 * 60 * 1000;
+const empreinteJeton = (jeton: string) => createHash("sha256").update(jeton).digest("hex");
+
+async function emettreJetonModification(requestId: string): Promise<string | null> {
+  const jeton = randomBytes(24).toString("base64url");
+  const { error } = await createServiceClient()
+    .from("request_events")
+    .insert({ request_id: requestId, type: "jeton_modification", payload: { empreinte: empreinteJeton(jeton), expire: new Date(Date.now() + DUREE_JETON_MODIFICATION_MS).toISOString() } });
+  return error ? null : jeton;
+}
+
+/** Les statuts d'une demande que l'équipe n'a pas encore reprise. */
+const MODIFIABLE: RequestStatus[] = ["new", "analyzing", "qualified"];
+
+export class ModificationRefusee extends Error {}
+
+export async function modifierDemande(
+  requestId: string,
+  jeton: string,
+  input: CreateRequestInput,
+): Promise<{ demande: RequestRow; suite: () => Promise<void> }> {
+  const supabase = createServiceClient();
+  if (!/^[A-Za-z0-9_-]{20,64}$/.test(jeton)) throw new ModificationRefusee("Lien de modification invalide.");
+  const { data: avant } = await supabase.from("requests").select("*").eq("id", requestId).maybeSingle();
+  if (!avant) throw new ModificationRefusee("Demande introuvable.");
+  const { data: jetons } = await supabase.from("request_events").select("payload").eq("request_id", requestId).eq("type", "jeton_modification");
+  const empreinte = empreinteJeton(jeton);
+  const valide = (jetons ?? []).some((e) => {
+    const p = e.payload as { empreinte?: string; expire?: string };
+    return p.empreinte === empreinte && !!p.expire && Date.parse(p.expire) > Date.now();
+  });
+  if (!valide) throw new ModificationRefusee("Le délai pour modifier cette demande est passé : faites une nouvelle demande, ou appelez votre conseiller.");
+  const demandeAvant = avant as RequestRow;
+  const { data: devisEnvoyes } = await supabase.from("devis").select("id").eq("request_id", requestId).neq("status", "brouillon").limit(1);
+  if (!MODIFIABLE.includes(demandeAvant.status) || (devisEnvoyes ?? []).length > 0) {
+    throw new ModificationRefusee("Votre conseiller a déjà pris votre demande en main : appelez-le pour la modifier.");
+  }
+
+  const { colonnes, items, photos } = await preparerDemande(input);
+  // On ne garde que ce que le formulaire peut changer ; le client et le canal restent.
+  const complete = colonnes.volume_m3 != null && !!colonnes.depart_ville && !!colonnes.arrivee_ville;
+  if (!complete) throw new ModificationRefusee("Il manque le volume ou une ville : complétez le formulaire.");
+
+  const { data: maj, error } = await supabase
+    .from("requests")
+    .update({ ...colonnes, status: "new", estimation_prix: null, score_potentiel: null, score_difficulte: null, completion_token: null })
+    .eq("id", requestId)
+    .select()
+    .single();
+  if (error || !maj) throw new Error(`Modification de la demande échouée : ${error?.message ?? "aucune ligne"}`);
+  const demande = maj as RequestRow;
+
+  // Les meubles et les photos : ceux de la version renvoyée. L'estimation brouillon : remplacée par la suite.
+  await Promise.all([
+    supabase.from("request_items").delete().eq("request_id", requestId),
+    supabase.from("request_photos").delete().eq("request_id", requestId),
+    supabase.from("devis").delete().eq("request_id", requestId).eq("status", "brouillon"),
+  ]);
+  await ecrireMeublesEtPhotos(requestId, items, photos);
+
+  // Ce qui a changé, pour l'équipe (onglet Historique de la demande).
+  const LIBELLES: [keyof RequestRow, string][] = [
+    ["client_nom", "Nom"], ["client_email", "E-mail"], ["client_tel", "Téléphone"],
+    ["depart_ville", "Ville de départ"], ["depart_code_postal", "Code postal de départ"], ["depart_adresse", "Adresse de départ"],
+    ["arrivee_ville", "Ville d'arrivée"], ["arrivee_code_postal", "Code postal d'arrivée"], ["arrivee_adresse", "Adresse d'arrivée"],
+    ["depart_etage", "Étage au départ"], ["arrivee_etage", "Étage à l'arrivée"], ["date_souhaitee", "Date souhaitée"], ["flexibilite", "Période"],
+    ["volume_m3", "Volume"], ["formule", "Formule"], ["distance_km", "Distance"],
+  ];
+  const texte = (v: unknown) => (v == null || v === "" ? "—" : String(v));
+  const changes = LIBELLES.filter(([k]) => texte(demandeAvant[k]) !== texte(demande[k])).map(([k, l]) => ({ champ: l, avant: texte(demandeAvant[k]), apres: texte(demande[k]) }));
+  await supabase.from("request_events").insert({ request_id: requestId, type: "modified", payload: { par: "client", changes } });
+
+  const suite = async () => {
+    const creagidem = demande.source === "form" ? transmettreACreagidem(demande.id) : null;
+    try {
+      let echec: unknown = null;
+      try {
+        await qualifyRequest(demande.id);
+      } catch (e) {
+        echec = e;
+      }
+      // Le client reçoit sa nouvelle estimation, comme à la création.
+      await fireEvent("demande_complete", {
+        request_id: demande.id,
+        source: demande.source,
+        client_nom: demande.client_nom,
+        client_email: demande.client_email,
+        client_tel: demande.client_tel,
+        ...contexteDemande(demande),
+        lien_completion: "",
+        manque_volume: false,
+        manque_depart: false,
+        manque_arrivee: false,
+      });
+      if (echec) throw echec;
+    } finally {
+      await creagidem;
+    }
+  };
+
+  return { demande, suite };
 }
 
 import type { RequestPhotoRow, RequestItemRow, RequestEventRow, DevisRow } from "@/lib/types";

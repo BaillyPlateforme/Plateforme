@@ -34,7 +34,7 @@ export async function dernieresActivites(demandes: DemandeVue[]): Promise<Record
       `select distinct on (e.request_id) e.request_id::text as id, e.type, e.payload - 'lines' - 'note' as p,
               (e.payload ? 'note' and coalesce(e.payload->>'note', '') <> '') as note, e.created_at
          from public.request_events e
-        where e.request_id = any($1::uuid[]) and e.type not in ('created', 'message')
+        where e.request_id = any($1::uuid[]) and e.type not in ('created', 'message', 'jeton_modification')
         order by e.request_id, e.created_at desc`,
       [ids],
     ),
