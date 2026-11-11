@@ -88,7 +88,7 @@ function PortesParticulier({ onChoisir, d = 0 }: { onChoisir: (c: Choix) => void
         icone="eclair"
         duree="≈ 2 minutes"
         titre="Devis express"
-        desc="Une estimation rapide, sans détour. De quoi savoir tout de suite à quoi vous en tenir."
+        desc="Une estimation rapide et sans détour, qui vous permet de budgéter votre déménagement."
         points={["Vos coordonnées", "Votre trajet", "Volume : saisie, photos ou logement"]}
         cta="Commencer le devis express"
       />
@@ -163,7 +163,7 @@ function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Port
         icone="immeuble"
         badge="Rappel rapide"
         qui="Vous déménagez votre entreprise"
-        desc="Quelques postes ou tout un site : décrivez votre projet, un conseiller vous recontacte rapidement."
+        desc="Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures."
         cta="Je déménage mon entreprise"
         onClick={() => onOuvrir("entreprise")}
       />
@@ -173,7 +173,7 @@ function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Port
         icone="route"
         badge="Visite ou visio"
         qui="Vous êtes muté(e)"
-        desc="Décrivez votre déménagement : votre conseiller organise la visite avec vous, selon l'accord de votre entreprise."
+        desc="Votre conseiller organise la visite (en visio ou en physique), selon les accords avec votre entreprise."
         cta="Je suis muté(e)"
         onClick={() => onChoisir({ parcours: "mutation" })}
       />
@@ -234,7 +234,7 @@ function ChoixIntegre(portes: Portes) {
               Déménagez votre <span className="gradient-text">entreprise</span>
             </>
           ),
-          texte: "Quelques postes ou tout un site : décrivez votre projet, un conseiller vous recontacte rapidement.",
+          texte: "Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures.",
         }
       : {
           eyebrow: "Votre devis en ligne",

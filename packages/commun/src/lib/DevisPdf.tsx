@@ -127,9 +127,10 @@ const s = StyleSheet.create({
   ttcVal: { color: C.blanc, fontSize: 14, fontWeight: 900, textAlign: "right" },
 
   /* Mentions */
-  mentions: { marginTop: 14, backgroundColor: C.creme, borderRadius: 11, padding: 12, borderLeftWidth: 3, borderLeftColor: C.jaune },
-  mentionTitre: { fontSize: 9.5, fontWeight: 700, marginBottom: 5 },
-  mention: { fontSize: 8, color: "#5b5750", lineHeight: 1.45, marginBottom: 2 },
+  // « Ce qu'il faut savoir » : lisible, pas en petits caractères (retour de Christian, 11/11/2026 : « on n'a rien à cacher »).
+  mentions: { marginTop: 14, backgroundColor: C.creme, borderRadius: 11, padding: 15, borderLeftWidth: 3, borderLeftColor: C.jaune },
+  mentionTitre: { fontSize: 12, fontWeight: 700, marginBottom: 7 },
+  mention: { fontSize: 10, color: "#3f3c36", lineHeight: 1.5, marginBottom: 3 },
 
   /* Le bouton de rappel */
   rappel: { flex: 1, marginRight: 22, alignItems: "flex-start" },
@@ -412,7 +413,7 @@ export function DevisPdf({
           </View>
 
           {settings.signature_email ? (
-            <Text style={[s.mention, { marginTop: 14, color: C.gris }]}>{settings.signature_email}</Text>
+            <Text style={[s.mention, { marginTop: 14, color: C.gris, fontSize: 8 }]}>{settings.signature_email}</Text>
           ) : null}
         </View>
 
