@@ -84,6 +84,7 @@ export interface EvenementCreagidem {
   http?: number | null;
 }
 
+/** Un appel à l'API. La réponse est rendue entière : celle de l'authentification porte deux jetons. */
 async function appeler(url: string, corps: unknown, jeton?: string): Promise<{ http: number; texte: string }> {
   const r = await fetch(url, {
     method: "POST",
@@ -91,27 +92,58 @@ async function appeler(url: string, corps: unknown, jeton?: string): Promise<{ h
     body: JSON.stringify(corps),
     signal: AbortSignal.timeout(DELAI_MS),
   });
-  return { http: r.status, texte: (await r.text().catch(() => "")).slice(0, 1000) };
+  return { http: r.status, texte: await r.text().catch(() => "") };
 }
 
-/** L'envoi lui-même : authentification, puis import de la fiche. Seul reglageCreagidem() y mène. */
-async function envoyer(fiche: FicheCreagidem): Promise<{ ok: boolean; http: number | null; reponse: string }> {
-  const base = lire(process.env, "CREAGIDEM_URL").replace(/\/$/, "");
+/*
+ * Le jeton d'accès, gardé tant qu'il vaut. Créagidem compte chaque appel
+ * (10 par minute, 50 par jour pour l'accès de Bailly, constaté le 12/11/2026) :
+ * s'authentifier à chaque fiche en coûterait deux. Le jeton vit deux heures ;
+ * on le garde jusqu'à cinq minutes de sa fin. Rangé sur globalThis, comme les
+ * espaces pro : Next charge ce module plusieurs fois.
+ */
+type JetonGarde = { jeton: string; jusqua: number };
+const coffre = globalThis as typeof globalThis & { __jetonCreagidem?: JetonGarde | null };
+const MARGE_MS = 5 * 60_000;
+
+async function jetonCreagidem(base: string): Promise<{ jeton: string } | { erreur: string; http: number }> {
+  const garde = coffre.__jetonCreagidem;
+  if (garde && garde.jusqua - MARGE_MS > Date.now()) return { jeton: garde.jeton };
   const auth = await appeler(`${base}/api/v1/authentication`, {
     client_id: lire(process.env, "CREAGIDEM_CLIENT_ID"),
     private_key: lire(process.env, "CREAGIDEM_PRIVATE_KEY"),
     licence: lire(process.env, "CREAGIDEM_LICENCE"),
   });
-  let jeton: string | null = null;
+  if (auth.http !== 200 && auth.http !== 201) return { erreur: `Authentification refusée (HTTP ${auth.http}) : ${auth.texte.slice(0, 300)}`, http: auth.http };
+  let reponse: { access_token?: unknown; exp?: unknown } = {};
   try {
-    jeton = (JSON.parse(auth.texte) as { access_token?: string }).access_token ?? null;
+    reponse = JSON.parse(auth.texte);
   } catch {
-    jeton = null;
+    reponse = {};
   }
-  if (auth.http !== 200 && auth.http !== 201) return { ok: false, http: auth.http, reponse: `Authentification refusée (HTTP ${auth.http}).` };
-  if (!jeton) return { ok: false, http: auth.http, reponse: "Authentification sans jeton d'accès." };
-  const r = await appeler(`${base}/api/v1/importfiche`, { ...fiche, guid_licence: lire(process.env, "CREAGIDEM_GUID") }, jeton);
-  return { ok: r.http === 200 || r.http === 201, http: r.http, reponse: r.texte || `HTTP ${r.http}` };
+  if (typeof reponse.access_token !== "string" || !reponse.access_token) return { erreur: "Authentification sans jeton d'accès.", http: auth.http };
+  // `exp` est en secondes ; sans lui, une heure par prudence.
+  const jusqua = typeof reponse.exp === "number" && reponse.exp > 0 ? reponse.exp * 1000 : Date.now() + 60 * 60_000;
+  coffre.__jetonCreagidem = { jeton: reponse.access_token, jusqua };
+  return { jeton: reponse.access_token };
+}
+
+/** L'envoi lui-même : jeton d'accès, puis import de la fiche. Seul reglageCreagidem() y mène. */
+async function envoyer(fiche: FicheCreagidem): Promise<{ ok: boolean; http: number | null; reponse: string }> {
+  const base = lire(process.env, "CREAGIDEM_URL").replace(/\/$/, "");
+  const corps = { ...fiche, guid_licence: lire(process.env, "CREAGIDEM_GUID") };
+  for (let essai = 0; essai < 2; essai++) {
+    const acces = await jetonCreagidem(base);
+    if ("erreur" in acces) return { ok: false, http: acces.http, reponse: acces.erreur };
+    const r = await appeler(`${base}/api/v1/importfiche`, corps, acces.jeton);
+    // Jeton refusé (révoqué, horloge décalée) : on l'oublie et on en redemande un, une fois.
+    if ((r.http === 401 || r.http === 403) && essai === 0) {
+      coffre.__jetonCreagidem = null;
+      continue;
+    }
+    return { ok: r.http === 200 || r.http === 201, http: r.http, reponse: (r.texte || `HTTP ${r.http}`).slice(0, 1000) };
+  }
+  return { ok: false, http: null, reponse: "Jeton refusé deux fois." };
 }
 
 /** Le dernier passage d'une demande par Créagidem, s'il y en a eu un. */
