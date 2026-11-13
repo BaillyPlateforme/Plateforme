@@ -18,8 +18,9 @@ export async function POST(req: Request) {
 
   const parsed = createRequestSchema.safeParse(body);
   if (!parsed.success) {
+    const premier = parsed.error.issues.find((i) => i.message && !/^(Invalid|Required|Expected)/.test(i.message))?.message;
     return NextResponse.json(
-      { error: "Validation échouée", details: parsed.error.flatten() },
+      { error: premier ?? "Validation échouée", details: parsed.error.flatten() },
       { status: 422 },
     );
   }

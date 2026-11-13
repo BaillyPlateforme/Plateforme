@@ -19,7 +19,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
   }
   const parsed = createRequestSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Validation échouée", details: parsed.error.flatten() }, { status: 422 });
+  if (!parsed.success) {
+    const premier = parsed.error.issues.find((i) => i.message && !/^(Invalid|Required|Expected)/.test(i.message))?.message;
+    return NextResponse.json({ error: premier ?? "Validation échouée", details: parsed.error.flatten() }, { status: 422 });
+  }
   const refus = reserver([{ cle: `modification:ip:${adresseIp(req.headers)}`, fenetres: fenetres("MODIFICATIONS", { minute: 5, heure: 20, jour: 40 }) }]);
   if (refus) return reponseTropDeDemandes(refus, "Votre demande vient déjà d'être modifiée plusieurs fois.");
   try {
