@@ -8,9 +8,23 @@ import type { NextConfig } from "next";
  */
 const racine = path.resolve(process.cwd(), "..", "..");
 
+/**
+ * L'espace de l'équipe vivait sur ce domaine avant la séparation des deux
+ * apps : ses anciennes adresses (favoris, vieux e-mails) mènent à l'interne.
+ */
+const interne = (process.env.NEXT_PUBLIC_URL_INTERNE || "").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
+  async redirects() {
+    if (!interne) return [];
+    return ["/dashboard", "/dashboard/:chemin*", "/login"].map((source) => ({
+      source,
+      destination: `${interne}${source}`,
+      permanent: false,
+    }));
+  },
   experimental: {
     /**
      * Cache de routeur côté client.
