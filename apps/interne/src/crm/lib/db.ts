@@ -102,7 +102,9 @@ async function preparer(pool: Pool) {
     const [{ schema }] = (await c.query<{ schema: string | null }>("select current_schema() as schema")).rows;
     if (schema !== "crm") throw new Error(`BaillyCRM : schéma courant inattendu (${schema ?? "aucun"}), rien n'a été semé.`);
     const [{ n }] = (await c.query<{ n: number }>("select count(*)::int as n from utilisateurs")).rows;
-    if (n === 0) await seed(surClient(c));
+    // Jamais en production : une base de prod vide doit le rester, sans clients ni dossiers fictifs.
+    // Les utilisateurs du CRM y naissent à la première visite de chacun (auth.ts).
+    if (n === 0 && process.env.RAILWAY_ENVIRONMENT_NAME !== "production") await seed(surClient(c));
     await c.query("commit");
   } catch (e) {
     await c.query("rollback").catch(() => {});
