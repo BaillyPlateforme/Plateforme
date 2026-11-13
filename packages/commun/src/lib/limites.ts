@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /*
  * Les limites de débit des portes publiques (audit de sécurité du 13/11/2026).
@@ -79,6 +80,27 @@ export function reserver(demandes: { cle: string; poids?: number; fenetres: Fene
   demandes.forEach((d, i) => m.set(d.cle, [...listes[i], { t: maintenant, n: d.poids ?? 1 }]));
   if (m.size > 20_000) for (const [cle, l] of m) if (!l.length || l[l.length - 1].t < maintenant - JOUR) m.delete(cle);
   return null;
+}
+
+/**
+ * Un plafond du JOUR CALENDAIRE (heure de Paris), quelle que soit l'adresse du
+ * visiteur, tenu en base (public.compteurs_jour, migration 0020) : il résiste
+ * aux redémarrages du serveur. Ajoute `poids` si le total reste sous `max` et
+ * dit si c'est réservé. La base injoignable : le même plafond, en mémoire.
+ */
+export async function reserverDuJour(cle: string, poids: number, max: number): Promise<Refus | null> {
+  const refus = (): Refus => {
+    const minuit = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+    minuit.setHours(24, 0, 0, 0);
+    const maintenantParis = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+    return { cle, fenetre: "jour", dans: Math.max(60, Math.ceil((minuit.getTime() - maintenantParis.getTime()) / 1000)) };
+  };
+  const { data, error } = await createServiceClient().rpc("reserver_compteur_jour", { p_cle: cle, p_n: poids, p_max: max });
+  if (error) {
+    console.error(`[limites] compteur du jour « ${cle} » illisible, plafond tenu en mémoire :`, error.message);
+    return reserver([{ cle: `jour:${cle}`, poids, fenetres: fenetreJour(max) }]) ? refus() : null;
+  }
+  return data === true ? null : refus();
 }
 
 /** « dans 3 minutes », « dans 2 heures », « demain ». */

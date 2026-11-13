@@ -8,7 +8,7 @@ import type { AnalyzedPhotoInput } from "@/lib/schemas";
 import type { AiConfig } from "@/lib/ai-config";
 import type { GroupePieces } from "@/lib/volume-ai";
 import { listLibraryPhotos } from "@/lib/library";
-import { adresseIp, fenetreJour, fenetres, lireLimite, reponseTropDeDemandes, reserver } from "@/lib/limites";
+import { adresseIp, fenetres, lireLimite, reponseTropDeDemandes, reserver, reserverDuJour } from "@/lib/limites";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,22 +17,22 @@ const MAX_PHOTOS = 12;
 const MAX_BYTES = 15 * 1024 * 1024;
 
 /*
- * Chaque photo est un appel Gemini, payant : un plafond de photos par adresse
- * IP (par minute, par heure, par jour) et un plafond total du jour. Réglables
- * sans toucher au code : GEMINI_PHOTOS_PAR_MINUTE, GEMINI_PHOTOS_PAR_HEURE,
- * GEMINI_PHOTOS_PAR_JOUR (par adresse) et GEMINI_PHOTOS_PAR_JOUR_TOTAL.
- * Par défaut, de quoi photographier tout un logement (deux envois de 12 à la
- * suite), jamais de quoi faire tourner un robot.
+ * Chaque photo est un appel Gemini, payant (choix de David le 13/11/2026) :
+ *   - par adresse IP : 12 photos par minute (un envoi), 24 par heure, 24 par jour ;
+ *   - au total, quels que soient les visiteurs : 150 photos par jour calendaire,
+ *     compté en base (public.compteurs_jour) pour tenir aux redémarrages.
+ * Réglables sans toucher au code : GEMINI_PHOTOS_PAR_MINUTE, _PAR_HEURE,
+ * _PAR_JOUR (par adresse) et GEMINI_PHOTOS_PAR_JOUR_TOTAL. Le plafond atteint,
+ * le client peut toujours indiquer son volume ou décrire son logement.
  */
-function reserverPhotos(req: Request, nombre: number) {
-  const refus = reserver([
-    { cle: `gemini:ip:${adresseIp(req.headers)}`, poids: nombre, fenetres: fenetres("GEMINI_PHOTOS", { minute: 24, heure: 60, jour: 120 }) },
-    { cle: "gemini:total", poids: nombre, fenetres: fenetreJour(lireLimite("GEMINI_PHOTOS_PAR_JOUR_TOTAL", 1500)) },
-  ]);
+async function reserverPhotos(req: Request, nombre: number) {
+  const refus =
+    reserver([{ cle: `gemini:ip:${adresseIp(req.headers)}`, poids: nombre, fenetres: fenetres("GEMINI_PHOTOS", { minute: 12, heure: 24, jour: 24 }) }]) ??
+    (await reserverDuJour("gemini:photos", nombre, lireLimite("GEMINI_PHOTOS_PAR_JOUR_TOTAL", 150)));
   if (!refus) return null;
   return reponseTropDeDemandes(
     refus,
-    refus.cle === "gemini:total"
+    refus.cle === "gemini:photos"
       ? "L'analyse des photos est momentanément indisponible : vous pouvez indiquer votre volume ou décrire votre logement."
       : "Beaucoup de photos ont été analysées depuis votre connexion.",
   );
@@ -154,7 +154,7 @@ async function analyzeLibrary(req: Request) {
   if (paths.length > MAX_PHOTOS) {
     return NextResponse.json({ error: `Maximum ${MAX_PHOTOS} photos` }, { status: 422 });
   }
-  const refus = reserverPhotos(req, paths.length);
+  const refus = await reserverPhotos(req, paths.length);
   if (refus) return refus;
 
   const supabase = createServiceClient();
@@ -196,7 +196,7 @@ async function analyzeUpload(req: Request) {
       { status: 422 },
     );
   }
-  const refus = reserverPhotos(req, files.length);
+  const refus = await reserverPhotos(req, files.length);
   if (refus) return refus;
 
   const supabase = createServiceClient();

@@ -34,8 +34,8 @@ export async function POST(req: Request) {
   // _PAR_JOUR (par IP) et DEMANDES_PAR_EMAIL_PAR_JOUR.
   if (source === "form") {
     const refus = reserver([
-      { cle: `demande:ip:${adresseIp(req.headers)}`, fenetres: fenetres("DEMANDES", { minute: 5, heure: 15, jour: 30 }) },
-      { cle: `demande:email:${parsed.data.client.email.trim().toLowerCase()}`, fenetres: fenetreJour(lireLimite("DEMANDES_PAR_EMAIL_PAR_JOUR", 10)) },
+      { cle: `demande:ip:${adresseIp(req.headers)}`, fenetres: fenetres("DEMANDES", { minute: 2, heure: 5, jour: 5 }) },
+      { cle: `demande:email:${parsed.data.client.email.trim().toLowerCase()}`, fenetres: fenetreJour(lireLimite("DEMANDES_PAR_EMAIL_PAR_JOUR", 5)) },
     ]);
     if (refus) return reponseTropDeDemandes(refus, "Plusieurs demandes viennent déjà d'être envoyées.");
   }
