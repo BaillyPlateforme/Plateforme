@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { journaliserEquipe } from "@/lib/journal";
 import {
@@ -68,7 +68,8 @@ export async function addMember(input: { email: string; nom: string; role: strin
   if (refus) return { erreur: refus };
 
   const supabase = createServiceClient();
-  const tempPassword = `Bailly-${randomUUID().slice(0, 8)}`;
+  // 72 bits (12 caractères base64url) : l'ancien « Bailly- » + 8 chiffres hexadécimaux n'en faisait que 32.
+  const tempPassword = `Bailly-${randomBytes(9).toString("base64url")}`;
 
   const { data, error } = await supabase.auth.admin.createUser({
     email,

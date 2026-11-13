@@ -84,6 +84,8 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!login(?:/|$)|signature/|desabonnement/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|.*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
+    // Les fichiers statiques (images, polices) passent sans proxy, mais jamais sous /api/ : une route
+    // à segment libre (/api/data/espace-client/[[...chemin]]) répondait sinon sans session à « …/x.png ».
+    "/((?!login(?:/|$)|signature/|desabonnement/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|(?!api/).*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
   ],
 };

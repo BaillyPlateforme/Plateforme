@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/settings";
 import { checkBrevo } from "@/lib/brevo";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   try {
     const [settings, brevo] = await Promise.all([getSettings(), checkBrevo()]);
     return NextResponse.json({ settings, brevo });

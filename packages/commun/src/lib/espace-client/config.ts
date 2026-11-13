@@ -105,6 +105,9 @@ export function cle(usage: string): Buffer {
 export async function adressePublique(): Promise<string> {
   const env = process.env.ESPACE_CLIENT_URL || URL_EXTERNE;
   if (env) return env.replace(/\/$/, "");
+  // En production, jamais l'hôte de la requête : un visiteur peut l'écrire lui-même (X-Forwarded-Host)
+  // et faire pointer le lien magique d'un client vers son propre site.
+  if (process.env.NODE_ENV === "production") throw new Error("ESPACE_CLIENT_URL ou NEXT_PUBLIC_URL_EXTERNE manquant : aucun lien ne part.");
   try {
     const h = await headers();
     const hote = h.get("x-forwarded-host") ?? h.get("host");

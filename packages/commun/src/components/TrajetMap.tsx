@@ -69,20 +69,22 @@ export default function TrajetMap({
       // points tombent au même endroit — le centre de la commune. Tracer une
       // ligne de longueur nulle et annoncer « 0 km » n'avait aucun sens : on
       // montre la commune, et on le dit.
+      // Infobulles en texte, jamais en HTML : la ville vient du formulaire public.
+      const texte = (s: string) => Object.assign(document.createElement("span"), { textContent: s });
       const memeLieu = distanceVol(a, b) < 0.6;
       if (memeLieu) {
         setProche(true);
         L.circleMarker([a.lat, a.lon], { radius: 9, color: "#fff", weight: 2, fillColor: noir, fillOpacity: 1 })
           .addTo(map)
-          .bindTooltip(departVille ?? "");
+          .bindTooltip(texte(departVille ?? ""));
         L.circle([a.lat, a.lon], { radius: 1200, color: noir, weight: 1, opacity: 0.35, fillColor: or, fillOpacity: 0.12 }).addTo(map);
         map.setView([a.lat, a.lon], 13);
         setStatus("ok");
         return;
       }
 
-      L.circleMarker([a.lat, a.lon], { radius: 8, color: "#fff", weight: 2, fillColor: or, fillOpacity: 1 }).addTo(map).bindTooltip(`Départ · ${departVille ?? ""}`);
-      L.circleMarker([b.lat, b.lon], { radius: 8, color: "#fff", weight: 2, fillColor: noir, fillOpacity: 1 }).addTo(map).bindTooltip(`Arrivée · ${arriveeVille ?? ""}`);
+      L.circleMarker([a.lat, a.lon], { radius: 8, color: "#fff", weight: 2, fillColor: or, fillOpacity: 1 }).addTo(map).bindTooltip(texte(`Départ · ${departVille ?? ""}`));
+      L.circleMarker([b.lat, b.lon], { radius: 8, color: "#fff", weight: 2, fillColor: noir, fillOpacity: 1 }).addTo(map).bindTooltip(texte(`Arrivée · ${arriveeVille ?? ""}`));
 
       const geo = await routeGeo(a, b);
       const line = L.polyline(geo ?? [[a.lat, a.lon], [b.lat, b.lon]], { color: noir, weight: 4, opacity: 0.85 }).addTo(map);

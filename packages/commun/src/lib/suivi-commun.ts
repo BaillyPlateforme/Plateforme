@@ -133,7 +133,10 @@ export function indicateurs(leads: Lead[]): Indicateurs {
 /** Le tableau en CSV, pour Excel ou Google Sheets : point-virgule, BOM, montants en virgule. */
 export function versCsv(leads: Lead[]): string {
   const cellule = (v: string | number | null | undefined) => {
-    const t = v == null ? "" : typeof v === "number" ? String(v).replace(".", ",") : v;
+    const brut = v == null ? "" : typeof v === "number" ? String(v).replace(".", ",") : v;
+    // Un texte qui commence par = + - @ serait une formule pour Excel (=HYPERLINK(…) saisi dans le
+    // formulaire public) : une apostrophe le garde en texte. Les nombres ne sont pas touchés.
+    const t = typeof v === "string" && /^[=+\-@\t\r]/.test(brut) ? `'${brut}` : brut;
     return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const statut = (s: StatutLead) => STATUTS.find((x) => x.key === s)?.label ?? s;

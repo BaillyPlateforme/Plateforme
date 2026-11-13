@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { listRappels } from "@/lib/rappels";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   try {
     return NextResponse.json({ rappels: await listRappels() });
   } catch (e) {

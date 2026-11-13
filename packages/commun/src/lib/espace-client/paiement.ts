@@ -4,7 +4,7 @@ import { depot, maintenant, nouvelId } from "./depot";
 import { conseillerDe, signatureDe } from "./lectures";
 import { notifier } from "./notifier";
 import { signer, verifier } from "./signature";
-import { stripeConfigure } from "./stripe-config";
+import { simulationPermise, stripeConfigure } from "./stripe-config";
 import { aujourdhui, euros, nomClient, salutation } from "./format";
 import { alerterEquipe } from "@/lib/alertes-equipe";
 import type { Acceptation, Devis, Dossier, Facture, SessionPaiement } from "./types";
@@ -108,6 +108,7 @@ function acceptationParPaiement(devis: Pick<Devis, "dossier_id" | "numero">, ses
  */
 export async function traiterEvenement(corps: string, signature: string | null): Promise<IssueEvenement> {
   if (stripeConfigure()) return { ok: false, message: "Paiement simulé fermé : le prestataire est Stripe." };
+  if (!simulationPermise()) return { ok: false, message: "Paiement simulé fermé en production : le paiement en ligne attend Stripe." };
   const ev = paiementSimule.verifierEvenement(corps, signature);
   if (!ev) return { ok: false, message: "Signature invalide." };
   return appliquerEvenement(ev);

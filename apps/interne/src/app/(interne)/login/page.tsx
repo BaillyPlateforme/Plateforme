@@ -52,7 +52,9 @@ const OUTILS = [
 export default async function Connexion({ searchParams }: { searchParams: Promise<{ redirect?: string; refus?: string }> }) {
   const { redirect, refus } = await searchParams;
   // Une redirection interne seulement : jamais vers un autre domaine.
-  const cible = redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
+  // « /\\evil.com » passait le premier test, et le navigateur lit « \\ » comme « / » : ni barre
+  // oblique inverse, ni « // », ni caractère de contrôle.
+  const cible = redirect && /^\/(?![\/\\])[^\\\s\x00-\x1f]*$/.test(redirect) ? redirect : "/";
 
   return (
     <div className={s.page}>

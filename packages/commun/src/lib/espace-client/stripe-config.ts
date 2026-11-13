@@ -20,6 +20,13 @@ import Stripe from "stripe";
 
 export const stripeConfigure = () => !!(process.env.STRIPE_SECRET_KEY?.trim() && process.env.STRIPE_WEBHOOK_SECRET?.trim());
 
+/**
+ * Le paiement simulé est-il permis ? Jamais en production (un client cliquait
+ * « Payer » et sa facture passait à « payée » sans rien régler), sauf choix
+ * explicite PAIEMENT_SIMULE=1 pour une démonstration ; partout ailleurs, oui.
+ */
+export const simulationPermise = () => process.env.RAILWAY_ENVIRONMENT_NAME !== "production" || process.env.PAIEMENT_SIMULE === "1";
+
 const g = globalThis as typeof globalThis & { __baillyStripe?: { cle: string; client: Stripe } };
 
 /** Le client Stripe, créé à la première demande (jamais au build, où la clé manque). */

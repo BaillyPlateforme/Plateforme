@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { createRequestSchema } from "@/lib/schemas";
 import { createRequest } from "@/lib/requests";
 import type { RequestSource } from "@/lib/types";
+import { secretPresente } from "@/lib/secret-partage";
 
 // POST /api/requests
 // Point d'entrée UNIQUE : le formulaire public ET n8n (mail parsé) postent ici.
@@ -22,8 +23,10 @@ export async function POST(req: Request) {
     );
   }
 
+  // « email » (ni Créagidem ni jeton de modification) seulement pour la machine qui porte le secret :
+  // n'importe quel visiteur pouvait sinon se déclarer « email » et contourner Créagidem.
   const source: RequestSource =
-    req.headers.get("x-request-source") === "email" ? "email" : "form";
+    req.headers.get("x-request-source") === "email" && secretPresente(req, process.env.EMAILS_ENTRANTS_SECRET) ? "email" : "form";
 
   try {
     const { demande, suite, jetonModification } = await createRequest(parsed.data, source);

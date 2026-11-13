@@ -4,11 +4,14 @@ import { getSettings } from "@/lib/settings";
 import { DevisPdf, type PdfTrajet } from "@/lib/DevisPdf";
 import type { DevisRow, RequestRow } from "@/lib/types";
 import { espacePourDevis } from "@/lib/espace-demande";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const runtime = "nodejs";
 
 // GET /api/devis/[id]/pdf → estimation en PDF téléchargeable.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   const { id } = await params;
   const supabase = createServiceClient();
   const { data } = await supabase.from("devis").select("*").eq("id", id).maybeSingle();

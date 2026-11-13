@@ -27,10 +27,13 @@ export async function estMembreEquipe(email: string | null | undefined): Promise
   if (!url || !service) return false;
 
   const supabase = createClient(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.from("team_members").select("actif").ilike("email", cle).limit(1).maybeSingle();
+  // Comparaison EXACTE : « ilike » prenait « _ » et « % » de l'adresse pour des jokers, et un compte
+  // « celine_x@… » passait pour « celine.x@… ». L'équipe tient en quelques lignes : on les relit toutes.
+  const { data, error } = await supabase.from("team_members").select("email, actif");
   // Une erreur de lecture ferme la porte, sans la retenir en cache.
   if (error) return false;
-  const membre = !!data && data.actif !== false;
+  const ligne = (data ?? []).find((m) => (m.email ?? "").trim().toLowerCase() === cle);
+  const membre = !!ligne && ligne.actif !== false;
   cache.set(cle, { membre, jusqua: Date.now() + DUREE_MS });
   return membre;
 }

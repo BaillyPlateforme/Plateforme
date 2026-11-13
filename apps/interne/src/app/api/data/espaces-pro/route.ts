@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { q } from "@/crm/lib/db";
 import { compterDemandesParEspace, lireRegles, listEspaces } from "@/lib/espaces-pro";
 import { getSettings } from "@/lib/settings";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ async function compterClientsParEspace(): Promise<Record<string, number>> {
 }
 
 export async function GET() {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   try {
     const [espaces, regles, demandes, clients, settings] = await Promise.all([
       listEspaces(),

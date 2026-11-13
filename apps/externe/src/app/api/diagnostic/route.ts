@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
+import { secretPresente } from "@/lib/secret-partage";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +11,15 @@ export const dynamic = "force-dynamic";
  * C'est le seul chiffre qui manque pour expliquer une lenteur en production :
  * si l'hébergement et Supabase ne sont pas dans la même région, chaque requête
  * paie 150 ms et plus, et aucune optimisation de code ne les récupère.
+ *
+ * Réservée au dépannage : INACTIVE sans DIAGNOSTIC_SECRET (404), puis
+ * « Authorization: Bearer <secret> ». Publique, elle révélait le service et
+ * la région, et lançait trois requêtes en base à chaque appel.
  */
-export async function GET() {
+export async function GET(req: Request) {
+  const secret = process.env.DIAGNOSTIC_SECRET?.trim();
+  if (!secret) return new NextResponse(null, { status: 404 });
+  if (!secretPresente(req, secret)) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const supabase = createServiceClient();
 
   const mesures: Record<string, number> = {};

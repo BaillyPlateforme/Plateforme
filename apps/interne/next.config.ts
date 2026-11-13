@@ -16,6 +16,25 @@ const nextConfig: NextConfig = {
    * bouton « Équipe » en bas du rail du CRM.
    */
   devIndicators: { position: "bottom-right" },
+  /**
+   * Les en-têtes de sécurité. L'app de l'équipe ne s'affiche en cadre que
+   * chez elle (l'aperçu d'un devis, d'un e-mail) : aucun site tiers ne peut
+   * l'habiller pour faire cliquer un membre de l'équipe connecté.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:chemin*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000" },
+        ],
+      },
+    ];
+  },
   experimental: {
     /** Deux mises en page racines (le CRM à la racine, l'équipe sous /dashboard) : la 404 des adresses inconnues est autonome. */
     globalNotFound: true,

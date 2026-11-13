@@ -42,3 +42,13 @@ next-env.d.ts
 
 # CRM : Postgres embarqué local (PGlite)
 .data/
+
+# Secrets et documents du client : jamais dans le dépôt, qui est public.
+/Clés
+/untitled folder/
+/integration-formulaire-bailly.txt
+/*.docx
+/*.xlsx
+/*.pdf
+/*.mov
+/*.mp4

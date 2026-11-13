@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { listLibraryPhotos } from "@/lib/library";
 import { getAiConfig } from "@/lib/ai-config";
 import { getQualifConfig } from "@/lib/qualification";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   try {
     const [library, aiConfig, qualifConfig] = await Promise.all([
       listLibraryPhotos(),

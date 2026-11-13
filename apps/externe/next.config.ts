@@ -17,6 +17,26 @@ const interne = (process.env.NEXT_PUBLIC_URL_INTERNE || "").replace(/\/$/, "");
 const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
+  /**
+   * Les en-têtes de sécurité. Le formulaire s'affiche en cadre dans le site
+   * officiel (et le PDF du devis en cadre dans le formulaire) ; l'équipe ouvre
+   * aussi des pages d'ici en cadre. Personne d'autre : un site tiers ne peut
+   * plus habiller l'espace client ou le portail RH pour faire cliquer.
+   */
+  async headers() {
+    const ancetres = ["'self'", "https://www.demenagements-bailly.com", "https://demenagements-bailly.com", interne].filter(Boolean).join(" ");
+    return [
+      {
+        source: "/:chemin*",
+        headers: [
+          { key: "Content-Security-Policy", value: `frame-ancestors ${ancetres}` },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     if (!interne) return [];
     return ["/dashboard", "/dashboard/:chemin*", "/login"].map((source) => ({

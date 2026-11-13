@@ -271,7 +271,9 @@ export function csvMobilites(mobilites: MobiliteRh[], couts: boolean): string {
     nombre(m.volume_m3), nombre(m.distance_km), m.formule ? FORMULES_RH[m.formule] : "", ETAPE_RH[m.etape].label, PAYEURS_RH[m.payeur].label, m.cree_le.slice(0, 10),
     ...(couts ? [nombre(m.montant?.ht), nombre(m.montant?.ttc), m.montant ? nature[m.montant.nature] : "", nombre(m.facture_ttc || null)] : []),
   ]);
-  const cellule = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  // Un texte qui commence par = + - @ serait une formule pour Excel : une apostrophe le garde en texte.
+  const neutre = (s: string) => (/^[=+\-@\t\r]/.test(s) && !/^-?\d+(?:[.,]\d+)?$/.test(s) ? `'${s}` : s);
+  const cellule = (v: unknown) => `"${neutre(String(v ?? "")).replace(/"/g, '""')}"`;
   return "﻿" + [entetes, ...lignes].map((l) => l.map(cellule).join(";")).join("\r\n");
 }
 

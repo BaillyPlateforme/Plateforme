@@ -7,6 +7,7 @@ import { env } from "@/lib/env";
 import type { AnalyzedPhotoInput } from "@/lib/schemas";
 import type { AiConfig } from "@/lib/ai-config";
 import type { GroupePieces } from "@/lib/volume-ai";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -93,6 +94,8 @@ function aplatir(results: PromiseSettledResult<Analysee>[]): PromiseSettledResul
 // - multipart/form-data (champ "photos") : upload + analyse (formulaire)
 // - application/json { paths: string[] } : analyse depuis la base playground
 export async function POST(req: Request) {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   const ct = req.headers.get("content-type") || "";
   if (ct.includes("application/json")) return analyzeLibrary(req);
   return analyzeUpload(req);
