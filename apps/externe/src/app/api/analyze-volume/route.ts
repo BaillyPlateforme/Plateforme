@@ -245,7 +245,10 @@ function collect(results: PromiseSettledResult<ResultPhoto>[]) {
   });
 
   if (photos.length === 0) {
-    return NextResponse.json({ error: "Analyse impossible", details: errors }, { status: 502 });
+    // Toutes refusées pour la même raison (pas une photo, par exemple) : le visiteur lit cette raison.
+    const unique = new Set(errors.map((e) => e.replace(/^.*? n'est pas une photo/, "n'est pas une photo")));
+    const raison = unique.size === 1 && errors[0] ? errors[0] : "Analyse impossible";
+    return NextResponse.json({ error: raison, details: errors }, { status: errors.some((e) => e.includes("n'est pas une photo")) ? 422 : 502 });
   }
 
   const total_volume_m3 = round2(photos.reduce((s, p) => s + p.volume_m3, 0));
