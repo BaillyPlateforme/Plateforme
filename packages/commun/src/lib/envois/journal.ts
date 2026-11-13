@@ -131,21 +131,39 @@ export async function envoisDesNotifications(): Promise<Map<string, Pick<LigneEn
   return new Map((data ?? []).map((l) => [l.notification_id as string, l as Pick<LigneEnvoi, "statut" | "motif" | "brevo_id" | "bac_a_sable">]));
 }
 
+/** Un destinataire ramené à une forme unique : e-mail sans « +étiquette », numéro au format 33…. */
+export function destinataireNormalise(canal: string, s: string): string {
+  const d = s.trim().toLowerCase();
+  if (canal === "email") {
+    const at = d.lastIndexOf("@");
+    return at > 0 ? `${d.slice(0, at).split("+")[0]}@${d.slice(at + 1)}` : d;
+  }
+  const chiffres = d.replace(/\D/g, "");
+  if (chiffres.startsWith("0033")) return chiffres.slice(2);
+  if (chiffres.length === 10 && chiffres.startsWith("0")) return `33${chiffres.slice(1)}`;
+  return chiffres;
+}
+
 /**
- * Combien de messages sont réellement partis sur les dernières 24 heures,
- * pour une origine et un canal (et, au besoin, un destinataire) : la base des
- * plafonds des envois déclenchés par le public (index.ts). Illisible : 0, pour
- * ne pas bloquer un vrai message sur une panne du journal.
+ * Combien de messages automatiques vers le client (clé « questionnaires:… »,
+ * posée par alerts.ts) sont réellement partis sur les dernières 24 heures, pour
+ * un canal, et au besoin un destinataire — alias « prenom+1@… » et écritures du
+ * même numéro comprises. La base des plafonds des envois du formulaire
+ * (index.ts) ; quelques centaines de lignes au plus, comparées ici. Illisible :
+ * 0, pour ne pas bloquer un vrai message sur une panne du journal.
  */
-export async function partisSur24h(f: { origine: OrigineEnvoi; canal: string; destinataire?: string }): Promise<number> {
-  let q = createServiceClient()
+export async function partisSur24h(f: { canal: string; destinataire?: string }): Promise<number> {
+  const { data, error } = await createServiceClient()
     .from(TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("origine", f.origine)
+    .select("destinataire")
+    .eq("origine", "questionnaires")
+    .like("cle", "questionnaires:%")
     .eq("canal", f.canal)
     .eq("statut", "envoye")
-    .gte("cree_le", new Date(Date.now() - 24 * 3600_000).toISOString());
-  if (f.destinataire) q = q.ilike("destinataire", f.destinataire.replace(/[\\%_]/g, (c) => `\\${c}`));
-  const { count, error } = await q;
-  return error ? 0 : (count ?? 0);
+    .gte("cree_le", new Date(Date.now() - 24 * 3600_000).toISOString())
+    .limit(5000);
+  if (error || !data) return 0;
+  if (!f.destinataire) return data.length;
+  const cible = destinataireNormalise(f.canal, f.destinataire);
+  return data.filter((l) => destinataireNormalise(f.canal, String(l.destinataire ?? "")) === cible).length;
 }

@@ -8,7 +8,7 @@ import type { AnalyzedPhotoInput } from "@/lib/schemas";
 import type { AiConfig } from "@/lib/ai-config";
 import type { GroupePieces } from "@/lib/volume-ai";
 import { listLibraryPhotos } from "@/lib/library";
-import { adresseIp, fenetres, lireLimite, reponseTropDeDemandes, reserver, reserverDuJour } from "@/lib/limites";
+import { adresseIp, fenetres, lireLimite, rendre, reponseTropDeDemandes, reserver, reserverDuJour } from "@/lib/limites";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,17 +18,25 @@ const MAX_BYTES = 15 * 1024 * 1024;
 
 /*
  * Chaque photo est un appel Gemini, payant (choix de David le 13/11/2026) :
- *   - par adresse IP : 12 photos par minute (un envoi), 24 par heure, 24 par jour ;
+ *   - par adresse IP : 12 photos par minute (un envoi), 24 par heure, 24 par jour
+ *     — comptées avec l'appel de détection des doublons (un par envoi de deux
+ *     photos ou plus), d'où les plafonds de 13 et 26 appels ;
  *   - au total, quels que soient les visiteurs : 150 photos par jour calendaire,
  *     compté en base (public.compteurs_jour) pour tenir aux redémarrages.
  * Réglables sans toucher au code : GEMINI_PHOTOS_PAR_MINUTE, _PAR_HEURE,
  * _PAR_JOUR (par adresse) et GEMINI_PHOTOS_PAR_JOUR_TOTAL. Le plafond atteint,
  * le client peut toujours indiquer son volume ou décrire son logement.
  */
-async function reserverPhotos(req: Request, nombre: number) {
-  const refus =
-    reserver([{ cle: `gemini:ip:${adresseIp(req.headers)}`, poids: nombre, fenetres: fenetres("GEMINI_PHOTOS", { minute: 12, heure: 24, jour: 24 }) }]) ??
-    (await reserverDuJour("gemini:photos", nombre, lireLimite("GEMINI_PHOTOS_PAR_JOUR_TOTAL", 150)));
+async function reserverPhotos(req: Request, photos: number) {
+  // Les photos, plus l'appel qui repère les doublons dès qu'il y en a deux : chacun est un appel Gemini.
+  const appels = photos + (photos >= 2 ? 1 : 0);
+  const cleIp = `gemini:ip:${adresseIp(req.headers)}`;
+  let refus = reserver([{ cle: cleIp, poids: appels, fenetres: fenetres("GEMINI_PHOTOS", { minute: 13, heure: 26, jour: 26 }) }]);
+  if (!refus) {
+    refus = await reserverDuJour("gemini:photos", appels, lireLimite("GEMINI_PHOTOS_PAR_JOUR_TOTAL", 150));
+    // Le total du jour refuse : la réservation de l'adresse est rendue, rien n'a été analysé.
+    if (refus) rendre(cleIp);
+  }
   if (!refus) return null;
   return reponseTropDeDemandes(
     refus,
@@ -196,7 +204,23 @@ async function analyzeUpload(req: Request) {
       { status: 422 },
     );
   }
-  const refus = await reserverPhotos(req, files.length);
+  // Chaque fichier est contrôlé AVANT de réserver le quota : taille, puis type réel lu dans ses
+  // octets (jamais le nom ni ce qu'annonce le navigateur). De faux fichiers ne comptent pas.
+  type Controle = { file: File; bytes: Buffer; type: { mime: string; ext: string } } | { file: File; erreur: string };
+  const controles = await Promise.all(
+    files.map(async (file): Promise<Controle> => {
+      if (file.size > MAX_BYTES) return { file, erreur: `${file.name} dépasse 15 Mo` };
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const type = typeImage(bytes);
+      return type ? { file, bytes, type } : { file, erreur: `${file.name} n'est pas une photo (JPEG, PNG, WebP ou HEIC).` };
+    }),
+  );
+  const valides = controles.flatMap((c) => ("bytes" in c ? [c] : []));
+  const refusees = controles.flatMap((c) => ("erreur" in c ? [c] : []));
+  if (valides.length === 0) {
+    return NextResponse.json({ error: refusees[0]?.erreur ?? "Aucune photo reçue", details: refusees.map((r) => r.erreur) }, { status: 422 });
+  }
+  const refus = await reserverPhotos(req, valides.length);
   if (refus) return refus;
 
   const supabase = createServiceClient();
@@ -204,14 +228,9 @@ async function analyzeUpload(req: Request) {
   const sessionId = randomUUID(); // dossier de staging, relié à la demande au submit
   const cfg = await getAiConfig();
 
-  const results = await Promise.allSettled(
-    files.map(async (file, i): Promise<Analysee> => {
-      if (file.size > MAX_BYTES) throw new Error(`${file.name} dépasse 15 Mo`);
-
-      const bytes = Buffer.from(await file.arrayBuffer());
-      // Le type et l'extension viennent du contenu, jamais du nom ni de ce qu'annonce le navigateur.
-      const type = typeImage(bytes);
-      if (!type) throw new Error(`${file.name} n'est pas une photo (JPEG, PNG, WebP ou HEIC).`);
+  const results = await Promise.allSettled([
+    ...refusees.map((r) => Promise.reject(new Error(r.erreur))),
+    ...valides.map(async ({ file, bytes, type }, i): Promise<Analysee> => {
       const storagePath = `staging/${sessionId}/${i}-${randomUUID()}.${type.ext}`;
 
       const { error: upErr } = await supabase.storage
@@ -230,7 +249,7 @@ async function analyzeUpload(req: Request) {
       const analysis = await analyzePhoto(base64, mimeType, cfg);
       return { photo: { ...analysis, storage_path: storagePath }, base64, mimeType };
     }),
-  );
+  ]);
 
   return collect(await regrouper(results, cfg));
 }

@@ -25,15 +25,24 @@ const nextConfig: NextConfig = {
    */
   async headers() {
     const ancetres = ["'self'", "https://www.demenagements-bailly.com", "https://demenagements-bailly.com", interne].filter(Boolean).join(" ");
+    // Next pose ces en-têtes AVANT ceux d'une route, qui ne peut alors plus les durcir : les routes
+    // plus strictes sont exclues de la règle qu'elles durcissent (la porte des fichiers garde sa CSP
+    // « sandbox », le suivi des clics et l'aperçu leur « no-referrer »).
     return [
       {
         source: "/:chemin*",
         headers: [
-          { key: "Content-Security-Policy", value: `frame-ancestors ${ancetres}` },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Strict-Transport-Security", value: "max-age=63072000" },
         ],
+      },
+      {
+        source: "/:chemin((?!espace-client/fichier/).*)",
+        headers: [{ key: "Content-Security-Policy", value: `frame-ancestors ${ancetres}` }],
+      },
+      {
+        source: "/:chemin((?!t/c/|espace-client/apercu(?:/|$)).*)",
+        headers: [{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" }],
       },
     ];
   },

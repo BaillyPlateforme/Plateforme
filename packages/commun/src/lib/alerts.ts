@@ -182,6 +182,8 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       const commun = {
         cle: ctx.request_id && AUTOMATIQUES.has(event) ? `questionnaires:${event}:${a.id}:${ctx.request_id}` : null,
         origine: "questionnaires" as const,
+        // Vers le client, sur un événement que le public déclenche : plafonné sur 24 heures (lib/envois).
+        plafonne: versClient && AUTOMATIQUES.has(event),
         modele: `Alerte : ${a.name}`,
         reference: (ctx.reference as string | undefined) || (ctx.request_id as string | undefined) || null,
       };

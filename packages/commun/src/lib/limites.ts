@@ -46,12 +46,18 @@ export function fenetres(prefixe: string, defauts: { minute: number; heure: numb
 export const fenetreJour = (max: number): Fenetre[] => [{ nom: "jour", ms: JOUR, max }];
 
 /**
- * L'adresse IP du visiteur. Railway ajoute l'adresse réelle EN DERNIER dans
- * X-Forwarded-For ; ce qui précède, le visiteur peut l'écrire lui-même.
+ * L'adresse IP du visiteur. Vérifié sur Railway le 13/11/2026 (/api/diagnostic,
+ * en-têtes forgés) : son bord ÉCRASE X-Real-IP et X-Forwarded-For envoyés par
+ * le visiteur, met l'adresse réelle dans X-Real-IP et en PREMIER dans
+ * X-Forwarded-For, puis ajoute derrière l'adresse d'un relais interne —
+ * commune à de nombreux visiteurs. Lire le dernier élément faisait partager un
+ * même compteur à tout le monde.
  */
 export function adresseIp(entetes: Headers): string {
-  const liste = (entetes.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  return liste[liste.length - 1] || entetes.get("x-real-ip")?.trim() || "inconnue";
+  const reelle = entetes.get("x-real-ip")?.trim();
+  if (reelle) return reelle;
+  const premiere = (entetes.get("x-forwarded-for") ?? "").split(",")[0]?.trim();
+  return premiere || "inconnue";
 }
 
 /**
@@ -78,8 +84,30 @@ export function reserver(demandes: { cle: string; poids?: number; fenetres: Fene
     }
   }
   demandes.forEach((d, i) => m.set(d.cle, [...listes[i], { t: maintenant, n: d.poids ?? 1 }]));
-  if (m.size > 20_000) for (const [cle, l] of m) if (!l.length || l[l.length - 1].t < maintenant - JOUR) m.delete(cle);
+  nettoyer(m, maintenant);
   return null;
+}
+
+/** Rend la dernière réservation d'un compteur (quand un autre plafond, réservé ensuite, refuse). */
+export function rendre(cle: string): void {
+  const l = journal().get(cle);
+  if (l?.length) l.pop();
+}
+
+/*
+ * La mémoire reste bornée : au-delà de 20 000 compteurs, on retire ceux d'hier
+ * — au plus une fois par minute, pas à chaque appel ; au-delà de 100 000
+ * (un afflux de fausses adresses), tout repart de zéro.
+ */
+const etat = globalThis as typeof globalThis & { __limitesNettoyage?: number };
+function nettoyer(m: Map<string, Entree[]>, maintenant: number) {
+  if (m.size > 100_000) {
+    m.clear();
+    return;
+  }
+  if (m.size <= 20_000 || maintenant - (etat.__limitesNettoyage ?? 0) < MINUTE) return;
+  etat.__limitesNettoyage = maintenant;
+  for (const [cle, l] of m) if (!l.length || l[l.length - 1].t < maintenant - JOUR) m.delete(cle);
 }
 
 /**

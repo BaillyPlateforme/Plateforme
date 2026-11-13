@@ -76,6 +76,10 @@ Code déjà inclus dans le JSON — rien à faire, sauf vérifier qu'il est bien
 - **Send Body** : ON · **Body Content Type** : `JSON` · **Specify Body** : `Using JSON`
 - **JSON** (expression) : `{{ $json }}`
 - **Header** : `Content-Type: application/json`
+- **Header** : `Authorization: Bearer <EMAILS_ENTRANTS_SECRET>` — **obligatoire depuis le 13/11/2026**.
+  La route est fermée (404) tant que la variable `EMAILS_ENTRANTS_SECRET` n'est pas réglée sur le
+  service `externe` de Railway ; ensuite, un appel sans ce secret reçoit 401. Mettre le secret dans
+  un identifiant n8n (« Header Auth »), jamais en clair dans le workflow : le dépôt est public.
 
 Réponse attendue : **HTTP 201** `{ "id": "…", "completion_token": "…", "incomplet": true|false }`.
 
@@ -95,7 +99,8 @@ Réponse attendue : **HTTP 201** `{ "id": "…", "completion_token": "…", "inc
 
 ## 7. Contrat de l'API (référence)
 
-`POST /api/emails-entrants` — corps JSON, **tous les champs optionnels** :
+`POST /api/emails-entrants` — en-tête `Authorization: Bearer <EMAILS_ENTRANTS_SECRET>` obligatoire
+(404 sans la variable, 401 sans le bon secret) ; corps JSON, **tous les champs optionnels** :
 
 | Champ           | Type   | Exemple                |
 |-----------------|--------|------------------------|

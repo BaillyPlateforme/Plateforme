@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { listTeam } from "@/lib/team";
 import { membreConnecte, porteSuperAdmin } from "@/lib/droits";
+import { refusHorsEquipe } from "@/crm/lib/garde-api";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
  * décide de rien : les actions (lib/actions/team.ts) revérifient tout.
  */
 export async function GET() {
+  const refus = await refusHorsEquipe();
+  if (refus) return refus;
   try {
     const [members, moi] = await Promise.all([listTeam(), membreConnecte()]);
     return NextResponse.json({

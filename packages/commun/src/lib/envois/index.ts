@@ -47,6 +47,12 @@ interface Commun {
    * de dépôt d'avis, par exemple).
    */
   retenu?: string | null;
+  /**
+   * Un message automatique vers le CLIENT, que le public déclenche par le
+   * formulaire : soumis aux plafonds sur 24 heures. Jamais les alertes de
+   * l'équipe, les devis envoyés par l'équipe ni les e-mails manuels du CRM.
+   */
+  plafonne?: boolean;
 }
 
 export interface EmailSortant extends Commun {
@@ -165,7 +171,7 @@ async function envoyer(
   // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : Brevo en accorde 300 par jour, le reste va
   // aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
   // (ENVOI_PLAFOND_PAR_DESTINATAIRE, 6) : un robot ne vide plus le quota, ni la boîte d'une victime.
-  if (m.origine === "questionnaires") {
+  if (m.plafonne) {
     const lire = (nom: string, defaut: number) => {
       const v = Number(process.env[nom]);
       return process.env[nom]?.trim() && Number.isInteger(v) && v >= 0 ? v : defaut;
@@ -173,8 +179,8 @@ async function envoyer(
     const total = lire(canal === "sms" ? "ENVOI_PLAFOND_QUESTIONNAIRES_SMS" : "ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL", canal === "sms" ? 30 : 200);
     const parDestinataire = lire("ENVOI_PLAFOND_PAR_DESTINATAIRE", 6);
     const [tous, chezLui] = await Promise.all([
-      partisSur24h({ origine: "questionnaires", canal }),
-      partisSur24h({ origine: "questionnaires", canal, destinataire }),
+      partisSur24h({ canal }),
+      partisSur24h({ canal, destinataire }),
     ]);
     const motif =
       tous >= total

@@ -22,9 +22,15 @@ const nextConfig: NextConfig = {
    * l'habiller pour faire cliquer un membre de l'équipe connecté.
    */
   async headers() {
+    // L'aperçu de l'espace client pose lui-même une politique plus stricte (CSP complète avec nonce,
+    // DENY, no-referrer) : Next la remplacerait par celle-ci, qui passe avant. Il n'en reçoit que HSTS.
     return [
       {
-        source: "/:chemin*",
+        source: "/espace-client-apercu/:chemin*",
+        headers: [{ key: "Strict-Transport-Security", value: "max-age=63072000" }],
+      },
+      {
+        source: "/:chemin((?!espace-client-apercu(?:/|$)).*)",
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },

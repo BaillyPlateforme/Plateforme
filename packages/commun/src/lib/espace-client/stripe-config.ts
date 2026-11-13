@@ -25,7 +25,13 @@ export const stripeConfigure = () => !!(process.env.STRIPE_SECRET_KEY?.trim() &&
  * « Payer » et sa facture passait à « payée » sans rien régler), sauf choix
  * explicite PAIEMENT_SIMULE=1 pour une démonstration ; partout ailleurs, oui.
  */
-export const simulationPermise = () => process.env.RAILWAY_ENVIRONMENT_NAME !== "production" || process.env.PAIEMENT_SIMULE === "1";
+export const simulationPermise = () => {
+  if (process.env.PAIEMENT_SIMULE === "1") return true;
+  if (process.env.NODE_ENV !== "production") return true; // un poste de développement
+  // Un serveur : seulement s'il se dit recette (dev, …). Sans nom d'environnement, fermé.
+  const lieu = process.env.RAILWAY_ENVIRONMENT_NAME?.trim().toLowerCase();
+  return !!lieu && lieu !== "production";
+};
 
 const g = globalThis as typeof globalThis & { __baillyStripe?: { cle: string; client: Stripe } };
 

@@ -84,8 +84,10 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    // Les fichiers statiques (images, polices) passent sans proxy, mais jamais sous /api/ : une route
-    // à segment libre (/api/data/espace-client/[[...chemin]]) répondait sinon sans session à « …/x.png ».
-    "/((?!login(?:/|$)|signature/|desabonnement/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|(?!api/).*\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
+    // Seuls les VRAIS fichiers publics passent sans proxy : ceux de la racine (favicon, icônes, photo de
+    // connexion) et des dossiers fonts/, marque/, photos-crm/ de public/. Avant le 13/11/2026, toute
+    // adresse finissant par « .png » y échappait, y compris /api/data/espace-client/…/x.png, qui
+    // répondait sans session, et les pages à segment libre (/clients/12.png).
+    "/((?!login(?:/|$)|signature/|desabonnement/|api/taches/|api/sms/|_next/static|_next/image|_not-found|__nextjs|espace-client/demo-equipe|(?:fonts/|marque/|photos-crm/)?[^/]+\\.(?:ico|png|jpg|jpeg|gif|webp|avif|svg|woff|woff2|ttf|otf)$).*)",
   ],
 };
