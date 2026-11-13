@@ -85,7 +85,7 @@ export const createRequestSchema = z.object({
       .max(80)
       // Une liste de caractères permis plutôt qu'une liste de domaines interdits (il y en a des
       // milliers : .it, .paris, bit.do…), et jamais un point collé entre deux mots (« site.fr »).
-      .regex(/^[\p{L}\p{M}\p{N} '’.,&()-]+$/u, "Le nom ne peut contenir que des lettres, des chiffres, des espaces et ' - . , & ( ).")
+      .regex(/^[\p{L}\p{M}\p{N} '’.,&()–—-]+$/u, "Le nom ne peut contenir que des lettres, des chiffres, des espaces et ' - . , & ( ).")
       .refine((v) => !/[\p{L}\p{N}]\.[\p{L}\p{N}]{2,}/u.test(v), "Le nom ne peut pas contenir d'adresse web."),
     email: z.string().trim().max(254).email(),
     tel: z.string().max(30).optional(),
