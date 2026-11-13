@@ -14,7 +14,8 @@ import { rendreEmail, variablesCalculees, type LigneEstimation } from "@/lib/ema
 import { modeleEffectif } from "@/lib/email-defauts";
 import { estimationDeLaDemande, type EstimationPourEmail } from "@/lib/estimation-pdf";
 import { espaceDUneDemande } from "@/lib/espace-demande";
-import { COULEUR_BAILLY, nomEnseigne, urlLogo } from "@/lib/espaces";
+import { COULEUR_BAILLY, nomEnseigne } from "@/lib/espaces";
+import { urlLogoPublique } from "@/lib/espaces-pro";
 
 /** Les événements que la plateforme déclenche seule, sans geste de l'équipe. */
 const AUTOMATIQUES = new Set([
@@ -210,7 +211,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
               ? {
                   nom: nomEnseigne({ slug: esp.retenu.slug, nom: esp.config?.nom ?? esp.retenu.nom }),
                   couleur: esp.config?.couleur ?? COULEUR_BAILLY,
-                  logo: esp.config ? urlLogo(esp.config, base) : null,
+                  logo: esp.config ? urlLogoPublique(esp.config, base) : null,
                   objet: esp.config?.mail_objet,
                   message: esp.config?.mail_message,
                 }

@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { createRequestSchema } from "@/lib/schemas";
 import { ModificationRefusee, modifierDemande } from "@/lib/requests";
+import { adresseIp, fenetres, reponseTropDeDemandes, reserver } from "@/lib/limites";
 
 /*
  * PUT /api/requests/[id] — le client corrige sa demande depuis l'écran de son
@@ -19,6 +20,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
   const parsed = createRequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Validation échouée", details: parsed.error.flatten() }, { status: 422 });
+  const refus = reserver([{ cle: `modification:ip:${adresseIp(req.headers)}`, fenetres: fenetres("MODIFICATIONS", { minute: 5, heure: 20, jour: 40 }) }]);
+  if (refus) return reponseTropDeDemandes(refus, "Votre demande vient déjà d'être modifiée plusieurs fois.");
   try {
     const { demande, suite } = await modifierDemande(id, jeton, parsed.data);
     after(() => suite().catch((e) => console.error(`[demande ${demande.id}] suite de la modification en échec :`, e instanceof Error ? e.message : e)));

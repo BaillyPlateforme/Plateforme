@@ -8,6 +8,7 @@ import { avecBienvenue, referenceDeLaSuite, suiteValide } from "@/lib/espace-cli
 import { AdresseDejaPrise } from "@/lib/espace-client/comptes";
 import { bornesCartons, CAPACITE_SAMEDI } from "@/lib/espace-client/cartons";
 import { estDemo, profilsDemoOuverts } from "@/lib/espace-client/config";
+import { adresseIp, delaiLisible, fenetres, reserver } from "@/lib/limites";
 import { depot, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { cheminFichier, deposerFichier, octets } from "@/lib/espace-client/fichiers";
 import { aujourdhui, dateLongue, jourLong, joursRestants, nomClient, salutation } from "@/lib/espace-client/format";
@@ -141,6 +142,13 @@ export async function demanderLien(_: EtatFormulaire, fd: FormData): Promise<Eta
   await refuserEnApercu();
   const r = connexionSchema.safeParse({ email: String(fd.get("email") ?? "").trim() });
   if (!r.success) return { erreurs: erreursDe(r.error) };
+  // Chaque demande envoie un e-mail et invalide le lien précédent : sans plafond, on pouvait
+  // empêcher un client de se connecter, ou vider le quota de Brevo. Par adresse e-mail et par IP.
+  const refus = reserver([
+    { cle: `lien:email:${r.data.email.toLowerCase()}`, fenetres: fenetres("LIENS_CONNEXION_PAR_EMAIL", { minute: 2, heure: 6, jour: 12 }) },
+    { cle: `lien:ip:${adresseIp(await headers())}`, fenetres: fenetres("LIENS_CONNEXION_PAR_IP", { minute: 5, heure: 20, jour: 50 }) },
+  ]);
+  if (refus) return { erreurs: { email: `Plusieurs liens viennent déjà d'être demandés. Réessayez ${delaiLisible(refus.dans)}, ou appelez l'agence au ${TEL_AGENCE}.` } };
   let apercu = "";
   try {
     const client = await clientParEmail(r.data.email);

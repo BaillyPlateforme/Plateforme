@@ -76,9 +76,19 @@ export const volumeSchema = z.discriminatedUnion("method", [
 // Payload complet de création d'une demande (formulaire)
 export const createRequestSchema = z.object({
   client: z.object({
-    nom: z.string().min(1),
-    email: z.string().email(),
-    tel: z.string().optional(),
+    // Le nom s'écrit dans « Bonjour {nom}, » des e-mails de Bailly : borné, et sans adresse web,
+    // pour qu'il ne serve pas à glisser un lien d'hameçonnage dans un vrai e-mail de Bailly.
+    nom: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .refine(
+        (v) => !/(https?:\/\/|www\.|@|[a-z0-9-]{2,}\.(com|fr|net|org|io|xyz|ru|info|biz|co|be|ch|de|eu|app|link|ly|me|top|site|online|shop|click)\b)/i.test(v),
+        "Le nom ne peut pas contenir d'adresse web.",
+      ),
+    email: z.string().trim().max(254).email(),
+    tel: z.string().max(30).optional(),
   }),
   depart: adresseSchema,
   arrivee: adresseSchema,

@@ -130,3 +130,22 @@ export async function envoisDesNotifications(): Promise<Map<string, Pick<LigneEn
   if (error) throw new Error(error.message);
   return new Map((data ?? []).map((l) => [l.notification_id as string, l as Pick<LigneEnvoi, "statut" | "motif" | "brevo_id" | "bac_a_sable">]));
 }
+
+/**
+ * Combien de messages sont réellement partis sur les dernières 24 heures,
+ * pour une origine et un canal (et, au besoin, un destinataire) : la base des
+ * plafonds des envois déclenchés par le public (index.ts). Illisible : 0, pour
+ * ne pas bloquer un vrai message sur une panne du journal.
+ */
+export async function partisSur24h(f: { origine: OrigineEnvoi; canal: string; destinataire?: string }): Promise<number> {
+  let q = createServiceClient()
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("origine", f.origine)
+    .eq("canal", f.canal)
+    .eq("statut", "envoye")
+    .gte("cree_le", new Date(Date.now() - 24 * 3600_000).toISOString());
+  if (f.destinataire) q = q.ilike("destinataire", f.destinataire.replace(/[\\%_]/g, (c) => `\\${c}`));
+  const { count, error } = await q;
+  return error ? 0 : (count ?? 0);
+}

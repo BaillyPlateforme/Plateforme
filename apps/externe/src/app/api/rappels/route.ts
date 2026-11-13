@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { creerRappel } from "@/lib/rappels";
+import { adresseIp, fenetres, reponseTropDeDemandes, reserver } from "@/lib/limites";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ export async function POST(req: Request) {
   if (!body.request_id) {
     return NextResponse.json({ error: "Demande non précisée" }, { status: 422 });
   }
+  const refus = reserver([{ cle: `rappel:ip:${adresseIp(req.headers)}`, fenetres: fenetres("RAPPELS", { minute: 3, heure: 10, jour: 20 }) }]);
+  if (refus) return reponseTropDeDemandes(refus, "Plusieurs demandes de rappel viennent déjà d'être envoyées.");
 
   try {
     const r = await creerRappel(body.request_id, body.creneau);

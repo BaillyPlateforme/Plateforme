@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { brevoConfigure, posterEmail, posterSms, type ReponseBrevo } from "./brevo";
 import { decider, lireReglage, MOTIFS, type Canal, type ModeEnvoi, type ReglageEnvois } from "./garde-fous";
-import { conclure, reserver, type LigneEnvoi, type OrigineEnvoi, type StatutEnvoi } from "./journal";
+import { conclure, partisSur24h, reserver, type LigneEnvoi, type OrigineEnvoi, type StatutEnvoi } from "./journal";
 import { equiperEmail } from "@/lib/suivi-envois";
 
 /*
@@ -160,6 +160,32 @@ async function envoyer(
     return finir(decision.statut, decision.motif);
   }
   if (m.retenu) return finir("journalise", m.retenu);
+
+  // Les messages que le public déclenche (le formulaire) ont un plafond sur 24 heures : au total
+  // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : Brevo en accorde 300 par jour, le reste va
+  // aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
+  // (ENVOI_PLAFOND_PAR_DESTINATAIRE, 6) : un robot ne vide plus le quota, ni la boîte d'une victime.
+  if (m.origine === "questionnaires") {
+    const lire = (nom: string, defaut: number) => {
+      const v = Number(process.env[nom]);
+      return process.env[nom]?.trim() && Number.isInteger(v) && v >= 0 ? v : defaut;
+    };
+    const total = lire(canal === "sms" ? "ENVOI_PLAFOND_QUESTIONNAIRES_SMS" : "ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL", canal === "sms" ? 30 : 200);
+    const parDestinataire = lire("ENVOI_PLAFOND_PAR_DESTINATAIRE", 6);
+    const [tous, chezLui] = await Promise.all([
+      partisSur24h({ origine: "questionnaires", canal }),
+      partisSur24h({ origine: "questionnaires", canal, destinataire }),
+    ]);
+    const motif =
+      tous >= total
+        ? `Plafond des envois du formulaire atteint (${total} en 24 heures) : rien n'est parti.`
+        : chezLui >= parDestinataire
+          ? `Plafond par destinataire atteint (${parDestinataire} en 24 heures) : rien n'est parti.`
+          : null;
+    // Sans alerte à l'équipe : pendant une attaque, l'alerte ferait à son tour une rafale d'e-mails.
+    // Le blocage reste visible dans le journal des envois.
+    if (motif) return finir("bloque", motif);
+  }
 
   // Le SMS en bac à sable ne quitte pas la plateforme.
   if (decision.bacASable && canal === "sms") return finir("bac_a_sable", MOTIFS.bacASableSms);

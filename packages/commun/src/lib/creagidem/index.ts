@@ -146,6 +146,30 @@ async function envoyer(fiche: FicheCreagidem): Promise<{ ok: boolean; http: numb
   return { ok: false, http: null, reponse: "Jeton refusé deux fois." };
 }
 
+/*
+ * Le plafond du jour. Créagidem compte 50 appels par jour à Bailly, les
+ * renouvellements du jeton compris (jusqu'à 12) : au-delà de CREAGIDEM_PLAFOND_JOUR
+ * fiches envoyées automatiquement en 24 heures (35 par défaut), la fiche est
+ * préparée et attend le bouton « Envoyer dans Créagidem ». Un robot qui inonde
+ * le formulaire ne peut plus priver les vrais clients du jour de leur fiche,
+ * ni remplir l'outil de production de faux clients.
+ */
+const plafondJour = () => {
+  const v = Number(process.env.CREAGIDEM_PLAFOND_JOUR);
+  return Number.isInteger(v) && v >= 0 && process.env.CREAGIDEM_PLAFOND_JOUR?.trim() ? v : 35;
+};
+
+async function fichesEnvoyeesSur24h(): Promise<number> {
+  const { count, error } = await createServiceClient()
+    .from("request_events")
+    .select("id", { count: "exact", head: true })
+    .eq("type", "creagidem")
+    .eq("payload->>statut", "envoyee")
+    .gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString());
+  // Le compte illisible : on ne bloque pas une vraie demande pour autant.
+  return error ? 0 : (count ?? 0);
+}
+
 /** Le dernier passage d'une demande par Créagidem, s'il y en a eu un. */
 export async function dernierEvenementCreagidem(requestId: string): Promise<(EvenementCreagidem & { le: string }) | null> {
   const { data } = await createServiceClient()
@@ -204,6 +228,8 @@ export async function transmettreACreagidem(
       ev = { ...base, statut: "preparee", motif: reglage.motif };
     } else if (r.client_email && estAdresseFictive(r.client_email)) {
       ev = { ...base, statut: "preparee", motif: "Adresse e-mail fictive (essai) : la fiche n'est jamais envoyée." };
+    } else if (o.origine === "automatique" && (await fichesEnvoyeesSur24h()) >= plafondJour()) {
+      ev = { ...base, statut: "preparee", motif: `Plafond du jour atteint (${plafondJour()} fiches en 24 heures) : la fiche est préparée ; « Envoyer dans Créagidem » sur la demande l'enverra à la main.` };
     } else {
       try {
         const res = await envoyer(fiche);

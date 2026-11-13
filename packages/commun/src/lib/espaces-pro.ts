@@ -162,6 +162,16 @@ function jetonEspace(e: Pick<EspacePro, "id" | "rotation">): string {
 }
 
 /**
+ * L'adresse du logo pour les e-mails : avec le jeton de reconnaissance, jamais
+ * le code du lien. L'adresse avec le code partait dans l'e-mail de quiconque
+ * saisissait le nom de la société, et ouvrait ensuite la page /pro/<code>/<nom>.
+ */
+export function urlLogoPublique(e: Pick<EspacePro, "id" | "rotation" | "logo" | "updated_at">, base = ""): string | null {
+  if (!e.logo) return null;
+  return `${base}/api/espaces/${encodeURIComponent(jetonEspace(e))}/logo?v=${encodeURIComponent(e.updated_at)}`;
+}
+
+/**
  * L'espace d'une demande ou d'un logo : retrouvé par le code de son lien, ou
  * par le jeton remis à qui a saisi le nom de la société.
  */
