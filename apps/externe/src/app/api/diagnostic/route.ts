@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { secretPresente } from "@/lib/secret-partage";
+import { adresseIp } from "@/lib/limites";
 
 export const dynamic = "force-dynamic";
 
@@ -42,5 +43,14 @@ export async function GET(req: Request) {
       "l'hébergement et la base ne sont probablement pas dans la même région.",
     region_hebergement: process.env.RAILWAY_REPLICA_REGION ?? process.env.VERCEL_REGION ?? "inconnue",
     service: process.env.RAILWAY_SERVICE_NAME ?? null,
+    // L'adresse du visiteur telle que l'hébergeur la transmet : de quoi vérifier que les limites
+    // par adresse IP lisent la vraie (et qu'un en-tête forgé par le visiteur n'y change rien).
+    adresse: {
+      retenue: adresseIp(req.headers),
+      x_forwarded_for: req.headers.get("x-forwarded-for"),
+      x_real_ip: req.headers.get("x-real-ip"),
+      x_envoy_external_address: req.headers.get("x-envoy-external-address"),
+      forwarded: req.headers.get("forwarded"),
+    },
   });
 }
