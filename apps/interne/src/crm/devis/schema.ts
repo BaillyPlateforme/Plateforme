@@ -15,6 +15,9 @@
  *   détaillées) ; les devis d'avant sont détaillés ;
  * - `origine` : d'où vient le devis ('formules' pour le générateur des trois
  *   formules, 'libre', 'copie') ; le générateur ne remplace que les siens.
+ *   Un devis du générateur enregistré dans la fenêtre Devis passe à 'ajuste'
+ *   (retours de Céline, 16/11/2026 : « nous adaptons nos prix à chaque
+ *   client ») : ses prix saisis à la main ne sont plus jamais remplacés.
  * - Aucune valeur métier n'est inventée : taux, conditions et CGV sont vides
  *   tant que Bailly ne les a pas fournis (table crm.devis_parametres).
  */
@@ -67,7 +70,10 @@ alter table crm.devis add column if not exists signature_trace jsonb;
 --     clients qui les règlent en ligne (la projection met 0 aux autres) ;
 --   - le hors-taxes de chaque ligne, à son propre taux de TVA (l'assurance au
 --     sien), et le total HT enregistré par le CRM ;
---   - « Ce qui est inclus » : les prestations que Bailly assure.
+--   - « Ce qui est inclus » : les prestations que Bailly assure ;
+--   - la garantie sous son nom (« Assurance … » jusqu'au 16/11/2026, retours
+--     de Céline) : les lignes automatiques des devis d'avant sont renommées ;
+--   - la validité : celle du devis, sinon un mois après son émission.
 -- Une erreur ici ne bloque jamais la projection : la ligne garde ses valeurs.
 create or replace function crm.ec_devis_du_crm() returns trigger language plpgsql security definer set search_path = '' as $f$
 declare
@@ -78,7 +84,7 @@ declare
 begin
   if new.crm_devis_id is null then return new; end if;
   begin
-    select d.arrhes_pct, d.montant_ht, d.lignes, d.prestations into v from crm.devis d where d.id = new.crm_devis_id;
+    select d.arrhes_pct, d.montant_ht, d.lignes, d.prestations, d.validite into v from crm.devis d where d.id = new.crm_devis_id;
     if not found then return new; end if;
     select case when jsonb_typeof(valeur) = 'number' then (valeur #>> '{}')::numeric end into p_arrhes from crm.devis_parametres where cle = 'arrhesPct';
     select case when jsonb_typeof(valeur) = 'number' then (valeur #>> '{}')::numeric end into p_tva from crm.devis_parametres where cle = 'tvaDefaut';
@@ -88,7 +94,7 @@ begin
     end if;
     new.lignes := coalesce((
       select jsonb_agg(
-               jsonb_build_object('libelle', l ->> 'libelle', 'montant_ht', round(coalesce((l ->> 'prix')::numeric, 0)
+               jsonb_build_object('libelle', case when l ->> 'auto' = 'assurance' then regexp_replace(l ->> 'libelle', '^Assurance', 'Garantie') else l ->> 'libelle' end, 'montant_ht', round(coalesce((l ->> 'prix')::numeric, 0)
                  / (1 + coalesce(case when jsonb_typeof(l -> 'tva') = 'number' then (l ->> 'tva')::numeric end,
                                  case when l ->> 'auto' = 'assurance' then coalesce(p_tva_ass, p_tva) end, p_tva, 20) / 100), 2))
                || case when coalesce(l ->> 'detail', '') <> '' then jsonb_build_object('detail', l ->> 'detail') else '{}'::jsonb end
@@ -97,6 +103,7 @@ begin
        where coalesce(l ->> 'charge', 'bailly') <> 'client'
     ), '[]'::jsonb);
     if v.montant_ht is not null and v.montant_ht > 0 then new.montant_ht := v.montant_ht; end if;
+    if new.emis_le is not null then new.valide_jusqu_au := coalesce(v.validite, (new.emis_le + interval '1 month')::date); end if;
     new.inclus := coalesce((
       select array_agg(btrim(x ->> 'libelle') order by o)
         from jsonb_array_elements(case when jsonb_typeof(v.prestations) = 'array' then v.prestations else '[]'::jsonb end) with ordinality as t(x, o)
@@ -116,6 +123,63 @@ do $$ begin
       update public.ec_devis set crm_devis_id = crm_devis_id where crm_devis_id is not null;
       insert into crm.devis_parametres(cle, valeur, maj_par) values ('_ec_devis_aligne_v1', 'true', 'démarrage') on conflict (cle) do nothing;
     end if;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Retours de Céline (16/11/2026) : le devis.
+-- ---------------------------------------------------------------------------
+
+-- Les devis du générateur déjà enregistrés dans la fenêtre Devis (montant HT
+-- posé par l'enregistrement) portent les prix de l'équipe : « Générer les
+-- devis » ne les remplace plus (origine 'ajuste', voir devis/actions.ts).
+update crm.devis set origine = 'ajuste' where coalesce(origine, 'formules') = 'formules' and montant_ht is not null;
+
+-- La validité d'un devis passe à un mois (jusqu'à la même date le mois
+-- suivant). Les brouillons encore à la règle d'avant (60 jours) la suivent,
+-- une seule fois, sauf si Bailly a fixé une validité dans les paramètres.
+-- Un devis déjà envoyé garde la date que le client a reçue.
+do $$ begin
+  if not exists (select 1 from crm.devis_parametres where cle = '_validite_un_mois_v1') then
+    if not exists (select 1 from crm.devis_parametres where cle = 'validiteJours' and jsonb_typeof(valeur) = 'number') then
+      update crm.devis set validite = (coalesce(date_devis, (cree_le at time zone 'Europe/Paris')::date) + interval '1 month')::date
+       where statut = 'brouillon' and validite is not null
+         and validite in (coalesce(date_devis, (cree_le at time zone 'Europe/Paris')::date) + 60, cree_le::date + 60);
+    end if;
+    insert into crm.devis_parametres(cle, valeur, maj_par) values ('_validite_un_mois_v1', 'true', 'démarrage') on conflict (cle) do nothing;
+  end if;
+end $$;
+
+-- Les clients CIMOB/DICOM (clients.type = 'militaire') : le client ne voit
+-- que ses droits, le volume accordé par son administration
+-- (dossiers.volume_droits) ; son volume réel reste consultable au CRM et
+-- n'est jamais mentionné au client, comme le prix d'un client compte. Quelle
+-- que soit la fonction qui écrit le dossier de l'espace (ouverture,
+-- projection), son volume est celui des droits ; sans droits, l'espace ne
+-- s'ouvre pas, et un espace déjà ouvert garde le volume qu'il montrait.
+create or replace function crm.ec_dossier_volume_droits() returns trigger language plpgsql security definer set search_path = '' as $f$
+declare
+  v_type text;
+  v_droits numeric;
+  v_reel numeric;
+begin
+  if new.crm_dossier_id is null then return new; end if;
+  select c.type, d.volume_droits, d.volume into v_type, v_droits, v_reel
+    from crm.dossiers d join crm.clients c on c.id = d.client_id where d.id = new.crm_dossier_id;
+  if not found or v_type is distinct from 'militaire' then return new; end if;
+  if coalesce(v_droits, 0) > 0 then
+    new.volume_m3 := v_droits;
+  elsif tg_op = 'INSERT' then
+    raise exception 'Renseignez les droits du client CIMOB/DICOM (le volume accordé par son administration) : c''est le seul volume montré au client.';
+  elsif new.volume_m3 is distinct from old.volume_m3 and new.volume_m3 = v_reel then
+    new.volume_m3 := old.volume_m3;
+  end if;
+  return new;
+end $f$;
+do $$ begin
+  if to_regclass('public.ec_dossiers') is not null then
+    drop trigger if exists ec_dossier_volume_droits on public.ec_dossiers;
+    create trigger ec_dossier_volume_droits before insert or update on public.ec_dossiers for each row execute function crm.ec_dossier_volume_droits();
   end if;
 end $$;
 `;

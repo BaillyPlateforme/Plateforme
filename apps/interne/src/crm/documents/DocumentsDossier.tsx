@@ -2,6 +2,7 @@
 import { dateFr, eur, m3, nomClient, TYPES } from "@/crm/lib/format";
 import { emballages } from "@/crm/lib/tarif";
 import { Cases, Encadre, FeuilleBailly, Section, Signatures, Tableau } from "./FeuilleBailly";
+import { m3Client, volumeClient } from "./volume-client";
 
 /*
  * Les documents imprimés d'un dossier, aux couleurs de Bailly : la fiche de
@@ -82,10 +83,15 @@ export function FicheVisiteBailly({ d }: { d: any }) {
   );
 }
 
-/** La lettre de voiture : l'ordre de mission (interne) puis deux exemplaires au chargement et deux à la livraison. */
+/**
+ * La lettre de voiture : l'ordre de mission (interne) puis deux exemplaires au chargement et deux à la livraison.
+ * Les exemplaires sont remis au client : pour un client CIMOB/DICOM, ils portent ses droits et jamais son volume
+ * réel, ni le volume objet par objet qui le recompose (volume-client.ts) ; l'ordre de mission garde le volume réel.
+ */
 export function LettreVoitureBailly({ d, lv }: { d: any; lv: any }) {
   const emb = emballages(d.volume);
   const demont = (d.inv as any[]).filter((i) => i.demontage);
+  const droits = volumeClient(d).droits;
   const feuilles: { titre: string; sous: string; genre: "mission" | "charg" | "livr" }[] = [
     { titre: "Ordre de mission", sous: "Document interne : ne pas remettre au client", genre: "mission" },
     { titre: "Chargement", sous: "Exemplaire 1 sur 2 · à signer au départ", genre: "charg" },
@@ -109,7 +115,7 @@ export function LettreVoitureBailly({ d, lv }: { d: any; lv: any }) {
               { label: "Client", valeur: nomClient(d), detail: d.telephone ?? undefined, fonce: true },
               { label: "Chargement", valeur: lv.date_chargement ? dateFr(lv.date_chargement) : "—" },
               { label: "Livraison", valeur: lv.date_livraison ? dateFr(lv.date_livraison) : "—" },
-              { label: "Volume", valeur: m3(d.volume) },
+              f.genre === "mission" ? { label: "Volume", valeur: m3(d.volume) } : { label: volumeClient(d).libelle, valeur: m3Client(d) },
             ]}
           />
           <Section titre="Transport">
@@ -140,9 +146,15 @@ export function LettreVoitureBailly({ d, lv }: { d: any; lv: any }) {
             </>
           ) : (
             <>
-              <Section titre={`Objets · ${m3(d.volume)}`}>
-                <Tableau entetes={["Pièce", "Objet", "Qté", "Volume"]} droite={[2, 3]} lignes={(d.inv as any[]).map((x) => [x.piece, x.libelle, x.quantite, m3(x.volume * x.quantite)])} />
-              </Section>
+              {droits ? (
+                <Section titre="Objets">
+                  <Tableau entetes={["Pièce", "Objet", "Qté"]} droite={[2]} lignes={(d.inv as any[]).map((x) => [x.piece, x.libelle, x.quantite])} />
+                </Section>
+              ) : (
+                <Section titre={`Objets · ${m3(d.volume)}`}>
+                  <Tableau entetes={["Pièce", "Objet", "Qté", "Volume"]} droite={[2, 3]} lignes={(d.inv as any[]).map((x) => [x.piece, x.libelle, x.quantite, m3(x.volume * x.quantite)])} />
+                </Section>
+              )}
               <Section titre={f.genre === "charg" ? "Réserves à l’enlèvement" : "Réserves à la livraison"}>
                 <Encadre hauteur="24mm" />
               </Section>

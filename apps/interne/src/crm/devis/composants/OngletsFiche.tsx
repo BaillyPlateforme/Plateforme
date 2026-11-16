@@ -1,7 +1,7 @@
 "use client";
-import { ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
+import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
 import ChampAdresse from "@/ui/ChampAdresse";
-import { FORMULES, nouvelId, type Contrat, type DossierDevis, type Etape, type Moyens } from "../modele";
+import { FORMULES, dateValidite, nouvelId, type Contrat, type DossierDevis, type Etape, type Moyens } from "../modele";
 import { Champ, Interrupteur, Nombre, PICTOS, Pic, Section, Segment, euros } from "./champs";
 import s from "../editeur.module.css";
 
@@ -14,7 +14,8 @@ const TYPES_DEMENAGEMENT: [string, string][] = [
   ["national", "National"], ["international", "International"], ["maritime", "International maritime"],
   ["aerien", "International aérien"], ["gm", "Garde-meuble seul"], ["bureau", "Transfert de bureau"],
 ];
-const TYPES_CLIENT: [string, string][] = [["particulier", "Particulier"], ["compte", "Compte"], ["militaire", "Militaire"], ["partenaire", "Partenaire"], ["logement_social", "Logement social"]];
+// « Client compte » et « CIMOB/DICOM » : les mots de Bailly (Céline, 16/11/2026) ; les valeurs en base ne changent pas.
+const TYPES_CLIENT: [string, string][] = [["particulier", "Particulier"], ["compte", "Client compte"], ["militaire", "CIMOB/DICOM"], ["partenaire", "Partenaire"], ["logement_social", "Logement social"]];
 
 /* ---------- Adresses et accès ---------- */
 
@@ -25,6 +26,7 @@ export function OngletAdresses({ etapes, onChange }: { etapes: Etape[]; onChange
     const nouvelle: Etape = {
       id: -Date.now(), genre: "autre", adresse: "", codePostal: "", ville: "", pays: "", telephone: "", etage: "", ascenseur: false,
       monteCharge: false, transbordement: false, portage: null, monteMeuble: "", stationnement: "", acces: "",
+      ascenseurTaille: "", portageOui: false, escalier: "", escalierPrecision: "", stationnementPrecision: "", accesCamion: "", surfaceM2: null, codeAcces: "",
     };
     const l = [...etapes];
     l.splice(i >= 0 ? i : l.length, 0, nouvelle);
@@ -38,7 +40,7 @@ export function OngletAdresses({ etapes, onChange }: { etapes: Etape[]; onChange
     <Section
       surtitre="Adresses et accès"
       titre="Chargement, étapes et livraison"
-      texte="Les adresses du dossier : ce qui est saisi ici se retrouve sur la fiche, la fenêtre de visite et le devis imprimé."
+      texte="Les adresses du dossier : ce qui est saisi ici se retrouve sur la fiche, la fenêtre de visite et le devis imprimé (sauf le code d'accès, interne)."
       actions={
         <>
           {itineraire && <a className={s.boutonDoux} href={itineraire} target="_blank" rel="noreferrer"><Pic d={PICTOS.carte} /> Itinéraire</a>}
@@ -77,25 +79,38 @@ export function OngletAdresses({ etapes, onChange }: { etapes: Etape[]; onChange
               <Champ label="Pays" large={1}><input type="text" value={e.pays} placeholder="France" onChange={(x) => maj(e.id, { pays: x.target.value })} /></Champ>
               <Champ label="Téléphone sur place" large={2}><input type="tel" value={e.telephone} onChange={(x) => maj(e.id, { telephone: x.target.value })} /></Champ>
               <Champ label="Étage" large={1}><input type="text" value={e.etage} placeholder="RDC" onChange={(x) => maj(e.id, { etage: x.target.value })} /></Champ>
-              <Champ label="Portage" large={1}><Nombre valeur={e.portage} onChange={(v) => maj(e.id, { portage: v == null ? null : Math.round(v) })} suffixe="m" min={0} max={1000} /></Champ>
+              <Champ label="Taille de l'ascenseur" large={1}><input type="text" value={e.ascenseurTaille} placeholder="Nombre de personnes" onChange={(x) => maj(e.id, { ascenseurTaille: x.target.value })} /></Champ>
+              <Champ label="Portage : distance" large={1}><Nombre valeur={e.portage} onChange={(v) => maj(e.id, { portage: v == null ? null : Math.round(v), ...(v ? { portageOui: true } : {}) })} suffixe="m" min={0} max={1000} /></Champ>
               <Champ label="Monte-meuble" large={1}>
                 <select value={e.monteMeuble} onChange={(x) => maj(e.id, { monteMeuble: x.target.value })}>
                   <option value="">—</option>
                   {Object.entries(ACCES_MONTE_MEUBLE).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </Champ>
+              <Champ label="Surface habitable" large={1}><Nombre valeur={e.surfaceM2} onChange={(v) => maj(e.id, { surfaceM2: v == null ? null : Math.round(v) })} suffixe="m²" min={0} /></Champ>
+              <div className={s.cases} data-large={6}>
+                <Interrupteur actif={e.ascenseur} onChange={(v) => maj(e.id, { ascenseur: v })} label="Ascenseur" />
+                <Interrupteur actif={e.monteCharge} onChange={(v) => maj(e.id, { monteCharge: v })} label="Monte-charge" />
+                <Interrupteur actif={e.transbordement} onChange={(v) => maj(e.id, { transbordement: v })} label="Transbordement" />
+                <Interrupteur actif={e.portageOui || (e.portage ?? 0) > 0} onChange={(v) => maj(e.id, { portageOui: v, ...(v ? {} : { portage: null }) })} label="Portage" />
+              </div>
+              <Champ label="Escalier" large={2}>
+                <select value={e.escalier} onChange={(x) => maj(e.id, { escalier: x.target.value })}>
+                  <option value="">—</option>
+                  {Object.entries(ACCES_ESCALIER).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+              </Champ>
+              <Champ label="Escalier : précision" large={4}><input type="text" value={e.escalierPrecision} onChange={(x) => maj(e.id, { escalierPrecision: x.target.value })} /></Champ>
               <Champ label="Stationnement" large={2}>
                 <select value={e.stationnement} onChange={(x) => maj(e.id, { stationnement: x.target.value })}>
                   <option value="">—</option>
                   {Object.entries(ACCES_STATIONNEMENT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </Champ>
-              <div className={s.cases} data-large={6}>
-                <Interrupteur actif={e.ascenseur} onChange={(v) => maj(e.id, { ascenseur: v })} label="Ascenseur" />
-                <Interrupteur actif={e.monteCharge} onChange={(v) => maj(e.id, { monteCharge: v })} label="Monte-charge" />
-                <Interrupteur actif={e.transbordement} onChange={(v) => maj(e.id, { transbordement: v })} label="Transbordement" />
-              </div>
-              <Champ label="Détails d'accès" large={6}><input type="text" value={e.acces} placeholder="Code, cour, rue étroite, accès poids lourd…" onChange={(x) => maj(e.id, { acces: x.target.value })} /></Champ>
+              <Champ label="Stationnement : précision" large={4}><input type="text" value={e.stationnementPrecision} onChange={(x) => maj(e.id, { stationnementPrecision: x.target.value })} /></Champ>
+              <Champ label="Accès en camion" large={3}><input type="text" value={e.accesCamion} placeholder="Facile aux poids lourds" onChange={(x) => maj(e.id, { accesCamion: x.target.value })} /></Champ>
+              <Champ label="Code d'accès, interphone" large={3} aide="Usage interne : jamais imprimé ni montré au client."><input type="text" value={e.codeAcces} onChange={(x) => maj(e.id, { codeAcces: x.target.value })} /></Champ>
+              <Champ label="Détails d'accès" large={6} aide="Imprimés sur le devis."><input type="text" value={e.acces} placeholder="Cour, rue étroite, horaires…" onChange={(x) => maj(e.id, { acces: x.target.value })} /></Champ>
             </div>
           </article>
         ))}
@@ -115,9 +130,16 @@ export function OngletContrat({
   volume: number;
   ttc: number;
   suggestionsReglement: string[];
-  parDefaut: { arrhesPct: number; validiteJours: number };
+  parDefaut: { arrhesPct: number; validiteJours: number | null };
 }) {
   const maj = (p: Partial<Contrat>) => onChange({ ...contrat, ...p });
+  /** La validité par défaut d'un devis daté `jour` : un mois (jusqu'à la même date le mois suivant), ou les jours des paramètres. */
+  const parDefautDepuis = (jour: string) => dateValidite(jour, parDefaut.validiteJours);
+  /** La date du devis change : une validité restée à la règle (ou vide) la suit. */
+  const changerDate = (jour: string) => {
+    const suit = !contrat.validite || (!!contrat.dateDevis && contrat.validite === parDefautDepuis(contrat.dateDevis));
+    maj({ dateDevis: jour, ...(suit && jour ? { validite: parDefautDepuis(jour) } : {}) });
+  };
   const joursValidite = contrat.validite && contrat.dateDevis
     ? Math.round((new Date(`${contrat.validite}T12:00:00Z`).getTime() - new Date(`${contrat.dateDevis}T12:00:00Z`).getTime()) / 86400000)
     : null;
@@ -137,9 +159,23 @@ export function OngletContrat({
               {utilisateurs.map((u) => <option key={u.id} value={u.id}>{u.nom}</option>)}
             </select>
           </Champ>
-          <Champ label="Date du devis" large={1}><input type="date" value={contrat.dateDevis} onChange={(e) => maj({ dateDevis: e.target.value })} /></Champ>
+          <Champ label="Date du devis" large={1}><input type="date" value={contrat.dateDevis} onChange={(e) => changerDate(e.target.value)} /></Champ>
           <Champ label="Date de visite" large={1}><input type="date" value={contrat.dateVisite} onChange={(e) => maj({ dateVisite: e.target.value })} /></Champ>
-          <Champ label="Validité" large={1} aide={`Par défaut : ${parDefaut.validiteJours} jours`}>
+          <Champ
+            label="Validité"
+            large={1}
+            aide={
+              <>
+                Par défaut : {parDefaut.validiteJours == null ? "un mois" : `${parDefaut.validiteJours} jours`}
+                {contrat.dateDevis && contrat.validite !== parDefautDepuis(contrat.dateDevis) && (
+                  <>
+                    {" · "}
+                    <button type="button" className={s.lienBouton} onClick={() => maj({ validite: parDefautDepuis(contrat.dateDevis) })}>l&apos;appliquer</button>
+                  </>
+                )}
+              </>
+            }
+          >
             <Nombre valeur={joursValidite} onChange={validiteDepuisJours} suffixe="jours" min={0} max={730} />
           </Champ>
           <Champ label="Valable jusqu'au" large={1}><input type="date" value={contrat.validite} onChange={(e) => maj({ validite: e.target.value })} /></Champ>

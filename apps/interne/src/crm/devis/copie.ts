@@ -1,7 +1,7 @@
 import "server-only";
 import type { Db, Row } from "@/crm/lib/db";
 import { anneeParis } from "@/crm/lib/format";
-import { lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations, nouvelId } from "./modele";
+import { aujourdhuiParis, dateValidite, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations, nouvelId } from "./modele";
 import { calculer, lignesPourBase } from "./calcul";
 import { effectifs, type ParametresDevis } from "./parametres";
 
@@ -14,8 +14,8 @@ import { effectifs, type ParametresDevis } from "./parametres";
  * devis d'un seul tenant.
  *
  * Le devis repart en brouillon, avec le numéro suivant (DV-année-n°), daté du
- * jour et valable selon les Paramètres du devis. Il reprend le chiffrage
- * (lignes, remise, assurance), les prestations, les conditions et les achats
+ * jour et valable un mois (ou selon les Paramètres du devis). Il reprend le chiffrage
+ * (lignes, remise, garantie), les prestations, les conditions et les achats
  * prévus. D'un autre dossier, rien de ce qui tient au déménagement d'origine
  * ne suit : distance, poids lourds, déplacement, groupage, référence interne,
  * moyens, valeurs déclarées, coûts réels des achats. Jamais : l'envoi, la
@@ -28,12 +28,7 @@ import { effectifs, type ParametresDevis } from "./parametres";
  * à vérifier (`volumeDiffere`).
  */
 
-const aujourdhui = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-const plusJours = (j: number) => {
-  const d = new Date(`${aujourdhui()}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + j);
-  return d.toISOString().slice(0, 10);
-};
+const aujourdhui = () => aujourdhuiParis();
 
 /** Le numéro suivant, sous un verrou propre à la transaction : deux duplications simultanées ne prennent pas le même. */
 export async function numeroDevis(db: Db) {
@@ -86,6 +81,7 @@ export async function copierDevisDans(
   if (!memeDemenagement) {
     assurance.contractuelle.valeur = null;
     assurance.dommage.valeur = null;
+    assurance.luxe.valeur = null;
   }
   const achats = lireAchats(src.achats, src.lignes).map((a) => ({ ...a, id: nouvelId("h"), reel: null, date: "", piece: "" }));
   // Les lignes gardent leurs champs ; leurs identifiants sont renouvelés, l'assurance recalculée.
@@ -104,7 +100,7 @@ export async function copierDevisDans(
     commercial_id: d.commercial_id ?? (u.role === "commercial" ? u.id : null),
     date_devis: aujourdhui(),
     date_visite: d.visite ? new Date(d.visite).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }) : null,
-    validite: plusJours(eff.validiteJours),
+    validite: dateValidite(aujourdhui(), eff.validiteJours),
     distance_km: d.distance_km ?? null,
     maj_le: new Date().toISOString(),
     formule: src.formule,

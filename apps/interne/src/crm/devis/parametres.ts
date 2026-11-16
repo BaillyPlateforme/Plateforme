@@ -1,10 +1,10 @@
 /*
  * Les paramètres du devis, à fournir par Bailly (écran /devis/parametres).
  * Tant qu'un paramètre est vide, le devis reprend la valeur déjà présente
- * dans le code (TVA 20 %, arrhes 30 %, validité 60 jours) ou n'imprime rien
- * (CGV, taux d'assurance). Module pur : la lecture en base est dans donnees.ts.
+ * dans le code (TVA 20 %, arrhes 30 %, validité d'un mois) ou n'imprime rien
+ * (CGV, taux de garantie). Module pur : la lecture en base est dans donnees.ts.
  */
-import { ARRHES_CODE, TVA_CODE, VALIDITE_CODE } from "./modele";
+import { ARRHES_CODE, TVA_CODE } from "./modele";
 
 export interface ParametresDevis {
   cgv: string;
@@ -14,13 +14,14 @@ export interface ParametresDevis {
   tvaAssurance: number | null;
   tauxContractuelle: number | null;
   tauxDommage: number | null;
+  tauxLuxe: number | null;
   reglementsSolde: string[];
   origines: string[];
   comptes: string[];
   modesReglement: string[];
 }
 export const PARAMETRES_VIDES: ParametresDevis = {
-  cgv: "", arrhesPct: null, validiteJours: null, tvaDefaut: null, tvaAssurance: null, tauxContractuelle: null, tauxDommage: null,
+  cgv: "", arrhesPct: null, validiteJours: null, tvaDefaut: null, tvaAssurance: null, tauxContractuelle: null, tauxDommage: null, tauxLuxe: null,
   reglementsSolde: [], origines: [], comptes: [], modesReglement: [],
 };
 export const CLES_PARAMETRES = Object.keys(PARAMETRES_VIDES) as (keyof ParametresDevis)[];
@@ -28,7 +29,8 @@ export const CLES_PARAMETRES = Object.keys(PARAMETRES_VIDES) as (keyof Parametre
 /** Les valeurs effectives : le paramètre s'il est renseigné, sinon celle du code. */
 export const effectifs = (p: ParametresDevis) => ({
   arrhesPct: p.arrhesPct ?? ARRHES_CODE,
-  validiteJours: p.validiteJours ?? VALIDITE_CODE,
+  /** null : un mois (validiteUnMois), la règle du code. */
+  validiteJours: p.validiteJours,
   tva: p.tvaDefaut ?? TVA_CODE,
   tvaAssurance: p.tvaAssurance ?? p.tvaDefaut ?? TVA_CODE,
 });

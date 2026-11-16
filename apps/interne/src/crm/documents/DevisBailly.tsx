@@ -1,47 +1,71 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- les lignes SQL du CRM ne sont pas typées */
 import { TEL_AGENCE } from "@/lib/messaging";
 import { dateFr, m3, nomClient, TYPES } from "@/crm/lib/format";
-import { ACCES_MONTE_MEUBLE, ACCES_STATIONNEMENT } from "@/lib/visite/regles";
+import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, libelleEtageTexte } from "@/lib/visite/regles";
 import { calculer, type Calcul } from "@/crm/devis/calcul";
-import { ARRHES_CODE, TVA_CODE, lireAssurance, lireLignes, lirePrestations, nomDevis, type Chiffrage } from "@/crm/devis/modele";
+import { ARRHES_CODE, LIGNES_GARANTIE, TVA_CODE, lireAssurance, lireLignes, lirePrestations, nomDevis, type Chiffrage } from "@/crm/devis/modele";
 import { euros, pct } from "@/crm/devis/format";
+import { volumeClient } from "./volume-client";
 import s from "./devis.module.css";
 
 /*
  * Le devis Bailly, tel que le client le reçoit : aux couleurs de la maison
  * (le logo, le jaune et le noir), sur une page A4 quand c'est possible.
  *
- * - Un devis : le client, la visite, la catégorie, l'itinéraire et ses
- *   accès, le chiffrage (lignes détaillées, ou un prix global pour un
- *   forfait), la remise, la TVA, l'assurance si une prime est calculée, qui
- *   fait quoi, les conditions (arrhes, solde, validité, conditions
- *   particulières) et le bon pour accord. Les CGV, quand Bailly les a
- *   fournies, suivent en page 2.
+ * - Un devis : le client, la visite, la catégorie, l'itinéraire et tous les
+ *   accès de chaque adresse, le chiffrage (lignes détaillées, ou un prix
+ *   global pour un forfait), la remise, la TVA, la garantie si une prime est
+ *   calculée, nos prestations, les conditions (arrhes, solde, validité,
+ *   conditions particulières) et le bon pour accord. Les CGV, quand Bailly
+ *   les a fournies, suivent en page 2.
  * - Plusieurs devis (proposition du dossier) : les formules côte à côte.
  *
  * Seuls des faits connus y figurent : les données du dossier et du devis,
  * le téléphone de l'agence, son site et les labels de demenagements-bailly.com.
+ * Jamais les codes d'accès (donnée interne), ni, pour un client CIMOB/DICOM,
+ * son volume réel : seulement ses droits (volume-client.ts).
  */
 
 const GENRE: Record<string, string> = { depart: "Chargement", garde_meuble: "Garde-meuble", arrivee: "Livraison", autre: "Étape" };
 const ORDRE: Record<string, number> = { economique: 0, standard: 1, premium: 2, libre: 3 };
 const date = (d: unknown) => dateFr(d as string, { day: "numeric", month: "long", year: "numeric" });
-/** « 4 », « RDC », « 0 » : l'étage tel qu'on le lit. */
-const etage = (e: unknown) => {
-  const t = String(e ?? "").trim();
-  return !t || /^(rdc|0|rez)/i.test(t) ? "Rez-de-chaussée" : /^\d+$/.test(t) ? `${t}${t === "1" ? "er" : "e"} étage` : t;
+const texte = (v: unknown) => String(v ?? "").trim();
+const dans = (table: Record<string, string>, cle: unknown) => (typeof cle === "string" && Object.hasOwn(table, cle) ? table[cle] : null);
+const ouiNon = (v: unknown) => (v ? "Oui" : "Non");
+/** « 4 » → « 4 personnes » ; un texte libre (« 4 pers., 1,2 m ») tel quel. */
+const tailleAscenseur = (v: unknown) => {
+  const t = texte(v);
+  return !t ? null : /^\d+$/.test(t) ? `${t} personne${t === "1" ? "" : "s"}` : t;
 };
-const acces = (e: any) =>
-  [
-    etage(e.etage),
-    e.ascenseur ? "ascenseur" : "sans ascenseur",
-    e.monte_charge ? "monte-charge" : null,
-    e.portage_m ? `portage ${e.portage_m} m` : null,
-    e.monte_meuble === "oui" ? "monte-meuble" : e.monte_meuble ? `monte-meuble : ${String((ACCES_MONTE_MEUBLE as Record<string, string>)[e.monte_meuble] ?? "").toLowerCase()}` : null,
-    e.transbordement ? "transbordement" : null,
-    e.stationnement ? (ACCES_STATIONNEMENT as Record<string, string>)[e.stationnement] : null,
-    e.acces,
-  ].filter(Boolean).join(" · ");
+
+/**
+ * Tous les accès d'une adresse, tels que la fiche et la visite les ont
+ * notés (Céline, 16/11/2026 : « asc, portage, transbordement, MM… ») :
+ * étage, ascenseur et sa taille, monte-meubles, monte-charge,
+ * transbordement, portage et sa distance, toujours ; escalier,
+ * stationnement, accès du camion, surface et précisions quand ils sont
+ * renseignés. Le code d'accès n'y est jamais : donnée interne.
+ */
+export function accesAdresse(e: any): [string, string][] {
+  const portage = e.portage_m != null && Number(e.portage_m) > 0 ? `Oui, ${e.portage_m} m` : ouiNon(e.portage);
+  const escalier = [dans(ACCES_ESCALIER, e.escalier), texte(e.escalier_precision)].filter(Boolean).join(" · ");
+  const stationnement = [dans(ACCES_STATIONNEMENT, e.stationnement), texte(e.stationnement_precision)].filter(Boolean).join(" · ");
+  const camion = texte(e.acces_camion) || (dans(ACCES_POIDS_LOURD, e.poids_lourd) ? `Poids lourds : ${String(dans(ACCES_POIDS_LOURD, e.poids_lourd)).toLowerCase()}` : "");
+  const lignes: ([string, string | null] | false)[] = [
+    ["Étage", libelleEtageTexte(texte(e.etage)) ?? "—"],
+    ["Ascenseur", e.ascenseur ? ["Oui", tailleAscenseur(e.ascenseur_taille)].filter(Boolean).join(", ") : "Non"],
+    ["Monte-meubles", dans(ACCES_MONTE_MEUBLE, e.monte_meuble) ?? "—"],
+    ["Monte-charge", ouiNon(e.monte_charge)],
+    ["Transbordement", ouiNon(e.transbordement)],
+    ["Portage", portage],
+    !!escalier && ["Escalier", escalier],
+    !!stationnement && ["Stationnement", stationnement],
+    !!camion && ["Accès camion", camion],
+    e.surface_m2 != null && Number(e.surface_m2) > 0 && ["Surface", `${e.surface_m2} m²`],
+    !!texte(e.acces) && ["Précisions", texte(e.acces)],
+  ];
+  return lignes.filter((l): l is [string, string] => !!l && !!l[1]);
+}
 
 export type ParametresDocument = { cgv: string; tvaAssurance: number; arrhesPct: number };
 
@@ -133,6 +157,7 @@ function EnTete({ d, titre, sousTitre }: { d: any; titre: string; sousTitre: Rea
   );
 }
 
+/** Toutes les adresses du dossier (plusieurs chargements ou livraisons comprises), chacune avec tous ses accès. */
 function Itineraire({ d }: { d: any }) {
   return (
     <ol className={s.adresses} style={{ gridTemplateColumns: `repeat(${Math.min(Math.max((d.stops as any[]).length, 2), 3)}, minmax(0, 1fr))` }}>
@@ -142,7 +167,14 @@ function Itineraire({ d }: { d: any }) {
           <div>
             <small>{GENRE[e.genre] ?? "Étape"}</small>
             <b>{[e.adresse, [e.code_postal, e.ville].filter(Boolean).join(" "), e.pays].filter(Boolean).join(", ")}</b>
-            <span>{acces(e)}</span>
+            <dl className={s.accesDetail}>
+              {accesAdresse(e).map(([k, v]) => (
+                <div key={k} data-long={v.length > 26 ? "" : undefined}>
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
         </li>
       ))}
@@ -192,6 +224,9 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
   const contact = [d.prenom, d.nom].filter(Boolean).join(" ");
   const lien = v.token && !v.signe_le && lienSignature ? lienSignature(v.token) : null;
   const tauxUniques = c.parTaux.length;
+  const volume = volumeClient(d);
+  const primesGarantie = { contractuelle: c.primeContractuelle, dommage: c.primeDommage, luxe: c.primeLuxe };
+  const garanties = LIGNES_GARANTIE.filter((g) => primesGarantie[g.cle] > 0);
   const transport = [
     v.distance_km ? `${v.distance_km} km` : null,
     v.deplacement === "urbain" ? "déménagement urbain" : "transport routier",
@@ -220,12 +255,12 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
         <div className={s.case}>
           <small>Catégorie</small>
           <b>{nomDevis(v)}</b>
-          <span>{m3(d.volume)}{v.distance_km ? ` · ${v.distance_km} km` : ""}</span>
+          <span>{[volume.valeur != null ? `${volume.droits ? "Droits : " : ""}${m3(volume.valeur)}` : null, v.distance_km ? `${v.distance_km} km` : null].filter(Boolean).join(" · ") || "—"}</span>
         </div>
         <div className={s.case}>
           <small>Date</small>
           <b>{d.date_chargement ? dateFr(d.date_chargement, { day: "numeric", month: "long", year: "numeric" }) : d.periode ?? "À convenir"}</b>
-          <span>{d.date_livraison && String(d.date_livraison) !== String(d.date_chargement) ? `Livraison le ${dateFr(d.date_livraison, { day: "numeric", month: "long" })}` : "Chargement"}</span>
+          {d.date_livraison && String(d.date_livraison) !== String(d.date_chargement) && <span>Livraison le {dateFr(d.date_livraison, { day: "numeric", month: "long" })}</span>}
         </div>
       </section>
 
@@ -268,10 +303,13 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
             ))}
           </tbody>
         </table>
-          {(c.primeContractuelle > 0 || c.primeDommage > 0) && (
+          {garanties.length > 0 && (
             <p className={s.assuranceTexte}>
-              {c.primeContractuelle > 0 && <>Assurance contractuelle : valeur déclarée {euros(a.contractuelle.valeur)}, taux {pct(a.contractuelle.taux)}. </>}
-              {c.primeDommage > 0 && <>Assurance dommage : valeur déclarée {euros(a.dommage.valeur)}, taux {pct(a.dommage.taux)}{a.dommage.sansFranchise ? ", sans franchise" : a.dommage.franchise != null ? `, franchise ${euros(a.dommage.franchise)}` : ""}.</>}
+              {garanties.map((g) => {
+                const x = a[g.cle];
+                const franchise = !g.franchise ? ", pas de franchise" : "franchise" in x && x.franchise != null ? `, franchise ${euros(x.franchise)}` : "";
+                return <span key={g.cle}>{g.libelle} : valeur déclarée {euros(x.valeur)}, taux {pct(x.taux)}{franchise}. </span>;
+              })}
             </p>
           )}
         </div>
@@ -284,9 +322,8 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
           )}
           <div><dt>Net HT</dt><dd>{euros(c.parTaux.reduce((x, t) => x + t.ht, 0))}</dd></div>
           {c.parTaux.map((t) => <div key={t.taux}><dt>TVA {pct(t.taux)}</dt><dd>{euros(t.tva)}</dd></div>)}
-          {c.primeContractuelle > 0 && <div><dt>Assurance contractuelle</dt><dd>{euros(c.primeContractuelle)}</dd></div>}
-          {c.primeDommage > 0 && <div><dt>Assurance dommage</dt><dd>{euros(c.primeDommage)}</dd></div>}
-          {c.assuranceTva > 0 && <div><dt>TVA assurance {pct(tvaAssurance)}</dt><dd>{euros(c.assuranceTva)}</dd></div>}
+          {garanties.map((g) => <div key={g.cle}><dt>{g.libelle}</dt><dd>{euros(primesGarantie[g.cle])}</dd></div>)}
+          {c.assuranceTva > 0 && <div><dt>TVA garantie {pct(tvaAssurance)}</dt><dd>{euros(c.assuranceTva)}</dd></div>}
           <div className={s.ttc}><dt>Total TTC</dt><dd>{euros(c.ttc)}</dd></div>
           {arrhesPct > 0 && <div className={s.arrhes}><dt>Arrhes {pct(arrhesPct)}</dt><dd>{euros(Math.round(c.ttc * arrhesPct) / 100)}</dd></div>}
         </dl>
@@ -295,7 +332,7 @@ function Detail({ d, v, p, lienSignature }: { d: any; v: any; p: ParametresDocum
 
       {prestations.length > 0 && (
         <>
-          <h2 className={s.titre}>Qui fait quoi</h2>
+          <h2 className={s.titre}>Nos prestations</h2>
           <div className={s.quiFait}>
             <div>
               <small>Réalisé par Bailly</small>
@@ -351,6 +388,7 @@ function Proposition({ d, liste, p, lienSignature }: { d: any; liste: any[]; p: 
     ref.groupage === true ? "En groupage avec d’autres clients" : ref.groupage === false ? "Camion dédié" : null,
   ].filter(Boolean) as string[];
   const contact = [d.prenom, d.nom].filter(Boolean).join(" ");
+  const volume = volumeClient(d);
 
   return (
     <article className={`${s.feuille} ${s.compact}`}>
@@ -365,12 +403,11 @@ function Proposition({ d, liste, p, lienSignature }: { d: any; liste: any[]; p: 
         <div className={s.case}>
           <small>Période</small>
           <b>{d.periode ?? (d.date_chargement ? dateFr(d.date_chargement, { day: "numeric", month: "long", year: "numeric" }) : "À convenir")}</b>
-          <span>Chargement</span>
         </div>
         <div className={s.case}>
-          <small>Volume</small>
-          <b>{m3(d.volume)}</b>
-          <span>Volume estimé</span>
+          <small>{volume.libelle}</small>
+          <b>{volume.valeur != null ? m3(volume.valeur) : "—"}</b>
+          <span>{volume.droits ? "Volume accordé" : "Volume estimé"}</span>
         </div>
         <div className={s.case}>
           <small>Conseiller</small>
@@ -418,7 +455,7 @@ function Proposition({ d, liste, p, lienSignature }: { d: any; liste: any[]; p: 
 
       {prestations.length > 0 && (
         <>
-          <h2 className={s.titre}>Qui fait quoi</h2>
+          <h2 className={s.titre}>Nos prestations</h2>
           <div className={s.quiFaitFormules}>
             {[prestations.slice(0, Math.ceil(prestations.length / 2)), prestations.slice(Math.ceil(prestations.length / 2))].map((moitie, i) => (
               <table key={i} className={s.prestations}>

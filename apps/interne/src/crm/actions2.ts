@@ -158,7 +158,7 @@ export async function envoyerPourSignature(dossierId: number, devisId: number) {
  * envoyé), et seulement si aucun autre devis du dossier n'est déjà signé.
  *
  * Trois contrôles du serveur, que le navigateur ne remplace pas :
- *   - le devis n'a pas expiré (la validité du devis, sinon 60 jours après
+ *   - le devis n'a pas expiré (la validité du devis, sinon un mois après
  *     l'envoi : la règle de l'espace client) ;
  *   - la case « J'ai lu le devis et les CGV » est cochée ;
  *   - la version des CGV affichées est celle qu'on inscrit.
@@ -173,7 +173,7 @@ export async function signerParToken(token: string, f: FormData) {
   if (!jetonValide(token)) return;
   const v = await q1<{ id: number; dossier_id: number; numero: string; expire: boolean }>(
     `select id, dossier_id, numero,
-       coalesce(validite, (coalesce(envoye_le, cree_le) at time zone 'Europe/Paris')::date + 60) < (now() at time zone 'Europe/Paris')::date as expire
+       coalesce(validite, ((coalesce(envoye_le, cree_le) at time zone 'Europe/Paris')::date + interval '1 month')::date) < (now() at time zone 'Europe/Paris')::date as expire
      from devis where token=$1`, [token]);
   if (!v) return;
   if (v.expire) redirect(`/signature/${token}?erreur=expire`);

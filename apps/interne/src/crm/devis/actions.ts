@@ -11,7 +11,7 @@ import { encaisser } from "@/crm/facturation/actions";
 import { formules } from "@/crm/lib/tarif";
 import { anneeParis } from "@/crm/lib/format";
 import {
-  FORMULES, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations,
+  FORMULES, aujourdhuiParis, dateValidite, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations,
   nomDevis, nouvelId, prestationsType, type EtatDevis, type Formule,
 } from "./modele";
 import { calculer, lignesPourBase, r2 } from "./calcul";
@@ -31,8 +31,7 @@ const n = (f: FormData, k: string) => { const v = s(f, k); if (v == null) return
 const texte = (v: unknown, max = 4000) => String(v ?? "").slice(0, max);
 const nombre = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const date = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
-const aujourdhui = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-const plusJours = (j: number) => { const d = new Date(`${aujourdhui()}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + j); return d.toISOString().slice(0, 10); };
+const aujourdhui = () => aujourdhuiParis();
 const FORMULE_OK = (v: unknown): v is Formule => FORMULES.some((f) => f.cle === v);
 
 async function noter(dossierId: number, libelle: string) {
@@ -114,7 +113,9 @@ export async function enregistrerDevis(devisId: number, brut: EtatDevis, maj: st
       `update devis set titre=$2, formule=$3, categorie_specifique=$4, categorie_libelle=$5, commercial_id=$6, date_devis=$7, date_visite=$8, validite=$9,
          distance_km=$10, poids_lourds=$11, deplacement=$12, groupage=$13, arrhes_pct=$14, reglement_solde=$15, conditions=$16, commentaire_interne=$17,
          ref_interne=$18, mode=$19, saisie=$20, remise_pct=$21, lignes=$22, montant=$23, montant_ht=$24, montant_tva=$25, prestations=$26, assurance=$27,
-         achats=$28, moyens=$29, international=$30, maj_le=now()
+         achats=$28, moyens=$29, international=$30, maj_le=now(),
+         -- Un devis du générateur enregistré ici porte désormais les prix de l'équipe : « Générer les devis » ne le remplace plus.
+         origine=case when coalesce(origine, 'formules') = 'formules' then 'ajuste' else origine end
        where id=$1 returning maj_le`,
       [
         devisId, texte(c.titre, 120) || null, FORMULE_OK(c.formule) ? c.formule : "libre", !!c.categorieSpecifique, texte(c.categorieLibelle, 120) || null,
@@ -144,16 +145,24 @@ export async function enregistrerDevis(devisId: number, brut: EtatDevis, maj: st
           nombre(e.portage) != null && nombre(e.portage)! >= 0 && nombre(e.portage)! <= 1000 ? Math.round(nombre(e.portage)!) : null,
           ["oui", "non", "a_evaluer"].includes(e.monteMeuble) ? e.monteMeuble : null,
           ["facile", "autorisation", "reserve_client"].includes(e.stationnement) ? e.stationnement : null, texte(e.acces, 500) || null,
+          // La fiche du premier appel et la visite (retours de Céline, 16/11/2026).
+          texte(e.ascenseurTaille, 60) || null, !!e.portageOui || (nombre(e.portage) ?? 0) > 0,
+          ["aucun", "droit", "colimacon", "etroit"].includes(e.escalier) ? e.escalier : null, texte(e.escalierPrecision, 300) || null,
+          texte(e.stationnementPrecision, 300) || null, texte(e.accesCamion, 300) || null,
+          nombre(e.surfaceM2) != null && nombre(e.surfaceM2)! > 0 && nombre(e.surfaceM2)! < 100000 ? Math.round(nombre(e.surfaceM2)!) : null,
+          texte(e.codeAcces, 300) || null,
         ];
         const ex = existantes.find((x) => x.id === e.id);
         if (ex) {
           gardees.add(ex.id);
           await db.query(`update etapes_trajet set ordre=$3, adresse=$4, code_postal=$5, ville=$6, pays=$7, telephone=$8, etage=$9, ascenseur=$10, monte_charge=$11,
-            transbordement=$12, portage_m=$13, monte_meuble=$14, stationnement=$15, acces=$16 where id=$1 and dossier_id=$2`, [ex.id, v.dossier_id, i, ...vals]);
+            transbordement=$12, portage_m=$13, monte_meuble=$14, stationnement=$15, acces=$16, ascenseur_taille=$17, portage=$18, escalier=$19,
+            escalier_precision=$20, stationnement_precision=$21, acces_camion=$22, surface_m2=$23, code_acces=$24 where id=$1 and dossier_id=$2`, [ex.id, v.dossier_id, i, ...vals]);
         } else {
           const genre = e.genre === "garde_meuble" ? "garde_meuble" : "autre";
           await db.query(`insert into etapes_trajet(dossier_id, ordre, genre, adresse, code_postal, ville, pays, telephone, etage, ascenseur, monte_charge, transbordement,
-            portage_m, monte_meuble, stationnement, acces) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, [v.dossier_id, i, genre, ...vals]);
+            portage_m, monte_meuble, stationnement, acces, ascenseur_taille, portage, escalier, escalier_precision, stationnement_precision, acces_camion, surface_m2,
+            code_acces) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`, [v.dossier_id, i, genre, ...vals]);
         }
       }
       for (const ex of existantes) {
@@ -183,7 +192,7 @@ async function colonnesCommunes(d: Row, p: ParametresDevis) {
     commercial_id: d.commercial_id ?? (u.role === "commercial" ? u.id : null),
     date_devis: aujourdhui(),
     date_visite: d.visite ? new Date(d.visite).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }) : null,
-    validite: plusJours(eff.validiteJours),
+    validite: dateValidite(aujourdhui(), eff.validiteJours),
     arrhes_pct: eff.arrhesPct,
     distance_km: d.distance_km ?? null,
     maj_le: new Date().toISOString(),
@@ -415,7 +424,7 @@ export async function enregistrerParametres(f: FormData) {
     ...PARAMETRES_VIDES,
     cgv: String(f.get("cgv") ?? "").slice(0, 60000),
     arrhesPct: n(f, "arrhesPct"), validiteJours: n(f, "validiteJours"), tvaDefaut: n(f, "tvaDefaut"), tvaAssurance: n(f, "tvaAssurance"),
-    tauxContractuelle: n(f, "tauxContractuelle"), tauxDommage: n(f, "tauxDommage"),
+    tauxContractuelle: n(f, "tauxContractuelle"), tauxDommage: n(f, "tauxDommage"), tauxLuxe: n(f, "tauxLuxe"),
     reglementsSolde: liste("reglementsSolde"), origines: liste("origines"), comptes: liste("comptes"), modesReglement: liste("modesReglement"),
   };
   for (const cle of CLES_PARAMETRES) {

@@ -1,16 +1,21 @@
 "use client";
 import { useRef, useState } from "react";
-import { TAUX_TVA, nouvelId, type Chiffrage, type Groupe, type LigneDevis } from "../modele";
+import { LIGNES_GARANTIE, TAUX_TVA, nouvelId, type Chiffrage, type Groupe, type LigneDevis } from "../modele";
 import { r2, type Calcul } from "../calcul";
-import { Champ, Interrupteur, Nombre, PICTOS, Pic, Section, Segment, euros, pct } from "./champs";
+import { Champ, Nombre, PICTOS, Pic, Section, Segment, euros, pct } from "./champs";
 import s from "../editeur.module.css";
 
 /*
- * L'onglet Chiffrage : le mode (forfait ou 5 postes), les lignes de base et
- * les lignes « Divers » à libellé libre — quantité, prix unitaire, TVA par
- * ligne —, la remise, l'assurance contractuelle et dommage. Saisie en ligne :
- * Entrée ajoute une ligne, la poignée glisse pour réordonner (ou ↑ ↓ au
- * clavier), la corbeille supprime (annulable).
+ * L'onglet Chiffrage : le mode (forfait ou ligne à ligne), les lignes de
+ * base et les lignes « Divers » à libellé libre — quantité, prix unitaire,
+ * TVA par ligne —, la remise, la garantie (contractuelle, dommage standard,
+ * dommage luxe). Saisie en ligne : Entrée ajoute une ligne, la poignée glisse
+ * pour réordonner (ou ↑ ↓ au clavier), la corbeille supprime (annulable).
+ *
+ * Les prix sont ceux que l'équipe saisit, ligne par ligne, après la visite
+ * (Céline, 16/11/2026 : « chaque client est différent ») : aucun calcul ne
+ * les remplace. Seuls le montant de chaque ligne (quantité × prix) et les
+ * totaux se calculent.
  */
 
 type Props = {
@@ -94,10 +99,16 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
         <Section
           surtitre="Prestations et matériels"
           titre="Chiffrage"
-          texte={chiffrage.mode === "forfait" ? "Forfait : le devis imprimé annonce un prix global ; les lignes Divers restent détaillées." : "5 postes : chaque ligne figure sur le devis imprimé, avec sa quantité et son prix."}
+          texte={
+            <>
+              {chiffrage.mode === "forfait" ? "Forfait : le devis imprimé annonce un prix global ; les lignes Divers restent détaillées." : "Ligne à ligne : chaque ligne figure sur le devis imprimé, avec sa quantité et son prix."}
+              <br />
+              Chaque prix se saisit ici, ligne par ligne : ajoutez, modifiez, supprimez ou glissez les lignes. Aucun calcul ne remplace un prix saisi.
+            </>
+          }
           actions={
             <div className={s.reglagesChiffrage}>
-              <Segment label="Type de chiffrage" valeur={chiffrage.mode} options={[["forfait", "Forfait"], ["postes", "5 postes"]]} onChange={(v) => maj({ mode: v })} />
+              <Segment label="Type de chiffrage" valeur={chiffrage.mode} options={[["forfait", "Forfait"], ["postes", "Ligne à ligne"]]} onChange={(v) => maj({ mode: v })} />
               <Segment label="Prix saisis" petit valeur={chiffrage.saisie} options={[["ht", "Prix HT"], ["ttc", "Prix TTC"]]} onChange={changerSaisie} />
             </div>
           }
@@ -121,7 +132,7 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
               </>
             }
             pied={chiffrage.mode === "postes" && base.length <= 1 && (
-              <button type="button" className={s.lienBouton} onClick={postesTypes}>Insérer les 5 postes du tarif ({postesTarif.join(", ").toLowerCase()})</button>
+              <button type="button" className={s.lienBouton} onClick={postesTypes}>Insérer les libellés des 5 postes du tarif ({postesTarif.join(", ").toLowerCase()}), prix à saisir</button>
             )}
           />
           <TableauLignes
@@ -158,11 +169,11 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
       </div>
       <div className={s.zoneAssurance}>
         <Section
-          surtitre="Assurance"
-          titre="Assurance contractuelle et dommage"
+          surtitre="Garantie"
+          titre="Garantie contractuelle et dommage"
           texte="Prime = valeur déclarée × taux. Rien n'est imprimé tant qu'aucune prime n'est calculée. Taux à fournir par Bailly : aucun n'est prérempli."
           actions={
-            <Champ label="TVA de l'assurance" className={s.champEtroit}>
+            <Champ label="TVA de la garantie" className={s.champEtroit}>
               <select value={a.tva ?? ""} onChange={(e) => majAssurance({ tva: e.target.value === "" ? null : Number(e.target.value) })}>
                 <option value="">{String(tvaAssurance).replace(".", ",")} % (par défaut)</option>
                 {TAUX_TVA.map((t) => <option key={t} value={t}>{String(t).replace(".", ",")} %</option>)}
@@ -171,23 +182,26 @@ export default function OngletChiffrage({ chiffrage, calcul, onChange, tvaDefaut
           }
         >
           <div className={s.assurances}>
-            <div className={s.assurance}>
-              <b>Contractuelle</b>
-              <Champ label="Valeur déclarée"><Nombre valeur={a.contractuelle.valeur} onChange={(v) => majAssurance({ contractuelle: { ...a.contractuelle, valeur: v } })} suffixe="€" placeholder="0" /></Champ>
-              <Champ label="Taux"><Nombre valeur={a.contractuelle.taux} onChange={(v) => majAssurance({ contractuelle: { ...a.contractuelle, taux: v } })} suffixe="%" placeholder="—" min={0} max={100} /></Champ>
-              <span className={s.primeVide} />
-              <span className={s.prime}><small>Prime HT</small>{euros(calcul.primeContractuelle)}</span>
-            </div>
-            <div className={s.assurance}>
-              <b>Dommage</b>
-              <Champ label="Valeur déclarée"><Nombre valeur={a.dommage.valeur} onChange={(v) => majAssurance({ dommage: { ...a.dommage, valeur: v } })} suffixe="€" placeholder="0" /></Champ>
-              <Champ label="Taux"><Nombre valeur={a.dommage.taux} onChange={(v) => majAssurance({ dommage: { ...a.dommage, taux: v } })} suffixe="%" placeholder="—" min={0} max={100} /></Champ>
-              <div className={s.franchise}>
-                <Champ label="Franchise"><Nombre valeur={a.dommage.franchise} disabled={a.dommage.sansFranchise} onChange={(v) => majAssurance({ dommage: { ...a.dommage, franchise: v } })} suffixe="€" placeholder="—" /></Champ>
-                <Interrupteur actif={a.dommage.sansFranchise} onChange={(v) => majAssurance({ dommage: { ...a.dommage, sansFranchise: v, franchise: v ? null : a.dommage.franchise } })} label="Sans franchise" />
-              </div>
-              <span className={s.prime}><small>Prime HT</small>{euros(calcul.primeDommage)}</span>
-            </div>
+            {LIGNES_GARANTIE.map((g) => {
+              const ligne = a[g.cle];
+              const prime = g.cle === "contractuelle" ? calcul.primeContractuelle : g.cle === "dommage" ? calcul.primeDommage : calcul.primeLuxe;
+              const majLigne = (p: Partial<typeof ligne>) => majAssurance({ [g.cle]: { ...ligne, ...p } } as Partial<typeof a>);
+              return (
+                <div key={g.cle} className={s.assurance} data-garantie={g.cle}>
+                  <b>{g.court}</b>
+                  <Champ label="Valeur déclarée"><Nombre valeur={ligne.valeur} onChange={(v) => majLigne({ valeur: v })} suffixe="€" placeholder="0" label={`Valeur déclarée ${g.court}`} /></Champ>
+                  <Champ label="Taux"><Nombre valeur={ligne.taux} onChange={(v) => majLigne({ taux: v })} suffixe="%" placeholder="—" min={0} max={100} label={`Taux ${g.court}`} /></Champ>
+                  {"franchise" in ligne ? (
+                    <div className={s.franchise}>
+                      <Champ label="Franchise"><Nombre valeur={ligne.franchise} onChange={(v) => majLigne({ franchise: v })} suffixe="€" placeholder="—" min={0} label={`Franchise ${g.court}`} /></Champ>
+                    </div>
+                  ) : (
+                    <span className={s.sansFranchise}>Pas de franchise</span>
+                  )}
+                  <span className={s.prime}><small>Prime HT</small>{euros(prime)}</span>
+                </div>
+              );
+            })}
           </div>
         </Section>
       </div>
@@ -339,8 +353,8 @@ export function Recapitulatif({
         ))}
         {calcul.assuranceHt > 0 && (
           <>
-            <div><dt>Assurance HT</dt><dd>{euros(calcul.assuranceHt)}</dd></div>
-            <div><dt>TVA assurance {pct(tvaAssurance)}</dt><dd>{euros(calcul.assuranceTva)}</dd></div>
+            <div><dt>Garantie HT</dt><dd>{euros(calcul.assuranceHt)}</dd></div>
+            <div><dt>TVA garantie {pct(tvaAssurance)}</dt><dd>{euros(calcul.assuranceTva)}</dd></div>
           </>
         )}
         <div className={s.recapSepare}><dt>Total HT</dt><dd>{euros(calcul.ht)}</dd></div>

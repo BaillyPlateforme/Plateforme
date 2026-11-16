@@ -352,7 +352,7 @@
   }
 }
 
-/* Qui fait quoi : les prestations de chaque formule, Bailly ou le client. */
+/* Nos prestations (ex-« Qui fait quoi ») : les prestations de chaque formule, Bailly ou le client. */
 .prestations {
   width: 100%;
   border-collapse: collapse;
@@ -529,7 +529,7 @@
   font-size: 6.8pt;
   font-weight: 600;
 }
-/* Qui fait quoi, proposition à plusieurs formules : deux demi-tableaux côte à côte. */
+/* Nos prestations, proposition à plusieurs formules : deux demi-tableaux côte à côte. */
 .quiFaitFormules {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -632,6 +632,39 @@
   color: var(--gris);
   font-size: 7.4pt;
 }
+/* Tous les accès de chaque adresse (Céline, 16/11/2026) : « libellé : valeur », à la suite. */
+.adresses li > div {
+  align-content: start;
+}
+.adresses .accesDetail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3mm 2.6mm;
+  margin: 1mm 0 0;
+}
+.adresses .accesDetail > div {
+  display: block;
+  min-width: 0;
+  font-size: 7pt;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.adresses .accesDetail > div[data-long] {
+  white-space: normal;
+}
+.accesDetail dt {
+  display: inline;
+  color: var(--gris);
+  font-weight: 600;
+}
+.accesDetail dt::after {
+  content: " : ";
+}
+.accesDetail dd {
+  display: inline;
+  margin: 0;
+  font-weight: 650;
+}
 
 /* Le chiffrage : les lignes, puis les totaux à droite */
 .chiffrage {
@@ -726,7 +759,7 @@
   font-size: 7.6pt;
 }
 
-/* Qui fait quoi : deux listes */
+/* Nos prestations : deux listes */
 .quiFait {
   display: grid;
   grid-template-columns: 2.7fr 1fr;

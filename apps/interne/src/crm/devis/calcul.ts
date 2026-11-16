@@ -8,10 +8,10 @@
  * - la remise (%) s'applique taux de TVA par taux, arrondie au centime ;
  * - saisie HT : TVA = base nette × taux, par taux ; saisie TTC (devis
  *   d'avant) : HT = TTC net ÷ (1 + taux), la TVA est la différence ;
- * - l'assurance (prime = valeur × taux) s'ajoute en HT, avec sa TVA ;
+ * - la garantie (trois lignes, prime = valeur × taux) s'ajoute en HT, avec sa TVA ;
  * - TTC = HT + TVA ; arrhes = TTC × pourcentage ; marge sur le HT.
  */
-import type { Achat, Assurance, Chiffrage, LigneDevis } from "./modele";
+import { LIGNES_GARANTIE, type Achat, type Assurance, type Chiffrage, type LigneDevis } from "./modele";
 
 /** Arrondi au centime, sans l'erreur des flottants (1,005 → 1,01). */
 export const r2 = (n: number) => Math.round(Number((n * 100).toPrecision(12))) / 100;
@@ -26,7 +26,9 @@ export interface Calcul {
   net: number;
   parTaux: Taux[];
   primeContractuelle: number;
+  /** La garantie dommage standard. */
   primeDommage: number;
+  primeLuxe: number;
   assuranceHt: number;
   assuranceTva: number;
   ht: number;
@@ -38,10 +40,10 @@ export function montantLigne(l: Pick<LigneDevis, "qte" | "pu">) {
   return r2(nb(l.qte) * nb(l.pu));
 }
 
+/** Les primes HT des trois lignes de la garantie : contractuelle (c), dommage standard (d), dommage luxe (l). */
 export function primes(a: Assurance) {
-  const c = r2((nb(a.contractuelle.valeur) * nb(a.contractuelle.taux)) / 100);
-  const d = r2((nb(a.dommage.valeur) * nb(a.dommage.taux)) / 100);
-  return { c, d };
+  const prime = (x: { valeur: number | null; taux: number | null } | undefined) => r2((nb(x?.valeur) * nb(x?.taux)) / 100);
+  return { c: prime(a.contractuelle), d: prime(a.dommage), l: prime(a.luxe) };
 }
 
 export function calculer(ch: Chiffrage, tvaAssuranceParDefaut: number): Calcul {
@@ -66,8 +68,8 @@ export function calculer(ch: Chiffrage, tvaAssuranceParDefaut: number): Calcul {
       const tva = r2((net * taux) / 100);
       return { taux, brut, remise: rem, net, ht: net, tva, ttc: r2(net + tva) };
     });
-  const { c, d } = primes(ch.assurance);
-  const assuranceHt = r2(c + d);
+  const { c, d, l } = primes(ch.assurance);
+  const assuranceHt = r2(c + d + l);
   const assuranceTva = r2((assuranceHt * (ch.assurance.tva ?? tvaAssuranceParDefaut)) / 100);
   const somme = (k: keyof Taux) => r2(parTaux.reduce((a, t) => a + t[k], 0));
   const ht = r2(somme("ht") + assuranceHt);
@@ -80,6 +82,7 @@ export function calculer(ch: Chiffrage, tvaAssuranceParDefaut: number): Calcul {
     parTaux,
     primeContractuelle: c,
     primeDommage: d,
+    primeLuxe: l,
     assuranceHt,
     assuranceTva,
     ht,
@@ -115,7 +118,9 @@ export function prixDeVente(cout: number, margePct: number, mode: "cout" | "prix
  * `prix`, le TTC net de la ligne (remise déduite), que lisent la fiche, le
  * Kanban et la projection vers l'espace client. La somme des `prix` des
  * lignes facturées vaut exactement le TTC du devis : l'écart d'arrondi va à
- * la plus grosse ligne. L'assurance y figure en lignes automatiques.
+ * la plus grosse ligne. La garantie y figure en lignes automatiques
+ * (`auto: "assurance"`, le marqueur d'avant, que lit la projection vers
+ * l'espace client) : une par ligne de garantie dont la prime n'est pas nulle.
  */
 export function lignesPourBase(ch: Chiffrage, c: Calcul, tvaAssurance: number) {
   const remise = Math.min(100, Math.max(0, nb(ch.remisePct))) / 100;
@@ -126,8 +131,11 @@ export function lignesPourBase(ch: Chiffrage, c: Calcul, tvaAssurance: number) {
     return { id: l.id, groupe: l.groupe, libelle: l.libelle, detail: l.detail || undefined, qte: l.qte, unite: l.unite || undefined, pu: l.pu, tva: l.tva, charge: l.charge, prix };
   });
   const taux = tvaAssurance / 100;
-  if (c.primeContractuelle > 0) lignes.push({ id: "assurance-c", auto: "assurance", libelle: "Assurance contractuelle", charge: "bailly", prix: r2(c.primeContractuelle * (1 + taux)) });
-  if (c.primeDommage > 0) lignes.push({ id: "assurance-d", auto: "assurance", libelle: "Assurance dommage", charge: "bailly", prix: r2(c.primeDommage * (1 + taux)) });
+  const primesHt = { contractuelle: c.primeContractuelle, dommage: c.primeDommage, luxe: c.primeLuxe };
+  const ids = { contractuelle: "assurance-c", dommage: "assurance-d", luxe: "assurance-l" };
+  for (const g of LIGNES_GARANTIE) {
+    if (primesHt[g.cle] > 0) lignes.push({ id: ids[g.cle], auto: "assurance", libelle: g.libelle, charge: "bailly", prix: r2(primesHt[g.cle] * (1 + taux)) });
+  }
   const facturees = lignes.filter((l) => l.charge !== "client" && (l.prix as number) !== 0);
   const ecart = r2(c.ttc - facturees.reduce((a, l) => a + (l.prix as number), 0));
   if (ecart !== 0 && facturees.length) {
@@ -135,4 +143,34 @@ export function lignesPourBase(ch: Chiffrage, c: Calcul, tvaAssurance: number) {
     grosse.prix = r2((grosse.prix as number) + ecart);
   }
   return lignes;
+}
+
+/** La ligne du chiffrage qui reçoit le prix de vente d'un devis international (Céline, 16/11/2026). */
+export const LIGNE_TRANSPORT = "Transport, chargement et livraison";
+/** Son identifiant quand le report la crée : reporter une seconde fois la retrouve, même renommée. */
+export const ID_LIGNE_TRANSPORT = "int-transport";
+/** Les lignes du report d'avant le 16/11/2026, une par poste : remplacées par la ligne unique. */
+const LIGNES_REPORT_AVANT = new Set(["int-os", "int-fob", "int-fret", "int-ds"]);
+const cleLibelle = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * « Reporter dans le chiffrage » (devis international) : le prix de vente HT
+ * total des postes, sans détail, dans la ligne « Transport, chargement et
+ * livraison » — celle déjà créée par un report, sinon celle du chiffrage qui
+ * porte ce libellé, sinon une nouvelle, en tête des lignes de base. Une
+ * unité, au prix de vente (TVA comprise pour un devis saisi TTC, au taux de
+ * la ligne). Reporter deux fois met la ligne à jour, sans doublon ; les
+ * lignes par poste d'un report d'avant sont retirées. Les autres lignes ne
+ * bougent pas.
+ */
+export function reporterInternational(lignes: LigneDevis[], venteHt: number, saisie: "ht" | "ttc", tvaDefaut: number): LigneDevis[] {
+  const restantes = lignes.filter((l) => !LIGNES_REPORT_AVANT.has(l.id));
+  const cible =
+    restantes.find((l) => l.id === ID_LIGNE_TRANSPORT) ??
+    restantes.find((l) => l.groupe === "base" && cleLibelle(l.libelle) === cleLibelle(LIGNE_TRANSPORT));
+  const tva = cible?.tva ?? tvaDefaut;
+  const pu = saisie === "ttc" ? r2(venteHt * (1 + nb(tva) / 100)) : r2(venteHt);
+  if (cible) return restantes.map((l) => (l.id === cible.id ? { ...l, qte: 1, pu, charge: "bailly" as const } : l));
+  const ligne: LigneDevis = { id: ID_LIGNE_TRANSPORT, groupe: "base", libelle: LIGNE_TRANSPORT, detail: "", qte: 1, unite: "", pu, tva, charge: "bailly" };
+  return [ligne, ...restantes];
 }

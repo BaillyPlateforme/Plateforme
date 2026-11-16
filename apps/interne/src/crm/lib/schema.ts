@@ -110,6 +110,8 @@ alter table crm.lettres_voiture add column if not exists instructions text;
 -- devis détaillé (données contractuelles, prestations), signature par lien,
 -- factures de garde-meuble (sans dossier, d'où dossier_id facultatif).
 alter table crm.dossiers add column if not exists type_demenagement text not null default 'national';
+-- Retours de Céline (16/11/2026) : le volume accordé par l'administration (CIMOB/DICOM), seul montré au client.
+alter table crm.dossiers add column if not exists volume_droits numeric(7,2);
 alter table crm.factures alter column dossier_id drop not null;
 alter table crm.factures add column if not exists garde_meuble_id int;
 alter table crm.devis add column if not exists distance_km int;

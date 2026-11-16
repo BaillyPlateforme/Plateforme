@@ -14,6 +14,8 @@ import { instantParis } from "@/lib/visite/regles";
 import { journaliser } from "@/crm/lib/journal";
 import { anneeParis } from "@/crm/lib/format";
 import { apresDuplication, reprendreDuplication } from "@/crm/duplication/dossier";
+import { aujourdhuiParis, dateValidite } from "@/crm/devis/modele";
+import { lireParametres } from "@/crm/devis/donnees";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -166,10 +168,13 @@ export async function genererDevis(id: number) {
   await exiger();
   const d = await q1<Row>("select volume::float8 as volume, statut from dossiers where id=$1", [id]);
   if (!d) return;
-  // Seuls les brouillons du générateur sont remplacés : un devis libre ou dupliqué (module devis) reste.
+  // Seuls les brouillons du générateur jamais enregistrés dans la fenêtre Devis sont remplacés : un devis
+  // libre, dupliqué, ou dont l'équipe a saisi le chiffrage (origine « ajuste », devis/actions.ts) reste tel quel.
   await q("delete from devis where dossier_id=$1 and statut='brouillon' and coalesce(origine,'formules')='formules'", [id]);
+  // Valable un mois à l'heure de Paris (ou le nombre de jours des paramètres du devis).
+  const validite = dateValidite(aujourdhuiParis(), (await lireParametres()).validiteJours);
   for (const fo of formules(d.volume) as Formule[]) {
-    await q("insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite) values($1,$2,$3,$4,$5,$6,current_date + 60)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant, JSON.stringify(prestationsPour(fo.cle))]);
+    await q("insert into devis(dossier_id,numero,formule,lignes,montant,prestations,validite) values($1,$2,$3,$4,$5,$6,$7)", [id, await numero("DV", "devis"), fo.cle, JSON.stringify(fo.lignes), fo.montant, JSON.stringify(prestationsPour(fo.cle)), validite]);
   }
   if (["prospect", "visite"].includes(d.statut)) await q("update dossiers set statut='devis' where id=$1", [id]);
   await q("update rendez_vous set devis_etabli=true where dossier_id=$1 and type in ('phys','visio')", [id]);
