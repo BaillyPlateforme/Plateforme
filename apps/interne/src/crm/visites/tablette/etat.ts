@@ -20,9 +20,11 @@ export interface EtatSaisie {
 export function appliquerOp(e: EtatSaisie, op: Operation): EtatSaisie {
   switch (op.t) {
     case "piece": {
-      const p: PieceSaisie = { cle: op.cle, nom: op.nom, ordre: op.ordre, remarque: op.remarque };
-      const existe = e.pieces.some((x) => x.cle === op.cle);
-      const pieces = existe ? e.pieces.map((x) => (x.cle === op.cle ? p : x)) : [...e.pieces, p];
+      const avant = e.pieces.find((x) => x.cle === op.cle);
+      // La destination de la pièce : celle de l'opération, sinon celle qu'elle avait (le serveur fait de même).
+      const destination = op.destination !== undefined ? op.destination : avant?.destination;
+      const p: PieceSaisie = { cle: op.cle, nom: op.nom, ordre: op.ordre, remarque: op.remarque, ...(destination !== undefined ? { destination } : {}) };
+      const pieces = avant ? e.pieces.map((x) => (x.cle === op.cle ? p : x)) : [...e.pieces, p];
       return { ...e, pieces: pieces.sort((a, b) => a.ordre - b.ordre) };
     }
     case "piece-":

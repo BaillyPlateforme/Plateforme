@@ -123,6 +123,20 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
             </View>
           </View>
 
+          {c.destinations && c.destinations.length > 0 && (
+            <>
+              <Section>Volume par destination</Section>
+              {c.destinations.map((d) => (
+                <View key={d.libelle} style={s.tr} wrap={false}>
+                  <Text style={s.cLib}>{d.libelle}</Text>
+                  <Text style={s.cQte}>{d.objets}</Text>
+                  <Text style={s.cU}> </Text>
+                  <Text style={s.cVol}>{m3(d.volume)}</Text>
+                </View>
+              ))}
+            </>
+          )}
+
           {c.trajet.length > 0 && (
             <>
               <Section>Adresses et accès</Section>
@@ -159,10 +173,9 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
                   <View key={i} style={s.tr} wrap={false}>
                     <View style={s.cLib}>
                       <Text>{o.libelle}</Text>
-                      {(o.demontage || o.fragile || o.note) && (
+                      {(o.demontage || o.fragile || o.note || o.destination) && (
                         <Text style={s.marque}>
-                          {[o.demontage ? "DÉMONTAGE" : null, o.fragile ? "FRAGILE" : null].filter(Boolean).join(" · ")}
-                          {o.note ? `${o.demontage || o.fragile ? " · " : ""}${o.note}` : ""}
+                          {[o.demontage ? "DÉMONTAGE" : null, o.fragile ? "FRAGILE" : null, o.note, o.destination ? `→ ${o.destination}` : null].filter(Boolean).join(" · ")}
                         </Text>
                       )}
                     </View>

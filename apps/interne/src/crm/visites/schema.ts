@@ -131,6 +131,14 @@ alter table crm.etapes_trajet add column if not exists pays text;
 alter table crm.etapes_trajet add column if not exists telephone text;
 alter table crm.etapes_trajet add column if not exists monte_charge boolean not null default false;
 alter table crm.etapes_trajet add column if not exists transbordement boolean not null default false;
+-- Retours de Céline (16/11/2026) : la fiche du premier appel et la fenêtre de visite.
+alter table crm.etapes_trajet add column if not exists ascenseur_taille text;
+alter table crm.etapes_trajet add column if not exists code_acces text;
+alter table crm.etapes_trajet add column if not exists surface_m2 int;
+alter table crm.etapes_trajet add column if not exists acces_camion text;
+alter table crm.etapes_trajet add column if not exists portage boolean not null default false;
+alter table crm.etapes_trajet add column if not exists escalier_precision text;
+alter table crm.etapes_trajet add column if not exists stationnement_precision text;
 
 -- Un compte-rendu signé ne se modifie plus. Seuls changent encore les liens
 -- qui ne touchent pas au contenu (le rendez-vous supprimé, le commercial
@@ -168,6 +176,14 @@ begin
 end $f$;
 create or replace trigger visite_photos_figees before insert or update or delete on crm.visite_photos
   for each row execute function crm.photo_visite_figee();
+
+-- La tablette répartit l'inventaire entre les destinations du dossier (retours
+-- de Céline, 16/11/2026 : garde-meuble, livraison en province, livraison à
+-- Paris…). Un objet, et une pièce pour ses objets à venir, se rattachent à une
+-- étape du trajet ; la colonne texte inventaire.destination suit son libellé.
+-- Une étape retirée du trajet laisse l'objet sans étape, avec son dernier libellé.
+alter table crm.inventaire add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
+alter table crm.pieces add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
 
 insert into crm.modeles_messages(canal, nom, objet, corps)
 select 'email', 'Rappel de visite (veille)', 'Votre visite technique de demain · {ref}',

@@ -40,6 +40,23 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
         </div>
       </section>
 
+      {c.destinations && c.destinations.length > 0 && (
+        <section className={s.crBloc}>
+          <h2>Volume par destination</h2>
+          <ul className={s.crDestinations}>
+            {c.destinations.map((d) => (
+              <li key={d.libelle}>
+                <span>{d.libelle}</span>
+                <small>
+                  {d.objets} objet{d.objets > 1 ? "s" : ""}
+                </small>
+                <b>{m3(d.volume)}</b>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {c.trajet.length > 0 && (
         <section className={s.crBloc}>
           <h2>Adresses et accès</h2>
@@ -76,6 +93,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
                       {o.libelle}
                       {o.demontage && <em>DÉMONTAGE</em>}
                       {o.fragile && <em>FRAGILE</em>}
+                      {o.destination && <small className={s.crDest}>→ {o.destination}</small>}
                     </span>
                     <b>{o.quantite > 1 ? `${m3Fin(o.volume_unitaire)} · ` : ""}{m3(o.volume)}</b>
                   </li>

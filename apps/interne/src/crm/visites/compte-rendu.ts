@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { SEAU as SEAU_ESPACE } from "@/lib/espace-client/fichiers";
 import { pdfCompteRendu, type PhotosParPiece } from "@/lib/visite/pdf";
+import { volumesParDestination } from "@/lib/visite/destinations";
 import { FORMULES, GENRE_ETAPE, jsonCanonique, volumeObjets, type ContenuCompteRendu } from "@/lib/visite/regles";
 import { q, q1 } from "@/crm/lib/db";
 import { SEAU as SEAU_PHOTOS } from "@/terrain/lib/photos";
@@ -18,6 +19,10 @@ import type { Saisie } from "./donnees";
  * fois, le même contenu donne la même empreinte, et la signature vérifie que
  * le client a signé exactement ce qu'il a vu.
  *
+ * Quand le dossier a plusieurs destinations (garde-meuble, deux livraisons…),
+ * chaque objet porte la sienne et le compte-rendu donne le volume par
+ * destination ; avec une seule, le contenu reste celui d'avant.
+ *
  * Le PDF est produit une fois, après la signature, et rangé dans le seau
  * privé de l'espace client (sous crm/<dossier>/visites/) : la projection le
  * range parmi les documents du client, et le CRM le sert par une URL signée
@@ -27,6 +32,9 @@ import type { Saisie } from "./donnees";
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 
 export function contenuDe(s: Saisie): ContenuCompteRendu {
+  const destinations = s.destinations ?? [];
+  const reparti = destinations.length > 1;
+  const libelleDe = new Map(destinations.map((d) => [d.id, d.libelle]));
   const pieces = s.pieces
     .map((p) => {
       const objets = s.objets
@@ -34,6 +42,7 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
         .map((o) => ({
           libelle: o.libelle, quantite: o.quantite, volume_unitaire: arrondi(o.volume), volume: arrondi(o.quantite * o.volume),
           demontage: o.demontage, fragile: o.fragile, note: o.note,
+          ...(reparti ? { destination: (o.destination != null ? libelleDe.get(o.destination) : null) ?? o.destinationLibre ?? "Sans destination" } : {}),
         }));
       return {
         cle: p.cle, nom: p.nom, remarque: p.remarque?.trim() || null, volume: volumeObjets(objets.map((o) => ({ quantite: o.quantite, volume: o.volume_unitaire }))),
@@ -53,8 +62,15 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
         genre: e.genre, libelle: GENRE_ETAPE[e.genre] ?? "Étape", adresse: e.adresse!.trim(), etage: e.etage, ascenseur: e.ascenseur, escalier: e.escalier,
         portage_m: e.portage_m, stationnement: e.stationnement, poids_lourd: e.poids_lourd, monte_meuble: e.monte_meuble,
         monte_charge: !!e.monte_charge, transbordement: !!e.transbordement, acces: e.acces?.trim() || null,
+        // Les champs du 16/11/2026 ne figurent que renseignés : un compte-rendu sans eux reste celui d'avant.
+        ...(e.ascenseur && e.ascenseur_taille?.trim() ? { ascenseur_taille: e.ascenseur_taille.trim() } : {}),
+        ...(e.escalier_precision?.trim() ? { escalier_precision: e.escalier_precision.trim() } : {}),
+        ...(e.stationnement_precision?.trim() ? { stationnement_precision: e.stationnement_precision.trim() } : {}),
       })),
     pieces,
+    ...(reparti
+      ? { destinations: volumesParDestination(s.objets, destinations).map((d) => ({ libelle: d.libelle, volume: d.volume, objets: d.objets })) }
+      : {}),
     volume: volumeObjets(s.objets),
     nb_objets: s.objets.reduce((n, o) => n + o.quantite, 0),
     nb_photos: pieces.reduce((n, p) => n + p.photos, 0),
