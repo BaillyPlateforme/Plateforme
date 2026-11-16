@@ -6,10 +6,12 @@ import { flushSync, useFormStatus } from "react-dom";
 import { creerDossier } from "@/crm/actions";
 import { STATUTS, m3, nomClient } from "@/crm/lib/format";
 import {
-  SEGMENTS, SEGMENTS_SOCIETE, TYPES_DEMENAGEMENT, court, depuis, developperPeriode, libelleSegment, moisAVenir,
-  type ClientConnu, type Reperes, type SourceDossier, type SourceModele,
+  ADRESSE_VIDE, ADRESSES_MAX, SEGMENTS, SEGMENTS_SOCIETE, court, depuis, developperPeriode, libelleSegment, adresseDepuisEtape, moisAVenir,
+  type ClientConnu, type AdresseSaisie, type Reperes, type SourceDossier, type SourceModele,
 } from "./commun";
 import ChampAdresse from "@/ui/ChampAdresse";
+import ChampsTelephones from "@/crm/clients/ChampsTelephones";
+import { TELEPHONE_VIDE, telLisible, type Telephone } from "@/crm/clients/telephones";
 import { Picto } from "./Picto";
 import type { SourceDuplication } from "@/crm/duplication/types";
 import PanneauDuplication, { COCHES_DEFAUT, cochesInitiales, type Coches } from "@/crm/duplication/composants/PanneauDuplication";
@@ -18,20 +20,31 @@ import s from "./creation.module.css";
 /*
  * L'écran de création d'un dossier, au clavier d'abord.
  *
- * Le strict nécessaire (client, coordonnées, départ, arrivée, période) ; le
- * reste, si on le sait. Entrée passe au prochain champ essentiel encore vide,
- * puis crée le dossier quand tout l'essentiel est là ; ⌘/Ctrl+Entrée crée
- * tout de suite, dès que le client a un nom et un moyen d'être joint.
+ * Dans l'ordre proposé par Céline (16/11/2026), ce que l'équipe note dès le
+ * premier appel, comme sur la fiche de visite de Créagidem : 1 · le client
+ * (plusieurs téléphones, chacun avec ce qu'il désigne ; les droits d'un
+ * CIMOB/DICOM ; le compte BAILLY d'un client compte ; l'origine), 2 · la
+ * période, une seule pour tout le déménagement, 3 · l'adresse de départ et
+ * 4 · l'adresse de livraison — chacune avec ses accès, et « + » pour en
+ * ajouter une —, les kilomètres calculés entre elles, 5 · les observations.
+ * L'ancienne section « Si vous le savez » (type, volume, commercial,
+ * options) est retirée de l'écran : tout se complète sur la fiche, et ce
+ * qu'une reprise apporte suit, caché.
+ *
+ * Entrée passe au prochain champ essentiel encore vide (un détail d'adresse
+ * ou un téléphone de plus : au champ suivant), puis crée le dossier quand
+ * tout l'essentiel est là ; ⌘/Ctrl+Entrée crée tout de suite, dès que le
+ * client a un nom et un moyen d'être joint.
  *
  * « Partir de… » préremplit ce qui se réutilise (segment, type de
  * déménagement, volume, options ; observations d'un modèle). Pour le MÊME
  * client (2e déménagement, sortie de garde-meuble), l'arrivée de son dernier
- * dossier devient le départ du nouveau, avec étage, ascenseur et accès, et ses
- * observations suivent ; le nouveau dossier ouvert depuis sa fiche part de là
- * d'office. D'un AUTRE client, aucune adresse ni aucun accès : c'est le
- * domicile d'un autre foyer (choix de David, 08/11/2026). Un champ prérempli
- * est marqué, et la reprise s'annule d'un geste. Ce que l'utilisateur a tapé
- * n'est jamais écrasé.
+ * dossier devient le départ du nouveau, avec ses accès, et ses observations
+ * suivent ; le nouveau dossier ouvert depuis sa fiche part de là d'office.
+ * D'un AUTRE client, aucune adresse ni aucun accès : c'est le domicile d'un
+ * autre foyer (choix de David, 08/11/2026). Un champ prérempli est marqué,
+ * et la reprise s'annule d'un geste. Ce que l'utilisateur a tapé n'est
+ * jamais écrasé.
  *
  * « Dupliquer pour un nouveau client » (?depuis=<id>, le « ⋯ » d'un dossier)
  * est un point de départ de plus, réglé par quatre cases (trajet et accès,
@@ -41,20 +54,29 @@ import s from "./creation.module.css";
  */
 
 interface V {
-  type: string; civilite: string; prenom: string; nom: string; societe: string; telephone: string; email: string;
-  depart: string; arrivee: string; periode: string;
-  type_demenagement: string; volume: string; commercial_id: string; observations: string;
-  garde_meuble: boolean; vehicule: boolean;
-  depart_etage: string; depart_asc: boolean; depart_acces: string;
-  arrivee_etage: string; arrivee_asc: boolean; arrivee_acces: string;
+  type: string; civilite: string; prenom: string; nom: string; societe: string; email: string;
+  telephones: Telephone[];
+  /** Client compte : l'entreprise sous appel d'offres (« compte BAILLY »), un espace pro. */
+  espace_pro_id: string;
+  /** CIMOB/DICOM : le volume accordé par l'administration, en m³. */
+  volume_droits: string;
+  origine: string;
+  periode: string;
+  departs: AdresseSaisie[]; arrivees: AdresseSaisie[];
+  observations: string;
+  // Hors de l'écran depuis le 16/11/2026 : ce qu'une reprise apporte, et le commercial d'office.
+  type_demenagement: string; volume: string; commercial_id: string; garde_meuble: boolean; vehicule: boolean;
 }
 type Cle = keyof V;
+/** Ce que parcourt Entrée : une clé, ou le premier téléphone, la première adresse de départ ou de livraison. */
+type Champ = Cle | "telephone" | "depart" | "arrivee";
+type Genre = "departs" | "arrivees";
+
 const VIDE: V = {
-  type: "particulier", civilite: "", prenom: "", nom: "", societe: "", telephone: "", email: "",
-  depart: "", arrivee: "", periode: "",
-  type_demenagement: "national", volume: "", commercial_id: "", observations: "",
-  garde_meuble: false, vehicule: false,
-  depart_etage: "", depart_asc: false, depart_acces: "", arrivee_etage: "", arrivee_asc: false, arrivee_acces: "",
+  type: "particulier", civilite: "", prenom: "", nom: "", societe: "", email: "",
+  telephones: [TELEPHONE_VIDE], espace_pro_id: "", volume_droits: "", origine: "", periode: "",
+  departs: [ADRESSE_VIDE], arrivees: [ADRESSE_VIDE], observations: "",
+  type_demenagement: "national", volume: "", commercial_id: "", garde_meuble: false, vehicule: false,
 };
 
 /** D'où part le dossier : un modèle ou un dossier passé. */
@@ -74,15 +96,10 @@ function reprise(src: SourceDossier | SourceModele, clientId: number | null): Pa
   if (c.vehicule) r.vehicule = true;
   if (src.genre === "modele" && c.observations) r.observations = c.observations;
   // Le même client : il habite désormais à l'arrivée de son dernier dossier, qui devient le départ du nouveau ;
-  // l'arrivée reste à saisir. D'un autre client, rien du trajet : son adresse et ses codes ne regardent que lui.
+  // la livraison reste à saisir. D'un autre client, rien du trajet : son adresse et ses codes ne regardent que lui.
   if (src.genre === "dossier" && clientId && src.clientId === clientId) {
     const e = src.arrivee?.adresse ? src.arrivee : src.depart;
-    if (e?.adresse) {
-      r.depart = e.adresse;
-      if (e.etage) r.depart_etage = e.etage;
-      if (e.ascenseur) r.depart_asc = true;
-      if (e.acces) r.depart_acces = e.acces;
-    }
+    if (e?.adresse) r.departs = [adresseDepuisEtape(e, true)];
     if (src.observations) r.observations = src.observations;
   }
   return r;
@@ -104,13 +121,8 @@ function repriseDuplication(src: SourceDuplication, c: Coches, clientId: number 
   }
   if (c.inventaire && src.volume > 0) r.volume = nombre(src.volume);
   if (c.trajet) {
-    for (const [g, e] of [["depart", src.depart], ["arrivee", src.arrivee]] as const) {
-      if (!e?.adresse) continue;
-      r[g] = e.adresse;
-      if (e.etage) r[`${g}_etage`] = e.etage;
-      if (e.ascenseur) r[`${g}_asc`] = true;
-      if (e.acces) r[`${g}_acces`] = e.acces;
-    }
+    if (src.depart?.adresse) r.departs = [adresseDepuisEtape(src.depart, true)];
+    if (src.arrivee?.adresse) r.arrivees = [adresseDepuisEtape(src.arrivee, false)];
   }
   if (c.observations && src.observations) r.observations = src.observations;
   return r;
@@ -129,21 +141,26 @@ function appliquerSur(e: Etat, origine: Origine | null, champs: Partial<V>, touc
   return { v: v as unknown as V, repris, origine };
 }
 
-/** Les libellés des champs repris, regroupés (le départ et son étage ne font qu'un). */
+/** Les libellés des champs repris, regroupés (une adresse et ses accès ne font qu'un). */
 const GROUPES: [string, Cle[]][] = [
   ["Segment", ["type"]], ["Type de déménagement", ["type_demenagement"]], ["Volume", ["volume"]],
   ["Garde-meuble", ["garde_meuble"]], ["Véhicule", ["vehicule"]], ["Observations", ["observations"]],
-  ["Départ et accès", ["depart", "depart_etage", "depart_asc", "depart_acces"]],
-  ["Arrivée et accès", ["arrivee", "arrivee_etage", "arrivee_asc", "arrivee_acces"]],
+  ["Départ et accès", ["departs"]],
+  ["Livraison et accès", ["arrivees"]],
 ];
+
+const OUI_NON: [string, string][] = [["oui", "Oui"], ["non", "Non"]];
 
 interface Props {
   moi: { id: number; role: string };
-  commerciaux: { id: number; nom: string }[];
   monDernier: SourceDossier | null;
   dernierAgence: SourceDossier | null;
   modeles: SourceModele[];
   modeleInitial: number | null;
+  /** Les comptes BAILLY (entreprises sous appel d'offres : les espaces pro), pour un client compte. */
+  entreprises: { id: string; nom: string; actif: boolean }[];
+  /** L'origine de la demande : la liste réglée par Bailly (Paramètres du devis), puis ce que l'équipe a déjà saisi. */
+  origines: { reglees: string[]; saisies: string[] };
   /** Un client à rattacher d'emblée (`?client=<id>` : « Nouveau dossier pour ce client », depuis sa fiche). */
   clientInitial?: ClientConnu | null;
   /** Un dossier à dupliquer pour un nouveau client (`?depuis=<id>`) : des cases disent ce qui est repris. */
@@ -154,7 +171,7 @@ interface Props {
 const sAbonner = () => () => {};
 const surMac = () => /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent);
 
-export default function CreationDossier({ moi, commerciaux, monDernier, dernierAgence, modeles, modeleInitial, clientInitial = null, duplication = null, maintenant }: Props) {
+export default function CreationDossier({ moi, monDernier, dernierAgence, modeles, modeleInitial, entreprises, origines, clientInitial = null, duplication = null, maintenant }: Props) {
   const mac = useSyncExternalStore(sAbonner, surMac, () => true);
   const cmd = mac ? "⌘" : "Ctrl";
   const alt = mac ? "⌥" : "Alt+";
@@ -175,7 +192,10 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
     // déménagé avec nous, son dernier dossier — son arrivée devient le départ.
     const base: Etat = {
       v: c
-        ? { ...VIDE, commercial_id: comDefaut, civilite: c.civilite ?? "", prenom: c.prenom ?? "", nom: c.nom ?? "", societe: c.societe ?? "", email: c.email ?? "", telephone: c.telephone ?? "", type: c.type }
+        ? {
+            ...VIDE, commercial_id: comDefaut, civilite: c.civilite ?? "", prenom: c.prenom ?? "", nom: c.nom ?? "", societe: c.societe ?? "", email: c.email ?? "",
+            telephones: c.telephone ? [{ numero: telLisible(c.telephone), libelle: "" }] : [TELEPHONE_VIDE], type: c.type,
+          }
         : { ...VIDE, commercial_id: comDefaut },
       repris: [],
       origine: null,
@@ -193,31 +213,42 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   const [client, setClient] = useState<ClientConnu | null>(clientInitial);
   const [reperes, setReperes] = useState<Reperes>({ client: null, doublons: [], proches: [] });
   const [ignores, setIgnores] = useState<number[]>([]);
-  const [erreur, setErreur] = useState<{ champ: Cle; texte: string } | null>(null);
+  const [erreur, setErreur] = useState<{ champ: Champ; texte: string } | null>(null);
   const formulaire = useRef<HTMLFormElement>(null);
   // Au premier affichage, le curseur se pose sur le premier champ essentiel.
-  const aFocaliser = useRef<Cle | "premier" | null>("premier");
+  const aFocaliser = useRef<Champ | "premier" | null>("premier");
 
   const societe = SEGMENTS_SOCIETE.includes(v.type);
   const defauts = (c: ClientConnu | null = client): V => ({ ...VIDE, commercial_id: comDefaut, type: c?.type ?? "particulier" });
 
   /* ---------- l'essentiel, dans l'ordre où Entrée le parcourt ---------- */
-  const essentiels: [Cle, string][] = [
+  const essentiels: [Champ, string][] = [
     ...(client ? [] : societe
-      ? ([["societe", "raison sociale"], ["prenom", "prénom du contact"], ["nom", "nom du contact"]] as [Cle, string][])
-      : ([["civilite", "civilité"], ["prenom", "prénom"], ["nom", "nom"]] as [Cle, string][])),
-    ...(client ? [] : ([["telephone", "téléphone"], ["email", "e-mail"]] as [Cle, string][])),
-    ["depart", "départ"], ["arrivee", "arrivée"], ["periode", "période"],
+      ? ([["societe", "raison sociale"], ["prenom", "prénom du contact"], ["nom", "nom du contact"]] as [Champ, string][])
+      : ([["civilite", "civilité"], ["prenom", "prénom"], ["nom", "nom"]] as [Champ, string][])),
+    ...(client ? [] : ([["telephone", "téléphone"], ["email", "e-mail"]] as [Champ, string][])),
+    ["periode", "période"], ["depart", "adresse de départ"], ["arrivee", "adresse de livraison"],
   ];
-  const estVide = (k: Cle, x: V = v) => !String(x[k]).trim();
+  const texteDe = (k: Champ, x: V): string =>
+    k === "telephone" ? (x.telephones[0]?.numero ?? "") : k === "depart" ? (x.departs[0]?.adresse ?? "") : k === "arrivee" ? (x.arrivees[0]?.adresse ?? "") : String(x[k]);
+  const estVide = (k: Champ, x: V = v) => !texteDe(k, x).trim();
   const manquants = essentiels.filter(([k]) => estVide(k));
+  /** Le champ d'Entrée qui correspond à une clé de la saisie. */
+  const champDe = (k: Cle): Champ => (k === "telephones" ? "telephone" : k === "departs" ? "depart" : k === "arrivees" ? "arrivee" : k);
 
   /* ---------- focus ---------- */
-  const focaliser = (k: Cle) => {
+  const focaliser = (k: Champ) => {
     const el = formulaire.current?.querySelector<HTMLElement>(`[data-champ="${k}"]`);
     if (el?.getAttribute("role") === "radiogroup")
       (el.querySelector<HTMLElement>('[aria-checked="true"]') ?? el.querySelector<HTMLElement>('[role="radio"]'))?.focus();
     else el?.focus();
+  };
+  /** Le champ suivant de l'écran, comme Tab : pour les détails, où Entrée ne doit pas créer le dossier. */
+  const champSuivant = (depuisEl: HTMLElement) => {
+    const tous = Array.from(
+      formulaire.current?.querySelectorAll<HTMLElement>('input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea, [role="radio"][tabindex="0"]') ?? [],
+    );
+    tous[tous.indexOf(depuisEl) + 1]?.focus();
   };
   // Après un rendu qui a changé les champs (reprise, rattachement), le curseur va au premier champ essentiel vide.
   useEffect(() => {
@@ -231,8 +262,27 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   /* ---------- saisie ---------- */
   const maj = <K extends Cle>(k: K, val: V[K]) => {
     touches.current.add(k);
-    setErreur((e) => (e?.champ === k ? null : e));
+    setErreur((e) => (e?.champ === champDe(k) ? null : e));
     setEtat((e) => ({ ...e, v: { ...e.v, [k]: val }, repris: e.repris.filter((x) => x !== k) }));
+  };
+  /** Une adresse de départ ou de livraison change : sur l'état du moment (le choix d'une suggestion en fait deux de suite). */
+  const majLieu = (g: Genre, i: number, champs: Partial<AdresseSaisie>) => {
+    touches.current.add(g);
+    if (i === 0 && champs.adresse?.trim()) setErreur((e) => (e?.champ === champDe(g) ? null : e));
+    setEtat((e) => ({ ...e, v: { ...e.v, [g]: e.v[g].map((l, j) => (j === i ? { ...l, ...champs } : l)) }, repris: e.repris.filter((x) => x !== g) }));
+  };
+  const ajouterLieu = (g: Genre) => {
+    touches.current.add(g);
+    setEtat((e) => ({ ...e, v: { ...e.v, [g]: [...e.v[g], ADRESSE_VIDE] }, repris: e.repris.filter((x) => x !== g) }));
+    // Le curseur va à la nouvelle adresse.
+    window.requestAnimationFrame(() => {
+      const blocs = formulaire.current?.querySelectorAll<HTMLElement>(`[data-lieu="${g}"]`);
+      blocs?.[blocs.length - 1]?.querySelector<HTMLInputElement>("input")?.focus();
+    });
+  };
+  const retirerLieu = (g: Genre, i: number) => {
+    touches.current.add(g);
+    setEtat((e) => ({ ...e, v: { ...e.v, [g]: e.v[g].filter((_, j) => j !== i) }, repris: e.repris.filter((x) => x !== g) }));
   };
   /** Le prochain champ essentiel vide après `depuis` ; sinon la création. */
   const suivant = (depuisChamp: string | null, creerSiComplet = true, x: V = v) => {
@@ -242,7 +292,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
       if (creerSiComplet) creer();
       return;
     }
-    const i = ordre.indexOf(depuisChamp as Cle);
+    const i = ordre.indexOf(depuisChamp as Champ);
     focaliser(ordre.slice(i + 1).find((k) => vides.includes(k)) ?? vides[0]);
   };
   const creer = () => {
@@ -252,7 +302,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
       setErreur({ champ, texte: societe ? "Indiquez la raison sociale." : "Indiquez le nom du client." });
       return focaliser(champ);
     }
-    if (!client && !v.telephone.trim() && !v.email.trim()) {
+    if (!client && !v.telephones.some((t) => t.numero.trim()) && !v.email.trim()) {
       setErreur({ champ: "telephone", texte: "Un téléphone ou un e-mail, pour joindre le client." });
       return focaliser("telephone");
     }
@@ -271,6 +321,8 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
     const champ = t.closest<HTMLElement>("[data-champ]")?.dataset.champ ?? null;
     if (t.tagName === "BUTTON" && !champ) return;
     e.preventDefault();
+    // Un détail (téléphone de plus, accès d'une adresse, origine, droits) : Entrée passe au champ suivant, sans créer.
+    if (!champ) return champSuivant(t);
     if (champ === "periode") {
       const p = developperPeriode(v.periode, maintenant);
       if (p !== v.periode) flushSync(() => maj("periode", p));
@@ -309,7 +361,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
     setEtat((e) => {
       const v2: V = {
         ...e.v, civilite: c.civilite ?? "", prenom: c.prenom ?? "", nom: c.nom ?? "", societe: c.societe ?? "",
-        email: c.email ?? e.v.email, telephone: c.telephone ?? e.v.telephone,
+        email: c.email ?? e.v.email, telephones: c.telephone ? [{ numero: telLisible(c.telephone), libelle: "" }] : e.v.telephones,
         type: t.has("type") ? e.v.type : c.type,
       };
       const base = { ...e, v: v2 };
@@ -327,8 +379,9 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
 
   /* ---------- les repères, à chaque pause de frappe ---------- */
   const volumeNum = Number(v.volume.replace(",", ".")) || null;
+  const livraison = [...v.arrivees].reverse().find((l) => l.adresse.trim())?.adresse ?? "";
   const cleSaisie = JSON.stringify({
-    email: v.email, telephone: v.telephone, nom: v.nom, societe: v.societe, depart: v.depart, arrivee: v.arrivee,
+    email: v.email, telephone: v.telephones[0]?.numero ?? "", nom: v.nom, societe: v.societe, depart: v.departs[0]?.adresse ?? "", arrivee: livraison,
     volume: volumeNum, type: v.type, type_demenagement: v.type_demenagement, clientId: client?.id ?? null,
   });
   useEffect(() => {
@@ -348,6 +401,33 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   }, [cleSaisie]);
   const connu = reperes.client && !client && !ignores.includes(reperes.client.id) ? reperes.client : null;
   const doublons = reperes.doublons.filter((d) => !ignores.includes(-d.id));
+
+  /* ---------- les kilomètres, d'une adresse à la suivante (chargements, puis livraisons) ---------- */
+  const trajet = [...v.departs, ...v.arrivees]
+    .filter((l) => l.adresse.trim())
+    .map((l) => ({ adresse: l.adresse, code_postal: l.code_postal, ville: l.ville, lat: l.lat, lon: l.lon }));
+  const cleTrajet = trajet.length >= 2 ? JSON.stringify(trajet) : "";
+  const [kms, setKms] = useState<{ cle: string; km: number | null } | null>(null);
+  useEffect(() => {
+    if (!cleTrajet) return;
+    const ctrl = new AbortController();
+    const minuterie = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/dossiers/distance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ etapes: JSON.parse(cleTrajet) }), signal: ctrl.signal });
+        const j = r.ok ? ((await r.json()) as { km: number | null }) : { km: null };
+        setKms({ cle: cleTrajet, km: j.km });
+      } catch {
+        // Une adresse plus récente a pris le relais (le calcul reprendra avec elle), ou le réseau a manqué.
+        if (!ctrl.signal.aborted) setKms({ cle: cleTrajet, km: null });
+      }
+    }, 650);
+    return () => {
+      clearTimeout(minuterie);
+      ctrl.abort();
+    };
+  }, [cleTrajet]);
+  const km = cleTrajet && kms?.cle === cleTrajet ? kms.km : null;
+  const kmEnCours = !!cleTrajet && kms?.cle !== cleTrajet;
 
   /* ---------- raccourcis ⌥1 à ⌥9 ---------- */
   const raccourcis: Record<number, (() => void) | undefined> = {
@@ -379,7 +459,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
   const reprisAffiches = GROUPES.filter(([, cles]) => cles.some(estRepris)).map(([l]) => l);
 
   /* ---------- rendu ---------- */
-  const champTexte = (k: "prenom" | "nom" | "societe" | "telephone" | "email" | "periode", label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  const champTexte = (k: "prenom" | "nom" | "societe" | "email" | "periode", label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className={s.champ}>
       <span className={s.etiquette}>
         {label}
@@ -406,43 +486,129 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
     </label>
   );
 
-  /** Le départ et l'arrivée : une ville ou une adresse, avec les suggestions de la Base Adresse (le texte libre reste possible). */
-  const champAdresse = (k: "depart" | "arrivee", label: string) => (
-    <label className={s.champ}>
-      <span className={s.etiquette}>
-        {label}
-        {estRepris(k) && <em className={s.marqueRepris}>repris</em>}
-      </span>
-      <ChampAdresse
-        data-champ={k}
-        name={k}
-        value={v[k]}
-        onChange={(x) => maj(k, x)}
-        placeholder="Ville ou adresse"
-        className={`${s.saisie} ${estRepris(k) ? s.repris : ""} ${erreur?.champ === k ? s.enErreur : ""}`}
-        aria-invalid={erreur?.champ === k || undefined}
-      />
-    </label>
+  /** Une réponse Oui / Non (ascenseur, monte-meubles, transbordement, portage). */
+  const ouiNon = (g: Genre, i: number, k: "ascenseur" | "monte_meuble" | "transbordement" | "portage", label: string, l: AdresseSaisie) => (
+    <span className={s.champ}>
+      <span className={s.etiquette}>{label}</span>
+      <Choix label={`${label} (${g === "departs" ? "départ" : "livraison"} ${i + 1})`} options={OUI_NON} valeur={l[k] ? "oui" : "non"} plein onChoisir={(x) => majLieu(g, i, { [k]: x === "oui" })} />
+    </span>
   );
 
-  const etapeDetails = (g: "depart" | "arrivee") => {
-    const d: [Cle, string][] = [];
-    if (v[`${g}_etage`]) d.push([`${g}_etage`, `Étage ${v[`${g}_etage`]}`]);
-    if (v[`${g}_asc`]) d.push([`${g}_asc`, "Ascenseur"]);
-    if (v[`${g}_acces`]) d.push([`${g}_acces`, v[`${g}_acces`]]);
-    return d.length ? (
-      <span className={s.details}>
-        {d.map(([k, l]) => (
-          <span key={k} className={`${s.detail} ${estRepris(k) ? s.detailRepris : ""}`}>
-            {l}
-            <button type="button" tabIndex={-1} aria-label={`Retirer : ${l}`} onClick={() => maj(k, typeof VIDE[k] === "boolean" ? false : "")}>
-              ×
+  /**
+   * Une adresse de départ ou de livraison et ce qu'on en note au premier appel (fiche de visite de Créagidem) :
+   * l'adresse sur deux lignes, l'étage, l'ascenseur et sa taille, monte-meubles, transbordement, portage, le code
+   * d'accès, la surface habitable (au départ), l'accès en camion.
+   */
+  const blocLieu = (g: Genre, i: number, l: AdresseSaisie) => {
+    const depart = g === "departs";
+    const liste = v[g];
+    const essentiel = i === 0 ? champDe(g) : null;
+    const reprisIci = i === 0 && estRepris(g);
+    const id = `${g}-${i}`;
+    return (
+      <fieldset key={i} className={s.lieu} data-lieu={g}>
+        {liste.length > 1 && (
+          <legend className={s.lieuTete}>
+            <span>
+              {depart ? "Chargement" : "Livraison"} {i + 1}
+            </span>
+            <button type="button" className={s.boutonLien} onClick={() => retirerLieu(g, i)}>
+              Retirer
             </button>
+          </legend>
+        )}
+        <div className={s.champs}>
+          <label className={`${s.champ} ${s.w7}`}>
+            <span className={s.etiquette}>
+              Adresse
+              {reprisIci && <em className={s.marqueRepris}>repris</em>}
+            </span>
+            <ChampAdresse
+              data-champ={essentiel ?? undefined}
+              id={`adresse-${id}`}
+              value={l.adresse}
+              onChange={(x) => majLieu(g, i, { adresse: x, code_postal: "", ville: "", pays: "", lat: null, lon: null })}
+              onChoisir={(sg) => majLieu(g, i, { code_postal: sg.codePostal, ville: sg.ville, pays: "France", lat: sg.lat, lon: sg.lon })}
+              placeholder="Numéro et rue, ou ville"
+              className={`${s.saisie} ${reprisIci ? s.repris : ""} ${essentiel && erreur?.champ === essentiel ? s.enErreur : ""}`}
+              aria-invalid={(essentiel && erreur?.champ === essentiel) || undefined}
+            />
+          </label>
+          <label className={`${s.champ} ${s.w5}`}>
+            <span className={s.etiquette}>Complément d&apos;adresse</span>
+            <input value={l.complement} onChange={(e) => majLieu(g, i, { complement: e.target.value })} placeholder="Bâtiment, résidence, escalier…" autoComplete="off" className={s.saisie} />
+          </label>
+          <label className={`${s.champ} ${s.w2}`}>
+            <span className={s.etiquette}>Étage</span>
+            <input value={l.etage} onChange={(e) => majLieu(g, i, { etage: e.target.value })} placeholder="RDC, 3…" autoComplete="off" className={s.saisie} />
+          </label>
+          <div className={`${s.w3}`}>{ouiNon(g, i, "ascenseur", "Ascenseur", l)}</div>
+          <label className={`${s.champ} ${s.w3}`}>
+            <span className={s.etiquette}>Taille de l&apos;ascenseur</span>
+            <span className={s.suffixe}>
+              <input
+                value={l.ascenseur_taille}
+                onChange={(e) => majLieu(g, i, { ascenseur_taille: e.target.value })}
+                disabled={!l.ascenseur}
+                placeholder={l.ascenseur ? "Nombre" : "—"}
+                autoComplete="off"
+                className={s.saisie}
+              />
+              <em>pers.</em>
+            </span>
+          </label>
+          <div className={`${s.w4}`}>{ouiNon(g, i, "monte_meuble", "Monte-meubles", l)}</div>
+          <div className={`${s.w4}`}>{ouiNon(g, i, "transbordement", "Transbordement", l)}</div>
+          <div className={`${s.w4}`}>{ouiNon(g, i, "portage", "Portage", l)}</div>
+          <label className={`${s.champ} ${s.w4}`}>
+            <span className={s.etiquette}>Code d&apos;accès</span>
+            <input value={l.code_acces} onChange={(e) => majLieu(g, i, { code_acces: e.target.value })} placeholder="Codes, interphone…" autoComplete="off" className={s.saisie} />
+          </label>
+          {depart && (
+            <label className={`${s.champ} ${s.w4}`}>
+              <span className={s.etiquette}>Surface habitable</span>
+              <span className={s.suffixe}>
+                <input value={l.surface} onChange={(e) => majLieu(g, i, { surface: e.target.value.replace(/[^0-9.,]/g, "") })} inputMode="decimal" autoComplete="off" className={s.saisie} />
+                <em>m²</em>
+              </span>
+            </label>
+          )}
+          <label className={`${s.champ} ${depart ? s.w8 : s.w12}`}>
+            <span className={s.etiquette}>Accès en camion</span>
+            <input value={l.acces_camion} onChange={(e) => majLieu(g, i, { acces_camion: e.target.value })} autoComplete="off" className={s.saisie} />
+          </label>
+        </div>
+        {l.acces && (
+          <span className={s.details}>
+            <span className={`${s.detail} ${reprisIci ? s.detailRepris : ""}`}>
+              Précisions : {l.acces}
+              <button type="button" tabIndex={-1} aria-label={`Retirer : ${l.acces}`} onClick={() => majLieu(g, i, { acces: "" })}>
+                ×
+              </button>
+            </span>
           </span>
-        ))}
-      </span>
-    ) : null;
+        )}
+      </fieldset>
+    );
   };
+
+  const sectionLieux = (g: Genre, numero: number, titre: string, ajout: string, aside?: React.ReactNode) => (
+    <section className={s.section}>
+      <header className={s.sectionTete}>
+        <span className={s.numero}>{numero}</span>
+        <h3>{titre}</h3>
+        {numero === 3 && <p>Une adresse ou une ville suffit.</p>}
+        {aside}
+      </header>
+      {v[g].map((l, i) => blocLieu(g, i, l))}
+      {v[g].length < ADRESSES_MAX && (
+        <button type="button" className={s.ajouterLieu} onClick={() => ajouterLieu(g)}>
+          <Picto nom="plus" taille={15} />
+          {ajout}
+        </button>
+      )}
+    </section>
+  );
 
   const ligneSource = (cle: "mien" | "agence", n: number, titre: string, d: SourceDossier | null, vide: string) => (
     <button
@@ -510,7 +676,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                       {court(p.source.depart?.adresse)} → {court(p.source.arrivee?.adresse)}
                       {p.source.volume > 0 ? ` · ${m3(p.source.volume)}` : ""}
                     </span>
-                    <span className={s.raisons}>{p.raisons.slice(0, 3).join("\u00a0· ")}</span>
+                    <span className={s.raisons}>{p.raisons.slice(0, 3).join(" · ")}</span>
                   </span>
                   <kbd className={s.touche}>{alt}{7 + i}</kbd>
                 </button>
@@ -521,6 +687,15 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
       )}
     </div>
   );
+
+  // Ce que l'écran envoie de ses adresses : relu et borné par le serveur (lireLieux, ./commun.ts).
+  const lieuxEnvoyes = JSON.stringify([
+    ...v.departs.map((l) => ({ genre: "depart", ...l })),
+    ...v.arrivees.map((l) => ({ genre: "arrivee", ...l })),
+  ]);
+  const listeOrigines = [...origines.reglees, ...origines.saisies];
+  const militaire = v.type === "militaire";
+  const compte = v.type === "compte" && !client;
 
   return (
     <div className={s.ecran}>
@@ -568,7 +743,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                 <div>
                   <b>{nomClient(client) || client.nom}</b>
                   <span>
-                    {[libelleSegment(client.type), client.email, client.telephone, `${client.nbDossiers} dossier${client.nbDossiers > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+                    {[libelleSegment(client.type), client.email, telLisible(client.telephone), `${client.nbDossiers} dossier${client.nbDossiers > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
                   </span>
                 </div>
                 <em className={s.marqueRattache}><Picto nom="lien" /> Client existant rattaché</em>
@@ -606,8 +781,18 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                       <div className={s.w5}>{champTexte("nom", "Nom", { autoComplete: "off" })}</div>
                     </>
                   )}
-                  <div className={s.w5}>{champTexte("telephone", "Téléphone", { type: "tel", inputMode: "tel", autoComplete: "off" })}</div>
-                  <div className={s.w7}>{champTexte("email", "E-mail", { type: "email", inputMode: "email", autoComplete: "off" })}</div>
+                  <div className={`${s.champ} ${s.w7}`}>
+                    <span className={s.etiquette}>
+                      Téléphones <small className={s.aideEtiquette}>le premier reçoit les SMS</small>
+                    </span>
+                    <ChampsTelephones
+                      valeur={v.telephones}
+                      onChange={(l) => maj("telephones", l)}
+                      classeSaisie={s.saisie}
+                      premier={{ "data-champ": "telephone", className: erreur?.champ === "telephone" ? s.enErreur : "", "aria-invalid": erreur?.champ === "telephone" || undefined }}
+                    />
+                  </div>
+                  <div className={`${s.w5} ${s.enHaut}`}>{champTexte("email", "E-mail", { type: "email", inputMode: "email", autoComplete: "off" })}</div>
                 </div>
                 {connu && (
                   <div className={s.alerte} data-ton="info" role="status">
@@ -632,6 +817,87 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
                 )}
               </>
             )}
+            {/* Ce qui suit le segment : les droits d'un CIMOB/DICOM, le compte BAILLY d'un client compte ; l'origine, pour tous. */}
+            <div className={s.champs}>
+              {militaire && (
+                <label className={`${s.champ} ${s.w4}`}>
+                  <span className={s.etiquette}>
+                    Droits <small className={s.aideEtiquette}>volume accordé par l&apos;administration</small>
+                  </span>
+                  <span className={s.suffixe}>
+                    <input
+                      name="volume_droits"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={v.volume_droits}
+                      onChange={(e) => maj("volume_droits", e.target.value.replace(/[^0-9.,]/g, ""))}
+                      className={s.saisie}
+                    />
+                    <em>m³</em>
+                  </span>
+                </label>
+              )}
+              {compte && (
+                <label className={`${s.champ} ${s.w4}`}>
+                  <span className={s.etiquette}>Compte BAILLY</span>
+                  <select
+                    name="espace_pro_id"
+                    value={v.espace_pro_id}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      maj("espace_pro_id", id);
+                      // La raison sociale, quand elle est encore vide, prend le nom du compte choisi.
+                      const nom = entreprises.find((x) => x.id === id)?.nom;
+                      if (nom && !v.societe.trim()) maj("societe", nom);
+                    }}
+                    className={s.saisie}
+                  >
+                    <option value="">{entreprises.length ? "Aucun" : "Liste indisponible"}</option>
+                    {entreprises.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.nom}
+                        {x.actif ? "" : " (espace en pause)"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <label className={`${s.champ} ${s.w4}`}>
+                <span className={s.etiquette}>Origine</span>
+                {origines.reglees.length ? (
+                  <select name="origine" value={v.origine} onChange={(e) => maj("origine", e.target.value)} className={s.saisie}>
+                    <option value="">À préciser</option>
+                    {listeOrigines.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <input
+                      name="origine"
+                      list="origines-creation"
+                      value={v.origine}
+                      onChange={(e) => maj("origine", e.target.value)}
+                      placeholder="Site internet, recommandation, compte…"
+                      autoComplete="off"
+                      className={s.saisie}
+                    />
+                    <datalist id="origines-creation">
+                      {listeOrigines.map((o) => (
+                        <option key={o} value={o} />
+                      ))}
+                    </datalist>
+                  </>
+                )}
+              </label>
+              {!origines.reglees.length && (
+                <p className={`${s.w12} ${s.noteListe}`}>
+                  La liste des origines n&apos;est pas encore définie : <Link href="/devis/parametres">Paramètres du devis › Origines de la demande</Link>.
+                </p>
+              )}
+            </div>
             {doublons.map((d) => (
               <div key={d.id} className={s.alerte} data-ton="doublon" role="status">
                 <i className={s.alerteIcone}><Picto nom="alerte" /></i>
@@ -650,24 +916,13 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
             ))}
           </section>
 
-          {/* 2. Trajet et période */}
+          {/* 2. Période : une seule, pour tout le déménagement */}
           <section className={s.section}>
             <header className={s.sectionTete}>
               <span className={s.numero}>2</span>
-              <h3>Trajet et période</h3>
-              <p>Une adresse ou une ville suffit.</p>
+              <h3>Période</h3>
+              <p>Pour tout le déménagement.</p>
             </header>
-            <div className={s.trajet}>
-              <div>
-                {champAdresse("depart", "Départ")}
-                {etapeDetails("depart")}
-              </div>
-              <i className={s.fleche} aria-hidden><Picto nom="fleche" /></i>
-              <div>
-                {champAdresse("arrivee", "Arrivée")}
-                {etapeDetails("arrivee")}
-              </div>
-            </div>
             <div className={s.champs}>
               <div className={s.w5}>
                 {champTexte("periode", "Période souhaitée", { autoComplete: "off", placeholder: "Fin janvier 2027, ou « janv »" })}
@@ -692,91 +947,37 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
             </div>
           </section>
 
+          {/* 3. Adresse de départ */}
+          {sectionLieux("departs", 3, "Adresse de départ", "Ajouter une adresse de chargement")}
+
+          {/* 4. Adresse de livraison, et les kilomètres du trajet */}
+          {sectionLieux(
+            "arrivees",
+            4,
+            "Adresse de livraison",
+            "Ajouter une adresse de livraison",
+            <span className={s.km} aria-live="polite" data-etat={km != null ? "ok" : kmEnCours ? "calcul" : "vide"}>
+              {km != null ? `${km.toLocaleString("fr-FR")} km` : kmEnCours ? "Calcul des km…" : cleTrajet ? "Km : adresse introuvable" : "Km calculés dès deux adresses"}
+            </span>,
+          )}
+
           {/* Sur écran étroit, les plus proches s'affichent ici, sous le trajet (le rail passe alors au-dessus du formulaire). */}
           {blocProches("formulaire")}
 
-          {/* 3. Si vous le savez */}
-          <section className={`${s.section} ${s.facultatif}`}>
+          {/* 5. Observations */}
+          <section className={s.section}>
             <header className={s.sectionTete}>
-              <span className={s.numero}>3</span>
-              <h3>Si vous le savez</h3>
-              <p>Facultatif : tout se complète ensuite sur la fiche.</p>
+              <span className={s.numero}>5</span>
+              <h3>Observations</h3>
+              {estRepris("observations") && <em className={s.marqueRepris}>repris</em>}
             </header>
-            <div className={s.ligne}>
-              <span className={s.etiquette}>
-                Type de déménagement
-                {estRepris("type_demenagement") && <em className={s.marqueRepris}>repris</em>}
-              </span>
-              <Choix
-                champ="type_demenagement"
-                label="Type de déménagement"
-                options={TYPES_DEMENAGEMENT}
-                valeur={v.type_demenagement}
-                repris={estRepris("type_demenagement")}
-                onChoisir={(k) => maj("type_demenagement", k)}
-              />
-            </div>
             <div className={s.champs}>
-              <label className={`${s.champ} ${s.w3}`}>
-                <span className={s.etiquette}>
-                  Volume estimé
-                  {estRepris("volume") && <em className={s.marqueRepris}>repris</em>}
-                </span>
-                <span className={s.suffixe}>
-                  <input
-                    data-champ="volume"
-                    name="volume"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={v.volume}
-                    onChange={(e) => maj("volume", e.target.value.replace(/[^0-9.,]/g, ""))}
-                    className={`${s.saisie} ${estRepris("volume") ? s.repris : ""}`}
-                  />
-                  <em>m³</em>
-                </span>
-              </label>
-              <label className={`${s.champ} ${s.w4}`}>
-                <span className={s.etiquette}>Commercial</span>
-                <select data-champ="commercial_id" name="commercial_id" value={v.commercial_id} onChange={(e) => maj("commercial_id", e.target.value)} className={s.saisie}>
-                  <option value="">À attribuer</option>
-                  {commerciaux.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nom}</option>
-                  ))}
-                </select>
-              </label>
-              <div className={`${s.champ} ${s.w5}`}>
-                <span className={s.etiquette}>Options</span>
-                <span className={s.bascules}>
-                  {(
-                    [
-                      ["garde_meuble", "Garde-meuble", "rupture de charge"],
-                      ["vehicule", "Véhicule", "carte grise + assurance"],
-                    ] as const
-                  ).map(([k, l, d]) => (
-                    <button
-                      key={k}
-                      type="button"
-                      data-champ={k}
-                      className={`${s.bascule} ${estRepris(k) ? s.repris : ""}`}
-                      aria-pressed={v[k]}
-                      onClick={() => maj(k, !v[k])}
-                      title={d}
-                    >
-                      <i aria-hidden>{v[k] ? <Picto nom="coche" /> : null}</i>
-                      {l}
-                    </button>
-                  ))}
-                </span>
-              </div>
               <label className={`${s.champ} ${s.w12}`}>
-                <span className={s.etiquette}>
-                  Observations
-                  {estRepris("observations") && <em className={s.marqueRepris}>repris</em>}
-                </span>
+                <span className={s.sr}>Observations</span>
                 <textarea
                   data-champ="observations"
                   name="observations"
-                  rows={2}
+                  rows={3}
                   value={v.observations}
                   onChange={(e) => maj("observations", e.target.value)}
                   placeholder="Concurrents déjà vus, code portail, instructions du téléphone…"
@@ -786,10 +987,14 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
             </div>
           </section>
 
-          {/* Les valeurs que les contrôles maison ne portent pas eux-mêmes. */}
+          {/* Les valeurs que les contrôles maison ne portent pas eux-mêmes, et ce qu'une reprise apporte hors de l'écran. */}
           <input type="hidden" name="type" value={v.type} />
           <input type="hidden" name="civilite" value={v.civilite} />
           <input type="hidden" name="type_demenagement" value={v.type_demenagement} />
+          <input type="hidden" name="lieux" value={lieuxEnvoyes} />
+          <input type="hidden" name="distance_km" value={km ?? ""} />
+          {v.volume && <input type="hidden" name="volume" value={v.volume} />}
+          {v.commercial_id && <input type="hidden" name="commercial_id" value={v.commercial_id} />}
           {v.garde_meuble && <input type="hidden" name="garde_meuble" value="on" />}
           {v.vehicule && <input type="hidden" name="vehicule" value="on" />}
           {client && (
@@ -798,12 +1003,8 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
               <input type="hidden" name="nom" value={v.nom} />
               <input type="hidden" name="societe" value={v.societe} />
               <input type="hidden" name="email" value={v.email} />
-              <input type="hidden" name="telephone" value={v.telephone} />
             </>
           )}
-          {(["depart_etage", "depart_acces", "arrivee_etage", "arrivee_acces"] as const).map((k) => v[k] && <input key={k} type="hidden" name={k} value={v[k]} />)}
-          {v.depart_asc && <input type="hidden" name="depart_asc" value="on" />}
-          {v.arrivee_asc && <input type="hidden" name="arrivee_asc" value="on" />}
           {etat.origine && (
             <>
               <input type="hidden" name="source_genre" value={etat.origine.genre} />
@@ -903,7 +1104,7 @@ export default function CreationDossier({ moi, commerciaux, monDernier, dernierA
               <dt><kbd className={s.touche}>{cmd} ↵</kbd></dt>
               <dd>Créer et ouvrir la fiche, tout de suite</dd>
               <dt><kbd className={s.touche}>← →</kbd></dt>
-              <dd>Choisir la civilité, le segment, le type</dd>
+              <dd>Choisir la civilité, le segment, oui ou non</dd>
               <dt><kbd className={s.touche}>{alt}1 · 2 · 3</kbd></dt>
               <dd>Vierge, mon dernier, dernier de l&apos;agence</dd>
               <dt><kbd className={s.touche}>{alt}4 · 5 · 6</kbd></dt>
@@ -930,14 +1131,15 @@ function BoutonCreer({ onCreer, cmd }: { onCreer: () => void; cmd: string }) {
 }
 
 /**
- * Un choix parmi quelques options (civilité, segment, type de déménagement) :
- * une seule tabulation pour le groupe, les flèches pour choisir, Entrée pour
- * passer au champ suivant. Un clic choisit ; sur la civilité, il avance aussi.
+ * Un choix parmi quelques options (civilité, segment, oui ou non) : une seule
+ * tabulation pour le groupe, les flèches pour choisir, Entrée pour passer au
+ * champ suivant. Un clic choisit ; sur la civilité, il avance aussi.
  */
 function Choix({
   champ, label, options, valeur, onChoisir, repris, plein,
 }: {
-  champ: Cle;
+  /** Le champ qu'Entrée parcourt (data-champ) ; sans lui, Entrée passe au champ suivant de l'écran. */
+  champ?: Cle;
   label: string;
   options: [string, string][];
   valeur: string;

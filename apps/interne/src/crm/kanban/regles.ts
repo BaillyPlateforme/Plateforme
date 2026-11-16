@@ -103,7 +103,7 @@ export function verdict(e: EtatDossier, vers: Statut): Verdict | null {
     case "visite":
       return oui({ genre: "visite" });
     case "devis": {
-      if (militaire(e)) return non("Dossier militaire : pas de devis. Glissez-le directement dans « Signé ».");
+      if (militaire(e)) return non("Dossier CIMOB/DICOM : pas de devis. Glissez-le directement dans « Signé ».");
       const o = ouverts(e);
       if (o.length) return oui({ genre: "envoyer", devis: o });
       if (e.devis.some((v) => v.statut === "signe")) return non("Un devis est déjà signé : ouvrez la fiche du dossier pour reprendre la commande.");

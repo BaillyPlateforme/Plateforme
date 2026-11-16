@@ -24,9 +24,10 @@ export const initiales = (s: string) => s.split(/\s+/).filter(Boolean).map((w) =
 
 /** Les étapes d'un dossier, leur nom et leur pastille : la définition commune à tous les tableaux (src/crm/kanban/etapes.ts). */
 export const STATUTS: Record<string, { label: string; cls: string }> = Object.fromEntries(ETAPES_DOSSIER.map((e) => [e.cle, { label: e.label, cls: e.ton }]));
-export const TYPES: Record<string, string> = { particulier: "Particulier", compte: "Compte", militaire: "Militaire", partenaire: "Partenaire", logement_social: "Logement social" };
+// « CIMOB/DICOM » (ex-« Militaire ») et « Client compte » (ex-« Compte ») : les mots de Céline (16/11/2026) ; les valeurs en base ne changent pas.
+export const TYPES: Record<string, string> = { particulier: "Particulier", compte: "Client compte", militaire: "CIMOB/DICOM", partenaire: "Partenaire", logement_social: "Logement social" };
 /** Les mêmes, au pluriel : « Logements sociaux » ne se forme pas en ajoutant un s. */
-export const TYPES_PLURIEL: Record<string, string> = { particulier: "Particuliers", compte: "Comptes", militaire: "Militaires", partenaire: "Partenaires", logement_social: "Logements sociaux" };
+export const TYPES_PLURIEL: Record<string, string> = { particulier: "Particuliers", compte: "Clients compte", militaire: "CIMOB/DICOM", partenaire: "Partenaires", logement_social: "Logements sociaux" };
 export const RDV_TYPES: Record<string, string> = { phys: "Visite physique", visio: "Visio", tache: "Tâche", perso: "Perso" };
 
 /** Les vignettes des dossiers, servies depuis public/photos-crm (le proxy laisse passer les images sans session). */

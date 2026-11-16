@@ -24,6 +24,8 @@ import LigneParcours from "@/crm/parcours/LigneParcours";
 import FilClient from "@/crm/discussion/FilClient";
 import { estSuperAdmin } from "@/lib/droits";
 import { espaceDuDossier } from "@/crm/lib/espace";
+import { telLisible } from "@/crm/clients/telephones";
+import LienStreetView from "@/ui/LienStreetView";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +54,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     ficheDossier(d),
     // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
     q<{ id: string }>("select id from public.ec_dossiers where crm_dossier_id=$1 order by created_at desc limit 1", [id]).catch(() => []),
-    q<{ telephone2: string | null; espace_pro_id: string | null }>("select telephone2, espace_pro_id from clients where id=$1", [d.client_id]),
+    q<{ telephone2: string | null; espace_pro_id: string | null; telephone_libelle: string | null; telephone2_libelle: string | null; telephones_autres: unknown }>(
+      "select telephone2, espace_pro_id, telephone_libelle, telephone2_libelle, telephones_autres from clients where id=$1",
+      [d.client_id],
+    ),
     // Le parcours n'empêche jamais la fiche de s'ouvrir : sans lui, la fiche reste entière.
     parcoursDossier(id).catch((e) => {
       console.error("Dossier : lecture du parcours impossible", e instanceof Error ? e.message : e);
@@ -72,6 +77,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   const aAjouter = !!sien && !sien.dedans;
   d.telephone2 = client[0]?.telephone2 ?? null;
   d.espace_pro_id = client[0]?.espace_pro_id ?? null;
+  // Les téléphones et ce que chacun désigne (retours de Céline, 16/11/2026) : la fenêtre « Fiche », les contacts.
+  d.telephone_libelle = client[0]?.telephone_libelle ?? null;
+  d.telephone2_libelle = client[0]?.telephone2_libelle ?? null;
+  d.telephones_autres = client[0]?.telephones_autres ?? [];
   // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
   const solde = Math.max(0, (await soldeDossier(id)).reste);
 
@@ -90,7 +99,21 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         surtitre={`Dossier ${d.ref}`}
         titre={nomClient(d)}
         titreHref={`/clients/${d.client_id}`}
-        texte={[d.telephone, `${d.stops[0]?.adresse ?? "—"} → ${d.stops[d.stops.length - 1]?.adresse ?? "—"}`, periodeDuSousTitre(d), visiteLe, m3(d.volume)].filter(Boolean).join(" · ")}
+        // Le téléphone par paires ; à côté de chaque adresse, Street View (Céline, 16/11/2026) ; les droits d'un CIMOB/DICOM
+        // avant le volume réel, que seule l'équipe voit.
+        texte={
+          <>
+            {d.telephone ? `${telLisible(d.telephone)} · ` : null}
+            {d.stops[0]?.adresse ?? "—"}
+            <LienStreetView adresse={d.stops[0]?.adresse} ton="bandeau" court />
+            {" → "}
+            {d.stops[d.stops.length - 1]?.adresse ?? "—"}
+            {d.stops.length > 1 && <LienStreetView adresse={d.stops[d.stops.length - 1]?.adresse} ton="bandeau" court />}
+            {[periodeDuSousTitre(d), visiteLe, d.volume_droits != null ? `Droits ${m3(Number(d.volume_droits))}` : null, d.volume_droits != null ? `réel ${m3(d.volume)}` : m3(d.volume), d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km` : null]
+              .filter(Boolean)
+              .map((x) => ` · ${x}`)}
+          </>
+        }
         // Le statut seul : sur une ligne, les pastilles ne rétrécissent pas et effaçaient le téléphone et le trajet.
         // Le segment est sur le repère du client, le type, le commercial et « traité par » en tête de la section
         // Déménagements, le véhicule dans la bande des observations. Les étapes : le parcours, juste dessous.

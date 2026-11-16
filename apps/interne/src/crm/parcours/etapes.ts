@@ -123,7 +123,7 @@ export function etapesDu(f: Faits): Etape[] {
       faite: !!f.devis.premierEnvoi || !!f.devis.signe,
       date: f.devis.premierEnvoi,
       detail: envoyees > 1 ? `${envoyees} formules envoyées` : envoyees === 1 ? "1 formule envoyée" : f.devis.brouillons ? `${pluriel(f.devis.brouillons, "formule")} en brouillon` : "",
-      vide: militaire ? "Dossier militaire : pas de devis" : "Aucun devis envoyé au CRM",
+      vide: militaire ? "Dossier CIMOB/DICOM : pas de devis" : "Aucun devis envoyé au CRM",
       sansObjet: militaire,
     },
     {

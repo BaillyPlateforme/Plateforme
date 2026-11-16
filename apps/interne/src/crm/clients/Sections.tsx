@@ -12,6 +12,8 @@ import { emailValide, lienTelephone, telephoneLisible, TEINTE_TYPE } from "./com
 import { villeDe, type DossierClient, type FicheClient } from "./donnees";
 import type { Entreprise } from "./entreprises";
 import PuceEntreprise from "./PuceEntreprise";
+import ChampsTelephones from "./ChampsTelephones";
+import { telephonesDuClient } from "./telephones";
 import s from "./clients.module.css";
 
 /*
@@ -208,8 +210,17 @@ export function Identite({
               {entreprise && <small className={s.aide}>ses dossiers paraissent dans l’espace RH de {entreprise.nom}</small>}
             </Fait>
             <p className={s.groupeTitre}>Coordonnées</p>
-            <Fait libelle="Téléphone">{c.telephone ? <Telephone t={c.telephone} /> : null}</Fait>
-            <Fait libelle="Autre téléphone">{c.telephone2 ? <Telephone t={c.telephone2} /> : null}</Fait>
+            {/* Tous ses téléphones, chacun avec ce qu'il désigne (retours de Céline, 16/11/2026) : le premier reçoit les SMS. */}
+            {telephonesDuClient(c).length === 0 ? (
+              <Fait libelle="Téléphone">{null}</Fait>
+            ) : (
+              telephonesDuClient(c).map((x, i) => (
+                <Fait key={i} libelle={i === 0 ? "Téléphone" : "Autre téléphone"}>
+                  <Telephone t={x.numero} />
+                  {x.libelle && <small className={s.aide}>{x.libelle}</small>}
+                </Fait>
+              ))
+            )}
             <Fait libelle="E-mail">
               {email ? (
                 <a href={`mailto:${email}`} className={s.lienDoux} title={email}>
@@ -302,12 +313,13 @@ function FormulaireClient({ c, espaceOuvert, erreur, entreprises, focus = false 
       <fieldset>
         <legend>Coordonnées</legend>
         <div className={s.grille}>
-          <Champ l={4} titre="Téléphone" aide="reçoit les SMS">
-            <input type="tel" name="telephone" defaultValue={c.telephone ?? ""} />
-          </Champ>
-          <Champ l={4} titre="Autre téléphone">
-            <input type="tel" name="telephone2" defaultValue={c.telephone2 ?? ""} />
-          </Champ>
+          <div className={s.champ} data-l={8}>
+            <span>
+              Téléphones
+              <small> · le premier reçoit les SMS</small>
+            </span>
+            <ChampsTelephones initial={telephonesDuClient(c)} />
+          </div>
           <Champ l={4} titre="E-mail" aide={espaceOuvert ? "identifiant de l'espace : il se modifie depuis l'espace" : undefined}>
             <input type="email" name="email" defaultValue={c.email ?? ""} readOnly={espaceOuvert} />
           </Champ>

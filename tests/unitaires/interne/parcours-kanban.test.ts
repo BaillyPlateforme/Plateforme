@@ -61,7 +61,7 @@ describe("parcours/etapes · etapesDu", () => {
   it("dossier militaire en commande sans devis : devis, signature et arrhes « sans objet »", () => {
     const e = etapesDu(faits({ statut: "commande", segment: "militaire" }));
     expect(e.slice(3, 6).map((x) => [x.etat, x.detail])).toEqual([
-      ["sansobjet", "Dossier militaire : pas de devis"], ["sansobjet", "Commande sans devis"], ["sansobjet", "Sans devis, pas d'arrhes"],
+      ["sansobjet", "Dossier CIMOB/DICOM : pas de devis"], ["sansobjet", "Commande sans devis"], ["sansobjet", "Sans devis, pas d'arrhes"],
     ]);
     expect(e[7].etat).toBe("encours");
   });

@@ -429,7 +429,7 @@ function FenetreDepot({ depot, commerciaux, onFermer, onValider }: { depot: Depo
       return (
         <Fenetre titre="Passer en commande sans devis ?" sousTitre={sous} picto="coche" taille="etroite" onFermer={onFermer} pied={<>{annuler}{valider("Passer en commande", {})}</>}>
           <div className={s.fenetreCorps}>
-            <p className={s.texte}>Dossier militaire : pas de devis, le client dépose ses documents et le dossier passe directement en commande.</p>
+            <p className={s.texte}>Dossier CIMOB/DICOM : pas de devis, le client dépose ses documents et le dossier passe directement en commande.</p>
           </div>
         </Fenetre>
       );

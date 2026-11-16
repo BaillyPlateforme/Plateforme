@@ -362,11 +362,112 @@
   gap: 14px 14px;
   margin-bottom: 16px;
 }
+.w2 { grid-column: span 2; }
 .w3 { grid-column: span 3; }
 .w4 { grid-column: span 4; }
 .w5 { grid-column: span 5; }
 .w7 { grid-column: span 7; }
+.w8 { grid-column: span 8; }
 .w12 { grid-column: span 12; }
+/* Un champ à côté d'une liste qui s'allonge (les téléphones) : il reste en haut. */
+.enHaut { align-self: start; }
+
+/* Une précision à côté d'une étiquette : « le premier reçoit les SMS ». */
+.aideEtiquette {
+  color: #9a97ad;
+  font-size: 11.5px;
+  font-weight: 550;
+}
+.noteListe {
+  margin: -6px 0 0;
+  color: var(--gris);
+  font-size: 12px;
+}
+.noteListe a {
+  color: var(--indigo);
+  font-weight: 700;
+}
+.noteListe a:hover {
+  text-decoration: underline;
+}
+
+/* Une adresse de départ ou de livraison et ses accès ; « + » en ajoute une. */
+.lieu {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.lieu + .lieu {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px dashed #e6e2f2;
+}
+.lieuTete {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 0;
+}
+.lieuTete > span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--doux);
+  color: var(--indigo-fonce);
+  font-size: 11.5px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.lieuTete .boutonLien {
+  height: 26px;
+  font-size: 12.5px;
+}
+.ajouterLieu {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  margin: -4px 0 18px;
+  padding: 0 14px 0 11px;
+  border: 1px dashed #cfc3ff;
+  border-radius: 999px;
+  background: #fbfaff;
+  color: var(--indigo-fonce);
+  font-size: 13px;
+  font-weight: 700;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.ajouterLieu:hover {
+  border-color: #a996ff;
+  background: #f1edff;
+}
+.ajouterLieu:focus-visible {
+  outline: 3px solid rgba(75, 47, 224, 0.3);
+  outline-offset: 2px;
+}
+/* Les kilomètres du trajet, dans l'en-tête de la livraison. */
+.km {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #f3f2f7;
+  color: var(--gris);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.km[data-etat="ok"] {
+  background: var(--doux);
+  color: var(--indigo-fonce);
+}
+.formulaire .saisie:disabled {
+  border-color: #f0eef6;
+  background: #f7f6fa;
+  cursor: not-allowed;
+}
 
 .champ {
   display: grid;
@@ -1201,8 +1302,23 @@
   .w3,
   .w4,
   .w5,
-  .w7 {
+  .w7,
+  .w8 {
     grid-column: span 12;
+  }
+  /* L'étage et les Oui / Non vont par deux. */
+  .w2,
+  .lieu .w3,
+  .lieu .w4 {
+    grid-column: span 6;
+  }
+  .lieu .w5,
+  .lieu .w8,
+  .lieu .w7 {
+    grid-column: span 12;
+  }
+  .km {
+    margin-left: 36px;
   }
   .choix:not(.choixPlein) {
     flex-wrap: nowrap;

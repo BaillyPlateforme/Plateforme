@@ -5,12 +5,16 @@
  * côtés.
  */
 
-/** Les segments (type de client), dans l'ordre de l'écran. Libellés de l'ancien formulaire de création. */
+/**
+ * Les segments (type de client), dans l'ordre de l'écran. Libellés de l'ancien formulaire de création, sauf
+ * « CIMOB/DICOM » (ex-« Militaire ») et « Client compte » (ex-« Compte entreprise ») : les mots de Céline
+ * (16/11/2026). Les valeurs en base ne changent pas (militaire, compte).
+ */
 export const SEGMENTS: [string, string][] = [
   ["particulier", "Particulier"],
-  ["militaire", "Militaire"],
+  ["militaire", "CIMOB/DICOM"],
   ["logement_social", "Logement social"],
-  ["compte", "Compte entreprise"],
+  ["compte", "Client compte"],
   ["partenaire", "Partenaire / agent"],
 ];
 /** Les segments dont le client est une société : on demande sa raison sociale et un contact. */
@@ -52,6 +56,182 @@ export interface EtapeReprise {
   etage: string | null;
   ascenseur: boolean;
   acces: string | null;
+  /** Le reste de la fiche du premier appel, quand le dossier passé l'avait (lu par creation/donnees.ts). */
+  code_postal?: string | null;
+  ville?: string | null;
+  pays?: string | null;
+  ascenseur_taille?: string | null;
+  monte_meuble?: string | null;
+  transbordement?: boolean;
+  portage?: boolean;
+  code_acces?: string | null;
+  surface_m2?: number | null;
+  acces_camion?: string | null;
+}
+
+/* ---------- les adresses de la fiche du premier appel ---------- */
+
+/**
+ * Une adresse de chargement ou de livraison, telle que l'équipe la note dès
+ * le premier appel (retours de Céline, 16/11/2026, d'après la fiche de visite
+ * de Créagidem). Chaque champ a sa colonne dans crm.etapes_trajet :
+ * adresse (le complément devant, à la française), code_postal, ville, pays,
+ * etage, ascenseur, ascenseur_taille, monte_meuble ('oui' / 'non'),
+ * transbordement, portage, code_acces, surface_m2 (au départ seulement),
+ * acces_camion, acces (les précisions reprises d'un dossier passé).
+ */
+export interface AdresseSaisie {
+  adresse: string;
+  /** La deuxième ligne de l'adresse : bâtiment, résidence, escalier… */
+  complement: string;
+  code_postal: string;
+  ville: string;
+  pays: string;
+  /** Connus quand l'adresse a été choisie dans les suggestions : ils servent au calcul des kilomètres. */
+  lat: number | null;
+  lon: number | null;
+  etage: string;
+  ascenseur: boolean;
+  /** La taille de l'ascenseur, en nombre de personnes (texte libre : « 4 », « 2 à 3 »). */
+  ascenseur_taille: string;
+  monte_meuble: boolean;
+  transbordement: boolean;
+  portage: boolean;
+  /** Les codes et/ou l'interphone. */
+  code_acces: string;
+  /** La surface habitable, en m² (adresse de départ). */
+  surface: string;
+  acces_camion: string;
+  acces: string;
+}
+
+/** « Accès en camion » : la mention écrite d'office, modifiable (Céline : « automatiquement notée facile aux poids lourds »). */
+export const ACCES_CAMION_DEFAUT = "Facile aux poids lourds";
+
+export const ADRESSE_VIDE: AdresseSaisie = {
+  adresse: "", complement: "", code_postal: "", ville: "", pays: "", lat: null, lon: null,
+  etage: "", ascenseur: false, ascenseur_taille: "", monte_meuble: false, transbordement: false, portage: false,
+  code_acces: "", surface: "", acces_camion: ACCES_CAMION_DEFAUT, acces: "",
+};
+
+/** Au plus, par genre : un déménagement à dix adresses de chargement se saisit sur la fiche. */
+export const ADRESSES_MAX = 6;
+
+/** Une étape d'un dossier passé, en adresse de la fiche du premier appel. */
+export function adresseDepuisEtape(e: EtapeReprise, depart: boolean): AdresseSaisie {
+  return {
+    ...ADRESSE_VIDE,
+    adresse: e.adresse ?? "",
+    code_postal: e.code_postal ?? "",
+    ville: e.ville ?? "",
+    pays: e.pays ?? "",
+    etage: e.etage ?? "",
+    ascenseur: !!e.ascenseur,
+    ascenseur_taille: e.ascenseur_taille ?? "",
+    monte_meuble: e.monte_meuble === "oui",
+    transbordement: !!e.transbordement,
+    portage: !!e.portage,
+    code_acces: e.code_acces ?? "",
+    surface: depart && e.surface_m2 != null ? String(e.surface_m2) : "",
+    acces_camion: e.acces_camion ?? ACCES_CAMION_DEFAUT,
+    acces: e.acces ?? "",
+  };
+}
+
+/** Ce qui s'enregistre d'une adresse : une ligne de crm.etapes_trajet, bornée et nettoyée. */
+export interface EtapeSaisie {
+  genre: "depart" | "arrivee";
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  pays: string | null;
+  lat: number | null;
+  lon: number | null;
+  etage: string | null;
+  ascenseur: boolean;
+  ascenseur_taille: string | null;
+  monte_meuble: "oui" | "non";
+  transbordement: boolean;
+  portage: boolean;
+  code_acces: string | null;
+  surface_m2: number | null;
+  acces_camion: string | null;
+  acces: string | null;
+}
+
+const texteBorne = (v: unknown, max: number) => {
+  const t = typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  return t || null;
+};
+const coordonnee = (v: unknown, borne: number) => (typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= borne ? v : null);
+
+/** « 12 Rue de la Paix, 75002 Paris » : le code postal et la ville de la fin, quand l'adresse les porte. */
+export function cpVilleDe(adresse: string | null | undefined): { code_postal: string; ville: string } | null {
+  const fin = (adresse ?? "").split(",").pop()?.trim() ?? "";
+  const m = fin.match(/^(\d{5})\s+(.+)$/);
+  return m ? { code_postal: m[1], ville: m[2].trim() } : null;
+}
+
+/**
+ * Les adresses reçues de l'écran de création (un champ caché, en JSON),
+ * relues côté serveur : seuls les champs connus, aux valeurs bornées. Le
+ * complément passe devant l'adresse (« Bât. B, 12 Rue de la Paix, 75002
+ * Paris ») : tout ce qui lit l'adresse d'une étape la lit entière, et la
+ * ville reste après la dernière virgule. Il y a toujours au moins un départ
+ * et une arrivée, même vides : la fiche les montre à compléter.
+ */
+export function lireLieux(brut: unknown): EtapeSaisie[] {
+  let liste: unknown = brut;
+  if (typeof brut === "string") {
+    try {
+      liste = JSON.parse(brut);
+    } catch {
+      liste = [];
+    }
+  }
+  const etapes: EtapeSaisie[] = [];
+  const parGenre = { depart: 0, arrivee: 0 };
+  for (const x of Array.isArray(liste) ? liste : []) {
+    if (!x || typeof x !== "object") continue;
+    const o = x as Record<string, unknown>;
+    const genre = o.genre === "arrivee" ? "arrivee" : o.genre === "depart" ? "depart" : null;
+    if (!genre || parGenre[genre] >= ADRESSES_MAX) continue;
+    const complement = texteBorne(o.complement, 120);
+    const ligne = texteBorne(o.adresse, 300);
+    const adresse = [complement, ligne].filter(Boolean).join(", ") || null;
+    // Une adresse de plus (« + ») laissée vide ne fait pas d'étape ; la première de chaque genre, si.
+    if (parGenre[genre] > 0 && !adresse) continue;
+    const lue = cpVilleDe(ligne);
+    const surface = Number(String(o.surface ?? "").replace(",", "."));
+    parGenre[genre]++;
+    etapes.push({
+      genre,
+      adresse,
+      code_postal: texteBorne(o.code_postal, 12) ?? lue?.code_postal ?? null,
+      ville: texteBorne(o.ville, 80) ?? lue?.ville ?? null,
+      pays: texteBorne(o.pays, 60),
+      lat: coordonnee(o.lat, 90),
+      lon: coordonnee(o.lon, 180),
+      etage: texteBorne(o.etage, 40),
+      ascenseur: o.ascenseur === true,
+      ascenseur_taille: o.ascenseur === true ? texteBorne(o.ascenseur_taille, 40) : null,
+      monte_meuble: o.monte_meuble === true ? "oui" : "non",
+      transbordement: o.transbordement === true,
+      portage: o.portage === true,
+      code_acces: texteBorne(o.code_acces, 200),
+      surface_m2: genre === "depart" && Number.isFinite(surface) && surface > 0 && surface < 100_000 ? Math.round(surface) : null,
+      acces_camion: texteBorne(o.acces_camion, 200),
+      acces: texteBorne(o.acces, 500),
+    });
+  }
+  const vide = (genre: "depart" | "arrivee"): EtapeSaisie => ({
+    genre, adresse: null, code_postal: null, ville: null, pays: null, lat: null, lon: null, etage: null, ascenseur: false, ascenseur_taille: null,
+    monte_meuble: "non", transbordement: false, portage: false, code_acces: null, surface_m2: null, acces_camion: null, acces: null,
+  });
+  if (!parGenre.depart) etapes.unshift(vide("depart"));
+  if (!parGenre.arrivee) etapes.push(vide("arrivee"));
+  // Les départs d'abord, dans l'ordre de l'écran, puis les livraisons.
+  return [...etapes.filter((e) => e.genre === "depart"), ...etapes.filter((e) => e.genre === "arrivee")];
 }
 
 /** Un dossier passé, tel que l'écran de création peut le reprendre. */
