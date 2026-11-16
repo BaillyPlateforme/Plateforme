@@ -5,13 +5,14 @@ import { q, q1, transaction, type Db } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
-import { envoyerConfirmationRdv, oublierEtatRdv, type EtatAffiche } from "@/crm/rdv/sms";
+import { confirmerRdvPris, envoyerConfirmationRdv, oublierEtatRdv, type EtatAffiche } from "@/crm/rdv/sms";
 import { duree as dureeFr, instantParis, jourVisite, momentVisite } from "@/lib/visite/regles";
 import { estTypeRdv, TYPES_RDV, type TypeRdv } from "../types-rdv";
 import { lundiDuJour } from "../grille";
 import { semainePlanif, type SemainePlanif } from "./donnees";
+import { proximite, type Proximite } from "./proximite";
 import { raisonConfirmationOubliee } from "./regles";
-import { creneauPris, reporterAcces, verrouillerPlanning } from "./serveur";
+import { creneauPris, phraseReplanifiee, replanifierVisite, reporterAcces, verrouillerPlanning } from "./serveur";
 
 /*
  * Les actions du planificateur de visite (/planning/nouveau et /planning/<id>).
@@ -23,13 +24,16 @@ import { creneauPris, reporterAcces, verrouillerPlanning } from "./serveur";
  * règle perso « visios uniquement » (serveur.ts). Pour un dossier, elle retire
  * la proposition de créneaux restée ouverte (comme une réservation directe),
  * reporte l'étage et l'accès saisis sur l'étape du trajet, inscrit l'activité
- * et projette l'espace client. Aucun SMS ne part : la fiche du dossier, au
- * retour, propose d'envoyer la confirmation.
+ * et projette l'espace client. La confirmation part par SMS dès la visite
+ * prise (retours de Céline, 16/11/2026 ; visio comprise) ; la fiche du
+ * dossier, au retour, en montre l'état.
  *
  * modifierRdv enregistre le même formulaire pour un rendez-vous existant, sous
  * la même règle. Déplacé, le rendez-vous perd l'état de sa confirmation (elle
  * portait sur l'ancien horaire, voir rdv/sms.ts) ; le SMS du nouvel horaire ne
- * part que si la case « Prévenir le client par SMS » est cochée.
+ * part que si la case « Prévenir le client par SMS » est cochée. Déplacée à
+ * un horaire à venir, une visite marquée faite redevient planifiée
+ * (serveur.ts, replanifierVisite).
  *
  * annulerRdv retire le rendez-vous du planning : c'est la suppression, avec sa
  * trace au fil du dossier et au journal. « Sans suite » est autre chose — le
@@ -66,6 +70,36 @@ export async function chargerSemaine(commercialId: number, lundi: string, dossie
   const min = Math.min(720, Math.max(15, Math.round(Number(duree) || 60)));
   const sauf = Number.isSafeInteger(saufRdv) && (saufRdv ?? 0) > 0 ? saufRdv : null;
   return semainePlanif(commercialId, lundiDuJour(lundi), d, type, min, sauf);
+}
+
+/**
+ * La géographie d'une visite sur place que l'on planifie (proximite.ts) : la
+ * distance et le temps moyen depuis chaque rendez-vous situé de la semaine
+ * montrée, et les créneaux les plus cohérents. Lue à part de la semaine :
+ * elle suit l'adresse saisie, et un service d'adresses lent ne retarde pas la
+ * grille.
+ */
+export async function chargerProximite(
+  commercialId: number,
+  lundi: string,
+  adresse: string,
+  dossierId: number | null,
+  duree: number,
+  saufRdv: number | null = null,
+): Promise<Proximite | null> {
+  await currentUser();
+  if (!Number.isSafeInteger(commercialId) || !JOUR.test(lundi)) return null;
+  const a = String(adresse ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  if (a.length < 3) return null;
+  const d = Number.isSafeInteger(dossierId) && (dossierId ?? 0) > 0 ? dossierId : null;
+  const sauf = Number.isSafeInteger(saufRdv) && (saufRdv ?? 0) > 0 ? saufRdv : null;
+  const min = Math.min(720, Math.max(15, Math.round(Number(duree) || 60)));
+  try {
+    return await proximite({ commercialId, lundi: lundiDuJour(lundi), adresse: a, dossierId: d, duree: min, saufRdv: sauf });
+  } catch (e) {
+    console.error("Planificateur : proximité indisponible", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 export async function planifierRdv(_avant: IssuePlanif, f: FormData): Promise<IssuePlanif> {
@@ -139,6 +173,8 @@ export async function planifierRdv(_avant: IssuePlanif, f: FormData): Promise<Is
   });
 
   if ("erreur" in issue) return { erreur: issue.erreur };
+  // La confirmation par SMS, dès le rendez-vous pris (retours de Céline, 16/11/2026) : visite sur place ou visio.
+  if (visite && !journee && dossierId) await confirmerRdvPris(dossierId, issue.rdv, u.id);
   await projeterEspace(dossierId);
   rafraichir(dossierId);
   if (dossierId) redirect(`/dossiers/${dossierId}?planifie=${issue.rdv}#demenagements-visites`);
@@ -243,10 +279,13 @@ export async function modifierRdv(_avant: IssuePlanif, f: FormData): Promise<Iss
     // Déplacé : la confirmation du client (et sa réponse 1 ou 2) portait sur l'ancien horaire.
     const oublie = deplace ? await oublierEtatRdv(id, db) : null;
     if (!dossierId) return { oublie, activite: null };
+    // Déplacée à un horaire à venir, une visite marquée faite redevient planifiée (serveur.ts).
+    const replanifiee = deplace && visite && !journee ? await replanifierVisite(db, id, debut) : null;
 
     const noter = (libelle: string) => db.query("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [dossierId, u.id, libelle]);
     const activite = libelles.length ? `${quoiRdv(avant)} ${libelles.join(", ")}` : null;
     if (activite) await noter(activite);
+    if (replanifiee) await noter(phraseReplanifiee(replanifiee));
     if (oublie) await noter(`Confirmation de la visite remise à zéro : ${raisonConfirmationOubliee(oublie.etat)}`);
     const etapeId = type === "phys" ? n(f, "etape_id") : null;
     if (etapeId) {

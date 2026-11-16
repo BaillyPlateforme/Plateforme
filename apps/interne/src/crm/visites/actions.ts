@@ -6,6 +6,7 @@ import { q, q1, transaction } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
+import { confirmerRdvPris } from "@/crm/rdv/sms";
 import { espacesDesDossiersCrm } from "@/lib/espace-client/crm";
 import { notifierCreneauxProposes } from "@/lib/espace-client/visite";
 import { duree, instantParis, m3, momentVisite, PLAFONDS } from "@/lib/visite/regles";
@@ -92,6 +93,9 @@ export async function proposerOuReserver(dossierId: number, f: FormData) {
     ]);
     const issue = r?.r.issue ?? "inconnu";
     if (issue !== "reserve") versFiche(dossierId, "erreur", ISSUES[issue] ?? ISSUES.inconnu);
+    // La confirmation par SMS, dès le rendez-vous pris (retours de Céline, 16/11/2026) ; un échec ne défait pas la réservation.
+    const rdvId = Number((r?.r as { rendez_vous_id?: number } | undefined)?.rendez_vous_id);
+    if (Number.isSafeInteger(rdvId) && rdvId > 0) await confirmerRdvPris(dossierId, rdvId, u.id);
     await projeterEspace(dossierId);
     rafraichir(dossierId);
     versFiche(dossierId, "reserve");

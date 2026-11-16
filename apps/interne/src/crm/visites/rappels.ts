@@ -1,22 +1,26 @@
 import "server-only";
 import { q } from "@/crm/lib/db";
 import { adresseFictive } from "@/lib/espace-client/config";
+import { joursDesRappels } from "@/crm/rdv/calendrier";
 import { heureParis, instantParis, jourParis, jourVisite, lendemain } from "@/lib/visite/regles";
 
 /*
- * Les rappels de la veille des visites techniques (cahier des charges, §3.2 :
- * « il reçoit un SMS et un e-mail de confirmation la veille »).
+ * Les rappels des visites techniques (cahier des charges, §3.2 : « il reçoit
+ * un SMS et un e-mail de confirmation la veille » ; retours de Céline,
+ * 16/11/2026 : SMS 48 h puis 24 h avant, visios comprises).
  *
  * Ce module n'envoie RIEN. `rappelsVisitesDuLendemain` lit le planning et
  * rend les messages à envoyer pour les visites du lendemain ; la tâche
  * planifiée de la veille les envoie (Brevo) et se sert de `cle` pour ne
- * jamais envoyer deux fois le même. La fiche du dossier et le planning s'en
- * servent aussi pour dire, sur le rendez-vous, que le rappel est prévu.
+ * jamais envoyer deux fois le même. Le registre n'en prend que l'e-mail : les
+ * SMS (J−2 et J−1, visites et visios) viennent de crm/rdv/sms.ts. La fiche
+ * du dossier et le planning se servent de `rappelPrevu` pour dire, sur le
+ * rendez-vous, que les rappels sont prévus.
  *
- * Une visite, pour le rappel : un rendez-vous « visite physique » du
- * planning commercial, rattaché à un dossier encore ouvert (ni perdu, ni
+ * Une visite, pour l'e-mail de la veille : un rendez-vous « visite physique »
+ * du planning commercial, rattaché à un dossier encore ouvert (ni perdu, ni
  * terminé), pas marqué terminé, et dont le compte-rendu n'est pas déjà
- * signé. Les visios n'ont pas de rappel : les modèles disent « passera chez
+ * signé. La visio n'a que les SMS : le modèle d'e-mail dit « passera chez
  * vous ».
  *
  * Les textes sont ceux des modèles « Rappel de visite (veille) » de « Courriers
@@ -153,23 +157,28 @@ export async function rappelsVisitesDuLendemain(jour: Date, options: { inclureFi
 }
 
 /**
- * Ce que le CRM affiche sur un rendez-vous : le rappel de la veille est-il
- * prévu, et sur quels canaux ? `null` quand il n'y a pas lieu (pas une
- * visite physique rattachée à un dossier, visite passée ou du jour même).
+ * Ce que le CRM affiche sur un rendez-vous : les rappels sont-ils prévus, et
+ * sur quels canaux ? Le SMS à J−2 et à J−1 (visite sur place ou visio),
+ * l'e-mail à J−1 (visite sur place). `j2` : le jour du rappel de
+ * l'avant-veille, s'il est encore à venir ; `veille` : celui de la veille.
+ * `null` quand il n'y a pas lieu (pas une visite rattachée à un dossier,
+ * terminée, ou du jour même ou passée).
  */
 export function rappelPrevu(
   r: { type: string; dossier_id: number | null; debut: Date | string; termine: boolean },
   client: { email: string | null; telephone: string | null; notes?: string | null },
   maintenant = new Date(),
-): { canaux: ("sms" | "email")[]; veille: string; fictif: boolean } | null {
-  if (r.type !== "phys" || !r.dossier_id || r.termine) return null;
-  const jourVisiteParis = jourParis(r.debut);
+): { canaux: ("sms" | "email")[]; j2: string | null; veille: string; fictif: boolean } | null {
+  if ((r.type !== "phys" && r.type !== "visio") || !r.dossier_id || r.termine) return null;
+  const aujourdhui = jourParis(maintenant);
   // La veille doit être aujourd'hui ou plus tard : une visite du jour même n'a plus de rappel à recevoir.
-  if (jourVisiteParis <= jourParis(maintenant)) return null;
+  if (jourParis(r.debut) <= aujourdhui) return null;
+  const { j2, j1 } = joursDesRappels(r.debut);
   const c = canauxDeRappel(client);
   return {
-    canaux: [...(c.sms ? (["sms"] as const) : []), ...(c.email ? (["email"] as const) : [])],
-    veille: lendemain(jourVisiteParis, -1),
+    canaux: [...(c.sms ? (["sms"] as const) : []), ...(c.email && r.type === "phys" ? (["email"] as const) : [])],
+    j2: j2 >= aujourdhui ? j2 : null,
+    veille: j1,
     fictif: clientFictif({ email: client.email, notes: client.notes ?? null }),
   };
 }

@@ -7,6 +7,7 @@ import { abandonnerVisite, commencerVisite, regenererDocument, retirerPropositio
 import { suggestions } from "../creneaux";
 import { etatVisites } from "../donnees";
 import { rappelPrevu } from "../rappels";
+import { texteRappels } from "@/crm/rdv/calendrier";
 import PanneauCreneaux from "./PanneauCreneaux";
 import s from "./visites.module.css";
 
@@ -107,12 +108,10 @@ export default async function SectionVisite({ d, commerciaux, sp }: { d: Row; co
                   {rappel ? (
                     <span className={`${s.rappel} ${rappel.canaux.length ? "" : s.rappelKo}`}>
                       {rappel.canaux.length
-                        ? `Rappel prévu la veille (${jourVisite(`${rappel.veille}T12:00:00Z`)}) : ${rappel.canaux.map((c) => (c === "sms" ? "SMS" : "e-mail")).join(" + ")}`
+                        ? `Rappels prévus : ${texteRappels(rappel)} (veille : ${jourVisite(`${rappel.veille}T12:00:00Z`)})`
                         : "Pas de rappel possible : ni téléphone ni e-mail au dossier"}
                       {rappel.fictif && " · client fictif, rien n'est envoyé"}
                     </span>
-                  ) : r.type === "visio" ? (
-                    <span className={`${s.rappel} ${s.rappelKo}`}>Pas de rappel automatique pour une visio</span>
                   ) : null}
                 </div>
                 <div className={s.actions}>

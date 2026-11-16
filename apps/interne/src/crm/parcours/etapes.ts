@@ -48,7 +48,11 @@ export type Faits = {
   demande: { le: string; site: boolean; source: string | null };
   qualifieLe: string | null;
   commercial: string | null;
-  visite: { faite: string | null; prevue: string | null; mode: string | null; par: string | null };
+  /**
+   * La visite technique (visite.ts) : faite, ou prévue — une visite à venir l'emporte, `anterieure` dit alors la
+   * date de la précédente. `mode` (phys, visio) et `par` sont ceux de la visite dite.
+   */
+  visite: { faite: string | null; prevue: string | null; mode: string | null; par: string | null; anterieure?: string | null };
   devis: {
     premierEnvoi: string | null;
     brouillons: number;
@@ -83,7 +87,8 @@ export function etapesDu(f: Faits): Etape[] {
   const envoyees = f.devis.envoyes + (f.devis.signe ? 1 : 0);
 
   // Chaque étape : faite pour de bon (une trace), et ce qu'elle dit d'elle-même.
-  const base: { cle: CleEtape; label: string; groupe: number; faite: boolean; date: string | null; jour?: boolean; detail: string; vide: string; sansObjet?: boolean }[] = [
+  // `aVenir` : l'étape n'est pas faite mais a une date à venir (une visite prévue) ; sous le palier, elle se lit « à venir », pas « manquante ».
+  const base: { cle: CleEtape; label: string; groupe: number; faite: boolean; date: string | null; jour?: boolean; detail: string; vide: string; sansObjet?: boolean; aVenir?: boolean }[] = [
     {
       cle: "demande",
       label: f.demande.site ? "Demande du site" : "Demande",
@@ -109,12 +114,15 @@ export function etapesDu(f: Faits): Etape[] {
       faite: !!f.visite.faite,
       date: f.visite.faite ?? f.visite.prevue,
       detail: f.visite.faite
-        ? `${f.visite.mode === "visio" ? "En visio" : "Sur place"}${f.visite.par ? ` avec ${f.visite.par}` : ""}`
+        ? `${f.visite.mode === "visio" ? "En visio" : f.visite.mode === "phys" ? "Sur place" : "Compte-rendu signé"}${f.visite.par ? ` avec ${f.visite.par}` : ""}`
         : f.visite.prevue
-          ? `Prévue${f.visite.par ? ` avec ${f.visite.par}` : ""}`
+          ? `Prévue ${f.visite.mode === "visio" ? "en visio" : "sur place"}${f.visite.par ? ` avec ${f.visite.par}` : ""}${
+              f.visite.anterieure ? ` · visite précédente le ${jourFr(f.visite.anterieure)}` : ""
+            }`
           : "",
       vide: "Pas de visite enregistrée",
       sansObjet: true,
+      aVenir: !f.visite.faite && !!f.visite.prevue,
     },
     {
       cle: "devis",
@@ -225,7 +233,7 @@ export function etapesDu(f: Faits): Etape[] {
   return base.map((e, i) => {
     let etat: EtatEtape;
     if (e.faite) etat = "fait";
-    else if (!perdu && i <= palier) etat = e.sansObjet ? "sansobjet" : "manque";
+    else if (!perdu && i <= palier) etat = e.aVenir ? "avenir" : e.sansObjet ? "sansobjet" : "manque";
     else if (!perdu && !encours) {
       etat = "encours";
       encours = true;

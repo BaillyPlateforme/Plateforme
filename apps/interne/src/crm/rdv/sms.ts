@@ -4,32 +4,51 @@ import type { ResultatEnvoi } from "@/lib/envois";
 import { normaliserTelephone } from "@/lib/envois/garde-fous";
 import { q, q1, type Db } from "@/crm/lib/db";
 import { appel, destinataire, envoyerSmsRendezVous } from "@/crm/envois";
-import { modeleDe, remplir } from "@/crm/messages/catalogue";
+import { modeleDe, remplir, type LigneModele } from "@/crm/messages/catalogue";
+import { jourParis } from "@/lib/visite/regles";
+import { carteSms, cleSmsRdv, LIBELLES_RAPPEL, momentDuRappel, rappelUtile, type CarteSmsRdv, type MomentRappel } from "./calendrier";
 
 /*
- * Les SMS des rendez-vous (cahier des charges, §3.2) :
- *   - la confirmation, à la prise du rendez-vous (carte « Visite confirmée ») ;
- *   - le rappel de la veille (carte « Rappel de la veille »), par la tâche de
- *     la veille ;
- *   - la réponse du client : 1 confirme, 2 annule. Elle arrive par le webhook
- *     des SMS entrants de Brevo (/api/sms/reponses), ou l'équipe la saisit à
- *     la main sur le dossier.
+ * Les SMS des rendez-vous de visite, sur place ou en visio (cahier des
+ * charges, §3.2 ; retours de Céline, 16/11/2026) :
+ *   - la confirmation, dès la prise du rendez-vous (cartes « Visite
+ *     confirmée » et « Visio confirmée ») ;
+ *   - les rappels de l'avant-veille et de la veille (« Rappel J−2 », « Rappel
+ *     de la veille », et leurs cartes visio), par la tâche de la veille —
+ *     le calendrier est dans calendrier.ts ;
+ *   - la réponse du client : 1 confirme, 2 annule. Mise de côté le 16/11/2026
+ *     (« pour l'instant oublions les options 1 et 2 ») : voir
+ *     REPONSE_SMS_DEMANDEE.
  *
  * L'état de chaque rendez-vous (crm.rdv_sms) s'affiche au planning commercial
- * et dans le dossier ; un rendez-vous annulé par le client, ou sans réponse
- * la veille, sonne dans la cloche.
+ * et dans le dossier ; un rendez-vous annulé par le client sonne dans la
+ * cloche.
  *
  * Ce module ne touche pas au planning ni aux rendez-vous eux-mêmes (le module
  * des visites techniques les tient) : il lit crm.rendez_vous, il écrit dans
  * crm.rdv_sms.
  */
 
+/**
+ * Les SMS demandent-ils au client de répondre 1 (confirmer) ou 2 (annuler) ?
+ * Non depuis le 16/11/2026 : les textes ne le proposent plus (modèles de
+ * « Courriers et SMS »). Le traitement des réponses reste en place et actif —
+ * une réponse « 1 » ou « 2 » qui arrive quand même (webhook de Brevo,
+ * /api/sms/reponses) est enregistrée, et l'équipe peut toujours noter au
+ * dossier « Confirmé » ou « Annulé par le client » après un appel. Ce qui
+ * change ici : un SMS sans réponse n'est plus une anomalie — l'état se lit
+ * « SMS envoyé », sans couleur d'alerte, et la cloche ne sonne plus pour les
+ * visites de demain restées sans réponse. Revenir aux options 1 et 2 : passer
+ * ceci à true et remettre la phrase dans les modèles.
+ */
+export const REPONSE_SMS_DEMANDEE = false;
+
 export type EtatRdv = "confirme" | "annule" | "sans_reponse" | "non_parti";
 
 export const ETATS_RDV: Record<EtatRdv, { libelle: string; ton: "g" | "r" | "w" | "i" }> = {
   confirme: { libelle: "Confirmé par le client", ton: "g" },
   annule: { libelle: "Annulé par le client", ton: "r" },
-  sans_reponse: { libelle: "SMS envoyé, sans réponse", ton: "w" },
+  sans_reponse: REPONSE_SMS_DEMANDEE ? { libelle: "SMS envoyé, sans réponse", ton: "w" } : { libelle: "SMS envoyé", ton: "i" },
   non_parti: { libelle: "SMS non parti", ton: "i" },
 };
 
@@ -60,10 +79,27 @@ export async function noterEnvoiRdv(rdvId: number, type: "confirmation" | "rappe
 
 /** La confirmation d'un rendez-vous : envoyée par SMS, inscrite, et dite au fil du dossier. */
 export async function envoyerConfirmationRdv(dossierId: number, rdvId: number) {
-  const r = await envoyerSmsRendezVous(dossierId, rdvId, "rdv_confirmation");
+  const r = await envoyerSmsRendezVous(dossierId, rdvId, "confirmation");
   if (!r) return null;
   await noterEnvoiRdv(rdvId, "confirmation", r.resultat, r.numero);
   return r;
+}
+
+/**
+ * La confirmation d'une visite qui vient d'être prise (planificateur,
+ * réservation depuis la fiche du dossier), avec sa ligne au fil du dossier :
+ * dès le rendez-vous pris (retours de Céline, 16/11/2026). Un envoi qui
+ * échoue ne défait pas le rendez-vous : le dossier propose de le renvoyer.
+ */
+export async function confirmerRdvPris(dossierId: number, rdvId: number, utilisateurId: number | null) {
+  try {
+    const r = await envoyerConfirmationRdv(dossierId, rdvId);
+    if (!r) return;
+    const libelle = r.resultat ? `SMS de confirmation ${r.libelle} : « ${r.texte} »` : "Pas de SMS de confirmation : pas de numéro de téléphone sur la fiche client";
+    await q("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [dossierId, utilisateurId, libelle]);
+  } catch (e) {
+    console.error(`BaillyCRM : confirmation du rendez-vous ${rdvId} non envoyée`, e instanceof Error ? e.message : e);
+  }
 }
 
 /** La réponse du client, par SMS ou saisie par l'équipe. La plus récente l'emporte. */
@@ -150,21 +186,23 @@ export async function etatsRdv(ids: number[]): Promise<Map<number, EtatAffiche>>
 /** Pour la cloche : les rendez-vous annulés par le client (pas encore vus), et ceux de demain restés sans réponse. */
 export async function alertesRdv(): Promise<{ id: string; titre: string; sous: string; href: string }[]> {
   try {
-    const lignes = await q<{ id: number; dossier_id: number | null; titre: string; debut: string; reponse: string | null; nom: string | null; prenom: string | null; societe: string | null }>(
-      `select r.id, r.dossier_id, r.titre, r.debut, s.reponse, c.nom, c.prenom, c.societe
+    const lignes = await q<{ id: number; dossier_id: number | null; titre: string; debut: string; reponse: string | null; reponse_source: string | null; nom: string | null; prenom: string | null; societe: string | null }>(
+      `select r.id, r.dossier_id, r.titre, r.debut, s.reponse, s.reponse_source, c.nom, c.prenom, c.societe
          from rdv_sms s join rendez_vous r on r.id = s.rendez_vous_id
          left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id
         where r.debut > now() and not r.termine
           and ((s.reponse = 'annule' and s.vue_le is null)
-            or (s.reponse is null and (s.confirmation_statut = 'envoye' or s.rappel_statut = 'envoye')
+            or ($1 and s.reponse is null and (s.confirmation_statut = 'envoye' or s.rappel_statut = 'envoye')
                 and (r.debut at time zone 'Europe/Paris')::date = ((now() at time zone 'Europe/Paris')::date + 1)))
         order by r.debut limit 8`,
+      // Sans réponse demandée au client, une visite de demain sans réponse ne sonne pas (REPONSE_SMS_DEMANDEE).
+      [REPONSE_SMS_DEMANDEE],
     );
     return lignes.map((l) => {
       const qui = [l.prenom, l.nom].filter(Boolean).join(" ") || l.societe || l.titre;
       const quand = new Date(l.debut).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
       return l.reponse === "annule"
-        ? { id: `rdv-a${l.id}`, titre: `Rendez-vous annulé par ${qui}`, sous: `${quand} · réponse « 2 » au SMS`, href: l.dossier_id ? `/dossiers/${l.dossier_id}` : "/planning" }
+        ? { id: `rdv-a${l.id}`, titre: `Rendez-vous annulé par ${qui}`, sous: `${quand} · ${l.reponse_source === "sms" ? "réponse « 2 » au SMS" : "noté par l'équipe"}`, href: l.dossier_id ? `/dossiers/${l.dossier_id}` : "/planning" }
         : { id: `rdv-s${l.id}`, titre: `Sans réponse : ${qui}`, sous: `Visite de demain, ${quand}`, href: l.dossier_id ? `/dossiers/${l.dossier_id}` : "/planning" };
     });
   } catch {
@@ -214,30 +252,60 @@ function etatDeLigne(l: LigneRdvSms): EtatAffiche | undefined {
   return etat ? { etat, ...ETATS_RDV[etat], detail } : undefined;
 }
 
+/** Un SMS de rappel, pour la tâche de la veille (taches/rappels-visites.ts). */
+export interface RappelSms {
+  canal: "sms";
+  destinataire: string;
+  texte: string;
+  dossierId: number;
+  rendezVousId: number;
+  cle: string;
+  /** La carte de « Courriers et SMS » : désactivée, le rappel reste au journal. */
+  carte: CarteSmsRdv;
+  /** Le nom du modèle, au journal des envois. */
+  modele: string;
+  /** « Rappel J−2 » ou « Rappel de la veille », pour le fil du dossier. */
+  libelle: string;
+}
+
 /**
- * Les rappels de la veille calculés ici, tant que le module des visites
- * techniques ne fournit pas les siens (rappelsVisitesDuLendemain) : les
- * rendez-vous de visite de demain, avec un dossier, pas terminés, pas annulés
- * par le client. Même forme que la source attendue par le registre.
+ * Les SMS de rappel que la tâche du jour `jour` envoie (calendrier.ts) : à
+ * J−2 et à J−1, les visites sur place et les visios rattachées à un dossier
+ * encore ouvert, pas terminées, pas classées sans suite, sans compte-rendu
+ * signé, que le client n'a pas annulées. Chacune avec la carte de son type
+ * (une visio ne dit pas « passera chez vous »).
  *
- * À la fusion, UNE seule source : celle-ci ou celle du module des visites —
- * leurs clés diffèrent, deux sources enverraient deux rappels.
+ * Un rappel ne part pas le jour où la confirmation de cet horaire est partie.
+ * Les clés du rappel de la veille sont celles d'avant (crm:rdv:<id>:rappel:…) :
+ * un rappel déjà parti ne repart pas.
  */
-export async function rappelsRendezVousDuLendemain(jour: Date) {
-  const m = await modeleDe("rdv_rappel_veille");
-  const demain = new Date(jour.getTime() + 864e5).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-  const rdvs = await q<{ id: number; dossier_id: number; debut: string; commercial: string | null }>(
-    `select r.id, r.dossier_id, r.debut, u.nom as commercial from rendez_vous r join utilisateurs u on u.id = r.commercial_id
+export async function rappelsSmsRendezVous(jour: Date): Promise<RappelSms[]> {
+  const j = jourParis(jour);
+  const rdvs = await q<{ id: number; dossier_id: number; type: string; debut: string; commercial: string | null; confirmation_le: string | null; confirmation_statut: string | null }>(
+    `select r.id, r.dossier_id, r.type, r.debut, u.nom as commercial, s.confirmation_le, s.confirmation_statut
+       from rendez_vous r join utilisateurs u on u.id = r.commercial_id
+       join dossiers d on d.id = r.dossier_id
        left join rdv_sms s on s.rendez_vous_id = r.id
-      where r.dossier_id is not null and r.type in ('phys','visio') and not r.termine
-        and (r.debut at time zone 'Europe/Paris')::date = $1::date and coalesce(s.reponse, '') <> 'annule'
-      order by r.debut`,
-    [demain],
+      where r.type in ('phys','visio') and not r.journee and not r.termine and not r.sans_suite
+        and (r.debut at time zone 'Europe/Paris')::date in (($1::date + 1), ($1::date + 2))
+        and d.statut not in ('perdu', 'termine') and coalesce(s.reponse, '') <> 'annule'
+        and not exists (select 1 from visites v where v.rendez_vous_id = r.id and v.statut = 'signee')
+      order by r.debut, r.id`,
+    [j],
   );
-  const out: { canal: "sms"; destinataire: string; texte: string; dossierId: number; rendezVousId: number; cle: string }[] = [];
+  const modeles = new Map<CarteSmsRdv, LigneModele | null>();
+  const modele = async (c: CarteSmsRdv) => {
+    if (!modeles.has(c)) modeles.set(c, await modeleDe(c));
+    return modeles.get(c) ?? null;
+  };
+  const out: RappelSms[] = [];
   for (const r of rdvs) {
+    const moment: MomentRappel | null = momentDuRappel(r.debut, j);
+    if (!moment || !rappelUtile({ le: r.confirmation_le, statut: r.confirmation_statut }, j)) continue;
     const c = await destinataire(r.dossier_id);
     if (!c?.telephone) continue;
+    const carte = carteSms(r.type, moment);
+    const m = await modele(carte);
     const d = new Date(r.debut);
     out.push({
       canal: "sms",
@@ -249,7 +317,10 @@ export async function rappelsRendezVousDuLendemain(jour: Date) {
       }),
       dossierId: r.dossier_id,
       rendezVousId: r.id,
-      cle: `crm:rdv:${r.id}:rappel:${d.toISOString()}`,
+      cle: cleSmsRdv(r.id, moment, d),
+      carte,
+      modele: m?.nom ?? LIBELLES_RAPPEL[moment],
+      libelle: `${LIBELLES_RAPPEL[moment]}${r.type === "visio" ? " (visio)" : ""}`,
     });
   }
   return out;

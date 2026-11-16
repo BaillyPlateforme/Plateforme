@@ -30,10 +30,10 @@ export async function seedExtra(d: Db, lun: Date, now: Date, uid: (rang: number)
   }
   await d.query("update dossiers set type_demenagement='international' where id in (select d.id from dossiers d join clients c on c.id=d.client_id where c.type='militaire')");
 
-  // modèles de courriers et de SMS
+  // modèles de courriers et de SMS (les SMS de rendez-vous ne demandent plus de répondre 1 ou 2 : retours de Céline, 16/11/2026)
   const M: [string, string, string | null, string][] = [
-    ["sms", "Confirmation de rendez-vous", null, "Bailly Déménagement : votre rendez-vous avec {commercial} est confirmé le {date} à {heure}. Répondez 1 pour confirmer ou 2 pour annuler."],
-    ["sms", "Rappel de visite (veille)", null, "Bonjour {client}, {commercial} passera chez vous demain à {heure} pour la visite technique. Merci de confirmer en répondant 1."],
+    ["sms", "Confirmation de rendez-vous", null, "Bailly Déménagement : votre rendez-vous avec {commercial} est confirmé le {date} à {heure}."],
+    ["sms", "Rappel de visite (veille)", null, "Bonjour {client}, {commercial} passera chez vous demain à {heure} pour la visite technique."],
     ["sms", "Livraison de cartons", null, "Bonjour {client}, vos cartons seront livrés le {date}. Bailly Déménagement."],
     ["sms", "Rendez-vous manqué", null, "Bonjour {client}, nous n'avons pas pu vous joindre pour la visite prévue. Rappelez-nous au 01 69 10 35 35."],
     ["email", "Envoi du devis", "Votre devis de déménagement {ref}", "Bonjour {client},\n\nSuite à notre rencontre, veuillez trouver nos propositions pour votre déménagement.\n\nBien cordialement,\n{commercial}"],

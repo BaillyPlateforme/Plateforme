@@ -123,9 +123,10 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
                 <p className="kicker">{prevue.statut === "en_cours" ? "Visite en cours" : "Visite réservée"}</p>
                 <h2>{jourVisite(prevue.debut)}</h2>
                 <p>
+                  {/* Les rappels du CRM (retours de Céline, 16/11/2026) : SMS l'avant-veille et la veille, e-mail la veille d'une visite chez le client. */}
                   {prevue.mode === "visio"
-                    ? `Votre conseiller vous retrouve en visio à ${heureParis(prevue.debut)}.`
-                    : `Votre conseiller vient chez vous à ${heureParis(prevue.debut)}. La veille, un rappel vous parvient par SMS et par e-mail.`}
+                    ? `Votre conseiller vous retrouve en visio à ${heureParis(prevue.debut)}. Deux jours avant, puis la veille, un rappel vous parvient par SMS.`
+                    : `Votre conseiller vient chez vous à ${heureParis(prevue.debut)}. Deux jours avant, puis la veille, un rappel vous parvient par SMS ; la veille, aussi par e-mail.`}
                 </p>
                 <div className="ticket">
                   <div>

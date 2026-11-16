@@ -4,6 +4,7 @@ import { nomClient } from "@/crm/lib/format";
 import { DossierTable } from "@/crm/components/DossierTable";
 import { tableauVisites } from "@/crm/visites/donnees";
 import { rappelPrevu } from "@/crm/visites/rappels";
+import { texteRappels } from "@/crm/rdv/calendrier";
 import { etatVisite, ETATS_VISITE } from "@/crm/visites/cycle";
 import { changerEtatVisite } from "@/crm/planning/actions";
 import { duree, empreinteLisible, heureParis, jourParis, jourVisite, m3, momentVisite } from "@/lib/visite/regles";
@@ -67,7 +68,7 @@ export default async function VueVisites() {
                             {jourVisite(r.debut)} · {r.type === "visio" ? "visio" : "sur place"}, {duree(r.duree_min)} · {r.commercial} · {r.ref}
                           </small>
                           {rappel && rappel.canaux.length > 0 && (
-                            <span className={s.rappel}>Rappel la veille : {rappel.canaux.map((c) => (c === "sms" ? "SMS" : "e-mail")).join(" + ")}</span>
+                            <span className={s.rappel}>Rappels : {texteRappels(rappel)}</span>
                           )}
                         </div>
                         {r.visite_statut === "en_cours" ? <i className="st w">Saisie en cours</i> : pastille(r as Parameters<typeof etatVisite>[0])}

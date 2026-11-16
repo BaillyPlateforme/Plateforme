@@ -436,17 +436,23 @@ describe("rdv/sms · lireReponse", () => {
   });
 });
 
-describe("visites/rappels · rappel de la veille prévu", () => {
+describe("visites/rappels · rappels prévus (J−2, J−1)", () => {
   const maintenant = new Date("2026-11-16T10:00:00Z");
   const client = { email: "anne@orange.fr", telephone: "06 12 34 56 78", notes: null };
-  it("une visite sur place de demain : SMS et e-mail, la veille = aujourd'hui", () => {
-    expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-17T08:00:00Z", termine: false }, client, maintenant)).toEqual({ canaux: ["sms", "email"], veille: "2026-11-16", fictif: false });
+  it("une visite sur place de demain : SMS et e-mail, la veille = aujourd'hui ; le J−2 est passé", () => {
+    expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-17T08:00:00Z", termine: false }, client, maintenant)).toEqual({ canaux: ["sms", "email"], j2: null, veille: "2026-11-16", fictif: false });
+  });
+  it("une visite dans trois jours : J−2 et J−1 à venir", () => {
+    expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-19T08:00:00Z", termine: false }, client, maintenant)).toMatchObject({ j2: "2026-11-17", veille: "2026-11-18" });
+  });
+  it("une visio a ses rappels aussi, par SMS seulement (le modèle d'e-mail dit « passera chez vous »)", () => {
+    expect(rappelPrevu({ type: "visio", dossier_id: 1, debut: "2026-11-18T08:00:00Z", termine: false }, client, maintenant)).toEqual({ canaux: ["sms"], j2: "2026-11-16", veille: "2026-11-17", fictif: false });
   });
   it("le jour de la visite est celui de Paris (0 h 30 le 17 = 23 h 30 UTC le 16)", () => {
     expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-16T23:30:00Z", termine: false }, client, maintenant)?.veille).toBe("2026-11-16");
   });
-  it("pas de rappel : visio, sans dossier, terminée, du jour même ou passée", () => {
-    expect(rappelPrevu({ type: "visio", dossier_id: 1, debut: "2026-11-17T08:00:00Z", termine: false }, client, maintenant)).toBeNull();
+  it("pas de rappel : tâche, sans dossier, terminée, du jour même ou passée", () => {
+    expect(rappelPrevu({ type: "tache", dossier_id: 1, debut: "2026-11-17T08:00:00Z", termine: false }, client, maintenant)).toBeNull();
     expect(rappelPrevu({ type: "phys", dossier_id: null, debut: "2026-11-17T08:00:00Z", termine: false }, client, maintenant)).toBeNull();
     expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-17T08:00:00Z", termine: true }, client, maintenant)).toBeNull();
     expect(rappelPrevu({ type: "phys", dossier_id: 1, debut: "2026-11-16T20:00:00Z", termine: false }, client, maintenant)).toBeNull();

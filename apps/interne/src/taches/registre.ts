@@ -1,5 +1,5 @@
 import "server-only";
-import { rappelsRendezVousDuLendemain } from "@/crm/rdv/sms";
+import { rappelsSmsRendezVous } from "@/crm/rdv/sms";
 import { rappelsVisitesDuLendemain } from "@/crm/visites/rappels";
 import { q } from "@/crm/lib/db";
 import { tacheCartons } from "./cartons";
@@ -16,16 +16,17 @@ import type { Tache } from "./types";
  */
 
 /**
- * La source des rappels de la veille : UNE par canal, pour qu'un client ne
+ * La source des rappels de visite : UNE par canal, pour qu'un client ne
  * reçoive jamais deux fois le même rappel.
- *   - Le SMS vient des SMS de rendez-vous (src/crm/rdv) : visites et visios
- *     de demain, sauf celles que le client a annulées en répondant « 2 ».
+ *   - Le SMS vient des SMS de rendez-vous (src/crm/rdv) : visites sur place
+ *     et visios d'après-demain (J−2) et de demain (J−1), chacune avec la
+ *     carte de son type, sauf celles que le client a annulées.
  *   - L'e-mail vient du module des visites (src/crm/visites/rappels.ts) :
- *     visites physiques de demain, avec la date, l'heure et l'adresse ; on
- *     écarte aussi les rendez-vous annulés par SMS.
+ *     visites sur place de demain, avec la date, l'heure et l'adresse ; on
+ *     écarte aussi les rendez-vous annulés par le client.
  */
 const SOURCE_RAPPELS: SourceRappels = async (jour) => {
-  const [sms, visites] = await Promise.all([rappelsRendezVousDuLendemain(jour), rappelsVisitesDuLendemain(jour)]);
+  const [sms, visites] = await Promise.all([rappelsSmsRendezVous(jour), rappelsVisitesDuLendemain(jour)]);
   const annules = new Set(
     (await q<{ id: number }>("select rendez_vous_id as id from rdv_sms where reponse = 'annule'").catch(() => [])).map((r) => r.id),
   );

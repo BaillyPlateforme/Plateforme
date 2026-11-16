@@ -76,10 +76,25 @@ const espace = (cle: string) => {
 
 export const CATALOGUE: EntreeCatalogue[] = [
   // ── Visite ──────────────────────────────────────────────────────────────
+  // Les SMS des rendez-vous (retours de Céline, 16/11/2026) : la confirmation dès le rendez-vous pris, puis deux
+  // rappels, à J−2 et à J−1 (rdv/calendrier.ts) ; la visio a ses propres textes, « même règle que les SMS classiques ».
+  // Les textes de la visio et du rappel J−2 sont proposés par la plateforme : à valider par Bailly.
   { cle: "rdv_confirmation", titre: "Visite confirmée", etape: "visite", canal: "sms", nomCrm: "Confirmation de rendez-vous", variables: VARIABLES_CRM, journal: ["Confirmation de rendez-vous"],
-    declencheur: "À la prise d'un rendez-vous de visite (sur place ou en visio), et sur « SMS de confirmation » dans le dossier.", delai: "Aussitôt" },
+    declencheur: "À la prise d'une visite sur place (planificateur, ou réservation depuis la fiche du dossier), et sur « SMS de confirmation » dans le dossier.", delai: "Aussitôt" },
+  { cle: "rdv_rappel_j2", titre: "Rappel J−2", etape: "visite", canal: "sms", variables: VARIABLES_CRM, journal: ["Rappel J−2"], aValider: true,
+    depart: { objet: null, corps: "Bonjour {client}, {commercial} passera chez vous le {date} à {heure} pour la visite technique." },
+    declencheur: "Deux jours avant la visite sur place, par la tâche de la veille. Pas le jour où la confirmation est partie.", delai: "J−2, en fin d'après-midi" },
   { cle: "rdv_rappel_veille", titre: "Rappel de la veille", etape: "visite", canal: "sms", nomCrm: "Rappel de visite (veille)", variables: VARIABLES_CRM, journal: ["Rappel de visite (veille)"],
-    declencheur: "La veille du rendez-vous, par la tâche de la veille.", delai: "J−1, en fin d'après-midi" },
+    declencheur: "La veille de la visite sur place, par la tâche de la veille. Pas le jour où la confirmation est partie.", delai: "J−1, en fin d'après-midi" },
+  { cle: "rdv_confirmation_visio", titre: "Visio confirmée", etape: "visite", canal: "sms", variables: VARIABLES_CRM, journal: ["Visio confirmée"], aValider: true,
+    depart: { objet: null, corps: "Bailly Déménagement : votre rendez-vous en visio avec {commercial} est confirmé le {date} à {heure}." },
+    declencheur: "À la prise d'une visio (planificateur, ou réservation depuis la fiche du dossier), et sur « SMS de confirmation » dans le dossier.", delai: "Aussitôt" },
+  { cle: "rdv_rappel_j2_visio", titre: "Rappel J−2 · visio", etape: "visite", canal: "sms", variables: VARIABLES_CRM, journal: ["Rappel J−2 · visio"], aValider: true,
+    depart: { objet: null, corps: "Bonjour {client}, {commercial} vous retrouve en visio le {date} à {heure} pour la visite technique." },
+    declencheur: "Deux jours avant la visio, par la tâche de la veille. Pas le jour où la confirmation est partie.", delai: "J−2, en fin d'après-midi" },
+  { cle: "rdv_rappel_veille_visio", titre: "Rappel de la veille · visio", etape: "visite", canal: "sms", variables: VARIABLES_CRM, journal: ["Rappel de la veille · visio"], aValider: true,
+    depart: { objet: null, corps: "Bonjour {client}, {commercial} vous retrouve en visio demain à {heure} pour la visite technique." },
+    declencheur: "La veille de la visio, par la tâche de la veille. Pas le jour où la confirmation est partie.", delai: "J−1, en fin d'après-midi" },
   { cle: "rdv_manque", titre: "Rendez-vous manqué", etape: "visite", canal: "sms", nomCrm: "Rendez-vous manqué", variables: VARIABLES_CRM, journal: ["Rendez-vous manqué"],
     declencheur: "Aucun envoi automatique : modèle à disposition de l'équipe." },
   { cle: "fiche_visite", titre: "Fiche de visite", etape: "visite", canal: "email", nomCrm: "Fiche de visite", variables: VARIABLES_CRM, journal: ["Fiche de visite"],
