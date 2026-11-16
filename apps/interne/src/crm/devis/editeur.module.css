@@ -1,8 +1,10 @@
 /*
  * La fenêtre Devis, dans le design en vigueur : cartes blanches arrondies,
  * ombres douces teintées d'indigo, indigo #4b2fe0, violet #7a52ff, vert
- * #14c27d, fond #f4f4f7. Saisie « tableur » : les champs des lignes n'ont
- * de bord qu'au survol et au focus.
+ * #14c27d, fond #f4f4f7. Saisie « tableur » : la désignation n'a de bord
+ * qu'au survol et au focus ; la quantité et le prix unitaire gardent un
+ * fond et un bord légers, pour qu'on voie qu'ils se saisissent (retours de
+ * Céline, 16/11/2026 : « entrer nous-mêmes les chiffrages »).
  */
 .ecran {
   --indigo: #4b2fe0;
@@ -465,6 +467,19 @@
   border-color: #ebe8f3;
   background: #fff;
 }
+/* La quantité et le prix unitaire : des cases à saisir, visibles comme telles. */
+.ecran .ligne .nombre input {
+  border-color: #e9e5f4;
+  background: #fcfbff;
+}
+.ecran .ligne .nombre input:hover {
+  border-color: #d9d2f3;
+  background: #fff;
+}
+.ecran .ligne .nombre input:focus {
+  border-color: #b9a7ff;
+  background: #fff;
+}
 .ecran .ligne[data-client] .designation input,
 .ecran .ligne[data-client] .nombre input {
   color: var(--gris-clair);
@@ -613,7 +628,7 @@
   font-weight: 650;
 }
 
-/* Assurance */
+/* Garantie : contractuelle, dommage standard, dommage luxe */
 .champEtroit {
   width: 180px;
 }
@@ -645,8 +660,12 @@
 .franchise .champ {
   flex: 1;
 }
-.franchise .interrupteur {
-  padding-bottom: 9px;
+.sansFranchise {
+  align-self: center;
+  padding-top: 20px;
+  color: var(--gris);
+  font-size: 13px;
+  font-weight: 600;
 }
 .prime {
   display: grid;
@@ -1161,11 +1180,16 @@
 .poste,
 .posteTotal {
   display: grid;
-  grid-template-columns: minmax(200px, 1.4fr) minmax(130px, 1fr) 128px 128px 128px 96px;
+  grid-template-columns: minmax(200px, 1.4fr) minmax(130px, 1fr) 128px 128px 128px 96px 32px;
   align-items: center;
   gap: 10px;
-  min-width: 860px;
+  min-width: 900px;
   padding: 10px 14px;
+}
+/* « Ajouter une ligne de coût » (Céline, 16/11/2026) : sous les postes. */
+.posteAjout {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--filet-doux);
 }
 .posteTete {
   padding-top: 0;
@@ -1493,4 +1517,37 @@
   .fiche {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* La boîte « Quitter le devis » : Enregistrer, Quitter sans enregistrer, Annuler. */
+.quitter {
+  width: min(540px, calc(100vw - 32px));
+  margin: auto;
+  padding: 24px 24px 20px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--encre);
+  box-shadow: 0 30px 80px -30px rgba(46, 31, 158, 0.55), 0 0 0 1px rgba(20, 18, 31, 0.04);
+}
+.quitter::backdrop {
+  background: rgba(20, 18, 31, 0.38);
+  backdrop-filter: blur(2px);
+}
+.quitter h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+.quitterActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.quitterActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

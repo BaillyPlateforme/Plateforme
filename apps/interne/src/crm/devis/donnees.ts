@@ -42,6 +42,8 @@ export async function etapesDuDossier(dossierId: number): Promise<Etape[]> {
     id: e.id, genre: e.genre, adresse: e.adresse ?? "", codePostal: e.code_postal ?? "", ville: e.ville ?? "", pays: e.pays ?? "",
     telephone: e.telephone ?? "", etage: e.etage ?? "", ascenseur: !!e.ascenseur, monteCharge: !!e.monte_charge, transbordement: !!e.transbordement,
     portage: e.portage_m ?? null, monteMeuble: e.monte_meuble ?? "", stationnement: e.stationnement ?? "", acces: e.acces ?? "",
+    ascenseurTaille: e.ascenseur_taille ?? "", portageOui: !!e.portage, escalier: e.escalier ?? "", escalierPrecision: e.escalier_precision ?? "",
+    stationnementPrecision: e.stationnement_precision ?? "", accesCamion: e.acces_camion ?? "", surfaceM2: e.surface_m2 ?? null, codeAcces: e.code_acces ?? "",
   }));
 }
 

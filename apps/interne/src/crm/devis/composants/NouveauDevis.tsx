@@ -106,14 +106,14 @@ export default function NouveauDevis({ dossierId, volume, initial, erreur }: { d
                 <label data-choisi={source === m.id ? "" : undefined}>
                   <input type="radio" name="choix" checked={source === m.id} onChange={() => setSource(m.id)} />
                   <span className={s.modeleNom}><span><b>{m.numero}</b> · {m.nom}</span><small>{m.client} · dossier {m.ref}{m.did === dossierId ? " (ce dossier)" : ""}</small></span>
-                  <span className={s.modeleMeta}>{m.lignes} ligne{m.lignes > 1 ? "s" : ""} · {m.mode === "forfait" ? "forfait" : "5 postes"}</span>
+                  <span className={s.modeleMeta}>{m.lignes} ligne{m.lignes > 1 ? "s" : ""} · {m.mode === "forfait" ? "forfait" : "ligne à ligne"}</span>
                   <b className={s.modeleMontant}>{euros(m.montant)}</b>
                 </label>
               </li>
             ))}
           </ul>
           <div className={s.piedCopie}>
-            <p className={s.note}>D&apos;un autre client, seuls le chiffrage, les prestations, les taux d&apos;assurance, les conditions et les achats prévus sont repris : rien qui tienne à son déménagement.</p>
+            <p className={s.note}>D&apos;un autre client, seuls le chiffrage, les prestations, les taux de garantie, les conditions et les achats prévus sont repris : rien qui tienne à son déménagement.</p>
             <button className={s.creer} disabled={!source}>Dupliquer ce devis</button>
           </div>
         </div>

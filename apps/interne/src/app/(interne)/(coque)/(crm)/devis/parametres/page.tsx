@@ -5,7 +5,7 @@ import MenuReglages from "@/crm/reglages/MenuReglages";
 import { surtitreReglages } from "@/crm/reglages/pages";
 import { lireParametres } from "@/crm/devis/donnees";
 import { enregistrerParametres } from "@/crm/devis/actions";
-import { ARRHES_CODE, TVA_CODE, VALIDITE_CODE } from "@/crm/devis/modele";
+import { ARRHES_CODE, TVA_CODE } from "@/crm/devis/modele";
 import { VUS_DANS_CREAGIDEM } from "@/crm/devis/parametres";
 import s from "@/crm/devis/liste.module.css";
 
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 /*
  * Les paramètres du devis, à fournir par Bailly : CGV, taux et formulations.
  * Un champ vide reprend la valeur déjà présente dans le CRM (indiquée), ou
- * n'imprime rien (CGV, taux d'assurance) : aucune valeur n'est inventée.
+ * n'imprime rien (CGV, taux de garantie) : aucune valeur n'est inventée.
  */
 
 const nb = (v: number | null) => (v == null ? "" : String(v).replace(".", ","));
@@ -33,11 +33,12 @@ export default async function Parametres({ searchParams }: { searchParams: Promi
             <header className={s.carteTete}><p>Valeurs par défaut</p><h2>Taux et délais</h2></header>
             <div className={s.grille}>
               <label className={s.champ}><span>Arrhes à la commande (%)</span><input name="arrhesPct" inputMode="decimal" defaultValue={nb(p.arrhesPct)} placeholder={String(ARRHES_CODE)} /><small>Vide : {ARRHES_CODE} %, valeur actuelle du CRM.</small></label>
-              <label className={s.champ}><span>Validité du devis (jours)</span><input name="validiteJours" inputMode="numeric" defaultValue={nb(p.validiteJours)} placeholder={String(VALIDITE_CODE)} /><small>Vide : {VALIDITE_CODE} jours, valeur actuelle du CRM.</small></label>
+              <label className={s.champ}><span>Validité du devis (jours)</span><input name="validiteJours" inputMode="numeric" defaultValue={nb(p.validiteJours)} placeholder="1 mois" /><small>Vide : un mois, jusqu&apos;à la même date le mois suivant (règle de Bailly).</small></label>
               <label className={s.champ}><span>TVA par défaut des lignes (%)</span><input name="tvaDefaut" inputMode="decimal" defaultValue={nb(p.tvaDefaut)} placeholder={String(TVA_CODE)} /><small>Vide : {TVA_CODE} %, taux du devis Bailly.</small></label>
-              <label className={s.champ}><span>TVA de l&apos;assurance (%)</span><input name="tvaAssurance" inputMode="decimal" defaultValue={nb(p.tvaAssurance)} placeholder="Comme les lignes" /><small>À confirmer par Bailly.</small></label>
-              <label className={s.champ}><span>Taux assurance contractuelle (%)</span><input name="tauxContractuelle" inputMode="decimal" defaultValue={nb(p.tauxContractuelle)} placeholder="À fournir" /><small>Aucun taux prérempli.</small></label>
-              <label className={s.champ}><span>Taux assurance dommage (%)</span><input name="tauxDommage" inputMode="decimal" defaultValue={nb(p.tauxDommage)} placeholder="À fournir" /><small>Aucun taux prérempli.</small></label>
+              <label className={s.champ}><span>TVA de la garantie (%)</span><input name="tvaAssurance" inputMode="decimal" defaultValue={nb(p.tvaAssurance)} placeholder="Comme les lignes" /><small>À confirmer par Bailly.</small></label>
+              <label className={s.champ}><span>Taux garantie contractuelle (%)</span><input name="tauxContractuelle" inputMode="decimal" defaultValue={nb(p.tauxContractuelle)} placeholder="À fournir" /><small>Aucun taux prérempli.</small></label>
+              <label className={s.champ}><span>Taux garantie dommage standard (%)</span><input name="tauxDommage" inputMode="decimal" defaultValue={nb(p.tauxDommage)} placeholder="À fournir" /><small>Aucun taux prérempli.</small></label>
+              <label className={s.champ}><span>Taux garantie dommage luxe (%)</span><input name="tauxLuxe" inputMode="decimal" defaultValue={nb(p.tauxLuxe)} placeholder="À fournir" /><small>Aucun taux prérempli.</small></label>
             </div>
           </section>
           <section className={s.carte}>

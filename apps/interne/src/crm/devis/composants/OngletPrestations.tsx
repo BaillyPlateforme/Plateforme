@@ -4,7 +4,8 @@ import { Interrupteur, PICTOS, Pic, Section } from "./champs";
 import s from "../editeur.module.css";
 
 /*
- * L'onglet Prestations : qui fait quoi, ligne par ligne — Entreprise (Bailly),
+ * L'onglet Prestations (« Nos prestations », ex-« Qui fait quoi » : Céline,
+ * 16/11/2026) : qui fait quoi, ligne par ligne — Entreprise (Bailly),
  * Client ou Sans objet —, libellés modifiables, lignes libres, et la
  * « catégorie spécifique » : un libellé de catégorie propre à ce devis,
  * imprimé à la place de la formule.
@@ -34,7 +35,7 @@ export default function OngletPrestations({
   return (
     <Section
       surtitre="Prestations"
-      titre="Qui fait quoi"
+      titre="Nos prestations"
       texte={
         <>
           <b className={s.compteE}>{compte("bailly")} par l&apos;entreprise</b> · <b className={s.compteC}>{compte("client")} par le client</b> · {compte("so")} sans objet. Les lignes « sans objet » ne sont pas imprimées.

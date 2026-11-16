@@ -49,7 +49,7 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
         surtitre={`Dossier ${c.dossier.ref} · ${client}`}
         titre={`Devis ${c.v.numero}`}
         texte={[trajet, m3(c.dossier.volume)].filter(Boolean).join(" · ")}
-        etiquettes={[nom, c.etat.chiffrage.mode === "forfait" ? "Forfait" : "5 postes", c.v.retire_le ? "Retiré" : STATUT[c.v.statut]]}
+        etiquettes={[nom, c.etat.chiffrage.mode === "forfait" ? "Forfait" : "Ligne à ligne", c.v.retire_le ? "Retiré" : STATUT[c.v.statut]]}
         secondaire={{ label: "Fiche du dossier", href: `/dossiers/${c.dossier.id}` }}
       >
         <Link href={`/imprimer/${c.dossier.id}?doc=devis&v=${c.v.id}`} target="_blank" data-ton="contour">Aperçu PDF</Link>

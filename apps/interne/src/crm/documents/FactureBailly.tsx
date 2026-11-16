@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- les lignes SQL du dossier ne sont pas typées */
 import { TEL_AGENCE } from "@/lib/messaging";
-import { dateFr, m3, TYPES } from "@/crm/lib/format";
+import { dateFr, TYPES } from "@/crm/lib/format";
+import { m3Client, volumeClient } from "./volume-client";
 import type { FactureComplete, Mentions, Payeur } from "@/crm/facturation/donnees";
 import { totaux, htDepuisTtc, libelleMode, GENRE, TVA_DEFAUT_CODE, type GenreFacture } from "@/crm/facturation/calcul";
 import s from "./facture.module.css";
@@ -148,7 +149,8 @@ export default function FactureBailly({ f, d, m }: { f: FactureComplete; d: any 
             <span>
               {d.date_chargement ? `Chargement le ${longue(d.date_chargement)}` : d.periode ? `Période : ${d.periode}` : "Date à convenir"}
               {d.date_livraison && d.date_livraison !== d.date_chargement ? ` · livraison le ${longue(d.date_livraison)}` : ""}
-              {d.volume > 0 ? ` · ${m3(d.volume)}` : ""}
+              {/* Un client CIMOB/DICOM lit ses droits, jamais son volume réel (volume-client.ts). */}
+              {volumeClient(d).valeur != null ? ` · ${m3Client(d)}` : ""}
             </span>
           )}
         </div>

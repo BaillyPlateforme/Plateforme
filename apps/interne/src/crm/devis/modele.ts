@@ -4,14 +4,43 @@
  * l'éditeur (navigateur) : aucune requête ici.
  *
  * Valeurs reprises du code existant, jamais inventées :
- * - TVA 20 % : le taux du devis Bailly (lib/tarif, projection 0012) ;
- * - arrhes 30 % et validité 60 jours : ceux du CRM (actions.ts, 0012) ;
- * tous trois remplaçables par les paramètres du devis (crm.devis_parametres).
+ * - TVA 20 % et arrhes 30 % : ceux du CRM (lib/tarif, actions.ts, 0012) ;
+ * - validité d'un mois : « Date de validité de nos devis : 1 mois » (Céline,
+ *   16/11/2026), jusqu'à la même date le mois suivant (validiteUnMois) ;
+ * - franchise de 300 € des garanties contractuelle et dommage standard
+ *   (Céline, 16/11/2026) ;
+ * remplaçables par les paramètres du devis (crm.devis_parametres) : une
+ * validité saisie en jours y prend le pas sur le mois.
  */
 
 export const TVA_CODE = 20;
 export const ARRHES_CODE = 30;
-export const VALIDITE_CODE = 60;
+/** La validité par défaut : un mois (validiteUnMois), quand aucun nombre de jours n'est fixé dans les paramètres. */
+export const VALIDITE_CODE = "1 mois";
+/** La franchise des garanties contractuelle et dommage standard ; la garantie dommage luxe n'en a pas. */
+export const FRANCHISE_GARANTIE = 300;
+/** La date du jour à Paris, « AAAA-MM-JJ » (les serveurs tournent en UTC). */
+export const aujourdhuiParis = (maintenant = new Date()) => maintenant.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+const deux = (n: number) => String(n).padStart(2, "0");
+/**
+ * Un mois après une date « AAAA-MM-JJ » : la même date le mois suivant,
+ * ramenée au dernier jour du mois quand elle n'y existe pas (31 janvier →
+ * 28 ou 29 février ; 31 décembre → 31 janvier de l'année suivante).
+ */
+export function validiteUnMois(jour: string): string {
+  const [a, m, j] = jour.split("-").map(Number);
+  const an = m === 12 ? a + 1 : a, mois = m === 12 ? 1 : m + 1;
+  // Le jour 0 du mois d'après : le dernier jour du mois visé.
+  const dernier = new Date(Date.UTC(an, mois, 0)).getUTCDate();
+  return `${an}-${deux(mois)}-${deux(Math.min(j, dernier))}`;
+}
+/** La date de validité d'un devis daté `jour` : le nombre de jours des paramètres s'il est fixé, sinon un mois. */
+export function dateValidite(jour: string, jours: number | null | undefined): string {
+  if (jours == null) return validiteUnMois(jour);
+  const d = new Date(`${jour}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + Math.round(jours));
+  return d.toISOString().slice(0, 10);
+}
 /** Les taux de TVA en vigueur en France, proposés ligne par ligne. */
 export const TAUX_TVA = [20, 10, 5.5, 2.1, 0];
 
@@ -40,7 +69,8 @@ export interface LigneDevis {
   charge: Charge;
 }
 export interface PrestationDevis { id: string; libelle: string; charge: ChargePrestation }
-export type PosteInternational = "os" | "fob" | "fret" | "ds";
+/** Les quatre postes d'un devis international, et les postes de coût ajoutés à la main (« autre », au libellé libre). */
+export type PosteInternational = "os" | "fob" | "fret" | "ds" | "autre";
 export interface Achat {
   id: string;
   date: string;
@@ -53,10 +83,19 @@ export interface Achat {
   piece: string;
   poste: PosteInternational | null;
 }
+/**
+ * La garantie du devis (« Assurance » jusqu'au 16/11/2026), en trois lignes
+ * (Céline) : contractuelle, franchise 300 € ; dommage standard, franchise
+ * idem ; dommage luxe, pas de franchise. Prime = valeur déclarée × taux.
+ * La clé `dommage` est celle de la ligne « dommage » d'avant : un devis
+ * enregistré avec deux lignes se lit tel quel (lireAssurance).
+ */
+export interface LigneGarantie { valeur: number | null; taux: number | null }
 export interface Assurance {
   tva: number | null;
-  contractuelle: { valeur: number | null; taux: number | null };
-  dommage: { valeur: number | null; taux: number | null; franchise: number | null; sansFranchise: boolean };
+  contractuelle: LigneGarantie & { franchise: number | null };
+  dommage: LigneGarantie & { franchise: number | null };
+  luxe: LigneGarantie;
 }
 export interface Vehicule { id: string; designation: string; immatriculation: string }
 export interface Moyens {
@@ -104,10 +143,22 @@ export interface Etape {
   ascenseur: boolean;
   monteCharge: boolean;
   transbordement: boolean;
+  /** La distance de portage, en mètres (colonne portage_m). */
   portage: number | null;
   monteMeuble: string;
   stationnement: string;
   acces: string;
+  /* La fiche du premier appel et la visite (retours de Céline, 16/11/2026). */
+  ascenseurTaille: string;
+  /** Portage oui ou non (colonne portage) ; sa distance est `portage`. */
+  portageOui: boolean;
+  escalier: string;
+  escalierPrecision: string;
+  stationnementPrecision: string;
+  accesCamion: string;
+  surfaceM2: number | null;
+  /** Codes et interphone : donnée interne, jamais imprimée ni montrée au client. */
+  codeAcces: string;
 }
 export interface DossierDevis {
   typeDemenagement: string;
@@ -228,7 +279,7 @@ export function lireLignes(brut: unknown, montantSansLignes?: number | null): Li
 export function lireAchats(brut: unknown, lignes: unknown): Achat[] {
   const a = tab(brut).map((x, i) => {
     const r = obj(x);
-    const poste = ["os", "fob", "fret", "ds"].includes(txt(r.poste)) ? (txt(r.poste) as PosteInternational) : null;
+    const poste = ["os", "fob", "fret", "ds", "autre"].includes(txt(r.poste)) ? (txt(r.poste) as PosteInternational) : null;
     return { id: txt(r.id) || `h${i}`, date: txt(r.date), libelle: txt(r.libelle), fournisseur: txt(r.fournisseur), prevu: num(r.prevu), reel: num(r.reel), tva: num(r.tva), compte: txt(r.compte), piece: txt(r.piece), poste };
   });
   if (a.length) return a;
@@ -244,14 +295,33 @@ export function lirePrestations(brut: unknown): PrestationDevis[] {
     return { id: txt(p.id) || `p${i}`, libelle: txt(p.libelle), charge: c };
   });
 }
+/**
+ * La garantie d'un devis. Un devis qui n'en a jamais saisi reçoit la
+ * franchise de 300 € sur les lignes contractuelle et dommage standard. Un
+ * devis enregistré avec deux lignes (avant le 16/11/2026) garde ses valeurs :
+ * sa ligne « dommage » sans franchise est la garantie dommage luxe d'aujourd'hui
+ * (même prime, même absence de franchise) ; avec franchise, la dommage standard.
+ */
 export function lireAssurance(brut: unknown): Assurance {
-  const a = obj(brut), c = obj(a.contractuelle), d = obj(a.dommage);
+  const a = obj(brut), c = obj(a.contractuelle), d = obj(a.dommage), l = obj(a.luxe);
+  const jamaisSaisie = a.contractuelle === undefined && a.dommage === undefined && a.luxe === undefined;
+  const ancienDommageSansFranchise = a.luxe === undefined && d.sansFranchise === true;
+  const ligne = (x: Record<string, unknown>): LigneGarantie => ({ valeur: num(x.valeur), taux: num(x.taux) });
   return {
     tva: num(a.tva),
-    contractuelle: { valeur: num(c.valeur), taux: num(c.taux) },
-    dommage: { valeur: num(d.valeur), taux: num(d.taux), franchise: num(d.franchise), sansFranchise: d.sansFranchise === true },
+    contractuelle: { ...ligne(c), franchise: jamaisSaisie ? FRANCHISE_GARANTIE : num(c.franchise) },
+    dommage: ancienDommageSansFranchise
+      ? { valeur: null, taux: null, franchise: null }
+      : { ...ligne(d), franchise: jamaisSaisie ? FRANCHISE_GARANTIE : num(d.franchise) },
+    luxe: ancienDommageSansFranchise ? ligne(d) : ligne(l),
   };
 }
+/** Les trois lignes de la garantie, dans l'ordre du devis : clé, libellé imprimé, et si elle porte une franchise. */
+export const LIGNES_GARANTIE = [
+  { cle: "contractuelle", libelle: "Garantie contractuelle", court: "Contractuelle", franchise: true },
+  { cle: "dommage", libelle: "Garantie dommage standard", court: "Dommage standard", franchise: true },
+  { cle: "luxe", libelle: "Garantie dommage luxe", court: "Dommage luxe", franchise: false },
+] as const;
 export function lireMoyens(brut: unknown): Moyens {
   const m = obj(brut);
   return {
@@ -272,8 +342,11 @@ export function lireInternational(brut: unknown): International {
   return { margePct: num(i.margePct), modeMarge: i.modeMarge === "prix" ? "prix" : "cout" };
 }
 
-/** Les postes d'un devis international (réunion du 23/09) : services au départ, FOB, fret, services à destination. */
-export const POSTES_INTERNATIONAL: { cle: PosteInternational; libelle: string; aide: string }[] = [
+/**
+ * Les postes d'un devis international (réunion du 23/09) : services au départ, FOB, fret, services à destination.
+ * D'autres postes de coût s'ajoutent à la main (poste « autre », au libellé libre : Céline, 16/11/2026).
+ */
+export const POSTES_INTERNATIONAL: { cle: Exclude<PosteInternational, "autre">; libelle: string; aide: string }[] = [
   { cle: "os", libelle: "Origine services (OS)", aide: "Chargement et prestations au départ" },
   { cle: "fob", libelle: "FOB", aide: "Mise à quai et chargement du conteneur" },
   { cle: "fret", libelle: "Fret", aide: "Transport maritime ou aérien" },

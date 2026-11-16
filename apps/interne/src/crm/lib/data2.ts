@@ -75,10 +75,12 @@ export const jetonValide = (token: string) => /^[0-9a-f]{24}$/.test(token);
  */
 export async function devisParToken(token: string) {
   if (!jetonValide(token)) return undefined;
-  // La validité : celle du devis, sinon 60 jours après l'envoi — la règle de l'espace client (ec_projeter_dossier_crm).
-  return q1(`select v.id, v.numero, v.formule, v.montant::float8 as montant, v.statut, v.lignes, v.dossier_id, d.ref, d.periode, d.volume::float8 as volume, c.nom, c.prenom, c.societe, c.type,
-    coalesce(v.validite, (coalesce(v.envoye_le, v.cree_le) at time zone 'Europe/Paris')::date + 60) as valide_jusqu_au,
-    coalesce(v.validite, (coalesce(v.envoye_le, v.cree_le) at time zone 'Europe/Paris')::date + 60) < (now() at time zone 'Europe/Paris')::date as expire,
+  // La validité : celle du devis, sinon un mois après l'envoi — la règle de l'espace client (déclencheur ec_devis_du_crm).
+  // Les droits (CIMOB/DICOM) : le seul volume que la page montre à un tel client (documents/volume-client.ts).
+  return q1(`select v.id, v.numero, v.formule, v.montant::float8 as montant, v.statut, v.lignes, v.dossier_id, d.ref, d.periode, d.volume::float8 as volume,
+    d.volume_droits::float8 as volume_droits, c.nom, c.prenom, c.societe, c.type,
+    coalesce(v.validite, ((coalesce(v.envoye_le, v.cree_le) at time zone 'Europe/Paris')::date + interval '1 month')::date) as valide_jusqu_au,
+    coalesce(v.validite, ((coalesce(v.envoye_le, v.cree_le) at time zone 'Europe/Paris')::date + interval '1 month')::date) < (now() at time zone 'Europe/Paris')::date as expire,
     (select x.reference from public.ec_dossiers x where x.crm_dossier_id = d.id limit 1) as espace_reference,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='depart' order by ordre limit 1) as depart,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee,

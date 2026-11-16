@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrhes, calculer, lignesPourBase, marge, montantLigne, prixDeVente, primes, r2, totauxAchats } from "@/crm/devis/calcul";
+import { arrhes, calculer, ID_LIGNE_TRANSPORT, LIGNE_TRANSPORT, lignesPourBase, marge, montantLigne, prixDeVente, primes, r2, reporterInternational, totauxAchats } from "@/crm/devis/calcul";
 import type { Achat, Assurance, Chiffrage, LigneDevis } from "@/crm/devis/modele";
 
 /* Un générateur pseudo-aléatoire à graine : les propriétés se rejouent à l'identique. */
@@ -14,7 +14,9 @@ function hasard(graine: number) {
   };
 }
 
-const SANS_ASSURANCE: Assurance = { tva: null, contractuelle: { valeur: null, taux: null }, dommage: { valeur: null, taux: null, franchise: null, sansFranchise: false } };
+const SANS_ASSURANCE: Assurance = {
+  tva: null, contractuelle: { valeur: null, taux: null, franchise: null }, dommage: { valeur: null, taux: null, franchise: null }, luxe: { valeur: null, taux: null },
+};
 
 const ligne = (id: string, qte: number, pu: number, tva: number, charge: "bailly" | "client" = "bailly"): LigneDevis => ({
   id, groupe: "base", libelle: `Ligne ${id}`, detail: "", qte, unite: "", pu, tva, charge,
@@ -51,8 +53,14 @@ describe("devis/calcul · montantLigne et primes", () => {
   });
   it("calcule les primes d'assurance : valeur × taux / 100", () => {
     // 10 000 × 0,5 % = 50 ; 2 000 × 1 % = 20
-    expect(primes({ ...SANS_ASSURANCE, contractuelle: { valeur: 10000, taux: 0.5 }, dommage: { valeur: 2000, taux: 1, franchise: null, sansFranchise: false } })).toEqual({ c: 50, d: 20 });
-    expect(primes(SANS_ASSURANCE)).toEqual({ c: 0, d: 0 });
+    expect(primes({ ...SANS_ASSURANCE, contractuelle: { valeur: 10000, taux: 0.5, franchise: 300 }, dommage: { valeur: 2000, taux: 1, franchise: 300 } })).toEqual({ c: 50, d: 20, l: 0 });
+    expect(primes(SANS_ASSURANCE)).toEqual({ c: 0, d: 0, l: 0 });
+  });
+  it("la garantie dommage luxe (troisième ligne) : valeur × taux, comme les deux autres", () => {
+    // 5 000 × 2 % = 100
+    expect(primes({ ...SANS_ASSURANCE, luxe: { valeur: 5000, taux: 2 } })).toEqual({ c: 0, d: 0, l: 100 });
+    // Une garantie d'avant le 16/11/2026, sans ligne luxe : la prime luxe vaut zéro.
+    expect(primes({ tva: null, contractuelle: { valeur: 1000, taux: 1 }, dommage: { valeur: 1000, taux: 1 } } as unknown as Assurance)).toEqual({ c: 10, d: 10, l: 0 });
   });
 });
 
@@ -60,7 +68,7 @@ describe("devis/calcul · calculer (saisie HT)", () => {
   const ch = chiffrage({
     remisePct: 10,
     lignes: [ligne("a", 2, 100, 20), ligne("b", 1, 50, 10), ligne("c", 3, 10, 20, "client")],
-    assurance: { tva: null, contractuelle: { valeur: 10000, taux: 0.5 }, dommage: { valeur: 2000, taux: 1, franchise: null, sansFranchise: false } },
+    assurance: { tva: null, contractuelle: { valeur: 10000, taux: 0.5, franchise: 300 }, dommage: { valeur: 2000, taux: 1, franchise: null }, luxe: { valeur: null, taux: null } },
   });
   const c = calculer(ch, 20);
 
@@ -142,7 +150,10 @@ describe("devis/calcul · propriétés (200 devis tirés au hasard)", () => {
     const lignes = Array.from({ length: n }, (_, i) =>
       ligne(`l${k}-${i}`, Math.round(tirer() * 40) / 4, Math.round(tirer() * 300000) / 100, TAUX[Math.floor(tirer() * TAUX.length)], tirer() < 0.15 ? "client" : "bailly"),
     );
-    const assurance: Assurance = tirer() < 0.5 ? SANS_ASSURANCE : { tva: null, contractuelle: { valeur: Math.round(tirer() * 50000), taux: 0.45 }, dommage: { valeur: Math.round(tirer() * 9000), taux: 1.2, franchise: null, sansFranchise: false } };
+    const assurance: Assurance = tirer() < 0.5 ? SANS_ASSURANCE : {
+      tva: null, contractuelle: { valeur: Math.round(tirer() * 50000), taux: 0.45, franchise: 300 }, dommage: { valeur: Math.round(tirer() * 9000), taux: 1.2, franchise: 300 },
+      luxe: { valeur: tirer() < 0.5 ? null : Math.round(tirer() * 20000), taux: 0.8 },
+    };
     return chiffrage({ saisie: tirer() < 0.5 ? "ht" : "ttc", remisePct: Math.round(tirer() * 30), lignes, assurance });
   });
 
@@ -180,12 +191,12 @@ describe("devis/calcul · lignesPourBase", () => {
     const ch = chiffrage({
       remisePct: 10,
       lignes: [ligne("a", 2, 100, 20), ligne("b", 1, 50, 10), ligne("c", 3, 10, 20, "client")],
-      assurance: { tva: null, contractuelle: { valeur: 10000, taux: 0.5 }, dommage: { valeur: 2000, taux: 1, franchise: null, sansFranchise: false } },
+      assurance: { tva: null, contractuelle: { valeur: 10000, taux: 0.5, franchise: 300 }, dommage: { valeur: 2000, taux: 1, franchise: 300 }, luxe: { valeur: 5000, taux: 2 } },
     });
     const lignes = lignesPourBase(ch, calculer(ch, 20), 20);
-    // a : 200 × 0,9 × 1,2 = 216 ; b : 50 × 0,9 × 1,1 = 49,50 ; c : client, 0 ; assurances 50 × 1,2 et 20 × 1,2
-    expect(lignes.map((l) => [l.id, l.prix])).toEqual([["a", 216], ["b", 49.5], ["c", 0], ["assurance-c", 60], ["assurance-d", 24]]);
-    expect(lignes.filter((l) => l.auto === "assurance")).toHaveLength(2);
+    // a : 200 × 0,9 × 1,2 = 216 ; b : 50 × 0,9 × 1,1 = 49,50 ; c : client, 0 ; garanties 50, 20 et 100 HT × 1,2
+    expect(lignes.map((l) => [l.id, l.prix])).toEqual([["a", 216], ["b", 49.5], ["c", 0], ["assurance-c", 60], ["assurance-d", 24], ["assurance-l", 120]]);
+    expect(lignes.filter((l) => l.auto === "assurance").map((l) => l.libelle)).toEqual(["Garantie contractuelle", "Garantie dommage standard", "Garantie dommage luxe"]);
   });
   it("reporte l'écart d'arrondi sur la plus grosse ligne (la première à égalité)", () => {
     // 3 × 1,01 à 5,5 % : TVA du taux = 3,03 × 0,055 = 0,16665 → 0,17, TTC 3,20 ;
@@ -229,5 +240,54 @@ describe("devis/calcul · arrhes, achats, marge, prix de vente", () => {
   it("un taux de marque de 100 % ou plus ne donne pas de prix (0) au lieu d'une division par zéro", () => {
     expect(prixDeVente(100, 100, "prix")).toBe(0);
     expect(prixDeVente(100, 150, "prix")).toBe(0);
+  });
+});
+
+describe("devis/calcul · reporterInternational (Céline, 16/11/2026)", () => {
+  const base = (id: string, libelle: string, pu: number, groupe: "base" | "divers" = "base"): LigneDevis => ({ id, groupe, libelle, detail: "", qte: 1, unite: "", pu, tva: 20, charge: "bailly" });
+  const tarif = [base("t", "Transport, chargement et livraison", 980), base("m", "Démontage / remontage du mobilier", 180), base("d1", "Piano", 150, "divers")];
+
+  it("met le prix de vente total, sans détail, dans la ligne « Transport, chargement et livraison » existante", () => {
+    const l = reporterInternational(tarif, 8645, "ht", 20);
+    expect(l).toHaveLength(3);
+    expect(l.find((x) => x.id === "t")).toMatchObject({ libelle: LIGNE_TRANSPORT, qte: 1, pu: 8645, charge: "bailly" });
+    // Les autres lignes ne bougent pas.
+    expect(l.find((x) => x.id === "m")?.pu).toBe(180);
+    expect(l.find((x) => x.id === "d1")?.pu).toBe(150);
+  });
+  it("reporter deux fois met la ligne à jour, sans doublon", () => {
+    const une = reporterInternational(tarif, 8645, "ht", 20);
+    const deux = reporterInternational(une, 9000, "ht", 20);
+    expect(deux).toHaveLength(3);
+    expect(deux.filter((x) => x.libelle === LIGNE_TRANSPORT)).toHaveLength(1);
+    expect(deux.find((x) => x.id === "t")?.pu).toBe(9000);
+  });
+  it("sans la ligne, la crée en tête ; la retrouve ensuite même renommée", () => {
+    const sans = [base("m", "Démontage / remontage du mobilier", 180)];
+    const une = reporterInternational(sans, 1000, "ht", 10);
+    expect(une.map((x) => x.id)).toEqual([ID_LIGNE_TRANSPORT, "m"]);
+    expect(une[0]).toMatchObject({ libelle: LIGNE_TRANSPORT, pu: 1000, tva: 10, qte: 1 });
+    const renommee = une.map((x) => (x.id === ID_LIGNE_TRANSPORT ? { ...x, libelle: "Transport international" } : x));
+    const deux = reporterInternational(renommee, 1200, "ht", 10);
+    expect(deux).toHaveLength(2);
+    expect(deux[0]).toMatchObject({ id: ID_LIGNE_TRANSPORT, libelle: "Transport international", pu: 1200 });
+  });
+  it("retrouve la ligne au libellé près des accents, de la casse et de la ponctuation", () => {
+    const l = reporterInternational([base("x", "transport chargement et livraison ", 1)], 500, "ht", 20);
+    expect(l).toHaveLength(1);
+    expect(l[0].pu).toBe(500);
+  });
+  it("retire les quatre lignes par poste d'un report d'avant", () => {
+    const avant = [...tarif, base("int-os", "Origine services (OS)", 2340), base("int-fob", "FOB", 1248), base("int-fret", "Fret", 4212), base("int-ds", "Destination services (DS)", 2574)];
+    const l = reporterInternational(avant, 8645, "ht", 20);
+    expect(l.map((x) => x.id)).toEqual(["t", "m", "d1"]);
+  });
+  it("un devis saisi TTC reçoit le prix de vente TVA comprise, au taux de la ligne", () => {
+    const l = reporterInternational([{ ...tarif[0], tva: 10 }], 1000, "ttc", 20);
+    expect(l[0].pu).toBe(1100);
+  });
+  it("la ligne reportée redevient facturée et d'une unité", () => {
+    const l = reporterInternational([{ ...tarif[0], qte: 3, charge: "client" }], 700, "ht", 20);
+    expect(l[0]).toMatchObject({ qte: 1, pu: 700, charge: "bailly" });
   });
 });

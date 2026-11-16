@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  estInternational, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations, nomDevis, nouvelId,
-  PRESTATIONS_LIBRES, PRESTATIONS_TYPE, prestationsType, TVA_CODE,
+  dateValidite, estInternational, FRANCHISE_GARANTIE, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations, nomDevis, nouvelId,
+  PRESTATIONS_LIBRES, PRESTATIONS_TYPE, prestationsType, TVA_CODE, validiteUnMois,
 } from "@/crm/devis/modele";
+import { m3Client, volumeClient } from "@/crm/documents/volume-client";
 import { effectifs, PARAMETRES_VIDES, regleSesArrhesEnLigne } from "@/crm/devis/parametres";
 import { euros, pct } from "@/crm/devis/format";
 import { copierDevisDans, numeroDevis } from "@/crm/devis/copie";
@@ -57,10 +58,27 @@ describe("devis/modele · lireAchats, lirePrestations, lireAssurance, lireMoyens
     expect(lirePrestations([{ libelle: "Démontage", charge: "bailly" }, { libelle: "X", charge: "?" }]).map((p) => p.charge)).toEqual(["bailly", "client"]);
     expect(lirePrestations({})).toEqual([]);
   });
-  it("l'assurance vide se lit sans valeur ; « sans franchise » n'est vrai que pour true", () => {
-    expect(lireAssurance(null)).toEqual({ tva: null, contractuelle: { valeur: null, taux: null }, dommage: { valeur: null, taux: null, franchise: null, sansFranchise: false } });
-    expect(lireAssurance({ dommage: { sansFranchise: "true" } }).dommage.sansFranchise).toBe(false);
-    expect(lireAssurance({ tva: "5,5", contractuelle: { valeur: "1000" } })).toMatchObject({ tva: 5.5, contractuelle: { valeur: 1000, taux: null } });
+  it("la garantie jamais saisie : trois lignes vides, franchise de 300 € sur la contractuelle et la dommage standard", () => {
+    expect(FRANCHISE_GARANTIE).toBe(300);
+    expect(lireAssurance(null)).toEqual({
+      tva: null, contractuelle: { valeur: null, taux: null, franchise: 300 }, dommage: { valeur: null, taux: null, franchise: 300 }, luxe: { valeur: null, taux: null },
+    });
+    expect(lireAssurance({})).toEqual(lireAssurance(null));
+    expect(lireAssurance({ tva: "5,5", contractuelle: { valeur: "1000" } })).toMatchObject({ tva: 5.5, contractuelle: { valeur: 1000, taux: null, franchise: null } });
+  });
+  it("un devis d'avant, enregistré avec deux lignes, garde ses valeurs : franchise d'avant, pas de franchise ajoutée", () => {
+    const a = lireAssurance({ tva: null, contractuelle: { valeur: 10000, taux: 0.5 }, dommage: { valeur: 2000, taux: 1, franchise: 150, sansFranchise: false } });
+    expect(a).toEqual({ tva: null, contractuelle: { valeur: 10000, taux: 0.5, franchise: null }, dommage: { valeur: 2000, taux: 1, franchise: 150 }, luxe: { valeur: null, taux: null } });
+  });
+  it("une ligne « dommage sans franchise » d'avant est la garantie dommage luxe d'aujourd'hui (même prime)", () => {
+    const a = lireAssurance({ contractuelle: { valeur: null, taux: null }, dommage: { valeur: 2000, taux: 1, franchise: null, sansFranchise: true } });
+    expect(a.luxe).toEqual({ valeur: 2000, taux: 1 });
+    expect(a.dommage).toEqual({ valeur: null, taux: null, franchise: null });
+    // « true » écrit en chaîne n'est pas un vrai « sans franchise » : la ligne reste la dommage standard.
+    expect(lireAssurance({ dommage: { valeur: 5, sansFranchise: "true" } }).dommage.valeur).toBe(5);
+    // Une garantie enregistrée en trois lignes se relit à l'identique.
+    const trois = { tva: 20, contractuelle: { valeur: 1, taux: 2, franchise: 300 }, dommage: { valeur: 3, taux: 4, franchise: 300 }, luxe: { valeur: 5, taux: 6 } };
+    expect(lireAssurance(JSON.parse(JSON.stringify(trois)))).toEqual(trois);
   });
   it("les moyens : remorque vraie seulement pour true, véhicules numérotés", () => {
     const m = lireMoyens({ remorque: "oui", vehicules: [{ designation: "20 m³" }, "x"], demenageurs: "4" });
@@ -116,8 +134,9 @@ describe("devis/modele · prestations type, nom du devis, international", () => 
 });
 
 describe("devis/parametres et format", () => {
-  it("sans paramètre : les valeurs du code (TVA 20, arrhes 30, validité 60)", () => {
-    expect(effectifs(PARAMETRES_VIDES)).toEqual({ arrhesPct: 30, validiteJours: 60, tva: 20, tvaAssurance: 20 });
+  it("sans paramètre : les valeurs du code (TVA 20, arrhes 30, validité d'un mois : pas de nombre de jours)", () => {
+    expect(effectifs(PARAMETRES_VIDES)).toEqual({ arrhesPct: 30, validiteJours: null, tva: 20, tvaAssurance: 20 });
+    expect(effectifs({ ...PARAMETRES_VIDES, validiteJours: 45 }).validiteJours).toBe(45);
   });
   it("la TVA de l'assurance suit la TVA par défaut quand elle n'est pas posée ; un zéro reste zéro", () => {
     expect(effectifs({ ...PARAMETRES_VIDES, tvaDefaut: 10 }).tvaAssurance).toBe(10);
@@ -198,7 +217,7 @@ describe("devis/copie · copierDevisDans (fausse base)", () => {
     expect(v.copie_de).toBe(5);
     expect(v.commercial_id).toBe(4);
     expect(v.date_devis).toBe("2026-11-15");
-    expect(v.validite).toBe("2027-01-14"); // 15 nov. + 60 jours
+    expect(v.validite).toBe("2026-12-15"); // 15 nov. + un mois
     expect(v.arrhes_pct).toBe(30);
     // Jamais : le réel des achats, leur pièce, leur date.
     const achats = JSON.parse(String(v.achats));
@@ -255,5 +274,66 @@ describe("devis/copie · numeroDevis", () => {
     } finally {
       process.env.TZ = tz;
     }
+  });
+});
+
+describe("devis/modele · validité d'un mois (Céline, 16/11/2026)", () => {
+  it("la même date le mois suivant", () => {
+    expect(validiteUnMois("2026-11-13")).toBe("2026-12-13");
+    expect(validiteUnMois("2026-11-16")).toBe("2026-12-16");
+  });
+  it("fin de mois : ramenée au dernier jour du mois suivant", () => {
+    expect(validiteUnMois("2027-01-31")).toBe("2027-02-28");
+    expect(validiteUnMois("2028-01-31")).toBe("2028-02-29"); // année bissextile
+    expect(validiteUnMois("2026-03-31")).toBe("2026-04-30");
+    expect(validiteUnMois("2026-08-31")).toBe("2026-09-30");
+    expect(validiteUnMois("2027-01-30")).toBe("2027-02-28");
+  });
+  it("fin d'année : passe à janvier de l'année suivante", () => {
+    expect(validiteUnMois("2026-12-31")).toBe("2027-01-31");
+    expect(validiteUnMois("2026-12-15")).toBe("2027-01-15");
+  });
+  it("un nombre de jours fixé dans les paramètres l'emporte sur le mois", () => {
+    expect(dateValidite("2026-11-13", null)).toBe("2026-12-13");
+    expect(dateValidite("2026-11-13", undefined)).toBe("2026-12-13");
+    expect(dateValidite("2026-11-13", 60)).toBe("2027-01-12");
+    expect(dateValidite("2026-12-31", 1)).toBe("2027-01-01");
+  });
+  it("la date de départ est celle de Paris : le 30 novembre à 23 h 30 à Paris (22 h 30 UTC) donne le 30 décembre", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-11-30T22:30:00Z"));
+      const { aujourdhuiParis } = await import("@/crm/devis/modele");
+      expect(aujourdhuiParis()).toBe("2026-11-30");
+      expect(validiteUnMois(aujourdhuiParis())).toBe("2026-12-30");
+      // 31 décembre, 23 h 30 UTC : déjà le 1er janvier à Paris.
+      vi.setSystemTime(new Date("2026-12-31T23:30:00Z"));
+      expect(aujourdhuiParis()).toBe("2027-01-01");
+      expect(validiteUnMois(aujourdhuiParis())).toBe("2027-02-01");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("documents/volume-client · CIMOB/DICOM : les droits, jamais le volume réel", () => {
+  it("un client CIMOB/DICOM (type « militaire ») lit ses droits", () => {
+    expect(volumeClient({ type: "militaire", volume: 42.5, volume_droits: 30 })).toEqual({ valeur: 30, droits: true, libelle: "Droits" });
+    expect(m3Client({ type: "militaire", volume: 42.5, volume_droits: "30.00" })).toBe("30 m³");
+  });
+  it("sans droits saisis, aucun volume n'est montré — surtout pas le réel", () => {
+    for (const droits of [null, undefined, "", 0, "abc"]) {
+      const v = volumeClient({ type: "militaire", volume: 42.5, volume_droits: droits });
+      expect(v.valeur).toBeNull();
+      expect(v.droits).toBe(true);
+      expect(m3Client({ type: "militaire", volume: 42.5, volume_droits: droits })).toBe("—");
+      expect(m3Client({ type: "militaire", volume: 42.5, volume_droits: droits })).not.toContain("42");
+    }
+  });
+  it("les autres clients (compte compris) lisent le volume du dossier ; leurs droits éventuels n'y changent rien", () => {
+    for (const type of ["particulier", "compte", "partenaire", "logement_social", undefined]) {
+      expect(volumeClient({ type, volume: 42.5, volume_droits: 30 })).toEqual({ valeur: 42.5, droits: false, libelle: "Volume" });
+    }
+    expect(m3Client({ type: "particulier", volume: "12.25" })).toBe("12,3 m³");
   });
 });

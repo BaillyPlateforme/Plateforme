@@ -1,6 +1,6 @@
 "use client";
 import { POSTES_INTERNATIONAL, TAUX_TVA, nouvelId, type Achat, type International, type LigneDevis, type PosteInternational } from "../modele";
-import { marge, prixDeVente, r2, totauxAchats } from "../calcul";
+import { ID_LIGNE_TRANSPORT, LIGNE_TRANSPORT, marge, prixDeVente, r2, reporterInternational, totauxAchats } from "../calcul";
 import { Champ, Nombre, PICTOS, Pic, Section, Segment, euros, pct } from "./champs";
 import s from "../editeur.module.css";
 
@@ -9,8 +9,10 @@ import s from "../editeur.module.css";
  * fournisseur, coût prévu puis réel, TVA, compte comptable, n° de pièce ;
  * ventes et marges prévue et réelle, calculées sur le HT.
  * Et le devis international (réunion du 23/09) : les postes OS, FOB, fret
- * et DS, une marge en %, le prix de vente qui en découle, le prévu face au
- * réel.
+ * et DS, et les postes de coût ajoutés à la main (Céline, 16/11/2026), une
+ * marge en %, le prix de vente qui en découle, le prévu face au réel. Le
+ * prix de vente se reporte, sans détail, dans la ligne « Transport,
+ * chargement et livraison » du chiffrage (reporterInternational).
  */
 
 const vide = (): Achat => ({ id: nouvelId("h"), date: "", libelle: "", fournisseur: "", prevu: null, reel: null, tva: null, compte: "", piece: "", poste: null });
@@ -47,7 +49,7 @@ export function OngletAchats({ achats, onChange, ventes }: { achats: Achat[]; on
           {achats.map((a) => (
             <div key={a.id} className={s.achat} role="row" data-poste={a.poste ?? undefined}>
               <input type="date" value={a.date} aria-label="Date" onChange={(e) => maj(a.id, { date: e.target.value })} />
-              <input type="text" value={a.libelle} aria-label="Achat" placeholder={a.poste ? POSTES_INTERNATIONAL.find((p) => p.cle === a.poste)?.libelle : "Libellé"} onChange={(e) => maj(a.id, { libelle: e.target.value })} />
+              <input type="text" value={a.libelle} aria-label="Achat" placeholder={POSTES_INTERNATIONAL.find((p) => p.cle === a.poste)?.libelle ?? (a.poste === "autre" ? "Poste de coût (international)" : "Libellé")} onChange={(e) => maj(a.id, { libelle: e.target.value })} />
               <input type="text" value={a.fournisseur} list="fournisseurs-devis" aria-label="Fournisseur" placeholder="Société" onChange={(e) => maj(a.id, { fournisseur: e.target.value })} />
               <Nombre className={s.droite} valeur={a.prevu} onChange={(v) => maj(a.id, { prevu: v })} suffixe="€" label="Coût prévu HT" />
               <button type="button" className={s.report} title="Reporter le prévu dans le réel" aria-label="Reporter le coût prévu dans le coût réel" onClick={() => maj(a.id, { reel: a.prevu })}><Pic d={PICTOS.fleche} /></button>
@@ -89,43 +91,41 @@ export function OngletInternational({
   typeInternational: boolean;
   saisie: "ht" | "ttc";
 }) {
-  const poste = (cle: PosteInternational) => achats.find((a) => a.poste === cle);
-  const majPoste = (cle: PosteInternational, p: Partial<Achat>) => {
+  const poste = (cle: Exclude<PosteInternational, "autre">) => achats.find((a) => a.poste === cle);
+  const majAchat = (id: string, p: Partial<Achat>) => onAchats(achats.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  const majPoste = (cle: Exclude<PosteInternational, "autre">, p: Partial<Achat>) => {
     const a = poste(cle);
-    if (a) onAchats(achats.map((x) => (x.id === a.id ? { ...x, ...p } : x)));
+    if (a) majAchat(a.id, p);
     else onAchats([...achats, { ...vide(), libelle: POSTES_INTERNATIONAL.find((x) => x.cle === cle)!.libelle, poste: cle, ...p }]);
   };
+  const ajouterPoste = () => onAchats([...achats, { ...vide(), poste: "autre" }]);
   const m = international.margePct;
-  const postes = POSTES_INTERNATIONAL.map((p) => {
-    const a = poste(p.cle);
-    const cout = a?.prevu ?? null;
-    return { ...p, achat: a, cout, vente: cout != null && m != null ? prixDeVente(cout, m, international.modeMarge) : null };
-  });
+  const vente = (cout: number | null) => (cout != null && m != null ? prixDeVente(cout, m, international.modeMarge) : null);
+  // Les quatre postes, puis ceux ajoutés à la main (achats « autre »), dans l'ordre de saisie.
+  const postes = [
+    ...POSTES_INTERNATIONAL.map((p) => {
+      const a = poste(p.cle);
+      return { cle: p.cle as string, libelle: p.libelle, aide: p.aide, achat: a, cout: a?.prevu ?? null, vente: vente(a?.prevu ?? null), libre: false, maj: (x: Partial<Achat>) => majPoste(p.cle, x) };
+    }),
+    ...achats.filter((a) => a.poste === "autre").map((a) => ({
+      cle: a.id, libelle: a.libelle, aide: "", achat: a, cout: a.prevu, vente: vente(a.prevu), libre: true, maj: (x: Partial<Achat>) => majAchat(a.id, x),
+    })),
+  ];
   const coutTotal = r2(postes.reduce((x, p) => x + (p.cout ?? 0), 0));
   const venteTotal = r2(postes.reduce((x, p) => x + (p.vente ?? 0), 0));
   const reelTotal = r2(postes.reduce((x, p) => x + (p.achat?.reel ?? 0), 0));
   const reelsSaisis = postes.filter((p) => p.achat?.reel != null).length;
-  const aReporter = postes.filter((p) => p.vente != null && p.vente > 0);
-  function reporter() {
-    // Une ligne de base par poste, à son prix de vente HT ; une ligne déjà reportée est mise à jour.
-    let l = [...lignes];
-    for (const p of aReporter) {
-      const id = `int-${p.cle}`;
-      const tva = l.find((x) => x.id === id)?.tva ?? tvaDefaut;
-      // Le prix de vente est HT ; un devis saisi TTC le reçoit TVA comprise.
-      const pu = saisie === "ttc" ? r2(p.vente! * (1 + tva / 100)) : p.vente!;
-      const ligne: LigneDevis = { id, groupe: "base", libelle: p.libelle, detail: "", qte: 1, unite: "", pu, tva, charge: "bailly" };
-      l = l.some((x) => x.id === id) ? l.map((x) => (x.id === id ? { ...x, pu, libelle: x.libelle || p.libelle } : x)) : [...l.filter((x) => x.groupe === "base"), ligne, ...l.filter((x) => x.groupe !== "base")];
-    }
-    onLignes(l);
-  }
+  // Les quatre postes, et les postes ajoutés qui portent un coût prévu.
+  const reelsAttendus = postes.filter((p) => !p.libre || p.cout != null).length;
+  const peutReporter = m != null && venteTotal > 0;
+  const dejaReporte = lignes.some((l) => l.id === ID_LIGNE_TRANSPORT);
   return (
     <>
       {!typeInternational && <p className={s.bandeauInfo}>Ce dossier n&apos;est pas classé international (onglet Divers). La méthode reste disponible pour un devis qui le demande.</p>}
       <Section
         surtitre="Devis international"
         titre="Coûts, marge et prix de vente"
-        texte="Saisissez les coûts de chaque poste, puis la marge voulue : le prix de vente se calcule, et se reporte dans le chiffrage. Les coûts réels se saisissent ensuite, avant la clôture du dossier."
+        texte={`Saisissez les coûts de chaque poste (ajoutez-en au besoin), puis la marge voulue : le prix de vente se calcule, et se reporte en un seul montant dans la ligne « ${LIGNE_TRANSPORT} » du chiffrage. Les coûts réels se saisissent ensuite, avant la clôture du dossier.`}
         actions={
           <div className={s.reglagesChiffrage}>
             <Champ label="Marge" className={s.champEtroit}>
@@ -136,35 +136,49 @@ export function OngletInternational({
         }
       >
         <div className={s.postes}>
-          <div className={s.posteTete}><span>Poste</span><span>Fournisseur</span><span className={s.droite}>Coût prévu HT</span><span className={s.droite}>Prix de vente HT</span><span className={s.droite}>Coût réel HT</span><span className={s.droite}>Écart</span></div>
+          <div className={s.posteTete}><span>Poste</span><span>Fournisseur</span><span className={s.droite}>Coût prévu HT</span><span className={s.droite}>Prix de vente HT</span><span className={s.droite}>Coût réel HT</span><span className={s.droite}>Écart</span><span /></div>
           {postes.map((p) => {
             const ecart = p.achat?.reel != null && p.cout != null ? r2(p.achat.reel - p.cout) : null;
+            const nom = p.libelle || "Poste ajouté";
             return (
-              <div key={p.cle} className={s.poste}>
-                <span><b>{p.libelle}</b><small>{p.aide}</small></span>
-                <input type="text" value={p.achat?.fournisseur ?? ""} list="fournisseurs-devis" aria-label={`Fournisseur ${p.libelle}`} placeholder="Société" onChange={(e) => majPoste(p.cle, { fournisseur: e.target.value })} />
-                <Nombre className={s.droite} valeur={p.cout} onChange={(v) => majPoste(p.cle, { prevu: v })} suffixe="€" label={`Coût prévu ${p.libelle}`} />
+              <div key={p.cle} className={s.poste} data-libre={p.libre ? "" : undefined}>
+                {p.libre ? (
+                  <span><input type="text" value={p.libelle} aria-label="Libellé du poste de coût" placeholder="Poste de coût" onChange={(e) => p.maj({ libelle: e.target.value })} /></span>
+                ) : (
+                  <span><b>{p.libelle}</b><small>{p.aide}</small></span>
+                )}
+                <input type="text" value={p.achat?.fournisseur ?? ""} list="fournisseurs-devis" aria-label={`Fournisseur ${nom}`} placeholder="Société" onChange={(e) => p.maj({ fournisseur: e.target.value })} />
+                <Nombre className={s.droite} valeur={p.cout} onChange={(v) => p.maj({ prevu: v })} suffixe="€" label={`Coût prévu ${nom}`} />
                 <span className={`${s.droite} ${s.vente}`}>{p.vente != null ? euros(p.vente) : "—"}</span>
-                <Nombre className={s.droite} valeur={p.achat?.reel ?? null} onChange={(v) => majPoste(p.cle, { reel: v })} suffixe="€" label={`Coût réel ${p.libelle}`} placeholder="à saisir" />
+                <Nombre className={s.droite} valeur={p.achat?.reel ?? null} onChange={(v) => p.maj({ reel: v })} suffixe="€" label={`Coût réel ${nom}`} placeholder="à saisir" />
                 <span className={s.droite} data-ecart={ecart == null ? undefined : ecart > 0 ? "plus" : ecart < 0 ? "moins" : "nul"}>{ecart == null ? "—" : `${ecart > 0 ? "+" : ""}${euros(ecart)}`}</span>
+                {p.libre ? (
+                  <button type="button" className={s.supprimerRang} aria-label={`Retirer le poste ${nom}`} title="Retirer ce poste" onClick={() => onAchats(achats.filter((x) => x.id !== p.cle))}><Pic d={PICTOS.corbeille} taille={15} /></button>
+                ) : <span />}
               </div>
             );
           })}
+          <div className={s.posteAjout}>
+            <button type="button" className={s.ajout} onClick={ajouterPoste}><Pic d={PICTOS.plus} taille={15} /> Ajouter une ligne de coût</button>
+          </div>
           <div className={s.posteTotal}>
-            <span>Total</span><span /><b className={s.droite}>{euros(coutTotal)}</b><b className={s.droite}>{euros(venteTotal)}</b><b className={s.droite}>{reelsSaisis ? euros(reelTotal) : "—"}</b><span />
+            <span>Total</span><span /><b className={s.droite}>{euros(coutTotal)}</b><b className={s.droite}>{euros(venteTotal)}</b><b className={s.droite}>{reelsSaisis ? euros(reelTotal) : "—"}</b><span /><span />
           </div>
         </div>
         <div className={s.reportInternational}>
           <p>
             {m == null ? "Indiquez la marge voulue pour calculer le prix de vente." : `Marge de ${pct(m)} ${international.modeMarge === "cout" ? "appliquée sur le coût" : "du prix de vente"} : ${euros(r2(venteTotal - coutTotal))} sur ${euros(venteTotal)} HT.`}
+            {peutReporter && <><br />Le report met {euros(venteTotal)} HT dans la ligne « {LIGNE_TRANSPORT} »{dejaReporte ? ", déjà reportée : elle est mise à jour" : ""}.</>}
           </p>
-          <button type="button" className={s.boutonPlein} disabled={!aReporter.length} onClick={reporter}>Reporter dans le chiffrage</button>
+          <button type="button" className={s.boutonPlein} disabled={!peutReporter} onClick={() => onLignes(reporterInternational(lignes, venteTotal, saisie, tvaDefaut))}>Reporter dans le chiffrage</button>
         </div>
       </Section>
       <Section surtitre="Prévu contre réel" titre="Situation du dossier" texte="Ventes : total HT du devis. Le réel prend le coût réel quand il est saisi, le prévu sinon.">
         <Indicateurs ventes={ventes} achats={achats.filter((a) => a.poste)} />
-        <p className={s.etatSaisie} data-complet={reelsSaisis === 4 ? "" : undefined}>
-          {reelsSaisis === 4 ? "Les quatre coûts réels sont saisis." : `${4 - reelsSaisis} coût${4 - reelsSaisis > 1 ? "s" : ""} réel${4 - reelsSaisis > 1 ? "s" : ""} à saisir avant la clôture du dossier.`}
+        <p className={s.etatSaisie} data-complet={reelsSaisis >= reelsAttendus ? "" : undefined}>
+          {reelsSaisis >= reelsAttendus
+            ? "Tous les coûts réels sont saisis."
+            : `${reelsAttendus - reelsSaisis} coût${reelsAttendus - reelsSaisis > 1 ? "s" : ""} réel${reelsAttendus - reelsSaisis > 1 ? "s" : ""} à saisir avant la clôture du dossier.`}
         </p>
       </Section>
     </>

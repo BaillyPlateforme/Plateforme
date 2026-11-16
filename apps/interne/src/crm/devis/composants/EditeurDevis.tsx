@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import MenuVertical, { AvecMenu, type GroupeMenu } from "@/ui/MenuVertical";
 import type { NomIcone } from "@/ui/icones";
@@ -11,6 +11,7 @@ import OngletPrestations from "./OngletPrestations";
 import { OngletAchats, OngletInternational } from "./OngletAchats";
 import { OngletAdresses, OngletContrat, OngletDivers, OngletMoyens } from "./OngletsFiche";
 import OngletCommande from "./OngletCommande";
+import FenetreQuitter from "./FenetreQuitter";
 import { euros } from "./champs";
 import { CLES_ONGLETS, type Onglet } from "../onglets";
 import s from "../editeur.module.css";
@@ -19,17 +20,21 @@ import s from "../editeur.module.css";
  * La fenêtre Devis (Créagidem, section I) : ses onglets dans le menu
  * vertical, un seul état pour tous, enregistré d'un geste. Changer d'onglet
  * ne recharge rien : la saisie en cours suit d'un onglet à l'autre, et
- * l'adresse garde l'onglet ouvert (?onglet=). Quitter la page avec des
- * modifications non enregistrées demande confirmation.
+ * l'adresse garde l'onglet ouvert (?onglet=). Quitter la fenêtre par un
+ * lien de l'app avec des modifications non enregistrées ouvre la boîte
+ * « Enregistrer · Quitter sans enregistrer · Annuler » (FenetreQuitter) ;
+ * fermer l'onglet ou recharger la page garde la confirmation du navigateur,
+ * qui n'admet aucun bouton à soi.
  */
 
+/** L'ordre des onglets, celui de Céline (16/11/2026). */
 const ONGLETS: { cle: Onglet; label: string; icone: NomIcone }[] = [
   { cle: "adresses", label: "Adresses et accès", icone: "parcours" },
   { cle: "contrat", label: "Données contractuelles", icone: "devis" },
-  { cle: "divers", label: "Divers", icone: "questionnaires" },
-  { cle: "chiffrage", label: "Chiffrage", icone: "euro" },
   { cle: "prestations", label: "Prestations", icone: "coche" },
   { cle: "achats", label: "Achats", icone: "facture" },
+  { cle: "chiffrage", label: "Chiffrage", icone: "euro" },
+  { cle: "divers", label: "Divers", icone: "questionnaires" },
   { cle: "moyens", label: "Moyens", icone: "camion" },
 ];
 
@@ -38,7 +43,7 @@ type Props = {
   dossier: { id: number; ref: string; volume: number; client: string; email: string | null };
   initial: EtatDevis;
   onglet: Onglet;
-  defauts: { tva: number; tvaAssurance: number; arrhesPct: number; validiteJours: number };
+  defauts: { tva: number; tvaAssurance: number; arrhesPct: number; validiteJours: number | null };
   utilisateurs: { id: number; nom: string; role: string }[];
   autres: { id: number; numero: string; formule: string; titre: string | null; statut: string; retire_le: string | null; categorie_specifique: boolean; categorie_libelle: string | null }[];
   historique: { libelle: string; le: string; nom: string | null }[];
@@ -56,6 +61,10 @@ export default function EditeurDevis(p: Props) {
   const [onglet, setOnglet] = useState<Onglet>(p.onglet);
   const [message, setMessage] = useState<{ ton: "ok" | "erreur"; texte: string } | null>(null);
   const [enCours, demarrer] = useTransition();
+  /** La navigation interrompue (un lien de l'app, ou « Retour »), en attendant la réponse de la boîte « Quitter ». */
+  const [sortie, setSortie] = useState<{ reprendre: () => void } | null>(null);
+  /** « Quitter sans enregistrer » : la navigation qui suit ne redemande rien. */
+  const quitte = useRef(false);
   const modifie = useMemo(() => JSON.stringify(etat) !== sauve, [etat, sauve]);
 
   const calcul = useMemo(() => calculer(etat.chiffrage, p.defauts.tvaAssurance), [etat.chiffrage, p.defauts.tvaAssurance]);
@@ -63,11 +72,11 @@ export default function EditeurDevis(p: Props) {
   const achats = totauxAchats(etat.achats);
   const margePrevue = achats.prevu > 0 ? { ...marge(calcul.ht, achats.prevu), libelle: "Marge prévue (HT)" } : null;
 
-  const enregistrer = useCallback((ensuite?: () => void) => {
+  const enregistrer = useCallback((ensuite?: () => void, echec?: () => void) => {
     const instantane = JSON.stringify(etat);
     demarrer(async () => {
       const r = await enregistrerDevis(p.devis.id, etat, maj);
-      if (!r.ok) { setMessage({ ton: "erreur", texte: r.erreur }); return; }
+      if (!r.ok) { setMessage({ ton: "erreur", texte: r.erreur }); echec?.(); return; }
       setSauve(instantane);
       setMaj(r.maj);
       setMessage({ ton: "ok", texte: `Enregistré à ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` });
@@ -76,25 +85,40 @@ export default function EditeurDevis(p: Props) {
     });
   }, [etat, maj, p.devis.id, router]);
 
-  // ⌘S / Ctrl+S enregistre ; quitter la page avec des modifications demande confirmation.
+  // ⌘S / Ctrl+S enregistre. Quitter la fenêtre avec des modifications : la boîte de l'app pour un lien
+  // de l'app (Enregistrer, Quitter sans enregistrer, Annuler) ; celle du navigateur pour l'onglet fermé
+  // ou la page rechargée, la seule qu'il permette.
   useEffect(() => {
     const clavier = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") { e.preventDefault(); if (modifie && !enCours) enregistrer(); }
     };
-    const quitter = (e: BeforeUnloadEvent) => { if (modifie) { e.preventDefault(); } };
+    const quitter = (e: BeforeUnloadEvent) => { if (modifie && !quitte.current) { e.preventDefault(); } };
     const lien = (e: MouseEvent) => {
-      if (!modifie) return;
+      if (!modifie || quitte.current || e.defaultPrevented) return;
+      // Un lien ouvert ailleurs (nouvel onglet, nouvelle fenêtre) ne quitte pas la fenêtre Devis.
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      // « Retour » du bandeau (ui/BoutonRetour) : un bouton, pas un lien ; il est recliqué une fois la réponse donnée.
+      const retour = (e.target as HTMLElement | null)?.closest?.('button[aria-label="Retour à la page précédente"]') as HTMLButtonElement | null;
+      if (retour) {
+        e.preventDefault();
+        e.stopPropagation();
+        setSortie({ reprendre: () => retour.click() });
+        return;
+      }
       const a = (e.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!a || a.target === "_blank" || a.dataset.onglet) return;
+      if (!a || a.target === "_blank" || a.hasAttribute("download") || a.dataset.onglet) return;
       const url = new URL(a.href, location.href);
       if (url.origin !== location.origin || url.pathname === location.pathname) return;
-      if (!confirm("Des modifications du devis ne sont pas enregistrées. Quitter sans les enregistrer ?")) { e.preventDefault(); e.stopPropagation(); }
+      e.preventDefault();
+      e.stopPropagation();
+      const adresse = `${url.pathname}${url.search}${url.hash}`;
+      setSortie({ reprendre: () => router.push(adresse) });
     };
     window.addEventListener("keydown", clavier);
     window.addEventListener("beforeunload", quitter);
     document.addEventListener("click", lien, true);
     return () => { window.removeEventListener("keydown", clavier); window.removeEventListener("beforeunload", quitter); document.removeEventListener("click", lien, true); };
-  }, [modifie, enCours, enregistrer]);
+  }, [modifie, enCours, enregistrer, router]);
 
   const chemin = `/dossiers/${p.dossier.id}/devis/${p.devis.id}`;
   /** Les onglets du menu changent l'onglet sans navigation : la saisie reste en mémoire. */
@@ -127,6 +151,8 @@ export default function EditeurDevis(p: Props) {
   ];
 
   const majEtat = <K extends keyof EtatDevis>(k: K, v: EtatDevis[K]) => setEtat((e) => ({ ...e, [k]: v }));
+  /** La réponse de la boîte « Quitter » : la navigation interrompue reprend, sans plus rien demander. */
+  const poursuivre = (s: { reprendre: () => void }) => { quitte.current = true; setSortie(null); s.reprendre(); };
   const signe = p.devis.statut === "signe";
   const autreSigne = !signe && p.autres.some((a) => a.statut === "signe");
 
@@ -171,6 +197,14 @@ export default function EditeurDevis(p: Props) {
           <OngletCommande
             devis={p.devis} lienSignature={p.lienSignature} ttc={calcul.ttc} arrhesPct={etat.contrat.arrhesPct} titulaire={p.dossier.client} emailClient={p.dossier.email}
             autreSigne={autreSigne} modifie={modifie} modes={p.suggestions.modesReglement} comptes={p.suggestions.comptes} historique={p.historique} retour={p.retour}
+          />
+        )}
+
+        {sortie && (
+          <FenetreQuitter
+            onEnregistrer={() => enregistrer(() => poursuivre(sortie), () => setSortie(null))}
+            onQuitter={() => poursuivre(sortie)}
+            onAnnuler={() => setSortie(null)}
           />
         )}
 

@@ -131,6 +131,14 @@ alter table crm.etapes_trajet add column if not exists pays text;
 alter table crm.etapes_trajet add column if not exists telephone text;
 alter table crm.etapes_trajet add column if not exists monte_charge boolean not null default false;
 alter table crm.etapes_trajet add column if not exists transbordement boolean not null default false;
+-- Retours de Céline (16/11/2026) : la fiche du premier appel et la fenêtre de visite.
+alter table crm.etapes_trajet add column if not exists ascenseur_taille text;
+alter table crm.etapes_trajet add column if not exists code_acces text;
+alter table crm.etapes_trajet add column if not exists surface_m2 int;
+alter table crm.etapes_trajet add column if not exists acces_camion text;
+alter table crm.etapes_trajet add column if not exists portage boolean not null default false;
+alter table crm.etapes_trajet add column if not exists escalier_precision text;
+alter table crm.etapes_trajet add column if not exists stationnement_precision text;
 
 -- Un compte-rendu signé ne se modifie plus. Seuls changent encore les liens
 -- qui ne touchent pas au contenu (le rendez-vous supprimé, le commercial

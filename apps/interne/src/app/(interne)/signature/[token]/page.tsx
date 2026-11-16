@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { getDossier } from "@/crm/lib/data";
 import { devisParToken } from "@/crm/lib/data2";
 import { signerParToken } from "@/crm/actions2";
-import { dateFr, eur, m3, nomClient } from "@/crm/lib/format";
+import { dateFr, eur, nomClient } from "@/crm/lib/format";
 import DevisBailly from "@/crm/documents/DevisBailly";
+import { m3Client, volumeClient } from "@/crm/documents/volume-client";
 import { AjusterA4 } from "@/crm/documents/AjusterA4";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
@@ -114,8 +115,9 @@ export default async function Signature({ params, searchParams }: { params: Prom
               </b>
             </div>
             <div className={s.ligne}>
-              <span>Volume</span>
-              <b>{m3(v.volume)}</b>
+              {/* Un client CIMOB/DICOM lit ses droits, jamais son volume réel. */}
+              <span>{volumeClient(v).libelle}</span>
+              <b>{m3Client(v)}</b>
             </div>
             <div className={s.ligne}>
               <span>Formule</span>
