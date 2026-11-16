@@ -1,0 +1,5 @@
+node_modules/
+.etat/
+.etat-build.log
+resultats/
+test-results/

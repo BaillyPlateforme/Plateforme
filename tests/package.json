@@ -1,0 +1,20 @@
+{
+  "name": "bailly-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "La batterie de tests de la plateforme Bailly. Hors des espaces de travail npm : ses dépendances ne touchent ni au verrou de la racine ni au build Railway.",
+  "type": "module",
+  "scripts": {
+    "tout": "node lanceur.mjs",
+    "unitaires": "vitest run --project unitaires",
+    "base": "vitest run --project base",
+    "api": "playwright test --project api",
+    "parcours": "playwright test --project parcours",
+    "prod": "playwright test --project prod"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1",
+    "vitest": "^3.2.7"
+  }
+}
