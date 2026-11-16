@@ -600,6 +600,18 @@ function PanneauPiece({
       });
   }
 
+  /**
+   * Un objet change de destination sur sa ligne. Une pièce sans destination
+   * posée prend celle de ses objets quand ils vont tous au même endroit : sans
+   * précaution, envoyer le seul objet de la pièce au garde-meuble y enverrait
+   * aussi la pièce, et avec elle les objets ajoutés ensuite. La pièce garde donc
+   * d'abord la destination qu'elle affichait.
+   */
+  function majObjetDeLaLigne(o: ObjetSaisi, patch: Partial<ObjetSaisi>) {
+    if (patch.destination !== undefined && multi && (piece.destination == null || !destinations.some((d) => d.id === piece.destination))) majPiece({ destination: destPiece });
+    majObjet(o, patch);
+  }
+
   /** Toute la pièce part ailleurs : ses objets qui suivaient la pièce suivent ; un objet envoyé à part reste où il est. */
   function destinationPourLaPiece(id: number) {
     if (id === destPiece) return;
@@ -692,7 +704,7 @@ function PanneauPiece({
         ) : (
           <ul className={s.objets}>
             {objets.map((o) => (
-              <LigneObjet key={o.cle} o={o} destinations={destinations} maj={(patch) => majObjet(o, patch)} retirer={() => agir({ t: "objet-", cle: o.cle })} />
+              <LigneObjet key={o.cle} o={o} destinations={destinations} maj={(patch) => majObjetDeLaLigne(o, patch)} retirer={() => agir({ t: "objet-", cle: o.cle })} />
             ))}
           </ul>
         )}

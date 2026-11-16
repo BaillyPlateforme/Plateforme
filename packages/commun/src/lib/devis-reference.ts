@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 /** L'année en cours à Paris : les serveurs tournent en temps universel, un devis du 1er janvier à 0 h 30 est de la nouvelle année. */
 export const anneeParis = (d = new Date()) => Number(new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", year: "numeric" }).format(d));
 
+const ESSAIS_MAX = 25;
+
 /**
  * Le plus grand numéro déjà pris pour l'année (« DEV-2026-0163 » → 163). Les
  * références sont comparées comme du texte : un numéro à cinq chiffres
@@ -35,7 +37,11 @@ async function dernierNumero(prefixe: string): Promise<number> {
 export async function insererDevisNumerote(ligne: Record<string, unknown>): Promise<{ id: string; reference: string }> {
   const supabase = createServiceClient();
   const prefixe = `DEV-${anneeParis()}-`;
-  for (let essai = 0; essai < 8; essai++) {
+  // N devis nés ensemble : le dernier peut perdre jusqu'à N − 1 fois. Huit essais
+  // sans attente ne suffisaient pas sous la rafale de la batterie de tests (un
+  // devis manquant par passage) : une attente au hasard, qui grandit, les étale.
+  for (let essai = 0; essai < ESSAIS_MAX; essai++) {
+    if (essai > 0) await new Promise((r) => setTimeout(r, Math.random() * 30 * Math.min(essai, 10)));
     const reference = `${prefixe}${String((await dernierNumero(prefixe)) + 1).padStart(4, "0")}`;
     const { data, error } = await supabase.from("devis").insert({ ...ligne, reference }).select("id, reference").single();
     if (!error && data) return data as { id: string; reference: string };
