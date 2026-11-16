@@ -10,18 +10,19 @@ import { q, q1 } from "@/crm/lib/db";
 import type { Tache } from "./types";
 
 /*
- * Les rappels de visite technique, la veille (cahier des charges, §3.2 : le
- * client reçoit un SMS et un e-mail de confirmation la veille).
+ * Les rappels de visite technique (cahier des charges, §3.2 ; retours de
+ * Céline, 16/11/2026 : « relance 48 h avant RDV puis 24 h », visios
+ * comprises) : par SMS l'avant-veille (J−2) et la veille (J−1), par e-mail la
+ * veille d'une visite sur place.
  *
- * La liste des rappels est calculée par le module des visites techniques
- * (apps/interne/src/crm/visites/rappels.ts, `rappelsVisitesDuLendemain`),
- * écrit à part ; cette tâche ne fait que les envoyer, chacun par le module
- * d'envoi avec SA clé — relancée, elle ne renvoie rien. Tant que la source
- * n'est pas branchée (SOURCE_RAPPELS, registre.ts), la tâche le dit et ne
- * fait rien.
+ * La liste des rappels est calculée ailleurs (SOURCE_RAPPELS, registre.ts :
+ * les SMS par crm/rdv/sms.ts, l'e-mail par crm/visites/rappels.ts) ; cette
+ * tâche ne fait que les envoyer, chacun par le module d'envoi avec SA clé —
+ * relancée, elle ne renvoie rien. Tant que la source n'est pas branchée, la
+ * tâche le dit et ne fait rien.
  */
 
-/** Un rappel, tel que le rend rappelsVisitesDuLendemain(jour). */
+/** Un rappel, tel que le rendent les sources (rappelsSmsRendezVous, rappelsVisitesDuLendemain). */
 export type RappelVisite = {
   canal: "sms" | "email";
   destinataire: string;
@@ -30,6 +31,12 @@ export type RappelVisite = {
   dossierId: number;
   rendezVousId: number;
   cle: string;
+  /** La carte de « Courriers et SMS » qui le retient quand elle est désactivée ; à défaut, « Rappel de la veille ». */
+  carte?: string;
+  /** Le nom du modèle au journal des envois ; à défaut, « Rappel de visite (veille) ». */
+  modele?: string;
+  /** Ce que dit le fil du dossier (« Rappel J−2 ») ; à défaut, « Rappel de visite (veille) ». */
+  libelle?: string;
 };
 
 export type SourceRappels = (jour: Date) => Promise<RappelVisite[]>;
@@ -37,8 +44,12 @@ export type SourceRappels = (jour: Date) => Promise<RappelVisite[]>;
 /** Envoie une liste de rappels ; chacun laisse une ligne au fil d'activité de son dossier. */
 export async function envoyerRappelsVisites(liste: RappelVisite[]) {
   const settings = await getSettings();
-  // La carte « Rappel de la veille » de « Courriers et SMS » : désactivée, les rappels restent au journal.
-  const retenu = raisonDeNePasEnvoyer(await modeleDe("rdv_rappel_veille"));
+  // La carte de chaque rappel dans « Courriers et SMS » (« Rappel de la veille » à défaut) : désactivée, le rappel reste au journal.
+  const retenus = new Map<string, string | null>();
+  const retenuDe = async (carte: string) => {
+    if (!retenus.has(carte)) retenus.set(carte, raisonDeNePasEnvoyer(await modeleDe(carte)));
+    return retenus.get(carte) ?? null;
+  };
   const issues: { cle: string; rendezVousId: number; canal: string; statut: string; doublon: boolean }[] = [];
   for (const r of liste) {
     const reference = (await q1<{ ref: string }>("select ref from dossiers where id=$1", [r.dossierId]).catch(() => undefined))?.ref ?? `dossier ${r.dossierId}`;
@@ -49,7 +60,8 @@ export async function envoyerRappelsVisites(liste: RappelVisite[]) {
     );
     // Sans fiche, ou dossier du jeu de démonstration : rien ne part.
     const fictif = !client || (await dossierFictif(r.dossierId, client));
-    const commun = { cle: r.cle, origine: "veille" as const, modele: "Rappel de visite (veille)", reference, fictif, retenu: r.texte.trim() ? retenu : (retenu ?? "Rappel sans texte : rien n'est parti.") };
+    const retenu = await retenuDe(r.carte ?? "rdv_rappel_veille");
+    const commun = { cle: r.cle, origine: "veille" as const, modele: r.modele ?? "Rappel de visite (veille)", reference, fictif, retenu: r.texte.trim() ? retenu : (retenu ?? "Rappel sans texte : rien n'est parti.") };
     let res: ResultatEnvoi;
     if (r.canal === "sms") {
       res = await envoyerSms({ ...commun, a: r.destinataire, texte: r.texte, expediteur: settings.sms_sender });
@@ -72,7 +84,7 @@ export async function envoyerRappelsVisites(liste: RappelVisite[]) {
     // L'état du rendez-vous (planning, cloche) : le rappel est parti, ou non, vers ce numéro.
     if (r.canal === "sms") await noterEnvoiRdv(r.rendezVousId, "rappel", res, r.destinataire).catch(() => undefined);
     if (!res.doublon) {
-      await q("insert into activite(dossier_id, libelle) values($1, $2)", [r.dossierId, `Rappel de visite (veille) par ${r.canal === "sms" ? "SMS" : "e-mail"} : ${libelleStatut(res)}`]).catch(() => undefined);
+      await q("insert into activite(dossier_id, libelle) values($1, $2)", [r.dossierId, `${r.libelle ?? "Rappel de visite (veille)"} par ${r.canal === "sms" ? "SMS" : "e-mail"} : ${libelleStatut(res)}`]).catch(() => undefined);
     }
   }
   return issues;
@@ -82,13 +94,12 @@ export async function envoyerRappelsVisites(liste: RappelVisite[]) {
 export function tacheRappelsVisites(source: SourceRappels | null): Tache {
   return {
     cle: "rappels_visites",
-    libelle: "Rappels de visite technique",
+    libelle: "Rappels de visite technique (J−2, J−1)",
     async executer({ jour }) {
       if (!source) return { statut: "en_attente", resume: "Pas encore branchée : la liste des rappels viendra du module des visites techniques." };
-      // Le jour de l'exécution (aujourd'hui, à midi à Paris) : la source rend les visites du lendemain.
-      // À vérifier à la fusion : si la source attend le jour de la visite, lui passer `demain`.
+      // Le jour de l'exécution (aujourd'hui, à midi à Paris) : la source rend les rappels de ce jour (visites de demain et d'après-demain).
       const liste = await source(new Date(`${jour}T12:00:00+01:00`));
-      if (!liste.length) return { statut: "rien", resume: "Aucune visite technique demain." };
+      if (!liste.length) return { statut: "rien", resume: "Aucun rappel de visite à envoyer (J−2, J−1)." };
       const issues = await envoyerRappelsVisites(liste);
       const partis = issues.filter((i) => i.statut === "envoye" && !i.doublon).length;
       const deja = issues.filter((i) => i.doublon).length;

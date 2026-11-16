@@ -52,6 +52,39 @@ export async function creneauPris(
 }
 
 /**
+ * Une visite déplacée à un horaire à venir est replanifiée : elle n'est plus
+ * faite tant qu'elle ne l'est pas (retours de Céline, 16/11/2026 : le
+ * parcours disait « Visite technique · 13 nov. », faite, d'une visite
+ * déplacée au 17).
+ *   - « terminé » est retiré ;
+ *   - un compte-rendu déjà signé pour ce rendez-vous (une visite faite plus
+ *     tôt sur la tablette) en est détaché : il reste au dossier, signé et
+ *     intact (ses documents ne bougent pas), comme une visite sans
+ *     rendez-vous, et ne fait plus passer la nouvelle visite pour faite. Une
+ *     saisie encore en cours reste rattachée : elle continuera au nouvel
+ *     horaire.
+ * Déplacée dans le passé (on corrige l'heure d'une visite faite), rien ne
+ * change. Rend ce qui a été défait, pour le fil du dossier ; null sinon.
+ */
+export async function replanifierVisite(db: Db, rdvId: number, debut: Date, maintenant = new Date()): Promise<{ termine: boolean; comptesRendus: { id: number; signe_le: Date }[] } | null> {
+  if (debut.getTime() <= maintenant.getTime()) return null;
+  const [avant] = await db.query<{ termine: boolean }>("select termine from rendez_vous where id = $1", [rdvId]);
+  if (avant?.termine) await db.query("update rendez_vous set termine = false where id = $1", [rdvId]);
+  const comptesRendus = await db.query<{ id: number; signe_le: Date }>(
+    "update visites set rendez_vous_id = null where rendez_vous_id = $1 and statut = 'signee' returning id, signe_le",
+    [rdvId],
+  );
+  return avant?.termine || comptesRendus.length ? { termine: !!avant?.termine, comptesRendus } : null;
+}
+
+/** La ligne du fil du dossier d'une visite replanifiée (replanifierVisite). */
+export function phraseReplanifiee(r: { termine: boolean; comptesRendus: { signe_le: Date }[] }) {
+  const cr = r.comptesRendus.map((c) => new Date(c.signe_le).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" }));
+  const suite = cr.length ? ` : le compte-rendu signé le ${cr.join(", le ")} reste au dossier, détaché de cette visite` : "";
+  return `Visite remise à « planifiée » (déplacée à un horaire à venir)${suite}`;
+}
+
+/**
  * L'étage, l'ascenseur et l'accès saisis pour une visite sur place : ceux de
  * l'étape du trajet, qu'ils complètent ou corrigent. Une étape sans adresse
  * prend celle de la visite ; une adresse déjà saisie reste celle du dossier.

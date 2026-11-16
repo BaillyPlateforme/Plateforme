@@ -4,6 +4,8 @@ import { lundiDe } from "@/crm/lib/data";
 import { nomClient, TYPES } from "@/crm/lib/format";
 import { dossierFictif, smsRendezVous, variablesDossier } from "@/crm/envois";
 import { etatsRdv, type EtatAffiche } from "@/crm/rdv/sms";
+import { carteSms } from "@/crm/rdv/calendrier";
+import { modeleDe, raisonDeNePasEnvoyer, type LigneModele } from "@/crm/messages/catalogue";
 import { etatVisite, type EtatVisite } from "@/crm/visites/cycle";
 import { etatEnvois } from "@/lib/envois";
 import { espacesDesDossiersCrm } from "@/lib/espace-client/crm";
@@ -186,18 +188,18 @@ export interface RdvPlanif {
   termine: boolean;
   /** La saisie sur la tablette : en cours, ou compte-rendu signé (la visite ne s'annule plus). */
   tablette: { id: number; statut: "en_cours" | "signee" } | null;
-  /** L'état de la confirmation du client (SMS 1 / 2), tant qu'il y en a un. */
+  /** L'état de la confirmation du client (SMS envoyé, confirmé ou annulé), tant qu'il y en a un. */
   sms: EtatAffiche | null;
   /**
-   * Le SMS « Confirmation de rendez-vous », pour l'aperçu d'un nouvel horaire : le modèle et les variables
-   * du dossier ; {commercial}, {date} et {heure} se remplissent d'après le créneau choisi. null : pas de SMS
-   * possible (pas de dossier, pas une visite).
+   * Le SMS de confirmation, pour l'aperçu d'un nouvel horaire : le modèle de chaque type (« Visite confirmée »,
+   * « Visio confirmée » : on peut changer de type en déplaçant) et les variables du dossier ; {commercial},
+   * {date} et {heure} se remplissent d'après le créneau choisi. null : pas de SMS possible (pas de dossier,
+   * pas une visite).
    */
   confirmation: {
-    corps: string;
+    modeles: Record<"phys" | "visio", { nom: string; corps: string; retenu: string | null }>;
     vars: Record<string, string>;
     telephone: string | null;
-    retenu: string | null;
     envoi: string;
     /**
      * Les horaires (ISO) qui ont déjà eu leur SMS de confirmation : le journal des envois n'en envoie qu'un par
@@ -224,10 +226,13 @@ export async function rdvPlanif(id: number): Promise<RdvPlanif | null> {
   );
   if (!r || !estTypeRdv(r.type)) return null;
   const visite = (r.type === "phys" || r.type === "visio") && !!r.dossier_id && !r.journee;
-  const [etats, sms] = await Promise.all([
+  const [etats, sms, modelePhys, modeleVisio] = await Promise.all([
     etatsRdv([r.id]),
     visite ? smsRendezVous(r.dossier_id!, r.id).catch(() => null) : Promise.resolve(null),
+    visite ? modeleDe(carteSms("phys", "confirmation")).catch(() => null) : Promise.resolve(null),
+    visite ? modeleDe(carteSms("visio", "confirmation")).catch(() => null) : Promise.resolve(null),
   ]);
+  const modele = (m: LigneModele | null, defaut: string) => ({ nom: m?.nom ?? defaut, corps: m?.corps ?? "", retenu: raisonDeNePasEnvoyer(m) });
   let confirmation: RdvPlanif["confirmation"] = null;
   if (sms) {
     const [fictif, traites] = await Promise.all([
@@ -237,10 +242,9 @@ export async function rdvPlanif(id: number): Promise<RdvPlanif | null> {
     const mode = etatEnvois().mode;
     const vars = Object.fromEntries(Object.entries(variablesDossier(sms.c)).map(([k, v]) => [k, v == null ? "" : String(v)]));
     confirmation = {
-      corps: sms.m?.corps ?? "",
+      modeles: { phys: modele(modelePhys, "Visite confirmée"), visio: modele(modeleVisio, "Visio confirmée") },
       vars,
       telephone: sms.c.telephone,
-      retenu: sms.retenu,
       envoi: fictif
         ? "Client fictif (jeu de démonstration) : rien ne lui sera envoyé, le SMS sera consigné au dossier."
         : mode === "actif"

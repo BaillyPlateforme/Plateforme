@@ -4,13 +4,20 @@ import { nomClient } from "@/crm/lib/format";
 import { creneauxProposesSemaine } from "@/crm/visites/donnees";
 import { estVisite, etatVisite, type EtatVisite } from "@/crm/visites/cycle";
 import { rappelPrevu } from "@/crm/visites/rappels";
+import { lieuDuRdv } from "@/crm/visites/proximite";
 import { jourParis, minutesParis } from "@/lib/visite/regles";
 
 /*
  * Le planning commercial, lu pour la grille : chaque rendez-vous avec son
  * jour et ses minutes à l'heure de Paris (le serveur peut être réglé en UTC),
- * l'état de la visite dans son cycle, et le rappel de la veille prévu. Les
- * créneaux proposés aux clients y tiennent leur place.
+ * sa ville (retours de Céline, 16/11/2026 : « sinon nous ne pouvons pas
+ * placer les visites suivantes »), l'état de la visite dans son cycle, et les
+ * rappels prévus (J−2, J−1). Les créneaux proposés aux clients y tiennent
+ * leur place.
+ *
+ * Une visite d'un jour à venir n'est jamais « faite » : marquée terminée ou
+ * son compte-rendu signé, c'est qu'elle a été déplacée depuis (avant que le
+ * déplacement ne la remette en « planifiée », planificateur/serveur.ts).
  */
 
 export interface EvenementPlanning {
@@ -18,6 +25,8 @@ export interface EvenementPlanning {
   type: "phys" | "visio" | "tache" | "perso";
   titre: string;
   lieu: string | null;
+  /** La ville du rendez-vous (visite sur place : son adresse, ou celle du dossier ; tâche : son lieu), pour placer les suivantes. */
+  ville: string | null;
   jour: string;
   debutMin: number;
   duree: number;
@@ -32,6 +41,7 @@ export interface EvenementPlanning {
   devisEtabli: boolean;
   etat: Exclude<EtatVisite, "a_planifier"> | null;
   dernier: boolean;
+  /** Les rappels prévus : les canaux (le SMS à J−2 et J−1, l'e-mail à J−1 pour une visite sur place). */
   rappel: ("sms" | "email")[] | null;
 }
 
@@ -61,7 +71,11 @@ export async function planningSemaine(lundi: Date, commercialId: number | null) 
       `select r.id, r.type, r.titre, r.lieu, r.debut, r.duree_min, r.journee, r.termine, r.devis_etabli, r.sans_suite, r.dossier_id,
               u.nom as commercial, u.initiales, d.ref, d.statut as dossier_statut, d.passer_en_dernier as dernier,
               c.email, c.telephone, c.notes as client_notes,
-              exists (select 1 from visites v where v.rendez_vous_id = r.id and v.statut = 'signee') as compte_rendu_signe
+              exists (select 1 from visites v where v.rendez_vous_id = r.id and v.statut = 'signee') as compte_rendu_signe,
+              (select json_build_object('adresse', e.adresse, 'code_postal', e.code_postal, 'ville', e.ville) from etapes_trajet e
+                where e.dossier_id = r.dossier_id and r.type = 'phys' and (btrim(coalesce(e.adresse, '')) <> '' or btrim(coalesce(e.ville, '')) <> '')
+                order by (lower(btrim(coalesce(e.adresse, ''))) = lower(btrim(coalesce(r.lieu, '')))) desc, (e.genre = 'depart') desc, e.ordre, e.id
+                limit 1) as etape
          from rendez_vous r join utilisateurs u on u.id = r.commercial_id
          left join dossiers d on d.id = r.dossier_id left join clients c on c.id = d.client_id
         where r.debut >= $1 and r.debut < $2 and ($3::int is null or r.commercial_id = $3)
@@ -70,14 +84,21 @@ export async function planningSemaine(lundi: Date, commercialId: number | null) 
     ),
     creneauxProposesSemaine(de, commercialId),
   ]);
+  const aujourdhui = jourParis(new Date());
   const evenements: EvenementPlanning[] = lignes
     .map((r) => {
       const visite = estVisite(r.type) && !!r.dossier_id && !r.journee;
       const rappel = r.dossier_id && !r.journee ? rappelPrevu(r as { type: string; dossier_id: number; debut: Date; termine: boolean }, { email: r.email, telephone: r.telephone, notes: r.client_notes }) : null;
+      const jour = jourParis(r.debut);
+      // Un jour à venir : ni terminée ni compte-rendu signé ne la rendent faite (voir plus haut).
+      const termine = jour <= aujourdhui && !!r.termine;
+      const signe = jour <= aujourdhui && !!r.compte_rendu_signe;
       return {
-        id: r.id, type: r.type, titre: r.titre, lieu: r.lieu, jour: jourParis(r.debut), debutMin: minutesParis(r.debut), duree: r.duree_min,
+        id: r.id, type: r.type, titre: r.titre, lieu: r.lieu, ville: r.journee ? null : lieuDuRdv(r as Parameters<typeof lieuDuRdv>[0]).ville,
+        jour, debutMin: minutesParis(r.debut), duree: r.duree_min,
         journee: r.journee, commercial: r.commercial, initiales: r.initiales, dossierId: r.dossier_id, ref: r.ref, termine: r.termine,
-        fait: !!(r.termine || r.compte_rendu_signe), devisEtabli: r.devis_etabli, etat: visite ? etatVisite(r as Parameters<typeof etatVisite>[0]) : null, dernier: !!r.dernier,
+        fait: termine || signe, devisEtabli: r.devis_etabli,
+        etat: visite ? etatVisite({ ...(r as Parameters<typeof etatVisite>[0]), termine, compte_rendu_signe: signe }) : null, dernier: !!r.dernier,
         rappel: rappel ? rappel.canaux : null,
       };
     })

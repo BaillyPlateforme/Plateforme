@@ -8,8 +8,8 @@ import s from "./planificateur.module.css";
 
 /*
  * Une visite déplacée, dans le planificateur : ce que devient la confirmation
- * du client, et de quoi le prévenir. Le SMS « Confirmation de rendez-vous »
- * dit « confirmé le {date} à {heure} » et attend une réponse 1 ou 2 : la
+ * du client, et de quoi le prévenir. Le SMS « Visite confirmée » (ou
+ * « Visio confirmée ») dit « confirmé le {date} à {heure} » : la
  * confirmation déjà reçue portait sur l'ancien horaire, elle repart de zéro à
  * l'enregistrement (rdv/sms.ts, oublierEtatRdv), et l'écran le dit avant.
  *
@@ -40,7 +40,9 @@ export default function PrevenirClient({
 }) {
   const c = rdv.confirmation;
   if (!c) return null;
-  const texte = remplir(c.corps, {
+  // La carte du type choisi : une visite passée en visio se confirme avec le texte de la visio.
+  const modele = c.modeles[type];
+  const texte = remplir(modele.corps, {
     ...c.vars,
     commercial,
     date: debut.toLocaleDateString("fr-FR", { timeZone: PARIS }),
@@ -48,7 +50,7 @@ export default function PrevenirClient({
   });
   // Un horaire qui a déjà eu son SMS de confirmation n'en aura pas d'autre (une fois par rendez-vous et par horaire).
   const dejaTraite = c.dejaTraites.includes(debut.toISOString());
-  const possible = !!c.telephone && !!c.corps.trim() && !dejaTraite;
+  const possible = !!c.telephone && !!modele.corps.trim() && !dejaTraite;
 
   return (
     <section className={s.prevenir} aria-labelledby="planif-prevenir">
@@ -69,7 +71,7 @@ export default function PrevenirClient({
             ) : (
               "La confirmation du client repart de zéro pour ce nouvel horaire."
             )}
-            {type === "phys" ? " Le rappel de la veille suit le nouvel horaire de lui-même." : ""}
+            {" Les rappels (J−2, J−1) suivent le nouvel horaire d'eux-mêmes."}
           </p>
         </div>
       </div>
@@ -80,13 +82,15 @@ export default function PrevenirClient({
             <input type="checkbox" name="sms" checked={coche} onChange={(e) => cocher(e.target.checked)} />
             <span>
               <b>Prévenir le client par SMS</b>
-              <small>au {c.telephone} · modèle « Confirmation de rendez-vous »</small>
+              <small>
+                au {c.telephone} · modèle « {modele.nom} »
+              </small>
             </span>
           </label>
           {coche && (
             <div className={s.prevenirApercu}>
               <p className={s.bulle}>{texte}</p>
-              <small>{c.retenu ?? c.envoi}</small>
+              <small>{modele.retenu ?? c.envoi}</small>
             </div>
           )}
         </>
@@ -97,7 +101,7 @@ export default function PrevenirClient({
             ? "Pas de téléphone sur la fiche du client : pas de SMS possible. Prévenez-le autrement."
             : dejaTraite
               ? "Un SMS de confirmation a déjà été traité pour cet horaire : il ne repartira pas. Prévenez le client autrement."
-              : "Le modèle « Confirmation de rendez-vous » est vide : pas de SMS possible."}
+              : `Le modèle « ${modele.nom} » est vide : pas de SMS possible.`}
         </p>
       )}
     </section>

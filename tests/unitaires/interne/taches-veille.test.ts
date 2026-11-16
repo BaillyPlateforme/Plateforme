@@ -212,7 +212,7 @@ describe("taches/rappels-visites · rappels de la veille", () => {
   it("sans source branchée : en attente ; liste vide : rien", async () => {
     expect((await tacheRappelsVisites(null).executer(ctx)).statut).toBe("en_attente");
     const source = vi.fn(async () => []);
-    expect(await tacheRappelsVisites(source).executer(ctx)).toEqual({ statut: "rien", resume: "Aucune visite technique demain." });
+    expect(await tacheRappelsVisites(source).executer(ctx)).toEqual({ statut: "rien", resume: "Aucun rappel de visite à envoyer (J−2, J−1)." });
     expect((source.mock.calls[0] as unknown as [Date])[0].toISOString()).toBe("2026-11-15T11:00:00.000Z");
   });
   it("chaque rappel part par son canal, avec sa clé ; un échec rend la tâche partielle", async () => {

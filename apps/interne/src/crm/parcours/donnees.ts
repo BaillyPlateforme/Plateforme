@@ -6,6 +6,7 @@ import { getRequestDetail, type RequestDetail } from "@/lib/requests";
 import { createServiceClient } from "@/lib/supabase/server";
 import type { NomIcone } from "@/ui/icones";
 import { etapesDu, type Faits } from "./etapes";
+import { visiteDuParcours, type CompteRenduSigne, type RdvVisite } from "./visite";
 import { soldeDossier } from "@/crm/facturation/donnees";
 import { suiviDesEnvois, visitesDuDossier } from "@/crm/suivi/donnees";
 import { libellePage, type SuiviEnvoi } from "@/crm/suivi/etapes";
@@ -68,10 +69,16 @@ const RESUME = `select d.id, d.ref, d.statut, d.request_id, d.cree_le, d.maj_le,
     d.volume::float8 as volume, d.commercial_id, c.type, c.nom, c.prenom, c.societe, cm.nom as commercial, cm.initiales,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='depart' order by ordre limit 1) as depart,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee,
-    -- Visite faite : un rendez-vous passé, ou un compte-rendu signé sur la tablette (même si le rendez-vous est à venir).
-    greatest((select max(debut) from rendez_vous where dossier_id=d.id and type in ('phys','visio') and debut <= now()),
-      (select max(signe_le) from visites where dossier_id=d.id and statut='signee')) as visite_faite,
-    (select min(debut) from rendez_vous where dossier_id=d.id and type in ('phys','visio') and debut > now()) as visite_prevue,
+    -- La visite (visite.ts, même règle) : faite si son heure est passée, ou terminée ou son compte-rendu signé
+    -- — jamais un jour à venir ; un compte-rendu signé sans rendez-vous compte à sa signature. La prochaine
+    -- visite à venir l'emporte (faitsDe).
+    greatest((select max(r.debut) from rendez_vous r where r.dossier_id=d.id and r.type in ('phys','visio') and not r.journee
+                and (r.debut <= now() or ((r.termine or exists (select 1 from visites v where v.rendez_vous_id=r.id and v.statut='signee'))
+                     and (r.debut at time zone 'Europe/Paris')::date <= (now() at time zone 'Europe/Paris')::date))),
+      (select max(signe_le) from visites where dossier_id=d.id and statut='signee' and rendez_vous_id is null)) as visite_faite,
+    (select min(r.debut) from rendez_vous r where r.dossier_id=d.id and r.type in ('phys','visio') and not r.journee and not r.sans_suite and r.debut > now()
+       and not ((r.termine or exists (select 1 from visites v where v.rendez_vous_id=r.id and v.statut='signee'))
+                and (r.debut at time zone 'Europe/Paris')::date <= (now() at time zone 'Europe/Paris')::date)) as visite_prevue,
     (select min(envoye_le) from devis where dossier_id=d.id) as premier_envoi,
     (select count(*) from devis where dossier_id=d.id and statut='brouillon')::int as brouillons,
     (select count(*) from devis where dossier_id=d.id and envoye_le is not null and statut<>'signe')::int as envoyes,
@@ -99,7 +106,10 @@ function faitsDe(r: Row, plus: Partial<Faits> = {}, espace?: Espace | null): Fai
     demande: { le: ISO(r.cree_le)!, site: !!r.request_id, source: null },
     qualifieLe: null,
     commercial: r.commercial ?? null,
-    visite: { faite: ISO(r.visite_faite), prevue: ISO(r.visite_prevue), mode: null, par: null },
+    // Une visite à venir l'emporte sur la dernière faite (visite.ts).
+    visite: r.visite_prevue
+      ? { faite: null, prevue: ISO(r.visite_prevue), mode: null, par: null, anterieure: ISO(r.visite_faite) }
+      : { faite: ISO(r.visite_faite), prevue: null, mode: null, par: null },
     devis: { premierEnvoi: ISO(r.premier_envoi), brouillons: r.brouillons, envoyes: r.envoyes, signe: r.signe ?? null },
     paiements: r.paiements,
     commandeLe: (r.signe as Row | null)?.le ?? null,
@@ -211,7 +221,12 @@ export async function parcoursDossier(id: number) {
         left join utilisateurs tr on tr.id=d.traite_par_id where d.id=$1`, [id]),
     q("select id,genre,adresse,etage,ascenseur,acces from etapes_trajet where dossier_id=$1 order by ordre,id", [id]),
     q("select id,numero,formule,montant::float8 as montant,statut,envoye_le,signe_le,cree_le,distance_km,token from devis where dossier_id=$1 order by cree_le,id", [id]),
-    q("select r.id,r.type,r.titre,r.lieu,r.debut,r.duree_min,r.termine,u.nom as commercial from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.dossier_id=$1 order by r.debut", [id]),
+    q(
+      `select r.id,r.type,r.titre,r.lieu,r.debut,r.duree_min,r.termine,r.sans_suite,r.journee,u.nom as commercial,
+              exists (select 1 from visites v where v.rendez_vous_id=r.id and v.statut='signee') as compte_rendu_signe
+         from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.dossier_id=$1 order by r.debut`,
+      [id],
+    ),
     q("select a.id,a.libelle,a.cree_le,u.nom from activite a left join utilisateurs u on u.id=a.utilisateur_id where a.dossier_id=$1 order by a.cree_le,a.id", [id]),
     q("select id,libelle,montant::float8 as montant,recu_le,session_paiement_id from paiements where dossier_id=$1 order by recu_le,id", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
@@ -221,7 +236,7 @@ export async function parcoursDossier(id: number) {
   ]);
   // Les visites techniques saisies sur la tablette (module des visites) : leur compte-rendu signé.
   const visitesSignees = await q(
-    "select v.id, v.signe_le, v.signataire, u.nom as commercial from visites v left join utilisateurs u on u.id=v.commercial_id where v.dossier_id=$1 and v.statut='signee' order by v.signe_le",
+    "select v.id, v.signe_le, v.signataire, v.rendez_vous_id, u.nom as commercial from visites v left join utilisateurs u on u.id=v.commercial_id where v.dossier_id=$1 and v.statut='signee' order by v.signe_le",
     [id],
   ).catch(() => [] as Row[]);
   if (!d) return null;
@@ -551,20 +566,15 @@ export async function parcoursDossier(id: number) {
   for (const e of ev) e.avenir = cle(e) > maintenant && (!e.jour || e.quand.slice(0, 10) > jourParis(new Date()));
 
   /* ── Les étapes ── */
-  const rv = rdvs.filter((r) => r.type === "phys" || r.type === "visio");
-  // Une visite dont le compte-rendu est signé est faite, même si son rendez-vous est encore à venir au planning.
-  const derniereSignee = visitesSignees[visitesSignees.length - 1];
-  const faite = derniereSignee
-    ? { debut: derniereSignee.signe_le, type: "phys", commercial: derniereSignee.commercial }
-    : [...rv].reverse().find((r) => +new Date(r.debut) <= maintenant);
-  const prevue = rv.find((r) => +new Date(r.debut) > maintenant);
+  // La visite : lue sur ses rendez-vous, une visite à venir l'emportant (visite.ts).
+  const visite = visiteDuParcours(rdvs as RdvVisite[], visitesSignees as CompteRenduSigne[], maintenant);
   const qualif = demande?.events.filter((e) => e.type === "status_changed" && ["qualified", "quoted", "won"].includes(String((e.payload as Row)?.status))).map((e) => e.created_at).sort()[0] ?? null;
   const faits = faitsDe(
     base,
     {
       demande: { le: demande?.request.created_at ?? ISO(d.cree_le)!, site: !!d.request_id, source: demande?.request.source ?? null },
       qualifieLe: qualif,
-      visite: { faite: ISO(faite?.debut), prevue: ISO(prevue?.debut), mode: (faite ?? prevue)?.type ?? null, par: (faite ?? prevue)?.commercial ?? null },
+      visite,
       commandeLe: (base.signe as Row | null)?.le ?? ISO(activite.find((x) => /commande/i.test(x.libelle))?.cree_le) ?? ISO(ec?.dossier.commande_le),
       planifieLe: ISO([...activite].reverse().find((x) => /^Déménagement planifié/i.test(x.libelle))?.cree_le),
       lettres: { ...(base.lettres as { n: number; livrees: number }), creeesLe: ISO(creation?.cree_le) },

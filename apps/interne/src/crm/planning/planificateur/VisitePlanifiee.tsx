@@ -16,8 +16,10 @@ import s from "./visite-planifiee.module.css";
 /*
  * Au retour du planificateur (?planifie=<rdv>), en tête de l'onglet Visites
  * du dossier : la visite qui vient d'être posée, et la suite — prévenir le
- * client. Le SMS de confirmation (carte « Visite confirmée », réponse 1 ou
- * 2) se lit avant de partir, et ne part que sur un geste ; le lien de
+ * client. Le SMS de confirmation (cartes « Visite confirmée » et « Visio
+ * confirmée ») part dès la visite prise (retours de Céline, 16/11/2026) : la
+ * carte montre son texte et son état ; s'il n'a pas pu partir (pas de
+ * téléphone au moment de planifier), il se renvoie d'un geste. Le lien de
  * l'espace client se copie pour un e-mail ou un message. La fiche de visite
  * s'imprime (ou s'enregistre en PDF).
  *
@@ -88,8 +90,8 @@ export default async function VisitePlanifiee({
       {visite && !passee && (
         <div className={s.suite}>
           <div className={s.message}>
-            <small>{modifiee && sms ? "La confirmation du client" : "Prochaine étape : prévenir le client"}</small>
-            {apercu?.texte ? <p className={s.bulle}>{apercu.texte}</p> : <p className={s.manque}>Le modèle « Confirmation de rendez-vous » est introuvable.</p>}
+            <small>{sms ? "La confirmation du client" : "Prochaine étape : prévenir le client"}</small>
+            {apercu?.texte ? <p className={s.bulle}>{apercu.texte}</p> : <p className={s.manque}>Le modèle « {r.type === "visio" ? "Visio confirmée" : "Visite confirmée"} » est introuvable ou vide.</p>}
             <span className={s.destinataire}>
               {apercu?.c.telephone ? `SMS au ${apercu.c.telephone}` : "Pas de téléphone sur la fiche du client : le SMS ne peut pas partir."}
               {apercu?.retenu ? ` · ${apercu.retenu}` : ""}

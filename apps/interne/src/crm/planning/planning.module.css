@@ -244,6 +244,11 @@
   background: #dcf7ea;
   color: #0b7f50;
 }
+/* La ville d'un rendez-vous : c'est elle qui place la visite suivante. */
+.ville {
+  font-weight: 700;
+  color: var(--ink, inherit);
+}
 .terminer {
   margin-top: auto;
 }

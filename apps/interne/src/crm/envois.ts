@@ -11,6 +11,7 @@ import { regleSesArrhesEnLigne } from "@/crm/devis/parametres";
 import { adressePublique } from "@/lib/espace-client/config";
 import { modeleDe, raisonDeNePasEnvoyer, remplir } from "@/crm/messages/catalogue";
 import { composerEmailCrm, type BlocEmail, type ContexteEmail } from "@/crm/messages/rendu";
+import { carteSms, cleSmsRdv, type MomentSms } from "@/crm/rdv/calendrier";
 
 /*
  * Les messages que le CRM envoie au client — le devis à signer, le SMS de
@@ -161,17 +162,18 @@ export async function envoyerDevisParEmail(dossierId: number, devis: { id: numbe
 
 /**
  * Le texte du SMS d'un rendez-vous, tel qu'il partirait : le modèle de la
- * carte, rempli avec le client, le commercial, la date et l'heure. Sert à
- * l'envoi et à l'aperçu du dossier (« Envoyer la confirmation au client »).
+ * carte (celle de la visio pour une visio, rdv/calendrier.ts), rempli avec le
+ * client, le commercial, la date et l'heure. Sert à l'envoi et à l'aperçu du
+ * dossier (« Envoyer la confirmation au client »).
  */
-export async function smsRendezVous(dossierId: number, rdvId: number, carte: "rdv_confirmation" | "rdv_rappel_veille" = "rdv_confirmation") {
-  const m = await modeleDe(carte);
-  const r = await q1<{ debut: string; commercial: string | null; commercial_email: string | null }>(
-    "select r.debut, u.nom as commercial, u.email as commercial_email from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.id=$1 and r.dossier_id=$2",
+export async function smsRendezVous(dossierId: number, rdvId: number, moment: MomentSms = "confirmation") {
+  const r = await q1<{ debut: string; type: string; commercial: string | null; commercial_email: string | null }>(
+    "select r.debut, r.type, u.nom as commercial, u.email as commercial_email from rendez_vous r join utilisateurs u on u.id=r.commercial_id where r.id=$1 and r.dossier_id=$2",
     [rdvId, dossierId],
   );
   const c = await destinataire(dossierId);
   if (!r || !c) return null;
+  const m = await modeleDe(carteSms(r.type, moment));
   const d = new Date(r.debut);
   const texte = remplir(m?.corps ?? "", {
     ...variablesDossier(c),
@@ -183,23 +185,23 @@ export async function smsRendezVous(dossierId: number, rdvId: number, carte: "rd
 }
 
 /**
- * Le SMS d'un rendez-vous : la carte « Visite confirmée » (rdv_confirmation)
- * ou « Rappel de la veille » (rdv_rappel_veille). Une fois par rendez-vous,
- * par horaire et par carte : déplacé, le rendez-vous peut être confirmé de
- * nouveau.
+ * Le SMS d'un rendez-vous : la confirmation (« Visite confirmée », « Visio
+ * confirmée ») ou un rappel. Une fois par rendez-vous, par horaire et par
+ * moment (rdv/calendrier.ts, cleSmsRdv) : déplacé, le rendez-vous peut être
+ * confirmé de nouveau.
  */
 export async function envoyerSmsRendezVous(
   dossierId: number,
   rdvId: number,
-  carte: "rdv_confirmation" | "rdv_rappel_veille" = "rdv_confirmation",
+  moment: MomentSms = "confirmation",
 ): Promise<{ texte: string; resultat: ResultatEnvoi | null; libelle: string; numero: string | null } | null> {
-  const sms = await smsRendezVous(dossierId, rdvId, carte);
+  const sms = await smsRendezVous(dossierId, rdvId, moment);
   if (!sms) return null;
   const { m, r, c, d, texte } = sms;
   if (!c.telephone) return { texte, resultat: null, libelle: "pas de numéro de téléphone sur la fiche client : rien n'est parti", numero: null };
   const resultat = await envoyerSms({
-    cle: `crm:rdv:${rdvId}:${carte === "rdv_confirmation" ? "confirmation" : "rappel"}:${d.toISOString()}`,
-    origine: carte === "rdv_confirmation" ? "crm" : "veille",
+    cle: cleSmsRdv(rdvId, moment, d),
+    origine: moment === "confirmation" ? "crm" : "veille",
     modele: m?.nom ?? "Confirmation de rendez-vous",
     reference: c.ref,
     a: c.telephone,

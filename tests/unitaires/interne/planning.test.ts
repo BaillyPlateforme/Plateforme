@@ -141,7 +141,7 @@ describe("planning/planificateur · titres, durées, confirmation", () => {
 
 describe("planning/planificateur · verifierCreneau", () => {
   const ev = (o: Partial<EvenementPlanning>): EvenementPlanning => ({
-    id: 1, type: "phys", titre: "Visite Martin", lieu: null, jour: "2026-11-17", debutMin: 600, duree: 60, journee: false, commercial: "Paul Durand", initiales: "PD",
+    id: 1, type: "phys", titre: "Visite Martin", lieu: null, ville: null, jour: "2026-11-17", debutMin: 600, duree: 60, journee: false, commercial: "Paul Durand", initiales: "PD",
     dossierId: 9, ref: "BD-1", termine: false, fait: false, devisEtabli: false, etat: null, dernier: false, rappel: null, ...o,
   });
   const cr = (o: Partial<CreneauPlanning>): CreneauPlanning => ({ id: 1, jour: "2026-11-17", debutMin: 840, duree: 90, client: "Mme Dupont", dossierId: 5, initiales: "PD", ...o });

@@ -693,6 +693,60 @@
   background: var(--accent);
   color: #fff;
 }
+/* « Le plus cohérent » : les créneaux près des visites déjà programmées (proximite.ts). */
+.conseils {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--ok) 30%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ok) 6%, #fff);
+  font-size: 12px;
+}
+.conseils > small {
+  color: var(--muted);
+}
+.conseilsTitre {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 2px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ok) 70%, #1b1b1b);
+}
+.conseilsTitre :global(svg) {
+  width: 14px;
+  height: 14px;
+}
+.conseil {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 5px 11px;
+  border: 1px dashed color-mix(in srgb, var(--ok) 55%, var(--line));
+  border-radius: 10px;
+  background: #fff;
+  text-align: left;
+}
+.conseil b {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--ok) 70%, #1b1b1b);
+}
+.conseil small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.conseil:hover {
+  background: color-mix(in srgb, var(--ok) 8%, #fff);
+}
+.conseil[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, #fff);
+}
 .legende {
   gap: 8px 14px !important;
   margin: 0 !important;
@@ -872,6 +926,69 @@
     display: none;
   }
 }
+/* La ville d'une visite, à la place de « Sur place » : elle se lit même dans un bloc étroit. */
+.gVille {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gBloc :global(.ev-ty) {
+  min-width: 0;
+}
+/* La carte du rendez-vous survolé : sa ville, et la route jusqu'à la visite que l'on planifie. */
+.gSurvol {
+  position: absolute;
+  z-index: 8;
+  left: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 170px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px -10px rgba(20, 16, 50, 0.28);
+  font-size: 11.5px;
+  line-height: 1.3;
+  pointer-events: none;
+}
+.gSurvolDroite {
+  right: 2px;
+  left: auto;
+}
+.gSurvol b {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gSurvol span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.gSurvol small {
+  color: var(--muted);
+}
+.gSurvolTrajet {
+  flex-wrap: wrap;
+  font-weight: 700;
+  color: var(--accent);
+}
+.gSurvolTrajet small {
+  flex-basis: 100%;
+  padding-left: 19px;
+  font-weight: 500;
+}
+.gSurvol :global(svg) {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
 .gPropose {
   position: absolute;
   z-index: 1;
@@ -894,6 +1011,29 @@
 }
 .gProposeSien {
   font-weight: 700;
+}
+/* Un créneau conseillé (près d'une visite déjà programmée) : pointillé vert, il ne gêne pas le clic. */
+.gConseil {
+  position: absolute;
+  z-index: 2;
+  right: 2px;
+  left: 2px;
+  display: flex;
+  flex-direction: column;
+  padding: 3px 6px;
+  overflow: hidden;
+  border: 1.5px dashed var(--ok);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ok) 9%, transparent);
+  color: color-mix(in srgb, var(--ok) 70%, #1b1b1b);
+  font-size: 10.5px;
+  line-height: 1.25;
+  pointer-events: none;
+}
+.gConseil span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Le créneau choisi, et celui qui se dessine au survol. */

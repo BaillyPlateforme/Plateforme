@@ -10,8 +10,10 @@ import { instantParis, jourVisite, momentVisite } from "@/lib/visite/regles";
 import LegendePlanning from "../Legende";
 import { decaler, hhmm, lundiDuJour, minutes } from "../grille";
 import { TYPES_RDV, type TypeRdv } from "../types-rdv";
-import { chargerSemaine, modifierRdv, planifierRdv } from "./actions";
+import { chargerProximite, chargerSemaine, modifierRdv, planifierRdv } from "./actions";
 import type { DossierPlanif, RdvPlanif, SemainePlanif, SourcePlanif } from "./donnees";
+import type { Proximite } from "./proximite";
+import { libelleTrajet } from "@/crm/visites/proximite";
 import { dureeParDefaut, titreParDefaut, verifierCreneau } from "./regles";
 import SemaineChoix, { type Choix } from "./SemaineChoix";
 import PrevenirClient from "./PrevenirClient";
@@ -28,8 +30,14 @@ import s from "./planificateur.module.css";
  * 2. Le créneau : la semaine du commercial (bande du haut), un clic dans la
  *    grille, ou l'un de ses premiers créneaux libres. Chevauchements, créneaux
  *    proposés à d'autres clients et journées visio sont signalés aussitôt.
- * 3. « Planifier la visite » : retour au dossier, qui propose d'envoyer la
- *    confirmation au client. Rien ne part tout seul.
+ *    Pour une visite sur place, chaque rendez-vous de la semaine dit sa ville
+ *    et, au survol, la distance et le temps moyen jusqu'à l'adresse de la
+ *    visite ; « Le plus cohérent » propose les créneaux qui se glissent près
+ *    des visites déjà programmées (proximite.ts ; retours de Céline,
+ *    16/11/2026).
+ * 3. « Planifier la visite » : la confirmation part au client par SMS dès la
+ *    visite prise (sur place ou visio, retours de Céline, 16/11/2026), puis
+ *    retour au dossier, qui en montre l'état.
  *
  * Sans dossier, c'est le « Nouveau RDV » du planning : visite, visio, tâche
  * ou règle perso, à la journée au besoin (une « journée visio »).
@@ -128,6 +136,28 @@ export default function Planificateur({
   const [lieuLibre, setLieuLibre] = useState(repris && (repris.type === "tache" || repris.type === "perso") ? (repris.lieu ?? "") : "");
 
   const [etat, envoyer, enCours] = useActionState(edition ? modifierRdv : planifierRdv, null);
+
+  // La géographie d'une visite sur place : relue quand l'adresse (après une pause de frappe), la personne, la semaine ou la
+  // durée changent. Chaque réponse porte la clé de sa demande : une réponse d'une autre adresse, d'une autre personne ou
+  // d'une autre durée ne s'affiche pas ; d'une autre semaine seulement, ses conseils restent le temps de la relire.
+  const baseProximite = type === "phys" && adresse.trim().length >= 5 ? JSON.stringify([commercialId, adresse.trim(), duree]) : null;
+  const cleProximite = baseProximite ? `${baseProximite}|${semaine.lundi}` : null;
+  const [proximite, setProximite] = useState<{ cle: string; base: string; p: Proximite | null } | null>(null);
+  useEffect(() => {
+    if (!cleProximite || !baseProximite) return;
+    let fini = false;
+    const t = window.setTimeout(() => {
+      chargerProximite(commercialId, semaine.lundi, adresse.trim(), dossier?.id ?? null, duree, rdv?.id ?? null)
+        .then((p) => !fini && setProximite({ cle: cleProximite, base: baseProximite, p }))
+        .catch(() => !fini && setProximite({ cle: cleProximite, base: baseProximite, p: null }));
+    }, 600);
+    return () => {
+      fini = true;
+      window.clearTimeout(t);
+    };
+  }, [cleProximite, baseProximite, commercialId, semaine.lundi, adresse, dossier?.id, duree, rdv?.id]);
+  const prox = baseProximite && proximite?.base === baseProximite ? proximite.p : null;
+  const proxEnCours = !!cleProximite && proximite?.cle !== cleProximite;
 
   // L'horloge avance : ce qui devient passé se grise.
   useEffect(() => {
@@ -738,6 +768,43 @@ export default function Planificateur({
                 </div>
               )}
             </div>
+            {/* Le plus cohérent : les créneaux qui se glissent près des visites déjà programmées (visite sur place). */}
+            {type === "phys" && !journee && cleProximite && (
+              <div className={s.conseils} aria-live="polite">
+                <span className={s.conseilsTitre}>
+                  <Ic n="pin" />
+                  Le plus cohérent{prox?.cible.ville ? ` pour ${prox.cible.ville}` : ""}
+                </span>
+                {proxEnCours && !prox ? (
+                  <small>Calcul des distances…</small>
+                ) : !prox ? (
+                  <small>Distances indisponibles pour le moment : les premiers créneaux libres restent la référence.</small>
+                ) : !prox.cible.trouvee ? (
+                  <small>Adresse introuvable par la Base Adresse : ni distance ni créneau conseillé.</small>
+                ) : prox.conseils.length === 0 ? (
+                  <small>Aucune visite proche déjà programmée sur trois semaines : les premiers créneaux libres restent la référence.</small>
+                ) : (
+                  prox.conseils.map((c) => (
+                    <button
+                      key={c.debut}
+                      type="button"
+                      className={s.conseil}
+                      aria-pressed={choix?.jour === c.jour && choix.min === minutes(c.heure)}
+                      onClick={() => choisirLibre(c)}
+                      title={`Détour estimé : ${String(c.detourKm).replace(".", ",")} km. Distance par la route quand elle est connue, sinon à vol d'oiseau majorée d'un quart (≈) ; temps moyen en Île-de-France.`}
+                    >
+                      <b>
+                        {jourCourt(c.jour)} · {hFr(minutes(c.heure))}
+                      </b>
+                      <small>
+                        {c.voisin.position === "apres" ? "Après" : "Avant"} {c.voisin.titre}
+                        {c.voisin.ville ? ` (${c.voisin.ville})` : ""} · {libelleTrajet(c.voisin.trajet)}
+                      </small>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
             <SemaineChoix
               jours={semaine.jours}
               aujourdhui={aujourdhui}
@@ -755,6 +822,9 @@ export default function Planificateur({
               conflit={!!verif?.bloquant}
               onChoisir={setChoix}
               chargement={chargement}
+              trajets={prox?.trajets ?? {}}
+              cible={type === "phys" && prox ? prox.cible : null}
+              conseils={type === "phys" && !journee ? (prox?.conseils ?? []) : []}
             />
             <LegendePlanning className={s.legende} />
           </section>

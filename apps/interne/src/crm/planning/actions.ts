@@ -9,7 +9,7 @@ import { oublierEtatRdv, type EtatRdv } from "@/crm/rdv/sms";
 import { estVisite } from "@/crm/visites/cycle";
 import { instantParis, momentVisite } from "@/lib/visite/regles";
 import { raisonConfirmationOubliee } from "./planificateur/regles";
-import { creneauPris, verrouillerPlanning } from "./planificateur/serveur";
+import { creneauPris, phraseReplanifiee, replanifierVisite, verrouillerPlanning } from "./planificateur/serveur";
 
 /*
  * Les rendez-vous du planning commercial : les déplacer au glisser-déposer,
@@ -82,9 +82,12 @@ export async function deplacerRdv(id: number, jour: string, hhmm: string): Promi
     await db.query("update rendez_vous set debut = $2 where id = $1", [id, debut.toISOString()]);
     const oublie = await oublierEtatRdv(id, db);
     const visite = estVisite(r.type) && !r.journee && !!r.dossier_id;
+    // Déplacée à un horaire à venir, une visite marquée faite redevient planifiée (planificateur/serveur.ts).
+    const replanifiee = visite ? await replanifierVisite(db, id, debut) : null;
     if (r.dossier_id) {
       const noterDb = (libelle: string) => db.query("insert into activite (dossier_id, utilisateur_id, libelle) values ($1, $2, $3)", [r.dossier_id, u.id, libelle]);
       if (visite) await noterDb(`${r.type === "visio" ? "Visio" : "Visite"} déplacée au ${momentVisite(debut, true)}`);
+      if (replanifiee) await noterDb(phraseReplanifiee(replanifiee));
       if (oublie) await noterDb(`Confirmation de la visite remise à zéro : ${raisonConfirmationOubliee(oublie.etat)}`);
       await db.query("update dossiers set maj_le = now() where id = $1", [r.dossier_id]);
     }

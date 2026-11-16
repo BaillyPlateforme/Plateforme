@@ -12,6 +12,7 @@ import { couloirs, H0, H1, heure, hhmm, position as placer, type Bloc } from "./
 import { TYPES_RDV } from "./types-rdv";
 import { phraseConfirmationOubliee } from "./planificateur/regles";
 import { EtatSmsRdv } from "@/crm/rdv/EtatSmsRdv";
+import { texteRappels } from "@/crm/rdv/calendrier";
 import type { EtatAffiche } from "@/crm/rdv/sms";
 import s from "./planning.module.css";
 
@@ -31,8 +32,12 @@ import s from "./planning.module.css";
  * reste. Échap ferme la fenêtre ou abandonne le déplacement.
  *
  * Les blocs qui se chevauchent se partagent la colonne en couloirs ; quand
- * un couloir est étroit, le bloc ne garde que l'heure, le nom et l'état, et
- * s'élargit au survol (ou au focus) pour se lire en entier.
+ * un couloir est étroit, le bloc ne garde que l'heure, le nom, la ville et
+ * l'état, et s'élargit au survol (ou au focus) pour se lire en entier.
+ *
+ * Chaque rendez-vous dit sa ville plutôt que son adresse entière (retours de
+ * Céline, 16/11/2026 : « sinon nous ne pouvons pas placer les visites
+ * suivantes ») ; l'adresse reste dans sa petite fenêtre.
  */
 
 const HAUT = 52;
@@ -150,7 +155,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
         setMessage({
           ton: "ok",
           texte: r.visite
-            ? `${e.titre} : visite déplacée (${quand}). Le rappel de la veille suit le nouvel horaire, et l'espace du client est à jour.${
+            ? `${e.titre} : visite déplacée (${quand}). Les rappels (J−2, J−1) suivent le nouvel horaire, et l'espace du client est à jour.${
                 r.oublie ? ` ${phraseConfirmationOubliee(r.oublie)}` : ""
               }`
             : `${e.titre} : déplacé (${quand}).`,
@@ -347,7 +352,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                     className={`ev t-${e.type} ${e.fait ? "fait" : ""} ${devis ? "devis" : ""} ${e.etat === "sans_suite" ? "sans-suite" : ""} ${s.bloc} ${compact ? s.compact : ""} ${deplace ? s.glisse : ""} ${fenetre?.id === e.id ? s.ouvert : ""} ${vise ? s.vise : ""}`}
                     data-cote={l >= n / 2 || ij === jours.length - 1 ? "droite" : "gauche"}
                     tabIndex={0}
-                    title={`${type.long} · ${e.titre}${e.lieu ? ` · ${e.lieu}` : ""} · ${e.commercial}${etat ? ` · ${etat.libelle}` : ""}`}
+                    title={`${type.long} · ${e.titre}${e.ville ? ` · ${e.ville}` : ""}${e.lieu && e.lieu !== e.ville ? ` · ${e.lieu}` : ""} · ${e.commercial}${etat ? ` · ${etat.libelle}` : ""}`}
                     style={{ ...pos, left: `calc(${(l / n) * 100}% + 3px)`, right: "auto", width: `calc(${100 / n}% - 6px)` }}
                     onPointerDown={(ev) => demarrer(ev, e)}
                     onKeyDown={(ev) => {
@@ -368,6 +373,7 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                         <small>
                           {etat && <i className={s.point} data-ton={etat.ton} aria-label={etat.libelle} />}
                           {heure(deplace?.debutMin ?? e.debutMin)}
+                          {e.ville && ` · ${e.ville}`}
                           {!filtre && ` · ${e.initiales}`}
                         </small>
                       </span>
@@ -391,14 +397,18 @@ export default function GrillePlanning({ jours, evenements, creneaux, filtre, et
                         <strong className="ev-n">{e.titre}</strong>
                       )}
                       <span className="ev-a">
-                        {e.lieu}
+                        {e.ville ? <b className={s.ville}>{e.ville}</b> : e.lieu}
                         {!filtre && ` · ${e.initiales}`}
                       </span>
                       <span className="ev-tags">
                         {/* L'état se lit à l'habit du bloc ; seule la visite sans suite garde sa pastille. */}
                         {e.etat === "sans_suite" && etat && <i className={`st ${etat.ton} ${s.etat}`}>{etat.libelle}</i>}
                         {e.dernier && <i className="tag fl">Passer en dernier</i>}
-                        {e.rappel && e.rappel.length > 0 && <i className={`tag ${s.rappel}`} title={`Rappel la veille : ${e.rappel.map((x) => (x === "sms" ? "SMS" : "e-mail")).join(" + ")}`}>Rappel J−1</i>}
+                        {e.rappel && e.rappel.length > 0 && (
+                          <i className={`tag ${s.rappel}`} title={`Rappels : ${texteRappels({ canaux: e.rappel, j2: "prevu" })}`}>
+                            {e.rappel.includes("sms") ? "Rappels J−2 · J−1" : "Rappel J−1"}
+                          </i>
+                        )}
                       </span>
                       {e.etat === "planifiee" && !e.termine && (
                         <form action={terminerRdv.bind(null, e.id, false)} className={s.terminer}>
@@ -498,7 +508,7 @@ function FenetreRdv({
               {sms.libelle}
             </i>
           )}
-          {e.rappel && e.rappel.length > 0 && <i className="st n">Rappel J−1 · {e.rappel.map((x) => (x === "sms" ? "SMS" : "e-mail")).join(" + ")}</i>}
+          {e.rappel && e.rappel.length > 0 && <i className="st n">Rappels · {texteRappels({ canaux: e.rappel, j2: "prevu" })}</i>}
         </div>
       )}
       <div className={s.popGestes}>

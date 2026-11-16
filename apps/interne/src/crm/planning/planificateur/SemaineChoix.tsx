@@ -3,8 +3,9 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { Ic } from "@/crm/lib/icons";
 import type { CreneauPlanning, EvenementPlanning } from "../donnees";
-import { couloirs, H0, H1, heure, position, type Bloc } from "../grille";
+import { couloirs, H0, H1, heure, minutes, position, type Bloc } from "../grille";
 import { estJourneeVisio, TYPES_RDV, type TypeRdv } from "../types-rdv";
+import { libelleTrajet, type Conseil, type Trajet } from "@/crm/visites/proximite";
 import s from "./planificateur.module.css";
 
 /*
@@ -16,6 +17,12 @@ import s from "./planificateur.module.css";
  *
  * En modification (`actuel`), le créneau actuel du rendez-vous reste marqué
  * en pointillé quand on en choisit un autre : on voit d'où l'on part.
+ *
+ * Chaque visite sur place (et chaque tâche qui a un lieu) dit sa ville, à la
+ * place de « Sur place » (retours de Céline, 16/11/2026 : « sinon nous ne
+ * pouvons pas placer les visites suivantes ») ; au survol, une petite carte
+ * dit la distance et le temps moyen jusqu'à l'adresse de la visite que l'on
+ * planifie (`trajets`, proximite.ts).
  */
 
 const HAUT = 40;
@@ -40,6 +47,9 @@ export default function SemaineChoix({
   conflit,
   onChoisir,
   chargement,
+  trajets = {},
+  cible = null,
+  conseils = [],
 }: {
   jours: string[];
   aujourdhui: string;
@@ -59,8 +69,16 @@ export default function SemaineChoix({
   conflit: boolean;
   onChoisir: (c: Choix) => void;
   chargement: boolean;
+  /** Par rendez-vous situé de la semaine : le trajet jusqu'à l'adresse de la visite que l'on planifie. */
+  trajets?: Record<number, Trajet & { ville: string | null }>;
+  /** L'adresse de la visite que l'on planifie, pour la carte du survol : sa ville, ou null (visio, adresse introuvable). */
+  cible?: { ville: string | null } | null;
+  /** Les créneaux les plus cohérents (proximite.ts) : marqués dans la grille, un clic les choisit comme une autre heure. */
+  conseils?: Conseil[];
 }) {
   const [survol, setSurvol] = useState<Choix | null>(null);
+  // Le rendez-vous survolé : sa carte (ville, distance, temps moyen) s'ouvre sous lui.
+  const [survolEv, setSurvolEv] = useState<number | null>(null);
   const colonnes = { gridTemplateColumns: `44px repeat(${jours.length}, minmax(0, 1fr))` } as CSSProperties;
   const heures = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
   const passe = (jour: string, min: number) => jour < aujourdhui || (jour === aujourdhui && min < minutesMaintenant);
@@ -170,7 +188,7 @@ export default function SemaineChoix({
             </span>
           ))}
         </div>
-        {jours.map((j) => {
+        {jours.map((j, ij) => {
           const finPasse = j < aujourdhui ? (H1 - H0) * HAUT : j === aujourdhui ? Math.min(Math.max(((minutesMaintenant - H0 * 60) / 60) * HAUT, 0), (H1 - H0) * HAUT) : 0;
           return (
             <div
@@ -217,12 +235,18 @@ export default function SemaineChoix({
                   const [l, n] = lanes.get(e.id) ?? [0, 1];
                   const t = TYPES_RDV[e.type];
                   const devis = e.devisEtabli && (e.type === "phys" || e.type === "visio");
+                  const pos = position(e.debutMin, e.duree, HAUT);
+                  const trajet = trajets[e.id];
+                  const ville = trajet?.ville ?? e.ville;
+                  const versCible = trajet ? `${libelleTrajet(trajet)} jusqu'à ${cible?.ville ?? "l'adresse de la visite"}` : null;
                   return (
                     <div
                       key={e.id}
                       className={`ev t-${e.type} ${e.fait ? "fait" : ""} ${devis ? "devis" : ""} ${e.etat === "sans_suite" ? "sans-suite" : ""} ${s.gBloc} ${n > 1 ? s.gEtroit : ""}`}
-                      title={`${t.long} · ${heure(e.debutMin)}–${heure(e.debutMin + e.duree)} · ${e.titre}${e.lieu ? ` · ${e.lieu}` : ""}`}
-                      style={{ ...position(e.debutMin, e.duree, HAUT), left: `calc(${(l / n) * 100}% + 2px)`, right: "auto", width: `calc(${100 / n}% - 4px)` }}
+                      title={`${t.long} · ${heure(e.debutMin)}–${heure(e.debutMin + e.duree)} · ${e.titre}${ville ? ` · ${ville}` : e.lieu ? ` · ${e.lieu}` : ""}${versCible ? `\n${versCible}` : ""}`}
+                      style={{ ...pos, left: `calc(${(l / n) * 100}% + 2px)`, right: "auto", width: `calc(${100 / n}% - 4px)` }}
+                      onPointerEnter={(ev) => ev.pointerType !== "touch" && setSurvolEv(e.id)}
+                      onPointerLeave={() => setSurvolEv((x) => (x === e.id ? null : x))}
                     >
                       {devis && (
                         <i className="ticket-devis" aria-label="Devis établi">
@@ -233,13 +257,62 @@ export default function SemaineChoix({
                         <span className="ev-time">{heure(e.debutMin)}</span>
                         <span className="ev-ty">
                           <Ic n={e.fait ? "check" : t.icone} />
-                          <span className={s.gTypeTexte}>{e.fait ? "Faite" : t.court}</span>
+                          {/* La ville d'abord : c'est elle qui place la visite suivante ; le type se lit à la couleur et à l'icône. */}
+                          {ville && !e.fait ? <span className={s.gVille}>{ville}</span> : <span className={s.gTypeTexte}>{e.fait ? "Faite" : t.court}</span>}
                         </span>
                       </span>
                       <span className="ev-n">{e.titre}</span>
                     </div>
                   );
                 })}
+              {/* La carte du rendez-vous survolé : sa ville, et la route jusqu'à la visite que l'on planifie. */}
+              {(() => {
+                const e = survolEv != null ? evenements.find((x) => x.id === survolEv && x.jour === j && !x.journee) : undefined;
+                if (!e) return null;
+                const pos = position(e.debutMin, e.duree, HAUT);
+                const trajet = trajets[e.id];
+                const ville = trajet?.ville ?? e.ville;
+                const situable = e.type === "phys" || (e.type === "tache" && !!ville);
+                return (
+                  <div className={`${s.gSurvol} ${ij >= jours.length - 2 ? s.gSurvolDroite : ""}`} style={pos.top + pos.height + 90 > (H1 - H0) * HAUT ? { bottom: (H1 - H0) * HAUT - pos.top + 4 } : { top: pos.top + pos.height + 4 }} role="tooltip">
+                    <b>
+                      {heure(e.debutMin)}–{heure(e.debutMin + e.duree)} · {e.titre}
+                    </b>
+                    {ville && (
+                      <span>
+                        <Ic n="pin" />
+                        {ville}
+                      </span>
+                    )}
+                    {trajet ? (
+                      <span className={s.gSurvolTrajet}>
+                        <Ic n="right" />
+                        {libelleTrajet(trajet)}
+                        <small>jusqu&apos;à {cible?.ville ?? "l'adresse de la visite"}</small>
+                      </span>
+                    ) : situable && cible ? (
+                      <small>Distance indisponible : adresse introuvable</small>
+                    ) : e.type === "visio" ? (
+                      <small>Visio : pas de déplacement</small>
+                    ) : null}
+                  </div>
+                );
+              })()}
+              {/* Les créneaux conseillés, en pointillé vert : on les voit dans la semaine, près de la visite voisine. */}
+              {!journee &&
+                conseils
+                  .filter((c) => c.jour === j && !(choix && choix.jour === j && choix.min === minutes(c.heure)))
+                  .map((c) => (
+                    <div
+                      key={`c${c.debut}`}
+                      className={s.gConseil}
+                      style={position(minutes(c.heure), duree, HAUT)}
+                      title={`Créneau conseillé : ${c.voisin.position === "apres" ? "après" : "avant"} ${c.voisin.titre}${c.voisin.ville ? ` (${c.voisin.ville})` : ""}, ${libelleTrajet(c.voisin.trajet)}`}
+                    >
+                      <b>{heure(minutes(c.heure))} · conseillé</b>
+                      <span>{c.voisin.ville ? `près de ${c.voisin.ville}` : `près de ${c.voisin.titre}`}</span>
+                    </div>
+                  ))}
               {!journee && actuel && actuel.jour === j && !surActuel && ancien(actuel)}
               {!journee && survol?.jour === j && !(choix && choix.jour === j && choix.min === survol.min) && fantome(survol, true)}
               {!journee && choix?.jour === j && fantome(choix, false)}
