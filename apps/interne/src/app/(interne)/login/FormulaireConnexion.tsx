@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
+import { oublierVuesGardees } from "@/crm/visites/tablette/hors-ligne";
 import s from "./connexion.module.css";
 
 /**
@@ -23,6 +24,10 @@ export default function FormulaireConnexion({ cible, refus }: { cible: string; r
   const [erreur, setErreur] = useState<string | null>(
     refus ? "Ce compte n'a pas accès à l'espace de l'équipe. Les clients et les RH ont leur propre espace, ci-dessous." : null,
   );
+
+  // Déconnecté (ou session tombée) : la tablette de visite oublie les visites gardées pour être rouvertes sans réseau.
+  // Les modifications en attente restent, elles partiront à la prochaine ouverture de la visite.
+  useEffect(() => oublierVuesGardees(null), []);
 
   async function envoyer(e: React.FormEvent) {
     e.preventDefault();

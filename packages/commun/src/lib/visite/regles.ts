@@ -138,6 +138,16 @@ export function libelleEtageTexte(e: string | null | undefined) {
   return /^\d+$/.test(t) ? `${t}${t === "1" ? "er" : "e"} étage` : t;
 }
 
+/** La taille de l'ascenseur telle qu'on la lit : « 4 » → « 4 personnes », un texte libre tel quel. */
+export function tailleAscenseur(t: string | null | undefined) {
+  const v = String(t ?? "").trim();
+  if (!v) return null;
+  return /^\d+$/.test(v) ? `${v} personne${v === "1" ? "" : "s"}` : v;
+}
+
+/** Les plafonds de la taille de l'ascenseur et des cases libres des accès : le serveur les revérifie. */
+export const PLAFONDS_ACCES = { ascenseurTaille: 30, precision: 200 } as const;
+
 /** Une étape du trajet et ses accès, comme la tablette les saisit. */
 export interface EtapeAcces {
   id: number;
@@ -154,18 +164,24 @@ export interface EtapeAcces {
   monte_charge?: boolean;
   transbordement?: boolean;
   acces: string | null;
+  /** Retours de Céline (16/11/2026) : la taille de l'ascenseur (nombre de personnes) et les cases libres. */
+  ascenseur_taille?: string | null;
+  escalier_precision?: string | null;
+  stationnement_precision?: string | null;
 }
 
 /** Les accès d'une étape, en une ligne : « 3e étage · ascenseur · portage 20 m · autorisation de voirie ». */
 export function resumeAcces(e: Omit<EtapeAcces, "id" | "genre" | "adresse">) {
   return [
     libelleEtageTexte(e.etage),
-    e.ascenseur ? "ascenseur" : e.etage && !/^(rdc|0|rez)/i.test(e.etage.trim()) ? "sans ascenseur" : null,
+    e.ascenseur ? (tailleAscenseur(e.ascenseur_taille) ? `ascenseur ${tailleAscenseur(e.ascenseur_taille)}` : "ascenseur") : e.etage && !/^(rdc|0|rez)/i.test(e.etage.trim()) ? "sans ascenseur" : null,
     e.monte_charge ? "monte-charge" : null,
     e.transbordement ? "transbordement" : null,
     e.escalier && e.escalier !== "aucun" ? `escalier ${ACCES_ESCALIER[e.escalier].toLowerCase()}` : null,
+    e.escalier_precision?.trim() ? `escalier : ${e.escalier_precision.trim()}` : null,
     e.portage_m != null ? `portage ${e.portage_m} m` : null,
     e.stationnement ? ACCES_STATIONNEMENT[e.stationnement].toLowerCase() : null,
+    e.stationnement_precision?.trim() ? `stationnement : ${e.stationnement_precision.trim()}` : null,
     e.poids_lourd ? `poids lourd : ${ACCES_POIDS_LOURD[e.poids_lourd].toLowerCase()}` : null,
     e.monte_meuble && e.monte_meuble !== "non" ? `monte-meuble : ${ACCES_MONTE_MEUBLE[e.monte_meuble].toLowerCase()}` : null,
     e.acces?.trim() || null,
@@ -185,6 +201,10 @@ export interface ObjetSaisi {
   demontage: boolean;
   fragile: boolean;
   note: string | null;
+  /** La destination de l'objet : une étape du trajet du dossier (lib/visite/destinations.ts). */
+  destination?: number | null;
+  /** Une destination hors trajet posée depuis la fiche (« Don »…), affichée telle quelle. */
+  destinationLibre?: string | null;
 }
 
 export interface PieceSaisie {
@@ -192,6 +212,8 @@ export interface PieceSaisie {
   nom: string;
   ordre: number;
   remarque: string | null;
+  /** La destination proposée pour les objets de la pièce. */
+  destination?: number | null;
 }
 
 export interface OptionSaisie {
@@ -210,7 +232,7 @@ export const PLAFONDS = { nom: 60, libelle: 90, note: 200, remarque: 1500, remar
  * plus que la première fois.
  */
 export type Operation =
-  | { t: "piece"; cle: string; nom: string; ordre: number; remarque: string | null }
+  | { t: "piece"; cle: string; nom: string; ordre: number; remarque: string | null; destination?: number | null }
   | { t: "piece-"; cle: string }
   | ({ t: "objet" } & ObjetSaisi)
   | { t: "objet-"; cle: string }
@@ -238,9 +260,11 @@ export interface ContenuCompteRendu {
     nom: string;
     remarque: string | null;
     volume: number;
-    objets: { libelle: string; quantite: number; volume_unitaire: number; volume: number; demontage: boolean; fragile: boolean; note: string | null }[];
+    objets: { libelle: string; quantite: number; volume_unitaire: number; volume: number; demontage: boolean; fragile: boolean; note: string | null; destination?: string }[];
     photos: number;
   }[];
+  /** Le volume par destination, quand le dossier en a plusieurs. */
+  destinations?: { libelle: string; volume: number; objets: number }[];
   volume: number;
   nb_objets: number;
   nb_photos: number;

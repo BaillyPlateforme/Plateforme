@@ -2,6 +2,7 @@ import "server-only";
 import { q, q1, transaction, type Db } from "@/crm/lib/db";
 import { nomClient } from "@/crm/lib/format";
 import { PRESTATIONS } from "@/crm/lib/tarif";
+import { destinationsDuTrajet, resoudreDestination, type Destination } from "@/lib/visite/destinations";
 import { instantParis, jourParis, lendemain, type CleFormule, type EtapeAcces, type ObjetSaisi, type OptionSaisie, type PieceSaisie } from "@/lib/visite/regles";
 
 /*
@@ -37,6 +38,8 @@ export interface Saisie {
   dossier: { id: number; ref: string; client: string; contact: string | null; telephone: string | null; email: string | null; volume: number; type: string };
   rdv: { debut: string; duree_min: number; type: string } | null;
   etapes: EtapeAcces[];
+  /** Les destinations du dossier (étapes hors départ), pour répartir l'inventaire. */
+  destinations: Destination[];
   pieces: PieceSaisie[];
   objets: ObjetSaisi[];
   photos: PhotoVisite[];
@@ -114,14 +117,17 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
     [visiteId],
   );
   if (!v) return null;
-  const [etapes, pieces, objets, photos] = await Promise.all([
-    q<EtapeAcces>(
-      "select id, genre, adresse, etage, ascenseur, escalier, portage_m, stationnement, poids_lourd, monte_meuble, monte_charge, transbordement, acces from etapes_trajet where dossier_id = $1 order by ordre, id",
+  const [lignesEtapes, pieces, lignesObjets, photos] = await Promise.all([
+    q<EtapeAcces & { ville: string | null; code_postal: string | null }>(
+      `select id, genre, adresse, etage, ascenseur, escalier, portage_m, stationnement, poids_lourd, monte_meuble, monte_charge, transbordement, acces,
+              ascenseur_taille, escalier_precision, stationnement_precision, ville, code_postal
+         from etapes_trajet where dossier_id = $1 order by ordre, id`,
       [v.dossier_id],
     ),
-    q<PieceSaisie>("select cle::text as cle, nom, ordre, remarque from pieces where dossier_id = $1 order by ordre, id", [v.dossier_id]),
-    q<ObjetSaisi>(
-      `select i.cle::text as cle, p.cle::text as piece, i.libelle, i.quantite, i.volume::float8 as volume, i.demontage, i.fragile, i.note
+    q<PieceSaisie>("select cle::text as cle, nom, ordre, remarque, etape_id as destination from pieces where dossier_id = $1 order by ordre, id", [v.dossier_id]),
+    q<ObjetSaisi & { etape_id: number | null; texte_destination: string | null }>(
+      `select i.cle::text as cle, p.cle::text as piece, i.libelle, i.quantite, i.volume::float8 as volume, i.demontage, i.fragile, i.note,
+              i.etape_id, i.destination as texte_destination
          from inventaire i join pieces p on p.id = i.piece_id where i.dossier_id = $1 and i.cle is not null order by i.ordre, i.id`,
       [v.dossier_id],
     ),
@@ -133,6 +139,19 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
     ),
   ]);
   const contact = [v.civilite, v.prenom, v.nom].filter(Boolean).join(" ");
+  const destinations = destinationsDuTrajet(lignesEtapes);
+  const etapes: EtapeAcces[] = lignesEtapes.map((e) => {
+    const { ville: _ville, code_postal: _cp, ...acces } = e;
+    void _ville;
+    void _cp;
+    return acces;
+  });
+  // Un objet rangé avant la tablette (sans étape) : sa destination se lit sur son libellé (« Arrivée » → la première arrivée).
+  const connues = new Set(destinations.map((d) => d.id));
+  const objets: ObjetSaisi[] = lignesObjets.map(({ etape_id, texte_destination, ...o }) => {
+    const destination = etape_id != null && connues.has(etape_id) ? etape_id : resoudreDestination(texte_destination, destinations);
+    return { ...o, destination, destinationLibre: destination == null ? texte_destination?.trim() || null : null };
+  });
   return {
     visite: {
       id: v.id, dossierId: v.dossier_id, statut: v.statut, remarques: v.remarques, options: v.options ?? [], formule: v.formule,
@@ -145,10 +164,27 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
     },
     rdv: v.rdv_debut ? { debut: iso(v.rdv_debut)!, duree_min: v.rdv_duree, type: v.rdv_type } : null,
     etapes,
+    destinations,
     pieces,
     objets,
     photos,
   };
+}
+
+/**
+ * Le vocabulaire de l'équipe, pour la saisie automatique des objets : les
+ * libellés déjà saisis dans au moins deux dossiers, avec leur volume le plus
+ * courant. Une faute de frappe isolée n'y entre donc pas.
+ */
+export async function objetsDejaSaisis(limite = 300): Promise<{ label: string; volume: number }[]> {
+  return q<{ label: string; volume: number }>(
+    `select label, volume from (
+       select min(btrim(libelle)) as label, mode() within group (order by volume)::float8 as volume, count(distinct dossier_id) as dossiers
+         from inventaire where btrim(libelle) <> '' and volume > 0 and volume <= 99
+        group by lower(btrim(libelle))
+     ) x where dossiers >= 2 order by dossiers desc, label limit $1`,
+    [limite],
+  );
 }
 
 // --- La tablette : les visites du jour ---------------------------------------------------------------

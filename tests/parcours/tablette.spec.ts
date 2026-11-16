@@ -1,6 +1,6 @@
 import type { Page, Request } from "@playwright/test";
-import { AVEC_COMPTES, INT, contexteEn, expect, requeteEn, surveiller, test } from "../outils/banc";
-import { ligne, pageEnErreurSure } from "./espace-client-outils";
+import { AVEC_COMPTES, INT, contexteEn, emailUnique, expect, requeteEn, surveiller, test } from "../outils/banc";
+import { avecBase, ligne, lignes, pageEnErreurSure } from "./espace-client-outils";
 
 /*
  * La tablette du commercial (/tablette), pour la visite technique chez le
@@ -115,6 +115,71 @@ test.describe("la tablette de visite technique", () => {
     expect(r?.status()).toBe(404);
     expect(s.bilan().filter((e) => !e.startsWith("console"))).toEqual([]);
     await ctx.close();
+  });
+
+  /*
+   * Retours de Céline (16/11/2026) : la saisie automatique des objets, la
+   * répartition entre les destinations du dossier, et le travail hors
+   * connexion — les gestes faits sans réseau arrivent au serveur au retour
+   * du réseau, une seule fois. Écrit en base : un dossier fictif, effacé à la fin.
+   */
+  test("hors connexion : la saisie continue et arrive une seule fois au retour du réseau ; saisie automatique et destinations", async ({ browser }) => {
+    const f = await avecBase(async (db) => {
+      const [cl] = (await db.query("insert into crm.clients (type, nom, email) values ('particulier', 'Batterie tablette hors connexion', $1) returning id", [emailUnique("tablette")])).rows;
+      const [d] = (await db.query("insert into crm.dossiers (ref, client_id, statut) values ($1, $2, 'visite') returning id", [`BT-TAB-${Date.now().toString(36)}`, cl.id])).rows;
+      const etapes = [
+        ["depart", "1 rue de Rivoli, 75001 Paris", "Paris"],
+        ["garde_meuble", "Garde-meuble, 92230 Gennevilliers", "Gennevilliers"],
+        ["arrivee", "1 place Bellecour, 69002 Lyon", "Lyon"],
+      ];
+      for (const [i, [genre, adresse, ville]] of etapes.entries())
+        await db.query("insert into crm.etapes_trajet (dossier_id, ordre, genre, adresse, ville) values ($1, $2, $3, $4, $5)", [d.id, i, genre, adresse, ville]);
+      const [v] = (await db.query("insert into crm.visites (dossier_id, options) values ($1, '[]') returning id", [d.id])).rows;
+      return { client: cl.id as number, dossier: d.id as number, visite: v.id as number };
+    });
+    const ctx = await contexteEn(browser, "equipe", TABLETTE);
+    try {
+      const page = await ctx.newPage();
+      await page.goto(`${INT}/tablette/${f.visite}`);
+      await page.getByRole("button", { name: "Salon", exact: true }).tap();
+
+      // « ta » propose les tables ; chaque lettre resserre ; une touche ajoute l'objet.
+      const recherche = page.getByPlaceholder(/Tapez un objet/);
+      await recherche.pressSequentially("ta");
+      await expect(page.getByRole("option", { name: /Table basse/ })).toBeVisible();
+      await expect(page.getByRole("option", { name: /Tapis/ })).toBeVisible();
+      await recherche.pressSequentially("ble b");
+      await expect(page.getByRole("option")).toHaveCount(1);
+      await page.getByRole("option", { name: /Table basse/ }).tap();
+      await expect(recherche).toHaveValue("");
+
+      // Deux destinations (garde-meuble, arrivée) : la table basse part au garde-meuble.
+      await expect(page.getByRole("radiogroup", { name: "Destination de la pièce" }).getByRole("radio", { checked: true })).toHaveText("Arrivée");
+      await page.getByLabel("Destination : Table basse").selectOption({ label: "Garde-meuble" });
+      await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 30_000 });
+
+      // Le réseau tombe : la saisie continue, le bandeau dit ce qui attend.
+      await ctx.setOffline(true);
+      await recherche.pressSequentially("refri");
+      await page.getByRole("option", { name: /Réfrigérateur/ }).tap();
+      await expect(page.getByText(/^Hors connexion — 1 modification en attente$/)).toBeVisible({ timeout: 15_000 });
+      expect(await lignes("select 1 from crm.inventaire where dossier_id = $1 and libelle = 'Réfrigérateur'", [f.dossier])).toHaveLength(0);
+
+      // Il revient : tout part de soi-même, une seule fois.
+      await ctx.setOffline(false);
+      await expect(page.getByText(/Réseau revenu : tout est enregistré|Tout est enregistré/)).toBeVisible({ timeout: 60_000 });
+      const inv = await lignes<{ libelle: string; destination: string; n: number }>(
+        "select libelle, destination, count(*) over (partition by cle)::int as n from crm.inventaire where dossier_id = $1 order by libelle",
+        [f.dossier],
+      );
+      expect(inv).toEqual([
+        { libelle: "Réfrigérateur", destination: "Arrivée", n: 1 },
+        { libelle: "Table basse", destination: "Garde-meuble", n: 1 },
+      ]);
+    } finally {
+      await ctx.close();
+      await avecBase((db) => db.query("delete from crm.clients where id = $1", [f.client]));
+    }
   });
 
   test("sans session, la tablette mène à la connexion de l'équipe @lecture", async () => {
