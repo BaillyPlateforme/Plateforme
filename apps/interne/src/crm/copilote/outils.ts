@@ -414,7 +414,7 @@ export async function executer(nomOutil: string, a: Args): Promise<Resultat> {
       const decides = Number(s.t30.decides) || 0;
       const taux = decides > 0 ? (Number(s.t30.signes) / decides) * 100 : null;
       const totalAnnee = s.serie.reduce((t, x) => t + Number(x.ca), 0);
-      const TYPES: Record<string, string> = { particulier: "Particuliers", compte: "Comptes", militaire: "Militaires", partenaire: "Partenaires", logement_social: "Logements sociaux" };
+      const TYPES: Record<string, string> = { particulier: "Particuliers", compte: "Clients compte", militaire: "CIMOB/DICOM", partenaire: "Partenaires", logement_social: "Logements sociaux" };
       const entites: EntiteChiffre[] = [
         {
           genre: "chiffre",

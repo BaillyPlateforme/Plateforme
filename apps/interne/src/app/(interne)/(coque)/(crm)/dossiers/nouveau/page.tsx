@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { commerciaux } from "@/crm/lib/data";
 import { currentUser } from "@/crm/lib/auth";
-import { clientARattacher, instant, sourcesCreation } from "@/crm/creation/donnees";
+import { clientARattacher, instant, originesDemande, sourcesCreation } from "@/crm/creation/donnees";
+import { entreprisesPro } from "@/crm/clients/entreprises";
 import CreationDossier from "@/crm/creation/CreationDossier";
 import { sourceDuplication } from "@/crm/duplication/donnees";
 import Bandeau from "@/ui/Bandeau";
@@ -21,11 +21,14 @@ export const metadata: Metadata = { title: "Nouveau dossier" };
  * et des cases disent ce qui est repris (src/crm/duplication).
  */
 export default async function NouveauDossier({ searchParams }: { searchParams: Promise<{ modele?: string; client?: string; depuis?: string }> }) {
-  const [u, coms, sp] = await Promise.all([currentUser(), commerciaux(), searchParams]);
-  const [sources, client, duplication] = await Promise.all([
+  const [u, sp] = await Promise.all([currentUser(), searchParams]);
+  const [sources, client, duplication, entreprises, origines] = await Promise.all([
     sourcesCreation(u.id),
     sp.client && /^\d+$/.test(sp.client) ? clientARattacher(Number(sp.client)) : null,
     sp.depuis && /^\d+$/.test(sp.depuis) ? sourceDuplication(Number(sp.depuis)) : null,
+    // Les comptes BAILLY d'un client compte (les espaces pro) : sans la liste, le champ dit qu'elle manque.
+    entreprisesPro().catch(() => []),
+    originesDemande(),
   ]);
   const modele = Number(sp.modele);
   return (
@@ -36,18 +39,19 @@ export default async function NouveauDossier({ searchParams }: { searchParams: P
         texte={
           duplication
             ? `À partir du dossier ${duplication.ref} (${duplication.client}) : saisissez le nouveau client, ou rattachez un client existant, et choisissez ce qui est repris.`
-            : "Le strict nécessaire ici ; tout le reste se complète sur la fiche."
+            : "Ce que l’on note dès le premier appel ; tout le reste se complète sur la fiche."
         }
         secondaire={duplication ? { label: `Retour à ${duplication.ref}`, href: `/dossiers/${duplication.id}` } : undefined}
       />
       <AvecMenu menu={<MenuCreation page="nouveau" />}>
       <CreationDossier
         moi={{ id: u.id, role: u.role }}
-        commerciaux={coms.map((c) => ({ id: c.id, nom: c.nom }))}
         monDernier={sources.monDernier}
         dernierAgence={sources.dernierAgence}
         modeles={sources.modeles}
         modeleInitial={Number.isSafeInteger(modele) && modele > 0 ? modele : null}
+        entreprises={entreprises.map((e) => ({ id: e.id, nom: e.nom, actif: e.actif }))}
+        origines={origines}
         clientInitial={client}
         duplication={duplication}
         maintenant={instant()}

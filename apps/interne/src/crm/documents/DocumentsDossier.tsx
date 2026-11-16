@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- les lignes SQL du CRM ne sont pas typées */
 import { dateFr, eur, m3, nomClient, TYPES } from "@/crm/lib/format";
 import { emballages } from "@/crm/lib/tarif";
+import { telephoneEtLibelle, telLisible } from "@/crm/clients/telephones";
 import { Cases, Encadre, FeuilleBailly, Section, Signatures, Tableau } from "./FeuilleBailly";
 
 /*
@@ -18,15 +19,43 @@ const etage = (e: unknown) => {
 const contact = (d: any) => [d.civilite, d.prenom, d.nom].filter(Boolean).join(" ");
 const periode = (d: any) => d.periode ?? (d.date_chargement ? dateFr(d.date_chargement, { day: "numeric", month: "long", year: "numeric" }) : "À convenir");
 
+/** Oui ou non, comme les cases de la fiche Créagidem. */
+const ouiNon = (v: unknown) => (v ? "oui" : "non");
+
+/**
+ * Toutes les adresses du dossier, dans l'ordre du trajet — plusieurs
+ * chargements et plusieurs livraisons compris —, chacune avec ce que la fiche
+ * du premier appel en note (retours de Céline, 16/11/2026) : étage,
+ * ascenseur et sa taille, monte-meubles, transbordement, portage, code
+ * d'accès, surface habitable, accès en camion, précisions.
+ */
 function Itineraire({ d }: { d: any }) {
+  const km = d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km par la route` : null;
   return (
-    <Section titre="Itinéraire">
+    <Section titre={km ? `Itinéraire · ${km}` : "Itinéraire"}>
       <Tableau
         entetes={["Étape", "Adresse", "Accès"]}
         lignes={(d.stops as any[]).map((e) => [
           <b key="g">{GENRE[e.genre] ?? "Étape"}</b>,
-          e.adresse ?? "—",
-          [etage(e.etage), e.ascenseur ? "ascenseur" : "sans ascenseur", e.acces].filter(Boolean).join(" · "),
+          [e.adresse, [e.code_postal && !String(e.adresse ?? "").includes(e.code_postal) ? e.code_postal : null, e.ville && !String(e.adresse ?? "").toLowerCase().includes(String(e.ville).toLowerCase()) ? e.ville : null].filter(Boolean).join(" ")]
+            .filter(Boolean)
+            .join(" · ") || "—",
+          e.genre === "garde_meuble"
+            ? ""
+            : [
+                etage(e.etage),
+                e.ascenseur ? `ascenseur : oui${e.ascenseur_taille ? ` (${e.ascenseur_taille} pers.)` : ""}` : "ascenseur : non",
+                `monte-meubles : ${e.monte_meuble === "a_evaluer" ? "à évaluer" : ouiNon(e.monte_meuble === "oui")}`,
+                `transbordement : ${ouiNon(e.transbordement)}`,
+                `portage : ${ouiNon(e.portage)}${e.portage_m != null ? ` (${e.portage_m} m)` : ""}`,
+                e.monte_charge ? "monte-charge" : null,
+                e.code_acces ? `code d’accès : ${e.code_acces}` : null,
+                e.surface_m2 != null ? `surface habitable : ${e.surface_m2} m²` : null,
+                e.acces_camion ? `accès camion : ${e.acces_camion}` : null,
+                e.acces,
+              ]
+                .filter(Boolean)
+                .join(" · "),
         ])}
       />
     </Section>
@@ -38,12 +67,26 @@ export function FicheVisiteBailly({ d }: { d: any }) {
   const emb = emballages(d.volume);
   const pieces = [...new Set((d.inv as any[]).map((i) => i.piece))] as string[];
   return (
-    <FeuilleBailly etiquette="Fiche de visite" titre={nomClient(d)} sousTitre={`Dossier ${d.ref} · ${TYPES[d.type] ?? ""}`} details={[d.commercial && `Commercial : ${d.commercial}`]}>
+    <FeuilleBailly
+      etiquette="Fiche de visite"
+      titre={nomClient(d)}
+      sousTitre={`Dossier ${d.ref} · ${TYPES[d.type] ?? ""}`}
+      details={[d.commercial && `Commercial : ${d.commercial}`, d.origine_demande && `Origine : ${d.origine_demande}`]}
+    >
       <Cases
         items={[
-          { label: "Client", valeur: nomClient(d), detail: [contact(d) !== nomClient(d) ? contact(d) : null, d.telephone, d.email].filter(Boolean).join(" · ") || "—", fonce: true },
-          { label: "Période", valeur: periode(d), detail: "Chargement" },
-          { label: "Volume", valeur: m3(d.volume), detail: "Volume estimé" },
+          {
+            label: "Client",
+            valeur: nomClient(d),
+            // Tous ses téléphones, chacun avec ce qu'il désigne (la page d'impression les lit : telephonesDuClient).
+            detail: [contact(d) !== nomClient(d) ? contact(d) : null, ...(d.telephones ?? (d.telephone ? [{ numero: telLisible(d.telephone), libelle: "" }] : [])).map(telephoneEtLibelle), d.email].filter(Boolean).join(" · ") || "—",
+            fonce: true,
+          },
+          { label: "Période", valeur: periode(d), detail: "Pour tout le déménagement" },
+          // Un CIMOB/DICOM : ses droits (le volume accordé par l'administration) ; le volume réel, pour l'équipe.
+          d.volume_droits != null
+            ? { label: "Droits", valeur: m3(Number(d.volume_droits)), detail: `Volume réel : ${m3(d.volume)}` }
+            : { label: "Volume", valeur: m3(d.volume), detail: "Volume estimé" },
           { label: "Traité par", valeur: d.traite_par ?? "—", detail: d.commercial ? `Commercial : ${d.commercial}` : undefined },
         ]}
       />

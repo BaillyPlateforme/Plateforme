@@ -11,6 +11,8 @@ import { factureComplete, mentionsDeLaFacture, mentionsEmetteur } from "@/crm/fa
 import { versInterne } from "@/lib/adresses";
 import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
+import { q1 } from "@/crm/lib/db";
+import { telephonesDuClient } from "@/crm/clients/telephones";
 
 export const dynamic = "force-dynamic";
 
@@ -70,11 +72,13 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
       </>
     );
   }
+  // La fiche de visite : tous les téléphones du client, chacun avec ce qu'il désigne (retours de Céline, 16/11/2026).
+  const tels = doc === "fiche" ? await q1("select telephone, telephone_libelle, telephone2, telephone2_libelle, telephones_autres from clients where id=$1", [d.client_id]) : null;
   return (
     <>
       <style>{"body{background:#ececec}"}</style>
       <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
-      {doc === "soustraitance" ? <SousTraitanceBailly d={d} lv={lv} /> : <FicheVisiteBailly d={d} />}
+      {doc === "soustraitance" ? <SousTraitanceBailly d={d} lv={lv} /> : <FicheVisiteBailly d={{ ...d, telephones: tels ? telephonesDuClient(tels) : undefined }} />}
     </>
   );
 }

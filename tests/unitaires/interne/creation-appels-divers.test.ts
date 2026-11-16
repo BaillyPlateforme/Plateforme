@@ -124,7 +124,8 @@ describe("creation/commun · périodes, mois du CA, libellés", () => {
     expect(depuis(il(45), maintenant)).toBe("il y a 2 mois");
   });
   it("libellés et gardes des segments et types de déménagement", () => {
-    expect(libelleSegment("compte")).toBe("Compte entreprise");
+    expect(libelleSegment("compte")).toBe("Client compte");
+    expect(libelleSegment("militaire")).toBe("CIMOB/DICOM");
     expect(libelleSegment("x")).toBeNull();
     expect(libelleType("gm")).toBe("Garde-meuble");
     expect(segmentValide("partenaire") && typeValide("aerien")).toBe(true);

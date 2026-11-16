@@ -8,8 +8,11 @@ import { espaceDuDossier, projeterEspace, signerDevisUnique } from "@/crm/lib/es
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { envoyerConfirmationRdv } from "@/crm/rdv/sms";
 import { randomBytes } from "node:crypto";
-import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
+import { lireLieux, moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
 import { oublierCandidats } from "@/crm/creation/donnees";
+import { majDistanceDossier } from "@/crm/creation/distance";
+import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
+import { entrepriseValide } from "@/crm/clients/entreprises";
 import { instantParis } from "@/lib/visite/regles";
 import { journaliser } from "@/crm/lib/journal";
 import { anneeParis } from "@/crm/lib/format";
@@ -64,25 +67,51 @@ export async function creerDossier(f: FormData) {
   const ref = await numero("BD", "dossiers");
   const com = n(f, "commercial_id") ?? (u.role === "commercial" ? u.id : null);
   const moisCa = s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : moisDepuisPeriode(s(f, "periode"));
+  // La fiche du premier appel (retours de Céline, 16/11/2026) : les téléphones et ce que chacun désigne, le compte
+  // BAILLY d'un client compte (un espace pro qui existe), les droits d'un CIMOB/DICOM, l'origine, les adresses.
+  const tels = colonnesTelephones(f.has("tel_numero") ? telephonesDuFormulaire(f) : nettoyerTelephones([{ numero: s(f, "telephone") ?? "", libelle: "" }]));
+  const entreprise = type === "compte" && f.has("espace_pro_id") ? ((await entrepriseValide(f.get("espace_pro_id"))) ?? null) : null;
+  const droits = n(f, "volume_droits");
+  const lieux = lireLieux(f.has("lieux") ? String(f.get("lieux")) : [
+    { genre: "depart", adresse: s(f, "depart"), etage: s(f, "depart_etage"), ascenseur: f.get("depart_asc") === "on", acces: s(f, "depart_acces") },
+    { genre: "arrivee", adresse: s(f, "arrivee"), etage: s(f, "arrivee_etage"), ascenseur: f.get("arrivee_asc") === "on", acces: s(f, "arrivee_acces") },
+  ]);
+  const kmEcran = n(f, "distance_km");
   const { id, dup } = await transaction(async (db) => {
     const rattache = n(f, "client_id");
     let clientId = rattache ? (await db.query<{ id: number }>("select id from clients where id=$1", [rattache]))[0]?.id : undefined;
     if (!clientId) {
       [{ id: clientId }] = await db.query<{ id: number }>(
-        "insert into clients(type,civilite,prenom,nom,societe,email,telephone) values($1,$2,$3,$4,$5,$6,$7) returning id",
-        [type, s(f, "civilite"), s(f, "prenom"), s(f, "nom") ?? s(f, "societe") ?? "Sans nom", s(f, "societe"), s(f, "email"), s(f, "telephone")]);
+        `insert into clients(type,civilite,prenom,nom,societe,email,telephone,telephone_libelle,telephone2,telephone2_libelle,telephones_autres,espace_pro_id)
+         values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+        [type, s(f, "civilite"), s(f, "prenom"), s(f, "nom") ?? s(f, "societe") ?? "Sans nom", s(f, "societe"), s(f, "email"),
+          tels.telephone, tels.telephone_libelle, tels.telephone2, tels.telephone2_libelle, tels.telephones_autres, entreprise]);
     }
+    // Les droits ne valent que pour un client CIMOB/DICOM (le segment du client rattaché, sinon celui de l'écran).
+    const segment = rattache ? (await db.query<{ type: string }>("select type from clients where id=$1", [clientId]))[0]?.type : type;
     const [d] = await db.query<{ id: number }>(
-      `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,type_demenagement,vehicule,cree_par_id)
-       values($1,$2,$3,$4,'prospect',$5,$6,$7,$8,$9,$10,$11) returning id`,
-      [ref, clientId, com, n(f, "traite_par_id"), s(f, "periode"), moisCa, n(f, "volume") ?? 0, s(f, "observations"), tdm, f.get("vehicule") === "on", u.id]);
-    const etape = "insert into etapes_trajet(dossier_id,ordre,genre,adresse,etage,ascenseur,acces) values($1,$2,$3,$4,$5,$6,$7)";
-    await db.query(etape, [d.id, 0, "depart", s(f, "depart"), s(f, "depart_etage"), f.get("depart_asc") === "on", s(f, "depart_acces")]);
-    if (f.get("garde_meuble") === "on") await db.query(etape, [d.id, 1, "garde_meuble", "Garde-meuble Bailly", null, false, null]);
-    await db.query(etape, [d.id, 2, "arrivee", s(f, "arrivee"), s(f, "arrivee_etage"), f.get("arrivee_asc") === "on", s(f, "arrivee_acces")]);
+      `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,type_demenagement,vehicule,cree_par_id,origine_demande,volume_droits,distance_km)
+       values($1,$2,$3,$4,'prospect',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
+      [ref, clientId, com, n(f, "traite_par_id"), s(f, "periode"), moisCa, n(f, "volume") ?? 0, s(f, "observations"), tdm, f.get("vehicule") === "on", u.id,
+        s(f, "origine")?.slice(0, 120) ?? null,
+        segment === "militaire" && droits != null && droits > 0 && droits < 100_000 ? Math.round(droits * 100) / 100 : null,
+        kmEcran != null && Number.isInteger(kmEcran) && kmEcran >= 0 && kmEcran <= 40_000 ? kmEcran : null]);
+    // Les adresses dans l'ordre du trajet : les chargements, le garde-meuble s'il y en a un, les livraisons.
+    const etape = `insert into etapes_trajet(dossier_id,ordre,genre,adresse,code_postal,ville,pays,etage,ascenseur,ascenseur_taille,monte_meuble,transbordement,portage,code_acces,surface_m2,acces_camion,acces)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`;
+    let ordre = 0;
+    const poser = (e: (typeof lieux)[number]) =>
+      db.query(etape, [d.id, ordre++, e.genre, e.adresse, e.code_postal, e.ville, e.pays, e.etage, e.ascenseur, e.ascenseur_taille, e.monte_meuble, e.transbordement, e.portage, e.code_acces, e.surface_m2, e.acces_camion, e.acces]);
+    for (const e of lieux.filter((x) => x.genre === "depart")) await poser(e);
+    if (f.get("garde_meuble") === "on") await db.query("insert into etapes_trajet(dossier_id,ordre,genre,adresse) values($1,$2,'garde_meuble','Garde-meuble Bailly')", [d.id, ordre++]);
+    for (const e of lieux.filter((x) => x.genre === "arrivee")) await poser(e);
     // Une duplication (src/crm/duplication/dossier.ts) : ce qu'elle reprend du dossier d'origine, dans la même transaction.
     return { id: d.id, dup: await reprendreDuplication(db, d.id, clientId!, u, f) };
   });
+  // Les kilomètres que l'écran n'a pas eu le temps de calculer : par le serveur, sans faire attendre plus de quelques secondes.
+  if (kmEcran == null && lieux.filter((e) => e.adresse).length >= 2) {
+    await Promise.race([majDistanceDossier(id), new Promise((ok) => setTimeout(ok, 6000))]);
+  }
   // Le point de départ choisi à l'écran : un modèle (son compteur d'usage avance) ou un dossier passé.
   let depuis = "";
   const sourceId = n(f, "source_id");
@@ -211,7 +240,7 @@ export async function signerDevis(id: number, devisId: number) {
 export async function commandeSansDevis(id: number) {
   await exiger();
   await q("update dossiers set statut='commande' where id=$1 and statut in ('prospect','visite','devis')", [id]);
-  await log(id, "Passé en commande sans devis (dossier militaire)"); refresh(id);
+  await log(id, "Passé en commande sans devis (dossier CIMOB/DICOM)"); refresh(id);
 }
 export async function planifierDemenagement(id: number, f: FormData) {
   await exiger();

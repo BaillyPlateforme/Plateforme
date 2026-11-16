@@ -8,6 +8,9 @@ import { dateFr, eur, m3, TYPES } from "@/crm/lib/format";
 import { commencerVisite } from "@/crm/visites/actions";
 import ChampPrestataire from "@/crm/partenaires/ChampPrestataire";
 import ChampAdresse from "@/ui/ChampAdresse";
+import LienStreetView from "@/ui/LienStreetView";
+import ChampsTelephones from "@/crm/clients/ChampsTelephones";
+import { telephonesDuClient } from "@/crm/clients/telephones";
 import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
@@ -39,7 +42,7 @@ function Champ({ l = 6, titre, aide, children }: { l?: 2 | 3 | 4 | 6 | 8 | 12; t
   );
 }
 
-/** « Fiche » : l'identité du client, reprise du formulaire de l'ancienne fiche (deux téléphones). */
+/** « Fiche » : l'identité du client, reprise du formulaire de l'ancienne fiche (ses téléphones), et les droits d'un CIMOB/DICOM. */
 export function FenetreIdentite({ d, espaceOuvert, entreprises = [] }: { d: Row; espaceOuvert: boolean; entreprises?: { id: string; nom: string; actif: boolean }[] }) {
   return (
     <form action={F.majIdentite.bind(null, d.id)}>
@@ -69,12 +72,19 @@ export function FenetreIdentite({ d, espaceOuvert, entreprises = [] }: { d: Row;
             ))}
           </select>
         </Champ>
-        <Champ l={6} titre="Téléphone" aide="reçoit les SMS du dossier">
-          <input type="tel" name="client_telephone" defaultValue={d.telephone ?? ""} />
-        </Champ>
-        <Champ l={6} titre="Autre téléphone">
-          <input type="tel" name="client_telephone2" defaultValue={d.telephone2 ?? ""} />
-        </Champ>
+        {/* Plusieurs téléphones, chacun avec ce qu'il désigne (retours de Céline, 16/11/2026) : le premier reçoit les SMS. */}
+        <div className={s.champ} data-l={12}>
+          <span>
+            Téléphones
+            <small> · le premier reçoit les SMS du dossier</small>
+          </span>
+          <ChampsTelephones initial={telephonesDuClient(d)} />
+        </div>
+        {(d.type === "militaire" || d.volume_droits != null) && (
+          <Champ l={6} titre="Droits (m³)" aide="CIMOB/DICOM : volume accordé par l'administration">
+            <input type="text" inputMode="decimal" name="volume_droits" defaultValue={d.volume_droits != null ? String(Number(d.volume_droits)).replace(".", ",") : ""} />
+          </Champ>
+        )}
         <Champ l={entreprises.length ? 6 : 12} titre="E-mail" aide={espaceOuvert ? "identifiant de l'espace client : il se modifie depuis l'espace" : undefined}>
           <input type="email" name="client_email" defaultValue={d.email ?? ""} readOnly={espaceOuvert} />
         </Champ>
@@ -157,6 +167,8 @@ export function FenetreSuivi({ d, utilisateurs }: { d: Row; utilisateurs: Row[] 
  */
 export function FenetreAdresses({ d }: { d: Row }) {
   const moisCa = d.mois_ca ? new Date(d.mois_ca).toISOString().slice(0, 7) : "";
+  // Un chargement ou une livraison de plus se retire ; le seul départ, la seule arrivée, jamais.
+  const nombre = (genre: string) => d.stops.filter((x: Row) => x.genre === genre).length;
   return (
     <form action={F.majItineraire.bind(null, d.id)}>
       {d.stops.map((e: Row, i: number) => (
@@ -164,11 +176,13 @@ export function FenetreAdresses({ d }: { d: Row }) {
           <legend>
             <i>{i + 1}</i>
             {GENRE_ETAPE[e.genre] ?? "Étape"}
-            {["autre", "garde_meuble"].includes(e.genre) && (
+            {(["autre", "garde_meuble"].includes(e.genre) || (["depart", "arrivee"].includes(e.genre) && nombre(e.genre) > 1)) && (
               <button name="retirer" value={e.id} data-garder="" title="Retirer cette étape">
                 Retirer
               </button>
             )}
+            {/* Street View sur cette adresse (retours de Céline, 16/11/2026) : un lien vers Google Maps, sans clé. */}
+            {e.adresse && <LienStreetView adresse={[e.adresse, e.code_postal && !String(e.adresse).includes(e.code_postal) ? e.code_postal : null, e.ville && !String(e.adresse).toLowerCase().includes(String(e.ville).toLowerCase()) ? e.ville : null].filter(Boolean).join(" ")} />}
           </legend>
           <div className={s.grille}>
             <Champ l={6} titre="Adresse">
@@ -251,6 +265,27 @@ export function FenetreAdresses({ d }: { d: Row }) {
                 Transbordement
               </label>
             </div>
+            {/* La fiche du premier appel (retours de Céline, 16/11/2026) : ce que l'écran de création note dès l'appel. */}
+            <Champ l={3} titre="Taille de l’ascenseur" aide="personnes">
+              <input type="text" name={`ascenseur_taille_${e.id}`} defaultValue={e.ascenseur_taille ?? ""} />
+            </Champ>
+            <Champ l={3} titre="Portage">
+              <select name={`portage_oui_${e.id}`} defaultValue={e.portage ? "on" : ""}>
+                <option value="">Non</option>
+                <option value="on">Oui</option>
+              </select>
+            </Champ>
+            <Champ l={e.genre === "depart" ? 4 : 6} titre="Code d’accès">
+              <input type="text" name={`code_acces_${e.id}`} defaultValue={e.code_acces ?? ""} placeholder="Codes, interphone…" />
+            </Champ>
+            {e.genre === "depart" && (
+              <Champ l={2} titre="Surface (m²)">
+                <input type="text" name={`surface_m2_${e.id}`} defaultValue={e.surface_m2 ?? ""} inputMode="numeric" />
+              </Champ>
+            )}
+            <Champ l={12} titre="Accès en camion">
+              <input type="text" name={`acces_camion_${e.id}`} defaultValue={e.acces_camion ?? ""} />
+            </Champ>
             <Champ l={12} titre="Précisions d’accès">
               <input type="text" name={`acces_${e.id}`} defaultValue={e.acces ?? ""} placeholder="Code portail, cour intérieure, horaires de la rue…" />
             </Champ>
@@ -274,7 +309,16 @@ export function FenetreAdresses({ d }: { d: Row }) {
         </Champ>
       </div>
       <div className={s.pied}>
-        <p>Les adresses servent aussi au devis, aux lettres de voiture et à l’espace du client.</p>
+        <p>
+          {d.distance_km != null && <b>{Number(d.distance_km).toLocaleString("fr-FR")} km par la route · </b>}
+          Les adresses servent aussi au devis, aux lettres de voiture et à l’espace du client.
+        </p>
+        <Valider garder nom="ajouter" valeur="depart" ton="doux">
+          + Chargement
+        </Valider>
+        <Valider garder nom="ajouter" valeur="arrivee" ton="doux">
+          + Livraison
+        </Valider>
         <Valider garder nom="ajouter" valeur="1" ton="doux">
           + Ajouter une étape
         </Valider>

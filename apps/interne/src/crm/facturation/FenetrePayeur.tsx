@@ -193,7 +193,7 @@ export default function FenetrePayeur({
                   <button key={r.clientId} type="button" className={s.resultat} aria-pressed={choisi?.clientId === r.clientId}
                     onClick={() => { setChoisi(r); setAdrPayeur(adresseDe(r)); }}>
                     <i>{initiales(r.nom) || "?"}</i>
-                    <span><b>{r.nom}</b><small>{[r.contact, r.type === "compte" ? "Compte" : r.type === "partenaire" ? "Partenaire" : "Client", r.ville, r.siren && `SIREN ${r.siren}`].filter(Boolean).join(" · ")}</small></span>
+                    <span><b>{r.nom}</b><small>{[r.contact, r.type === "compte" ? "Client compte" : r.type === "partenaire" ? "Partenaire" : "Client", r.ville, r.siren && `SIREN ${r.siren}`].filter(Boolean).join(" · ")}</small></span>
                   </button>
                 ))}
               </div>

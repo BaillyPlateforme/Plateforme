@@ -1,6 +1,7 @@
 import "server-only";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { nomClient } from "@/crm/lib/format";
+import { lireParametres } from "@/crm/devis/donnees";
 import {
   cleEmail, cleTelephone, lieu, memeVille, scorer,
   type ClientConnu, type DoublonPossible, type Lieu, type Proche, type Reperes, type Saisie, type SourceDossier, type SourceModele,
@@ -16,12 +17,15 @@ import {
 /** L'instant du rendu, transmis à l'écran : ses « il y a 3 j » sont les mêmes au serveur et au navigateur. */
 export const instant = () => Date.now();
 
+/** Ce qui se reprend d'une étape : l'adresse et la fiche du premier appel (retours de Céline, 16/11/2026). */
+const ETAPE = `adresse, etage, ascenseur, acces, code_postal, ville, pays, ascenseur_taille, monte_meuble, transbordement, portage, code_acces, surface_m2, acces_camion`;
+
 /** Un dossier et ce qui s'en reprend : ses étapes de départ et d'arrivée, ses options. */
 const DOSSIER = `select d.id, d.ref, d.client_id, d.statut, d.cree_le, d.type_demenagement, d.volume::float8 as volume, d.vehicule, d.observations,
     c.type, c.civilite, c.prenom, c.nom, c.societe, u.nom as auteur,
-    (select row_to_json(e) from (select adresse, etage, ascenseur, acces from etapes_trajet
+    (select row_to_json(e) from (select ${ETAPE} from etapes_trajet
        where dossier_id = d.id and genre = 'depart' order by ordre, id limit 1) e) as depart,
-    (select row_to_json(e) from (select adresse, etage, ascenseur, acces from etapes_trajet
+    (select row_to_json(e) from (select ${ETAPE} from etapes_trajet
        where dossier_id = d.id and genre = 'arrivee' order by ordre desc, id desc limit 1) e) as arrivee,
     exists (select 1 from etapes_trajet where dossier_id = d.id and genre = 'garde_meuble') as garde_meuble
   from dossiers d join clients c on c.id = d.client_id left join utilisateurs u on u.id = d.cree_par_id`;
@@ -66,6 +70,23 @@ export async function modelesDossier(): Promise<SourceModele[]> {
     auteur: r.auteur ?? null,
     creeLe: new Date(r.cree_le).toISOString(),
   }));
+}
+
+/**
+ * L'origine de la demande (« Origine » de la fiche Créagidem) : la liste que
+ * Bailly règle dans les Paramètres du devis (« Origines de la demande »),
+ * celle que propose déjà l'onglet Divers du devis, puis ce que l'équipe a
+ * déjà saisi. Aucune liste n'est écrite dans le code : tant que Bailly n'a
+ * rien réglé, l'écran laisse écrire l'origine et dit où définir la liste.
+ */
+export async function originesDemande(): Promise<{ reglees: string[]; saisies: string[] }> {
+  const [p, deja] = await Promise.all([
+    lireParametres().catch(() => null),
+    q<{ v: string }>("select distinct origine_demande as v from dossiers where coalesce(origine_demande, '') <> '' order by 1 limit 40").catch(() => []),
+  ]);
+  const reglees = [...new Set((p?.origines ?? []).map((x) => x.trim()).filter(Boolean))];
+  const saisies = [...new Set(deja.map((r) => r.v.trim()).filter((x) => x && !reglees.includes(x)))];
+  return { reglees, saisies };
 }
 
 /** Les points de départ de l'écran : mon dernier dossier, le dernier de l'agence, les modèles. */

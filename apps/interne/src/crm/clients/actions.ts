@@ -7,6 +7,7 @@ import { journaliser } from "@/crm/lib/journal";
 import { projeterEspace } from "@/crm/lib/espace";
 import { TYPES } from "@/crm/lib/format";
 import { entrepriseValide } from "./entreprises";
+import { colonnesTelephones, telephonesDuFormulaire } from "./telephones";
 
 /*
  * Les gestes de la fiche d'un client (/clients/<id>) : son identité, sa
@@ -38,6 +39,10 @@ const CHAMPS: [cle: string, libelle: string, max?: number][] = [
   ["type", "type"],
   ["telephone", "téléphone"],
   ["telephone2", "autre téléphone"],
+  // Ce que désigne chaque numéro, et les numéros suivants (retours de Céline, 16/11/2026 ; ./telephones.ts).
+  ["telephone_libelle", "libellé du téléphone"],
+  ["telephone2_libelle", "libellé de l'autre téléphone"],
+  ["telephones_autres", "autres téléphones"],
   ["email", "e-mail"],
   ["notes", "notes", 4000],
   ["facturation_adresse", "adresse de facturation"],
@@ -75,6 +80,13 @@ export async function majClient(id: number, f: FormData) {
   const espaces = await espacesDu(id);
   const valeurs: Record<string, string | null> = {};
   for (const [cle, , max] of CHAMPS) valeurs[cle] = s(f, cle, max);
+  // Les téléphones arrivent en liste (tel_numero, tel_libelle) ; sans elle, ceux d'avant restent.
+  const tels = f.has("tel_numero") ? colonnesTelephones(telephonesDuFormulaire(f)) : null;
+  for (const cle of ["telephone", "telephone2", "telephone_libelle", "telephone2_libelle", "telephones_autres"] as const) {
+    valeurs[cle] = tels ? tels[cle] : cle === "telephones_autres" ? JSON.stringify(avant.telephones_autres ?? []) : (avant[cle] ?? null);
+  }
+  // La liste en base est un jsonb : comparée sous la même forme que celle reçue.
+  avant.telephones_autres = JSON.stringify(avant.telephones_autres ?? []);
   // L'identifiant de l'espace client ne se change pas d'ici ; un type inconnu non plus.
   if (espaces.length) valeurs.email = avant.email ?? null;
   if (!valeurs.type || !Object.hasOwn(TYPES, valeurs.type)) valeurs.type = avant.type;

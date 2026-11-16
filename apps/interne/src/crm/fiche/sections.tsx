@@ -36,6 +36,7 @@ import {
   STATUTS_SERVICE,
 } from "./fenetres";
 import { Picto } from "./Picto";
+import { telephoneEtLibelle, telephonesDuClient } from "@/crm/clients/telephones";
 import type { BoutonBarre, FenetreFiche, Geste, Ligne, Memo, Onglet, Outil, SectionFiche } from "./types";
 import s from "./fiche.module.css";
 
@@ -206,7 +207,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
   const planifie = /^\d+$/.test(c.sp.planifie ?? "") ? data.rdvs.find((r) => r.id === Number(c.sp.planifie)) : undefined;
   const transfertDevis: Geste =
     d.type === "militaire"
-      ? off("Dossier militaire : pas de devis.")
+      ? off("Dossier CIMOB/DICOM : pas de devis.")
       : signe
         ? off("Un devis est déjà signé.")
         : d.volume <= 0
@@ -516,7 +517,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
     vide:
       d.type === "militaire" ? (
         <>
-          <b>Dossier militaire : pas de devis</b>Le client dépose ses documents et le dossier passe directement en commande.
+          <b>Dossier CIMOB/DICOM : pas de devis</b>Le client dépose ses documents et le dossier passe directement en commande.
         </>
       ) : (
         <>
@@ -526,7 +527,7 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
       ),
     gestes: {
       // « Nouveau » : la page des devis du dossier, ouverte sur ses trois départs (libre, formules choisies, duplication d'un devis).
-      nouveau: d.type === "militaire" ? off("Dossier militaire : pas de devis.") : signe ? off("Un devis est déjà signé.") : { lien: `/devis?dossier=${id}&nouveau=libre` },
+      nouveau: d.type === "militaire" ? off("Dossier CIMOB/DICOM : pas de devis.") : signe ? off("Un devis est déjà signé.") : { lien: `/devis?dossier=${id}&nouveau=libre` },
       formules: transfertDevis,
       imprimer: d.devis.length ? { lien: `/imprimer/${id}?doc=devis` } : off("Pas encore de devis."),
       email: d.email && d.devis.length ? { lien: mailto } : off(d.email ? "Pas encore de devis." : "Pas d'adresse e-mail sur la fiche client."),
@@ -1068,7 +1069,8 @@ function commun(c: Contexte, fenetres: Record<string, FenetreFiche>): SectionFic
 
   // Contacts : le client lui-même, puis les autres personnes à joindre.
   fenetres["contact-nouveau"] = { surtitre: `Client n° ${d.client_id}`, titre: "Nouveau contact", contenu: <FenetreContact d={d} /> };
-  const telClient = [d.telephone, d.telephone2].filter(Boolean).join(" · ");
+  // Tous ses téléphones, par paires de chiffres, chacun avec ce qu'il désigne (« 06 12 34 56 78 (Mme) »).
+  const telClient = telephonesDuClient(d).map(telephoneEtLibelle).join(" · ");
   const lignesContacts: Ligne[] = [
     {
       id: "principal",

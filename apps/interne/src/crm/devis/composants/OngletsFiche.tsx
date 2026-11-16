@@ -14,7 +14,7 @@ const TYPES_DEMENAGEMENT: [string, string][] = [
   ["national", "National"], ["international", "International"], ["maritime", "International maritime"],
   ["aerien", "International aérien"], ["gm", "Garde-meuble seul"], ["bureau", "Transfert de bureau"],
 ];
-const TYPES_CLIENT: [string, string][] = [["particulier", "Particulier"], ["compte", "Compte"], ["militaire", "Militaire"], ["partenaire", "Partenaire"], ["logement_social", "Logement social"]];
+const TYPES_CLIENT: [string, string][] = [["particulier", "Particulier"], ["compte", "Client compte"], ["militaire", "CIMOB/DICOM"], ["partenaire", "Partenaire"], ["logement_social", "Logement social"]];
 
 /* ---------- Adresses et accès ---------- */
 

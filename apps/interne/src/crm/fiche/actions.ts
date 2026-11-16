@@ -6,6 +6,9 @@ import { journaliser } from "@/crm/lib/journal";
 import { anneeParis } from "@/crm/lib/format";
 import { projeterEspace } from "@/crm/lib/espace";
 import { entrepriseValide } from "@/crm/clients/entreprises";
+import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
+import { majDistanceDossier } from "@/crm/creation/distance";
+import { ACCES_CAMION_DEFAUT } from "@/crm/creation/commun";
 import { conflit, occupation } from "@/crm/visites/creneaux";
 import { estVisite } from "@/crm/visites/cycle";
 import { instantParis, momentVisite } from "@/lib/visite/regles";
@@ -73,11 +76,26 @@ export async function majIdentite(id: number, f: FormData) {
   const nom = s(f, "client_nom");
   if (!nom) return;
   const espace = await q1("select 1 as n from public.ec_dossiers where crm_dossier_id=$1 limit 1", [id]).catch(() => null);
-  const valeurs = [id, s(f, "client_civilite"), s(f, "client_prenom"), nom, s(f, "client_societe"), s(f, "client_telephone"), s(f, "client_telephone2")];
+  // Les téléphones et ce que chacun désigne (retours de Céline, 16/11/2026) ; l'ancien formulaire à deux champs reste compris.
+  const tels = colonnesTelephones(
+    f.has("tel_numero")
+      ? telephonesDuFormulaire(f)
+      : nettoyerTelephones([{ numero: s(f, "client_telephone") ?? "", libelle: "" }, { numero: s(f, "client_telephone2") ?? "", libelle: "" }]),
+  );
+  const valeurs = [
+    id, s(f, "client_civilite"), s(f, "client_prenom"), nom, s(f, "client_societe"),
+    tels.telephone, tels.telephone2, tels.telephone_libelle, tels.telephone2_libelle, tels.telephones_autres,
+  ];
+  const tel = "telephone=$6, telephone2=$7, telephone_libelle=$8, telephone2_libelle=$9, telephones_autres=$10::jsonb";
   if (espace) {
-    await q("update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, telephone=$6, telephone2=$7 where id=(select client_id from dossiers where id=$1)", valeurs);
+    await q(`update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, ${tel} where id=(select client_id from dossiers where id=$1)`, valeurs);
   } else {
-    await q("update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, telephone=$6, telephone2=$7, email=$8 where id=(select client_id from dossiers where id=$1)", [...valeurs, s(f, "client_email")]);
+    await q(`update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, ${tel}, email=$11 where id=(select client_id from dossiers where id=$1)`, [...valeurs, s(f, "client_email")]);
+  }
+  // Les droits d'un CIMOB/DICOM : le volume accordé par l'administration (crm.dossiers.volume_droits). Vide : aucun.
+  if (f.has("volume_droits")) {
+    const droits = n(f, "volume_droits");
+    await q("update dossiers set volume_droits=$2 where id=$1", [id, droits != null && droits > 0 && droits < 100_000 ? Math.round(droits * 100) / 100 : null]);
   }
   // Le type de client fixe le parcours de l'espace client (segment, cahier des charges §2).
   const type = s(f, "type_client");
@@ -120,6 +138,7 @@ export async function majItineraire(id: number, f: FormData) {
   await currentUser();
   const etapes = await q<{ id: number }>("select id from etapes_trajet where dossier_id=$1", [id]);
   const ajouter = f.get("ajouter") === "1";
+  const ajoutLieu = f.get("ajouter") === "depart" ? "depart" : f.get("ajouter") === "arrivee" ? "arrivee" : null;
   const retirer = n(f, "retirer");
   await transaction(async (db) => {
     await db.query("select 1 from dossiers where id=$1 for update", [id]);
@@ -140,6 +159,25 @@ export async function majItineraire(id: number, f: FormData) {
         ],
       );
     }
+    // La fiche du premier appel (retours de Céline, 16/11/2026, src/crm/creation) : taille de l'ascenseur, portage,
+    // code d'accès, surface habitable, accès en camion. À part : une étape absente du formulaire n'est pas touchée.
+    for (const { id: e } of etapes) {
+      if (!f.has(`code_acces_${e}`)) continue;
+      await db.query("update etapes_trajet set ascenseur_taille=$3, portage=$4, code_acces=$5, acces_camion=$6 where id=$1 and dossier_id=$2", [
+        e, id, s(f, `ascenseur_taille_${e}`), f.get(`portage_oui_${e}`) === "on", s(f, `code_acces_${e}`), s(f, `acces_camion_${e}`),
+      ]);
+      // La surface habitable n'est demandée qu'au départ : ailleurs, elle reste telle quelle.
+      if (f.has(`surface_m2_${e}`)) {
+        const surface = n(f, `surface_m2_${e}`);
+        await db.query("update etapes_trajet set surface_m2=$3 where id=$1 and dossier_id=$2", [e, id, surface != null && surface > 0 && surface < 100_000 ? Math.round(surface) : null]);
+      }
+    }
+    // Un chargement ou une livraison de plus laissé sans adresse ne reste pas (comme à la création) ; le seul de son genre, si.
+    await db.query(
+      `delete from etapes_trajet e where e.dossier_id=$1 and e.id = any($2::int[]) and e.genre in ('depart','arrivee') and coalesce(btrim(e.adresse), '') = ''
+         and exists (select 1 from etapes_trajet x where x.dossier_id=e.dossier_id and x.genre=e.genre and x.id<>e.id and coalesce(btrim(x.adresse), '') <> '')`,
+      [id, etapes.map((x) => x.id).filter((e) => f.has(`adresse_${e}`))],
+    );
     if (f.has("periode")) {
       await db.query("update dossiers set periode=$2, mois_ca=$3 where id=$1", [id, s(f, "periode"), s(f, "mois_ca") ? `${s(f, "mois_ca")}-01` : null]);
     }
@@ -150,10 +188,29 @@ export async function majItineraire(id: number, f: FormData) {
       await db.query("update etapes_trajet set ordre=ordre+1 where dossier_id=$1 and ordre >= $2", [id, ordre]);
       await db.query("insert into etapes_trajet(dossier_id,ordre,genre) values($1,$2,'autre')", [id, ordre]);
     }
-    // Jamais le départ ni l'arrivée.
-    if (retirer) await db.query("delete from etapes_trajet where id=$1 and dossier_id=$2 and genre in ('autre','garde_meuble')", [retirer, id]);
+    if (ajoutLieu) {
+      // Une adresse de chargement de plus, après le dernier chargement ; une de livraison, après la dernière livraison.
+      const [m] = await db.query<{ ordre: number | null }>(
+        ajoutLieu === "depart"
+          ? "select max(ordre) as ordre from etapes_trajet where dossier_id=$1 and genre='depart'"
+          : "select max(ordre) as ordre from etapes_trajet where dossier_id=$1",
+        [id],
+      );
+      const ordre = (m?.ordre ?? -1) + 1;
+      await db.query("update etapes_trajet set ordre=ordre+1 where dossier_id=$1 and ordre >= $2", [id, ordre]);
+      await db.query("insert into etapes_trajet(dossier_id,ordre,genre,acces_camion) values($1,$2,$3,$4)", [id, ordre, ajoutLieu, ACCES_CAMION_DEFAUT]);
+    }
+    // Jamais le seul départ ni la seule arrivée : un chargement ou une livraison de plus, si.
+    if (retirer)
+      await db.query(
+        `delete from etapes_trajet e where e.id=$1 and e.dossier_id=$2 and (e.genre in ('autre','garde_meuble')
+           or (e.genre in ('depart','arrivee') and (select count(*) from etapes_trajet x where x.dossier_id=e.dossier_id and x.genre=e.genre) > 1))`,
+        [retirer, id],
+      );
   });
-  await noter(id, ajouter ? "Étape ajoutée au trajet" : retirer ? "Étape retirée du trajet" : "Adresses et accès mis à jour");
+  // Les adresses ont pu changer : les kilomètres du trajet suivent (src/crm/creation/distance.ts), sans faire attendre plus de quelques secondes.
+  await Promise.race([majDistanceDossier(id), new Promise((ok) => setTimeout(ok, 6000))]);
+  await noter(id, ajouter || ajoutLieu ? "Étape ajoutée au trajet" : retirer ? "Étape retirée du trajet" : "Adresses et accès mis à jour");
   rafraichir(id);
 }
 

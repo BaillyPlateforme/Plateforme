@@ -90,7 +90,7 @@ export function prochaineEtape(f: Faits, c: Contexte): Prochaine {
     if (militaire && !devisEnCours) {
       return {
         titre: "Passer en commande",
-        detail: "Dossier militaire : pas de devis, la commande se passe directement.",
+        detail: "Dossier CIMOB/DICOM : pas de devis, la commande se passe directement.",
         ton: "faire",
         actions: [{ label: "Commande sans devis", href: `${dossier}${DEVIS}`, principal: true }],
       };
