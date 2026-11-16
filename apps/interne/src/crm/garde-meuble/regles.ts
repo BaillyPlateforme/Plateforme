@@ -12,7 +12,8 @@
 
 export const PERIODICITES = { mensuelle: { libelle: "Mensuelle", mois: 1 }, trimestrielle: { libelle: "Trimestrielle", mois: 3 } } as const;
 export type Periodicite = keyof typeof PERIODICITES;
-export const estPeriodicite = (v: unknown): v is Periodicite => typeof v === "string" && v in PERIODICITES;
+// Object.hasOwn, pas « in » : « toString » ou « constructor », hérités d'Object, ne passent pas.
+export const estPeriodicite = (v: unknown): v is Periodicite => typeof v === "string" && Object.hasOwn(PERIODICITES, v);
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const enDate = (v: Date | string) => (v instanceof Date ? new Date(v) : new Date(`${String(v).slice(0, 10)}T00:00:00Z`));

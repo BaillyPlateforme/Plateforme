@@ -56,7 +56,9 @@ export default function PortailRh({ apercu }: { apercu: string | null }) {
       .then(async (r) => {
         const j = await r.json();
         if (annule) return;
-        if (r.status === 401) return window.location.assign("/rh/connexion");
+        // Une session sans droit ici (ni RH ni membre actif de l'équipe) : la connexion le dit, au lieu de
+        // renvoyer aussitôt ici (voir proxy.ts).
+        if (r.status === 401) return window.location.assign("/rh/connexion?refus=1");
         if (!r.ok) return setErreur(j?.error ?? "Lecture impossible");
         // La page reste la même quand l'équipe passe du choix à un espace :
         // l'un chasse l'autre, sinon la liste resterait affichée.

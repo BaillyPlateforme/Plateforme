@@ -26,7 +26,7 @@ type Vue = keyof typeof VUES;
 
 export default async function GardeMeuble({ searchParams }: { searchParams: Promise<{ vue?: string; q?: string; ok?: string }> }) {
   const sp = await searchParams;
-  const vue: Vue = sp.vue && sp.vue in VUES ? (sp.vue as Vue) : "actifs";
+  const vue: Vue = sp.vue && Object.hasOwn(VUES, sp.vue) ? (sp.vue as Vue) : "actifs";
   const [rows, n, loyerCaisse] = await Promise.all([contrats({ vue, q: sp.q?.trim() || undefined }), compteurs(), reglage("gm_loyer_caisse")]);
   const nombres: Record<Vue, number> = { actifs: n.actifs, a_facturer: n.aFacturer, clos: n.clos, tous: n.tous };
   const lien = (v: Vue) => `/garde-meuble${v === "actifs" && !sp.q ? "" : `?${new URLSearchParams({ ...(v !== "actifs" ? { vue: v } : {}), ...(sp.q ? { q: sp.q } : {}) })}`}`;

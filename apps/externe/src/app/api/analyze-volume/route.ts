@@ -55,6 +55,23 @@ function typeImage(o: Buffer): { mime: string; ext: string } | null {
   return null;
 }
 
+/**
+ * Ce que lit le visiteur quand l'analyse échoue. Gemini répond en anglais, parfois par du JSON brut
+ * (« API key not valid », quota, panne, réponse illisible) : ce détail ne lui dit rien — il reste dans
+ * les journaux du serveur — et il garde les autres façons de donner son volume.
+ */
+const ECHEC_ANALYSE = "L'analyse des photos n'a pas abouti : vous pouvez réessayer dans un instant, indiquer votre volume ou décrire votre logement.";
+
+/** L'analyse d'une photo par Gemini, dont l'échec est journalisé puis dit en français. */
+async function analyser(base64: string, mimeType: string, cfg: AiConfig) {
+  try {
+    return await analyzePhoto(base64, mimeType, cfg);
+  } catch (e) {
+    console.error("[analyze-volume] analyse Gemini :", e instanceof Error ? e.message : e);
+    throw new Error(ECHEC_ANALYSE);
+  }
+}
+
 type ResultPhoto = AnalyzedPhotoInput & { previewUrl?: string };
 
 /** Une photo analysée, avec ses octets : la passe de doublons les redemande. */
@@ -135,8 +152,14 @@ function aplatir(results: PromiseSettledResult<Analysee>[]): PromiseSettledResul
 // - application/json { paths: string[] } : analyse depuis la base playground
 export async function POST(req: Request) {
   const ct = req.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return analyzeLibrary(req);
-  return analyzeUpload(req);
+  try {
+    return await (ct.includes("application/json") ? analyzeLibrary(req) : analyzeUpload(req));
+  } catch (e) {
+    // Une panne imprévue (stockage, base, réglages) : une page d'erreur de Next arriverait au formulaire,
+    // qui afficherait au visiteur l'échec de sa lecture en JSON. Il lit la même phrase que pour Gemini.
+    console.error("[analyze-volume]", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: ECHEC_ANALYSE }, { status: 500 });
+  }
 }
 
 // Analyse des photos de la bibliothèque (bucket playground-photos), par chemin.
@@ -176,7 +199,7 @@ async function analyzeLibrary(req: Request) {
       const bytes = Buffer.from(await data.arrayBuffer());
       const mimeType = data.type || "image/jpeg";
       const base64 = bytes.toString("base64");
-      const analysis = await analyzePhoto(base64, mimeType, cfg);
+      const analysis = await analyser(base64, mimeType, cfg);
       const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
       return { photo: { ...analysis, storage_path: path, previewUrl: pub.publicUrl }, base64, mimeType };
     }),
@@ -246,7 +269,7 @@ async function analyzeUpload(req: Request) {
 
       const mimeType = type.mime;
       const base64 = bytes.toString("base64");
-      const analysis = await analyzePhoto(base64, mimeType, cfg);
+      const analysis = await analyser(base64, mimeType, cfg);
       return { photo: { ...analysis, storage_path: storagePath }, base64, mimeType };
     }),
   ]);
@@ -266,7 +289,7 @@ function collect(results: PromiseSettledResult<ResultPhoto>[]) {
   if (photos.length === 0) {
     // Toutes refusées pour la même raison (pas une photo, par exemple) : le visiteur lit cette raison.
     const unique = new Set(errors.map((e) => e.replace(/^.*? n'est pas une photo/, "n'est pas une photo")));
-    const raison = unique.size === 1 && errors[0] ? errors[0] : "Analyse impossible";
+    const raison = unique.size === 1 && errors[0] ? errors[0] : ECHEC_ANALYSE;
     return NextResponse.json({ error: raison, details: errors }, { status: errors.some((e) => e.includes("n'est pas une photo")) ? 422 : 502 });
   }
 

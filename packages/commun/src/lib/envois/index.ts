@@ -167,39 +167,55 @@ async function envoyer(
   }
   if (m.retenu) return finir("journalise", m.retenu);
 
-  // Les messages que le public déclenche (le formulaire) ont un plafond sur 24 heures : au total
-  // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : Brevo en accorde 300 par jour, le reste va
-  // aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
-  // (ENVOI_PLAFOND_PAR_DESTINATAIRE, 6) : un robot ne vide plus le quota, ni la boîte d'une victime.
-  if (m.plafonne) {
-    const lire = (nom: string, defaut: number) => {
-      const v = Number(process.env[nom]);
-      return process.env[nom]?.trim() && Number.isInteger(v) && v >= 0 ? v : defaut;
-    };
-    const total = lire(canal === "sms" ? "ENVOI_PLAFOND_QUESTIONNAIRES_SMS" : "ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL", canal === "sms" ? 30 : 200);
-    const parDestinataire = lire("ENVOI_PLAFOND_PAR_DESTINATAIRE", 6);
-    const [tous, chezLui] = await Promise.all([
-      partisSur24h({ canal }),
-      partisSur24h({ canal, destinataire }),
-    ]);
-    const motif =
-      tous >= total
-        ? `Plafond des envois du formulaire atteint (${total} en 24 heures) : rien n'est parti.`
-        : chezLui >= parDestinataire
-          ? `Plafond par destinataire atteint (${parDestinataire} en 24 heures) : rien n'est parti.`
-          : null;
-    // Sans alerte à l'équipe : pendant une attaque, l'alerte ferait à son tour une rafale d'e-mails.
-    // Le blocage reste visible dans le journal des envois.
-    if (motif) return finir("bloque", motif);
-  }
+  const partir = async (): Promise<ResultatEnvoi> => {
+    // Les messages que le public déclenche (le formulaire) ont un plafond sur 24 heures : au total
+    // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : Brevo en accorde 300 par jour, le reste va
+    // aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
+    // (ENVOI_PLAFOND_PAR_DESTINATAIRE, 6) : un robot ne vide plus le quota, ni la boîte d'une victime.
+    if (m.plafonne) {
+      const lire = (nom: string, defaut: number) => {
+        const v = Number(process.env[nom]);
+        return process.env[nom]?.trim() && Number.isInteger(v) && v >= 0 ? v : defaut;
+      };
+      const total = lire(canal === "sms" ? "ENVOI_PLAFOND_QUESTIONNAIRES_SMS" : "ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL", canal === "sms" ? 30 : 200);
+      const parDestinataire = lire("ENVOI_PLAFOND_PAR_DESTINATAIRE", 6);
+      const [tous, chezLui] = await Promise.all([
+        partisSur24h({ canal }),
+        partisSur24h({ canal, destinataire }),
+      ]);
+      const motif =
+        tous >= total
+          ? `Plafond des envois du formulaire atteint (${total} en 24 heures) : rien n'est parti.`
+          : chezLui >= parDestinataire
+            ? `Plafond par destinataire atteint (${parDestinataire} en 24 heures) : rien n'est parti.`
+            : null;
+      // Sans alerte à l'équipe : pendant une attaque, l'alerte ferait à son tour une rafale d'e-mails.
+      // Le blocage reste visible dans le journal des envois.
+      if (motif) return finir("bloque", motif);
+    }
 
-  // Le SMS en bac à sable ne quitte pas la plateforme.
-  if (decision.bacASable && canal === "sms") return finir("bac_a_sable", MOTIFS.bacASableSms);
-  if (!brevoConfigure()) return finir("echec", "Clé Brevo absente (BREVO_API_KEY) : rien n'est parti.");
+    // Le SMS en bac à sable ne quitte pas la plateforme.
+    if (decision.bacASable && canal === "sms") return finir("bac_a_sable", MOTIFS.bacASableSms);
+    if (!brevoConfigure()) return finir("echec", "Clé Brevo absente (BREVO_API_KEY) : rien n'est parti.");
 
-  const rep = await appeler(decision.bacASable);
-  if (rep.ok) return finir(decision.bacASable ? "bac_a_sable" : "envoye", decision.bacASable ? MOTIFS.bacASableEmail : null, rep.id);
-  return finir(rep.definitif ? "echec" : "incertain", rep.definitif ? rep.message : `${rep.message} — Brevo a peut-être accepté le message : il n'est pas renvoyé tout seul.`);
+    const rep = await appeler(decision.bacASable);
+    if (rep.ok) return finir(decision.bacASable ? "bac_a_sable" : "envoye", decision.bacASable ? MOTIFS.bacASableEmail : null, rep.id);
+    return finir(rep.definitif ? "echec" : "incertain", rep.definitif ? rep.message : `${rep.message} — Brevo a peut-être accepté le message : il n'est pas renvoyé tout seul.`);
+  };
+  // Le compte des 24 heures ne voit que les messages déjà partis : des envois plafonnés lancés au même instant
+  // (un robot qui soumet le formulaire en rafale) le lisaient tous avant le départ du premier, et partaient tous.
+  // Ils passent donc un à un dans ce serveur — compte, envoi, statut —, par canal. Chaque service tourne sur un
+  // seul serveur, et ces messages automatiques sont peu nombreux : l'attente est négligeable.
+  return m.plafonne ? sousVerrou(`plafond:${canal}`, partir) : partir();
+}
+
+const coffreVerrous = globalThis as typeof globalThis & { __verrousPlafond?: Map<string, Promise<unknown>> };
+/** Exécute `f` après la fin de celui qui tient déjà le verrou `cle` (dans ce serveur), qu'il ait réussi ou non. */
+function sousVerrou<T>(cle: string, f: () => Promise<T>): Promise<T> {
+  const verrous = (coffreVerrous.__verrousPlafond ??= new Map());
+  const suite = (verrous.get(cle) ?? Promise.resolve()).then(f, f);
+  verrous.set(cle, suite.catch(() => undefined));
+  return suite;
 }
 
 export function envoyerEmail(m: EmailSortant): Promise<ResultatEnvoi> {

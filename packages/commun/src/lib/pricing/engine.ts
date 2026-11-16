@@ -170,14 +170,17 @@ export function simuler(input: SimulationInput): Simulation {
     });
   }
 
-  const portage = (metres: number | undefined, cote: string) => {
+  const portage = (metres: number | undefined, lieu: string) => {
     const m = Math.max(0, metres || 0);
     const { seuilMetres, trancheMetres, prixParM3 } = SUPPLEMENTS.portage;
     if (m <= seuilMetres) return;
     const tranches = Math.ceil((m - seuilMetres) / trancheMetres);
+    const detail = `${nb(m)} m · ${tranches} tranche${tranches > 1 ? "s" : ""} de ${trancheMetres} m`;
     supplements.push({
-      label: `Portage ${cote}`,
-      detail: `${nb(m)} m · ${tranches} tranche${tranches > 1 ? "s" : ""} de ${trancheMetres} m × ${nb(prixParM3)} €/m³`,
+      label: `Portage ${lieu}`,
+      // En volume coté, pas de prix au m³ : le montant suit le volume chiffré, et le
+      // client qui diviserait retrouverait la cote.
+      detail: cote ? detail : `${detail} × ${nb(prixParM3)} €/m³`,
       amount: r2(tranches * prixParM3 * volume),
     });
   };
@@ -189,7 +192,13 @@ export function simuler(input: SimulationInput): Simulation {
     const gros = volume > seuilM3;
     supplements.push({
       label: "Transbordement",
-      detail: gros ? `journée · au-delà de ${seuilM3} m³` : `demi-journée · jusqu'à ${seuilM3} m³`,
+      // En volume coté, le seuil est comparé au volume chiffré : le citer à côté du volume
+      // déclaré (« au-delà de 20 m³ » pour 19 m³ annoncés) trahirait la cote.
+      detail: cote
+        ? (gros ? "journée" : "demi-journée")
+        : gros
+          ? `journée · au-delà de ${seuilM3} m³`
+          : `demi-journée · jusqu'à ${seuilM3} m³`,
       amount: gros ? journee : demiJournee,
     });
   }
@@ -203,16 +212,23 @@ export function simuler(input: SimulationInput): Simulation {
   if (mm > 0) {
     const pleineJournee = volume > seuilJourneeM3;
     const prix = pleineJournee ? journee : demiJournee;
+    // En volume coté, le seuil de déclenchement est comparé au volume chiffré : le citer (« dès 25 m³ ») à côté
+    // du volume déclaré (24 m³) trahirait la cote, comme pour le transbordement. On ne dit alors que l'étage.
+    const raison = cote
+      ? `un ${declenche.etage}e étage sans ascenseur`
+      : `dès ${declenche.volumeM3} m³ et un ${declenche.etage}e étage sans ascenseur`;
     supplements.push({
       label: "Monte-meubles avec opérateur",
       detail: declenchement
-        ? `${pleineJournee ? "journée" : "demi-journée"} · ${prix} € — nécessaire dès ${declenche.volumeM3} m³ et un ${declenche.etage}e étage sans ascenseur${mm > 1 ? `, ${mm} mises en œuvre` : ""}`
+        ? `${pleineJournee ? "journée" : "demi-journée"} · ${prix} € — nécessaire ${cote ? "avec " : ""}${raison}${mm > 1 ? `, ${mm} mises en œuvre` : ""}`
         : `${mm} × ${pleineJournee ? "journée" : "demi-journée"} · ${prix} €`,
       amount: r2(mm * prix),
     });
     if (declenchement) {
       mentions.push(
-        `Monte-meubles inclus : ${affiche} m³ à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`,
+        cote
+          ? `Monte-meubles inclus : le volume à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`
+          : `Monte-meubles inclus : ${nb(affiche)} m³ à déménager et un ${declenche.etage}e étage sans ascenseur l'imposent.`,
       );
     }
   }
@@ -287,7 +303,8 @@ const VALEUR_MOBILIER: Record<string, number> = {
 
 export function valeurDeclaree(tranche: unknown): number {
   if (typeof tranche !== "string") return 0;
-  return VALEUR_MOBILIER[tranche] ?? 0;
+  // Propre à la table seulement : « toString » rendrait une fonction d'Object, pas un montant.
+  return Object.hasOwn(VALEUR_MOBILIER, tranche) ? VALEUR_MOBILIER[tranche] : 0;
 }
 
 /**

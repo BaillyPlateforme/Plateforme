@@ -24,7 +24,8 @@ const PAYS: Record<string, string> = { france: "FR", fr: "FR", belgique: "BE", b
 export const codePays = (p: string | null | undefined) => {
   if (!p) return null;
   const k = p.trim().toLowerCase();
-  return PAYS[k] ?? (/^[a-z]{2}$/.test(k) ? k.toUpperCase() : null);
+  // Object.hasOwn : codePays("constructor") rendait la fonction d'Object au lieu d'un code pays.
+  return (Object.hasOwn(PAYS, k) ? PAYS[k] : undefined) ?? (/^[a-z]{2}$/.test(k) ? k.toUpperCase() : null);
 };
 const sirenDe = (m: Mentions) => (m.siren ?? m.siret ?? "").replace(/\s/g, "").slice(0, 9) || null;
 const montant = (n: number) => n.toFixed(2);

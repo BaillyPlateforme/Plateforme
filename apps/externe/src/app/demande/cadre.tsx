@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { useIntegre, usePleinEcran } from "./integration";
 import { Icone } from "./ui";
@@ -325,8 +325,14 @@ export function Bouton({
 }
 
 export function Erreur({ children }: { children: ReactNode }) {
+  // Le refus d'un envoi (« L'adresse e-mail n'est pas valide. ») paraît sous le formulaire, alors que
+  // l'écran d'envoi venait de remonter la page : on l'amène sous les yeux, et on l'annonce.
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, []);
   return (
-    <div className="mt-6 flex items-start gap-2.5 rounded-[18px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13.5px] text-danger">
+    <div ref={ref} role="alert" className="mt-6 flex items-start gap-2.5 rounded-[18px] border border-danger/30 bg-danger-soft px-4 py-3 text-[13.5px] text-danger">
       <Icone nom="info" taille={16} className="mt-0.5 shrink-0" />
       {children}
     </div>

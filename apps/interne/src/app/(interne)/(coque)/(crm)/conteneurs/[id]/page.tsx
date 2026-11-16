@@ -55,7 +55,7 @@ export default async function FicheConteneur({ params, searchParams }: { params:
   const c = await ficheConteneur(id);
   if (!c) notFound();
   const demandee = sp.onglet ? (ANCIENS[sp.onglet] ?? sp.onglet) : "fiche";
-  const vue: Vue = demandee in VUES ? (demandee as Vue) : "fiche";
+  const vue: Vue = Object.hasOwn(VUES, demandee) ? (demandee as Vue) : "fiche";
   const [annuaire, dispatch] = await Promise.all([intervenants(), vue === "contenu" ? dispatchDuConteneur(id) : Promise.resolve([] as Row[])]);
   const statut = estStatut(c.statut) ? STATUTS[c.statut] : STATUTS.preparation;
   const t = totaux(c.couts as never);

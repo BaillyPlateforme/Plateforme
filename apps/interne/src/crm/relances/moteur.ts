@@ -127,7 +127,8 @@ async function candidats(): Promise<Candidat[]> {
   for (const d of devis) {
     // Un dossier déjà signé n'entre que s'il a eu des relances : pour les montrer arrêtées.
     if (d.signe && !relances.has(d.id)) continue;
-    const envoi = iso(new Date(d.envoye))!;
+    // Le jour d'envoi à Paris, comme le dernier envoi d'une relance : un devis parti à 0 h 30 compte du jour même.
+    const envoi = jourParis(new Date(d.envoye));
     out.push({
       type: "devis", objetId: String(d.id), dossierId: d.id, ref: d.ref, client: nom(d), segment: d.segment,
       dates: { envoi_devis: envoi, demenagement: iso(d.date_chargement) },
@@ -141,7 +142,7 @@ async function candidats(): Promise<Candidat[]> {
             id: `devis:${v.id}`,
             titre: `Devis ${v.numero} · Formule ${v.formule.charAt(0).toUpperCase()}${v.formule.slice(1)}`,
             court: v.numero,
-            detail: `Envoyé le ${jourClient(iso(new Date(v.envoye_le))!)}${validite ? `, valable jusqu'au ${jourClient(validite)}` : ""}.`,
+            detail: `Envoyé le ${jourClient(jourParis(new Date(v.envoye_le)))}${validite ? `, valable jusqu'au ${jourClient(validite)}` : ""}.`,
             valeur: `${euros(v.montant)} TTC`,
             montant: v.montant,
             jeton: v.token,

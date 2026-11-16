@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { COOKIE_APERCU, lireCookieApercu } from "@/lib/espace-client/apercu";
+import { estMembreEquipe } from "@/lib/supabase/equipe";
+import { roleDuCompte } from "@/lib/supabase/roles";
 import { lireSession } from "@/lib/supabase/session-proxy";
 
 /*
@@ -64,14 +66,41 @@ export async function proxy(request: NextRequest) {
   // Pour l'espace RH, un client de l'espace client ou un déménageur (outil terrain) n'a pas de session.
   const valide = s.valide && s.role !== "client" && s.role !== "terrain";
 
-  // La connexion des RH est la seule page de l'espace RH qui s'ouvre sans session.
-  if (chemin === "/rh/connexion") return valide ? s.vers("/rh") : s.reponse();
+  // La connexion des RH est la seule page de l'espace RH qui s'ouvre sans session. Un compte connecté
+  // y est renvoyé vers /rh — sauf s'il en revient refusé (?refus=1) : ni RH ni membre actif de l'équipe,
+  // ce que seul le serveur sait (rh-session.ts). Le renvoyer à /rh, qui le renvoyait ici, tournait sans fin.
+  if (chemin === "/rh/connexion") {
+    const refus = request.nextUrl.searchParams.has("refus");
+    if (valide && !refus) return s.vers("/rh");
+    // Sans session, il n'y a plus de compte à refuser : la page s'ouvre sans le message.
+    if (!valide && refus) return s.vers("/rh/connexion");
+    return s.reponse();
+  }
 
   if (!valide) {
     if (s.api) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
     return s.vers("/rh/connexion");
   }
+
+  // Une session sans droit ici — sans rôle (inscription ouverte, membre de l'équipe désactivé) ou au rôle
+  // inconnu — part d'emblée vers la connexion, qui dit pourquoi : sinon la page se chargeait pour rien, et
+  // sa réponse 401 l'y renvoyait. Les données restent gardées par le serveur (rh-session.ts).
+  if (chemin === "/rh" && !(await aDroitRh(s.role, s.email))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/rh/connexion";
+    url.search = "?refus=1";
+    return NextResponse.redirect(url);
+  }
   return s.reponse();
+}
+
+/**
+ * Un compte RH, ou un membre actif de l'équipe : la règle de getAcces (lib/supabase/auth.ts), lue ici
+ * dans le jeton et dans la liste de l'équipe (gardée une minute, lib/supabase/equipe.ts).
+ */
+async function aDroitRh(role: string | undefined, email: string | null) {
+  if (role === "rh") return true;
+  return roleDuCompte({ role }) === "equipe" && (await estMembreEquipe(email));
 }
 
 export const config = {

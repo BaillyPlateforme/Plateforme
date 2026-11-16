@@ -512,7 +512,9 @@ function Pied({ annee, onChoisir }: { annee: number; onChoisir: (c: Choix) => vo
       <div className="mx-auto grid w-full max-w-[1200px] gap-10 px-6 py-14 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] lg:px-10">
         <div>
           <Image src="/marque/bailly-logo.svg" alt="Bailly Déménagement" width={200} height={64} className="h-auto w-[170px]" />
-          <p className="mt-5 text-[16px] font-medium text-brand-ink">Déménagez où vous voulez&nbsp;!</p>
+          {/* Le brun doré de la charte (brand-ink), à peine plus sombre : sur le fond papier du pied,
+              #8a6f00 ne donnait que 4,4:1, sous les 4,5:1 du WCAG AA. */}
+          <p className="mt-5 text-[16px] font-medium text-[#856b00]">Déménagez où vous voulez&nbsp;!</p>
           <p className="mt-3 max-w-[38ch] text-[13.5px] leading-relaxed text-ink-soft">
             Membre IAM, Chambre Syndicale du Déménagement, certifié ISO 9001, 14001 et 45001, norme
             Ecovadis.

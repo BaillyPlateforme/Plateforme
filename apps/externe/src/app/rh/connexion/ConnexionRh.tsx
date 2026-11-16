@@ -14,13 +14,14 @@ import { Picto } from "../_ui/Icones";
  * c'est l'équipe qui change le mot de passe d'un compte RH, depuis Espaces
  * pro › Accès RH.
  */
-export default function ConnexionRh() {
+export default function ConnexionRh({ refus = false }: { refus?: boolean }) {
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [visible, setVisible] = useState(false);
   const [oubli, setOubli] = useState(false);
   const [enCours, setEnCours] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
+  // Renvoyé de /rh avec une session sans droit (ni RH ni membre actif de l'équipe) : on dit pourquoi.
+  const [erreur, setErreur] = useState<string | null>(refus ? "Ce compte n'a pas accès à l'espace RH." : null);
 
   async function envoyer(e: React.FormEvent) {
     e.preventDefault();

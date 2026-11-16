@@ -77,7 +77,7 @@ export async function majClient(id: number, f: FormData) {
   for (const [cle, , max] of CHAMPS) valeurs[cle] = s(f, cle, max);
   // L'identifiant de l'espace client ne se change pas d'ici ; un type inconnu non plus.
   if (espaces.length) valeurs.email = avant.email ?? null;
-  if (!valeurs.type || !(valeurs.type in TYPES)) valeurs.type = avant.type;
+  if (!valeurs.type || !Object.hasOwn(TYPES, valeurs.type)) valeurs.type = avant.type;
   // Le rattachement à une entreprise : seulement un espace pro qui existe (pas l'espace standard). Champ absent
   // du formulaire (liste des espaces illisible) ou valeur inconnue : le rattachement reste tel quel.
   const entreprise = f.has("espace_pro_id") ? await entrepriseValide(f.get("espace_pro_id")) : undefined;

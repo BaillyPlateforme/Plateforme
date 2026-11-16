@@ -109,7 +109,7 @@ function Carte({ c }: { c: ConteneurListe }) {
 
 export default async function Conteneurs({ searchParams }: { searchParams: Promise<{ vue?: string; q?: string; ordre?: string; ok?: string }> }) {
   const sp = await searchParams;
-  const vue: Vue = sp.vue && sp.vue in VUES ? (sp.vue as Vue) : "cours";
+  const vue: Vue = sp.vue && Object.hasOwn(VUES, sp.vue) ? (sp.vue as Vue) : "cours";
   const chrono = sp.ordre === "chrono";
   const [rows, n, plans] = await Promise.all([listeConteneurs({ vue, q: sp.q?.trim() || undefined }), compteursConteneurs(), nombrePlans()]);
   const nombres: Record<Vue, number> = { cours: n.cours, export: n.export, import: n.import, livres: n.livres, tous: n.tous };

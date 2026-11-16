@@ -89,7 +89,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
   const vue: Vue = estVue(sp.vue) ? sp.vue : "tous";
   const tri: Tri = estTri(sp.tri) ? sp.tri : "recents";
   const q = sp.q?.trim().slice(0, 80) ?? "";
-  const type = sp.type && sp.type in TYPES ? sp.type : null;
+  const type = sp.type && Object.hasOwn(TYPES, sp.type) ? sp.type : null;
   const commercial = sp.commercial && /^\d+$/.test(sp.commercial) ? Number(sp.commercial) : null;
 
   const [toutes, commerciaux, entreprises] = await Promise.all([

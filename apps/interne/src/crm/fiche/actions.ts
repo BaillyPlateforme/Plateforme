@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { q, q1, transaction, type Row } from "@/crm/lib/db";
 import { currentUser } from "@/crm/lib/auth";
 import { journaliser } from "@/crm/lib/journal";
+import { anneeParis } from "@/crm/lib/format";
 import { projeterEspace } from "@/crm/lib/espace";
 import { entrepriseValide } from "@/crm/clients/entreprises";
 import { conflit, occupation } from "@/crm/visites/creneaux";
@@ -50,7 +51,7 @@ const rafraichir = (id: number) => {
   revalidatePath(`/dossiers/${id}`);
 };
 async function numero(prefixe: string, table: "devis" | "lettres_voiture") {
-  const an = new Date().getFullYear();
+  const an = anneeParis();
   const r = await q1<{ n: number }>(`select coalesce(max(substring(numero from '[0-9]+$')::int),0) + 1 as n from ${table} where numero like $1`, [`${prefixe}-${an}-%`]);
   return `${prefixe}-${an}-${String(r!.n).padStart(4, "0")}`;
 }

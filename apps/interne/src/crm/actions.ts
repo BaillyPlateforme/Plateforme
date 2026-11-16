@@ -12,6 +12,7 @@ import { moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/com
 import { oublierCandidats } from "@/crm/creation/donnees";
 import { instantParis } from "@/lib/visite/regles";
 import { journaliser } from "@/crm/lib/journal";
+import { anneeParis } from "@/crm/lib/format";
 import { apresDuplication, reprendreDuplication } from "@/crm/duplication/dossier";
 
 /*
@@ -39,11 +40,11 @@ async function log(dossierId: number | null, libelle: string) {
  * équipe, qui partage la racine de l'app.
  */
 const refresh = (id?: number) => { revalidatePath("/(interne)", "layout"); if (id) revalidatePath(`/dossiers/${id}`); };
-const annee = () => new Date().getFullYear();
 async function numero(prefixe: string, table: string) {
   const col = table === "dossiers" ? "ref" : "numero";
-  const r = await q1<{ n: number }>(`select coalesce(max(substring(${col} from '[0-9]+$')::int),0) + 1 as n from ${table} where ${col} like $1`, [`${prefixe}-${annee()}-%`]);
-  return `${prefixe}-${annee()}-${String(r!.n).padStart(4, "0")}`;
+  const an = anneeParis();
+  const r = await q1<{ n: number }>(`select coalesce(max(substring(${col} from '[0-9]+$')::int),0) + 1 as n from ${table} where ${col} like $1`, [`${prefixe}-${an}-%`]);
+  return `${prefixe}-${an}-${String(r!.n).padStart(4, "0")}`;
 }
 
 /* La connexion et la déconnexion sont celles de l'espace équipe (/login, signOut). */

@@ -244,8 +244,8 @@ export function villeDeLAdresse(adresse: string | null | undefined): { ville: st
   const morceaux = a.split(",").map((m) => m.trim()).filter(Boolean);
   const pays = /^(france|belgique|suisse|luxembourg|canada|espagne|italie|allemagne|royaume-uni)$/i;
   const candidat = [...morceaux].reverse().find((m) => !pays.test(m)) ?? null;
-  // Un numéro en tête, c'est une rue.
-  if (!candidat || /^\d/.test(candidat) || /\b(rue|avenue|bd|boulevard|chemin|allée|impasse|place|route|quai)\b/i.test(candidat)) return { ville: null, cp: null };
+  // Un numéro en tête, c'est une rue. « Av. » à part : après le point, \b ne tient plus.
+  if (!candidat || /^\d/.test(candidat) || /\b(rue|avenue|bd|boulevard|chemin|allée|impasse|place|route|quai)\b|\bav\./i.test(candidat)) return { ville: null, cp: null };
   return { ville: candidat, cp: null };
 }
 

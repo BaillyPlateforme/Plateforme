@@ -16,6 +16,7 @@ import {
   trajetLisible,
   type PeriodeMode,
 } from "./DemandeForm";
+import { useEtapesDansLHistorique } from "./historique";
 import { remonter } from "./integration";
 import { Envoi } from "./QuoteTools";
 import { Bloc, CarteChoix, Choice, Field, Icone, Ligne, Pill, Selecteur, TextInput, YesNo, Zone, type NomIcone } from "./ui";
@@ -389,7 +390,9 @@ function Recapitulatif({ groupes }: { groupes: { icone: NomIcone; titre: string;
             {g.lignes.map(([k, v]) => (
               <div key={k} className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 text-[13px] leading-snug">
                 <dt className="text-ink-soft">{k}</dt>
-                <dd className="font-medium text-ink">{v || "—"}</dd>
+                {/* Une adresse e-mail longue, sans tiret ni espace, se coupe : sinon, au téléphone, la page
+                    débordait en largeur et la barre « Envoyer ma demande » sortait de l'écran. */}
+                <dd className="font-medium text-ink wrap-anywhere">{v || "—"}</dd>
               </div>
             ))}
           </dl>
@@ -441,6 +444,8 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
   const [espace, setEspace] = useState<EspacePublic | null>(null);
   const [refus, setRefus] = useState<string | null>(null);
   const set = (p: Partial<Mutation>) => setF((x) => ({ ...x, ...p }));
+  // Retour et Avance du navigateur passent d'une étape à l'autre (voir historique.ts).
+  const rembobiner = useEtapesDansLHistorique(step, setStep, fait !== null);
 
   // La société qui mute a peut-être son espace chez Bailly : on la reconnaît,
   // et la demande suit l'accord passé avec elle.
@@ -544,7 +549,7 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
       manquant={manquant}
       envoi={envoi}
       onEnvoyer={soumettre}
-      onBack={onBack}
+      onBack={() => { rembobiner(); onBack(); }}
       marque={marque}
       theme={theme}
       recap={[
@@ -785,6 +790,7 @@ export function FormulaireTransfert({ onBack }: { onBack: () => void }) {
   const [envoi, setEnvoi] = useState(false);
   const [fait, setFait] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const rembobiner = useEtapesDansLHistorique(step, setStep, fait !== null);
 
   const pieces = MOBILIER_BUREAU.filter((m) => (quantites[m.label] ?? 0) > 0);
   const total = pieces.reduce((s, m) => s + (quantites[m.label] ?? 0), 0);
@@ -852,7 +858,7 @@ export function FormulaireTransfert({ onBack }: { onBack: () => void }) {
       manquant={manquant}
       envoi={envoi}
       onEnvoyer={soumettre}
-      onBack={onBack}
+      onBack={() => { rembobiner(); onBack(); }}
       recap={[
         ["Société", contact.societe.trim() || null],
         ["Trajet", trajetLisible(depart.ville, arrivee.ville)],
@@ -938,6 +944,7 @@ export function FormulaireProjet({ onBack }: { onBack: () => void }) {
   const [envoi, setEnvoi] = useState(false);
   const [fait, setFait] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const rembobiner = useEtapesDansLHistorique(step, setStep, fait !== null);
 
   const manquant = (() => {
     if (ETAPES_PROJET[step].cle === "projet") {
@@ -1000,7 +1007,7 @@ export function FormulaireProjet({ onBack }: { onBack: () => void }) {
       manquant={manquant}
       envoi={envoi}
       onEnvoyer={soumettre}
-      onBack={onBack}
+      onBack={() => { rembobiner(); onBack(); }}
       recap={[
         ["Trajet", trajetLisible(villeDepart.ville, villeArrivee.ville)],
         ["Postes", postes ? postes : null],

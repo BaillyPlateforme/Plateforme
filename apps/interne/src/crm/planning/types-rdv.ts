@@ -20,7 +20,8 @@ export const TYPES_RDV: Record<TypeRdv, { court: string; long: string; icone: st
   perso: { court: "Perso", long: "Perso / règle", icone: "flag" },
 };
 
-export const estTypeRdv = (v: unknown): v is TypeRdv => typeof v === "string" && v in TYPES_RDV;
+// Object.hasOwn, pas « in » : « toString » ou « constructor », hérités d'Object, ne passent pas.
+export const estTypeRdv = (v: unknown): v is TypeRdv => typeof v === "string" && Object.hasOwn(TYPES_RDV, v);
 
 /** Une règle perso qui parle de visio (« Visios uniquement », « Journée visio ») : le commercial n'y fait que des visios. */
 export const parleDeVisio = (texte: string | null | undefined) => /visio/i.test(texte ?? "");

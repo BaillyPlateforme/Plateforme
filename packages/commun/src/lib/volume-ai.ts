@@ -234,7 +234,10 @@ export async function detecterDoublons(
         (d) =>
           index.includes(d.photo) &&
           index.includes(d.vu_sur) &&
-          d.vu_sur !== d.photo &&
+          // Vu sur une photo PRÉCÉDENTE seulement, comme le schéma le demande : deux lignes
+          // qui se désigneraient l'une l'autre seraient toutes deux écartées du volume, et le
+          // meuble ne serait plus compté nulle part.
+          d.vu_sur < d.photo &&
           d.ligne >= 0 &&
           d.ligne < images[d.photo].inventaire.length,
       );

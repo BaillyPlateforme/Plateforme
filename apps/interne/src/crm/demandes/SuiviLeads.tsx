@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { modifierSuivi } from "@/lib/actions/suivi";
 import { NOM_PARCOURS, type Parcours } from "@/lib/parcours";
+import { jourParis } from "@/lib/visite/regles";
 import {
   STATUTS,
   estMutation,
@@ -28,11 +29,16 @@ import {
  * Troisième vue du Parcours depuis la simplification du 08/11/2026 (il était
  * sous Demandes, /dashboard/leads). Règle de David : pas de chiffres en haut
  * d'une liste — les indicateurs et le flux par semaine passent sous le tableau.
+ *
+ * Rendu des deux côtés (serveur en temps universel sur Railway, navigateur à
+ * l'heure de Paris) : toutes les dates se lisent en jours de Paris, et
+ * « aujourd'hui » vient du serveur. Sinon le texte rendu diffère d'un côté à
+ * l'autre (erreur d'hydratation n° 418).
  */
 
 const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 const eur = (n: number) => `${nf.format(n)} €`;
-const jour = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+const jour = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", timeZone: "Europe/Paris" });
 
 type Periode = "mois" | "precedent" | "trimestre" | "annee" | "tout";
 
@@ -44,13 +50,18 @@ const PERIODES: { key: Periode; label: string }[] = [
   { key: "tout", label: "Tout" },
 ];
 
-function bornes(p: Periode, maintenant: Date): [Date, Date] | null {
-  const a = maintenant.getFullYear(), m = maintenant.getMonth();
+/** Le 1er du mois, `k` mois après celui de `jour` (AAAA-MM-JJ) : du calendrier, sans fuseau. */
+function premierDuMois(jour: string, k = 0) {
+  return new Date(Date.UTC(Number(jour.slice(0, 4)), Number(jour.slice(5, 7)) - 1 + k, 1, 12)).toISOString().slice(0, 10);
+}
+
+/** Les bornes de la période, en jours de Paris (AAAA-MM-JJ) : début compris, fin exclue. */
+function bornes(p: Periode, aujourdhui: string): [string, string] | null {
   switch (p) {
-    case "mois": return [new Date(a, m, 1), new Date(a, m + 1, 1)];
-    case "precedent": return [new Date(a, m - 1, 1), new Date(a, m, 1)];
-    case "trimestre": return [new Date(a, m - 2, 1), new Date(a, m + 1, 1)];
-    case "annee": return [new Date(a, 0, 1), new Date(a + 1, 0, 1)];
+    case "mois": return [premierDuMois(aujourdhui), premierDuMois(aujourdhui, 1)];
+    case "precedent": return [premierDuMois(aujourdhui, -1), premierDuMois(aujourdhui)];
+    case "trimestre": return [premierDuMois(aujourdhui, -2), premierDuMois(aujourdhui, 1)];
+    case "annee": return [`${aujourdhui.slice(0, 4)}-01-01`, `${Number(aujourdhui.slice(0, 4)) + 1}-01-01`];
     default: return null;
   }
 }
@@ -61,21 +72,19 @@ const COULEUR: Record<Parcours, string> = {
   entreprise: "var(--color-nuit)",
 };
 
-export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
+/** `aujourdhui` : le jour de Paris (AAAA-MM-JJ), lu par le serveur, le même pour son rendu et celui du navigateur. */
+export default function SuiviLeads({ leads: initiaux, aujourdhui }: { leads: Lead[]; aujourdhui: string }) {
   const [leads, setLeads] = useState(initiaux);
   const [periode, setPeriode] = useState<Periode>("tout");
   const [parcours, setParcours] = useState<Parcours | "tous">("tous");
   const [statut, setStatut] = useState<StatutLead | "tous">("tous");
   const [recherche, setRecherche] = useState("");
   const [etat, setEtat] = useState<Record<string, "envoi" | "ok" | string>>({});
-  // L'horloge est lue une fois : la relire à chaque rendu déplacerait les bornes.
-  const [maintenant] = useState(() => new Date());
-
   const visibles = useMemo(() => {
-    const b = bornes(periode, maintenant);
+    const b = bornes(periode, aujourdhui);
     const q = recherche.trim().toLowerCase();
     return leads.filter((l) => {
-      const d = new Date(l.created_at);
+      const d = jourParis(l.created_at);
       if (b && (d < b[0] || d >= b[1])) return false;
       if (parcours !== "tous" && parcoursDuLead(l) !== parcours) return false;
       if (statut !== "tous" && l.suivi.statut !== statut) return false;
@@ -83,10 +92,10 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
         .some((v) => (v ?? "").toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [leads, periode, parcours, statut, recherche, maintenant]);
+  }, [leads, periode, parcours, statut, recherche, aujourdhui]);
 
   const k = indicateurs(visibles);
-  const semaines = useMemo(() => parSemaine(visibles), [visibles]);
+  const semaines = useMemo(() => parSemaine(visibles, aujourdhui), [visibles, aujourdhui]);
 
   async function enregistrer(id: string, modif: Partial<Suivi>) {
     // L'écran suit la saisie tout de suite ; un refus du serveur la défait.
@@ -107,7 +116,7 @@ export default function SuiviLeads({ leads: initiaux }: { leads: Lead[] }) {
     const blob = new Blob([versCsv(visibles)], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `suivi-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `suivi-leads-${jourParis(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -381,25 +390,33 @@ function Montant({ valeur, onValider }: { valeur: number | null; onValider: (v: 
 
 /* ─────────────── Le flux par semaine ─────────────── */
 
-type Semaine = { debut: Date; parcours: Record<Parcours, number> };
+/** `debut` : le lundi de la semaine, jour de Paris (AAAA-MM-JJ). */
+type Semaine = { debut: string; parcours: Record<Parcours, number> };
 
-/** Les leads rangés par semaine (lundi), sur les douze dernières semaines de la sélection. */
-function parSemaine(leads: Lead[]): Semaine[] {
-  const lundi = (d: Date) => {
-    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-    return x;
-  };
-  const fin = leads.length ? lundi(new Date(Math.max(...leads.map((l) => +new Date(l.created_at))))) : lundi(new Date());
-  const semaines: Semaine[] = Array.from({ length: 12 }, (_, i) => {
-    const debut = new Date(fin);
-    debut.setDate(debut.getDate() - 7 * (11 - i));
-    return { debut, parcours: { particulier: 0, mutation: 0, entreprise: 0 } };
-  });
-  for (const l of leads) {
-    const s = semaines.find((x) => +x.debut === +lundi(new Date(l.created_at)));
+/** Un jour + n jours, en arithmétique de calendrier (midi UTC : aucun fuseau n'y touche). */
+function plusJours(jour: string, n: number) {
+  const d = new Date(`${jour}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+/** Le lundi de la semaine d'un jour. */
+const lundiDu = (jour: string) => plusJours(jour, -((new Date(`${jour}T12:00:00Z`).getUTCDay() + 6) % 7));
+
+/**
+ * Les leads rangés par semaine (lundi), sur les douze dernières semaines de la sélection. En jours de Paris,
+ * pas à l'heure locale : le serveur (temps universel) et le navigateur rangent un lead dans la même semaine.
+ */
+function parSemaine(leads: Lead[], aujourdhui: string): Semaine[] {
+  const jours = leads.map((l) => jourParis(l.created_at));
+  const fin = lundiDu(jours.length ? jours.reduce((a, b) => (b > a ? b : a)) : aujourdhui);
+  const semaines: Semaine[] = Array.from({ length: 12 }, (_, i) => ({
+    debut: plusJours(fin, -7 * (11 - i)),
+    parcours: { particulier: 0, mutation: 0, entreprise: 0 },
+  }));
+  leads.forEach((l, i) => {
+    const s = semaines.find((x) => x.debut === lundiDu(jours[i]));
     if (s) s.parcours[parcoursDuLead(l)] += 1;
-  }
+  });
   return semaines;
 }
 
@@ -409,7 +426,6 @@ function BarresParcours({ semaines }: { semaines: Semaine[] }) {
   const pas = W / semaines.length;
   const largeur = Math.min(30, pas - 16);
   const ech = (v: number) => (v / max) * (H - bas - 14);
-  const court = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit" });
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Leads par semaine et par parcours">
       {semaines.map((s, i) => {
@@ -417,7 +433,7 @@ function BarresParcours({ semaines }: { semaines: Semaine[] }) {
         let y = H - bas;
         const total = s.parcours.particulier + s.parcours.mutation + s.parcours.entreprise;
         return (
-          <g key={+s.debut}>
+          <g key={s.debut}>
             {(["particulier", "mutation", "entreprise"] as Parcours[]).map((p) => {
               const h = ech(s.parcours[p]);
               if (h <= 0) return null;
@@ -430,7 +446,8 @@ function BarresParcours({ semaines }: { semaines: Semaine[] }) {
               </text>
             )}
             <text x={x + largeur / 2} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--color-ink-soft)">
-              {court.format(s.debut)}
+              {/* « 09/11 » : le lundi, lu tel quel dans le jour de Paris. */}
+              {`${s.debut.slice(8, 10)}/${s.debut.slice(5, 7)}`}
             </text>
           </g>
         );

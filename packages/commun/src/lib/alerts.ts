@@ -179,11 +179,19 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       // Un événement automatique ne se produit qu'une fois par demande : sa clé
       // l'empêche de partir deux fois pour la même règle. Les gestes de
       // l'équipe (devis envoyé, accepté…) peuvent se répéter : clé unique.
+      // Vers le client, sur un événement que le public déclenche : plafonné sur 24 heures (lib/envois). Le plafond ne
+      // compte que les clés « questionnaires:… » : un tel message sans demande (un e-mail entrant dont la demande n'a
+      // pas pu s'enregistrer) en reçoit une à lui, sans quoi il était soumis au plafond sans jamais y être compté.
+      const plafonne = versClient && AUTOMATIQUES.has(event);
       const commun = {
-        cle: ctx.request_id && AUTOMATIQUES.has(event) ? `questionnaires:${event}:${a.id}:${ctx.request_id}` : null,
+        cle:
+          ctx.request_id && AUTOMATIQUES.has(event)
+            ? `questionnaires:${event}:${a.id}:${ctx.request_id}`
+            : plafonne
+              ? `questionnaires:${event}:${a.id}:sans-demande:${crypto.randomUUID()}`
+              : null,
         origine: "questionnaires" as const,
-        // Vers le client, sur un événement que le public déclenche : plafonné sur 24 heures (lib/envois).
-        plafonne: versClient && AUTOMATIQUES.has(event),
+        plafonne,
         modele: `Alerte : ${a.name}`,
         reference: (ctx.reference as string | undefined) || (ctx.request_id as string | undefined) || null,
       };

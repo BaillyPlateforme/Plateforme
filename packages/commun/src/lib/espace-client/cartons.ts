@@ -30,8 +30,13 @@ export function bornesCartons(periodeDebut: string, now = new Date()) {
 export function samedisEntre(min: string, max: string) {
   const out: string[] = [];
   const d = new Date(`${min}T12:00:00Z`);
+  const fin = new Date(`${max}T12:00:00Z`);
+  // Une date illisible donne un Date invalide : getUTCDay() rend NaN, jamais 6, et la
+  // boucle ne finirait pas (une borne haute illisible, comparée en texte, ne l'arrêtait
+  // pas non plus). Rien à proposer, comme pour une fenêtre vide.
+  if (Number.isNaN(d.getTime()) || Number.isNaN(fin.getTime())) return out;
   while (d.getUTCDay() !== 6) d.setUTCDate(d.getUTCDate() + 1);
-  while (iso(d) <= max) {
+  while (d.getTime() <= fin.getTime()) {
     out.push(iso(d));
     d.setUTCDate(d.getUTCDate() + 7);
   }

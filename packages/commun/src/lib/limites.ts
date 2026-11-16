@@ -60,6 +60,13 @@ export function adresseIp(entetes: Headers): string {
   return premiere || "inconnue";
 }
 
+/*
+ * Le poids d'une réservation. Négatif, il ferait crédit (réserver -5 rouvrirait cinq
+ * places sur un compteur plein) : il compte pour zéro, comme un poids nul. Illisible
+ * (NaN), il compte pour un : sinon le total deviendrait NaN et ne refuserait plus rien.
+ */
+const poidsDe = (p: number | undefined) => (p === undefined || Number.isNaN(p) ? 1 : Math.max(0, p));
+
 /**
  * Réserve d'un coup plusieurs compteurs (l'adresse IP, l'e-mail, le total du
  * jour…) : si l'un dépasse, rien n'est réservé et le refus dit lequel, et
@@ -73,7 +80,7 @@ export function reserver(demandes: { cle: string; poids?: number; fenetres: Fene
     return (m.get(d.cle) ?? []).filter((e) => e.t > maintenant - plusLongue);
   });
   for (const [i, d] of demandes.entries()) {
-    const poids = d.poids ?? 1;
+    const poids = poidsDe(d.poids);
     for (const f of d.fenetres) {
       const dedans = listes[i].filter((e) => e.t > maintenant - f.ms);
       const total = dedans.reduce((s, e) => s + e.n, 0);
@@ -83,7 +90,7 @@ export function reserver(demandes: { cle: string; poids?: number; fenetres: Fene
       }
     }
   }
-  demandes.forEach((d, i) => m.set(d.cle, [...listes[i], { t: maintenant, n: d.poids ?? 1 }]));
+  demandes.forEach((d, i) => m.set(d.cle, [...listes[i], { t: maintenant, n: poidsDe(d.poids) }]));
   nettoyer(m, maintenant);
   return null;
 }
@@ -135,7 +142,10 @@ export async function reserverDuJour(cle: string, poids: number, max: number): P
 export function delaiLisible(secondes: number): string {
   if (secondes < 90) return "dans une minute";
   if (secondes < 3600) return `dans ${Math.ceil(secondes / 60)} minutes`;
-  if (secondes < 6 * 3600) return `dans ${Math.ceil(secondes / 3600)} heures`;
+  if (secondes < 6 * 3600) {
+    const heures = Math.ceil(secondes / 3600);
+    return heures === 1 ? "dans une heure" : `dans ${heures} heures`;
+  }
   return "demain";
 }
 

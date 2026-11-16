@@ -38,7 +38,13 @@ const ETAT_CARTE = {
 } as const;
 
 const egal = (a: ReglageRegle, b: ReglageRegle) => JSON.stringify(a) === JSON.stringify(b);
-const jourFr = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+/*
+ * Rendu des deux côtés (serveur en temps universel sur Railway, navigateur à l'heure de Paris) : chaque date
+ * se met en forme avec le fuseau de Paris explicite, sinon le texte diffère (erreur d'hydratation n° 418).
+ * Un jour AAAA-MM-JJ se lit à midi UTC, que le fuseau de Paris laisse le même jour.
+ */
+const PARIS = "Europe/Paris";
+const jourFr = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: PARIS });
 
 export default function Configuration({ vues, dossiers, heureVeille }: { vues: VueRegle[]; dossiers: { id: number; ref: string; client: string }[]; heureVeille: number }) {
   return (
@@ -319,7 +325,7 @@ function CarteRegle({ vue, dossiers, heureVeille }: { vue: VueRegle; dossiers: {
 
       <footer className={s.regleBas}>
         <span data-modifie={modifie || undefined}>
-          {modifie ? "Modifications non enregistrées" : vue.majLe ? `Enregistrée le ${new Date(vue.majLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}${vue.majPar ? ` par ${vue.majPar}` : ""}` : "Réglages par défaut (provisoires)"}
+          {modifie ? "Modifications non enregistrées" : vue.majLe ? `Enregistrée le ${new Date(vue.majLe).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: PARIS })}${vue.majPar ? ` par ${vue.majPar}` : ""}` : "Réglages par défaut (provisoires)"}
         </span>
         <button type="button" className={s.bouton} data-taille="grand" disabled={simEnCours} onClick={lancerSimulation}>
           {simEnCours ? "Calcul…" : "Simuler"}
@@ -471,7 +477,7 @@ function PanneauSimulation({ sim, fermer, modifie }: { sim: Simulation; fermer: 
           { cle: "brouillon", libelle: modifie ? "Avec ces réglages" : "Relances prévues", couleur: "#4b2fe0" },
         ]}
         points={sim.jours.map((j, i) => ({
-          cle: j.jour, etiquette: String(Number(j.jour.slice(8))), detail: new Date(`${j.jour}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+          cle: j.jour, etiquette: String(Number(j.jour.slice(8))), detail: new Date(`${j.jour}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: PARIS }),
           valeurs: (modifie ? { enregistree: j.enregistree, brouillon: j.brouillon } : { brouillon: j.brouillon }) as Record<string, number>, aujourdhui: i === 0,
         }))}
         vide="Aucune relance prévue dans les 30 prochains jours avec ces réglages."

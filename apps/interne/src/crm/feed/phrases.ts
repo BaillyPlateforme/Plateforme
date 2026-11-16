@@ -345,7 +345,9 @@ export function phraseDe(src: string, d: D, contexte: Contexte): Phrase {
 /** L'icône et la couleur d'une ligne du fil d'un dossier, d'après son type. */
 export function habillageActivite(genre: string, libelle: string, suppression = false): Pick<Phrase, "icone" | "ton"> {
   if (suppression || genre === "suppression") return { icone: "corbeille", ton: "rouge" };
-  if (/(\bsignée?s?\b|\bacceptée?s?\b)/i.test(libelle)) return { icone: "signature", ton: "vert" };
+  // Frontières de mot en lettres Unicode : sans drapeau u, \b ne voit pas « é » comme une lettre, et « signé »,
+  // « accepté » au masculin singulier n'étaient jamais reconnus (« assignée » reste écarté).
+  if (/(?<![\p{L}\p{N}_])(?:signée?s?|acceptée?s?)(?![\p{L}\p{N}_])/iu.test(libelle)) return { icone: "signature", ton: "vert" };
   switch (genre) {
     case "relance":
       return { icone: "cloche", ton: "ambre" };

@@ -57,7 +57,12 @@ export function distanceKm(a: Point, b: Point) {
   return 2 * R * Math.asin(Math.sqrt(h)) * 1.35;
 }
 
-const hm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(Math.round(min % 60)).padStart(2, "0")}`;
+// On arrondit à la minute AVANT de séparer heures et minutes : sinon 539,6 min
+// s'écrirait « 08:60 » au lieu de « 09:00 ».
+const hm = (min: number) => {
+  const m = Math.round(min);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+};
 const minutes = (s: string) => {
   const [h, m] = s.split(":").map(Number);
   return h * 60 + m;

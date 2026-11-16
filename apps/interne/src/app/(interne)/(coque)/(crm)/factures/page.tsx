@@ -42,7 +42,7 @@ export default async function Factures({ searchParams }: { searchParams: Promise
   }
   const vue: Vue = VUES.includes(sp.vue as Vue) ? (sp.vue as Vue) : "factures";
   const dossier = sp.dossier && /^\d+$/.test(sp.dossier) ? Number(sp.dossier) : null;
-  const type: Type | null = sp.type && sp.type in TYPES ? (sp.type as Type) : null;
+  const type: Type | null = sp.type && Object.hasOwn(TYPES, sp.type) ? (sp.type as Type) : null;
   const groupe = sp.groupe === "payeur" || sp.groupe === "origine" ? sp.groupe : null;
   const etat = type !== "avoirs" && ETATS.some(([k]) => k === sp.etat) ? sp.etat! : null;
   const mode = MODES.some((m) => m.cle === sp.mode) ? sp.mode! : null;

@@ -120,7 +120,7 @@ export function mettreEnPage({ titre, corps, apercu, base, entreprise, surtitre,
 
   const marque_ = (largeur: number) =>
     logo
-      ? `<img src="${logo}" alt="${echapper(nom)}" width="${largeur}" style="display:block;width:${largeur}px;max-width:100%;height:auto;border:0;outline:none;">`
+      ? `<img src="${echapper(logo)}" alt="${echapper(nom)}" width="${largeur}" style="display:block;width:${largeur}px;max-width:100%;height:auto;border:0;outline:none;">`
       : `<div style="color:${COULEURS.blanc};font-size:24px;line-height:1;font-weight:900;letter-spacing:-0.4px;">BAILLY</div>
          <div style="margin-top:5px;color:${COULEURS.jaune};font-size:10px;letter-spacing:2.2px;font-weight:700;">BD MOVING | GROUP</div>`;
 
@@ -130,7 +130,7 @@ export function mettreEnPage({ titre, corps, apercu, base, entreprise, surtitre,
     ? `<table ${TABLE}><tr>
         <td valign="middle" style="vertical-align:middle;">${
           marque.logo
-            ? `<table ${TABLE}><tr><td bgcolor="${COULEURS.blanc}" style="background:${COULEURS.blanc};border-radius:12px;padding:8px 12px;"><img src="${marque.logo}" alt="${echapper(marque.nom)}" height="30" style="display:block;height:30px;width:auto;max-width:130px;border:0;outline:none;"></td></tr></table>`
+            ? `<table ${TABLE}><tr><td bgcolor="${COULEURS.blanc}" style="background:${COULEURS.blanc};border-radius:12px;padding:8px 12px;"><img src="${echapper(marque.logo)}" alt="${echapper(marque.nom)}" height="30" style="display:block;height:30px;width:auto;max-width:130px;border:0;outline:none;"></td></tr></table>`
             : `<table ${TABLE}><tr><td bgcolor="${T.accent}" style="background:${T.accent};border-radius:10px;padding:8px 12px;font-family:${POLICE};font-size:14px;line-height:1.2;font-weight:700;color:${T.dessus};">${echapper(marque.nom)}</td></tr></table>`
         }</td>
         <td width="1" style="width:1px;padding:0 14px;"><div style="width:1px;height:26px;line-height:26px;font-size:0;background:#57554f;">&nbsp;</div></td>
@@ -185,7 +185,7 @@ ${apercu ? `<div style="display:none;font-size:1px;color:${COULEURS.fond};line-h
 
         <!-- En-tête : la photo de la vitrine, le logo, le titre en grand -->
         <tr>
-          <td class="marge" ${photo ? `background="${photo}"` : ""} bgcolor="${COULEURS.noir}" style="background-color:${COULEURS.noir};${photo ? `background-image:url('${photo}');` : ""}background-size:cover;background-position:center;border-radius:24px 24px 0 0;padding:30px 40px 40px;font-family:${POLICE};">
+          <td class="marge" ${photo ? `background="${echapper(photo)}"` : ""} bgcolor="${COULEURS.noir}" style="background-color:${COULEURS.noir};${photo ? `background-image:url('${echapper(photo)}');` : ""}background-size:cover;background-position:center;border-radius:24px 24px 0 0;padding:30px 40px 40px;font-family:${POLICE};">
             ${enseigne}
             <div style="height:54px;line-height:54px;font-size:0;">&nbsp;</div>
             ${surtitre ? `<div style="${SURTITRE}color:${T.surNoir};">${echapper(surtitre)}</div>` : ""}
@@ -212,8 +212,8 @@ ${apercu ? `<div style="display:none;font-size:1px;color:${COULEURS.fond};line-h
                   <div style="margin-top:12px;font-size:13.5px;line-height:1.4;font-weight:500;color:${COULEURS.jaune};">Déménagez où vous voulez&nbsp;!</div>
                 </td>
                 <td class="pile pile-suite" valign="top" align="right" style="vertical-align:top;text-align:right;font-size:13px;line-height:1.75;color:#b9b6b0;">
-                  ${tel ? `<a href="tel:${tel.replace(/\s/g, "")}" style="color:${COULEURS.blanc};font-size:16px;font-weight:700;text-decoration:none;">${echapper(tel)}</a><br>` : ""}
-                  ${mail ? `<a href="mailto:${mail}" style="color:#b9b6b0;text-decoration:none;">${echapper(mail)}</a><br>` : ""}
+                  ${tel ? `<a href="${lienTel(tel)}" style="color:${COULEURS.blanc};font-size:16px;font-weight:700;text-decoration:none;">${echapper(tel)}</a><br>` : ""}
+                  ${mail ? `<a href="${lienMail(mail)}" style="color:#b9b6b0;text-decoration:none;">${echapper(mail)}</a><br>` : ""}
                   <a href="https://www.demenagements-bailly.com/" style="color:#b9b6b0;text-decoration:none;">demenagements-bailly.com</a>
                 </td>
               </tr>
@@ -262,7 +262,7 @@ export function bouton(label: string, url: string): string {
   return `<table ${TABLE} width="100%"><tr><td align="center" style="padding:14px 0 28px;">
   <table ${TABLE}><tr>
     <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
-      <a href="${url}" style="display:inline-block;padding:16px 34px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(label)}&nbsp;&nbsp;&rarr;</a>
+      <a href="${echapper(url)}" style="display:inline-block;padding:16px 34px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(label)}&nbsp;&nbsp;&rarr;</a>
     </td>
   </tr></table>
 </td></tr></table>`;
@@ -425,12 +425,12 @@ export function carteContact(input: { tel?: string; mail?: string }): string {
       tel
         ? `<table ${TABLE} style="margin-top:18px;"><tr>
       <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
-        <a href="tel:${tel.replace(/\s/g, "")}" style="display:inline-block;padding:12px 22px;font-family:${POLICE};font-size:15px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(tel)}</a>
+        <a href="${lienTel(tel)}" style="display:inline-block;padding:12px 22px;font-family:${POLICE};font-size:15px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(tel)}</a>
       </td>
     </tr></table>`
         : ""
     }
-    ${mail ? `<div style="margin-top:14px;font-size:13.5px;line-height:1.5;color:#b9b6b0;">${tel ? "ou écrivez à " : "Écrivez à "}<a href="mailto:${mail}" style="color:${COULEURS.blanc};font-weight:500;text-decoration:underline;">${echapper(mail)}</a></div>` : ""}
+    ${mail ? `<div style="margin-top:14px;font-size:13.5px;line-height:1.5;color:#b9b6b0;">${tel ? "ou écrivez à " : "Écrivez à "}<a href="${lienMail(mail)}" style="color:${COULEURS.blanc};font-weight:500;text-decoration:underline;">${echapper(mail)}</a></div>` : ""}
   </td>
 </tr></table>`;
 }
@@ -518,7 +518,7 @@ export function listeDemandes(d: Demandes): string {
       const filet = i < derniere ? `border-bottom:1px solid ${COULEURS.trait};` : "";
       const meta = [
         e.valeur ? `<span style="display:inline-block;margin:10px 12px 0 0;padding:5px 11px;border-radius:999px;background:${COULEURS.noir};font-size:13px;line-height:1.3;font-weight:700;color:${T.surNoir};white-space:nowrap;">${echapper(e.valeur)}</span>` : "",
-        e.lien ? `<a href="${e.lien.url}" style="display:inline-block;margin-top:10px;font-size:13.5px;line-height:1.3;font-weight:700;color:${COULEURS.noir};text-decoration:none;border-bottom:2px solid ${T.accent};padding-bottom:1px;white-space:nowrap;">${echapper(e.lien.libelle)}&nbsp;&rarr;</a>` : "",
+        e.lien ? `<a href="${echapper(e.lien.url)}" style="display:inline-block;margin-top:10px;font-size:13.5px;line-height:1.3;font-weight:700;color:${COULEURS.noir};text-decoration:none;border-bottom:2px solid ${T.accent};padding-bottom:1px;white-space:nowrap;">${echapper(e.lien.libelle)}&nbsp;&rarr;</a>` : "",
       ].join("");
       return `<tr>
         <td width="40" valign="top" style="width:40px;vertical-align:top;padding:18px 0 18px;${filet}">
@@ -557,7 +557,7 @@ export function listeDemandes(d: Demandes): string {
     ? `<tr><td bgcolor="${COULEURS.papier}" align="center" style="background:${COULEURS.papier};border:1px solid ${COULEURS.trait};border-radius:0 0 20px 20px;padding:24px 26px ${d.note ? "20px" : "24px"};text-align:center;font-family:${POLICE};">
         ${d.action ? `<table ${TABLE} align="center" style="margin:0 auto;"><tr>
           <td align="center" bgcolor="${T.accent}" style="background:${T.accent};border-radius:999px;">
-            <a href="${d.action.url}" style="display:inline-block;padding:16px 32px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(d.action.libelle)}&nbsp;&nbsp;&rarr;</a>
+            <a href="${echapper(d.action.url)}" style="display:inline-block;padding:16px 32px;font-family:${POLICE};font-size:15.5px;line-height:1.2;font-weight:700;color:${T.dessus};text-decoration:none;border-radius:999px;">${echapper(d.action.libelle)}&nbsp;&nbsp;&rarr;</a>
           </td>
         </tr></table>` : ""}
         ${d.note ? `<div style="margin-top:${d.action ? "13px" : "0"};font-size:12.5px;line-height:1.55;color:${COULEURS.gris};">${echapper(d.note)}</div>` : ""}
@@ -567,7 +567,30 @@ export function listeDemandes(d: Demandes): string {
   return `<table ${TABLE} width="100%" style="margin:8px 0 26px;border-collapse:separate;border-spacing:0;">${entete}${corps}${pied}</table>`;
 }
 
-/** Échappe ce qui vient des données : un nom de client n'est pas du HTML. */
+/*
+ * Les liens « tel: » et « mailto: » du pied et de la carte de contact. Le numéro et
+ * l'adresse viennent des réglages de l'équipe : un guillemet y ouvrirait un attribut
+ * dans chaque e-mail envoyé aux clients. Le numéro ne garde que ses chiffres et le « + »
+ * de l'indicatif ; l'adresse est encodée comme un morceau d'URL (l'arobase gardée), où
+ * ni guillemet, ni espace, ni « = » ne survivent.
+ */
+function lienTel(tel: string): string {
+  return `tel:${tel.replace(/[^\d+]/g, "")}`;
+}
+
+function lienMail(mail: string): string {
+  try {
+    return `mailto:${encodeURIComponent(mail.trim()).replace(/%40/g, "@")}`;
+  } catch {
+    // Une moitié de paire UTF-16 isolée fait lever encodeURIComponent : pas d'adresse plutôt qu'une erreur.
+    return "mailto:";
+  }
+}
+
+/**
+ * Échappe ce qui vient des données : un nom de client n'est pas du HTML. Vaut aussi
+ * pour les valeurs d'attribut (href, src), toutes posées entre guillemets doubles.
+ */
 export function echapper(v: string): string {
   return String(v)
     .replace(/&/g, "&amp;")

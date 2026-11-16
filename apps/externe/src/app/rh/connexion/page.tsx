@@ -1,8 +1,8 @@
 import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import ThemeClair from "@/components/ThemeClair";
+import { versInterne } from "@/lib/adresses";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
 import { Picto, type NomPicto } from "../_ui/Icones";
 import ConnexionRh from "./ConnexionRh";
@@ -35,7 +35,9 @@ const PROMESSE: { picto: NomPicto; titre: string; texte: string }[] = [
  * quelle entreprise il s'agit — c'est le compte qui le dira, et l'espace
  * prendra alors ses couleurs.
  */
-export default function ConnexionRhPage() {
+export default async function ConnexionRhPage({ searchParams }: { searchParams: Promise<{ refus?: string }> }) {
+  // ?refus=1 : la session ouverte n'a pas accès à l'espace RH (PortailRh, proxy.ts).
+  const { refus } = await searchParams;
   return (
     <div className="min-h-dvh bg-paper text-ink lg:grid lg:grid-cols-[minmax(0,1.12fr)_minmax(0,1fr)]">
       <ThemeClair />
@@ -84,7 +86,7 @@ export default function ConnexionRhPage() {
           </p>
 
           <div className="reveal mt-8" style={{ "--d": "0.24s" } as React.CSSProperties}>
-            <ConnexionRh />
+            <ConnexionRh refus={refus !== undefined} />
           </div>
 
           {/* Un compte de l'équipe se connecte ici aussi : il choisit ensuite
@@ -94,9 +96,11 @@ export default function ConnexionRhPage() {
             <Image src="/marque/bailly-symbole.svg" alt="" width={36} height={36} className="h-9 w-9 shrink-0" />
             <p className="text-[12.5px] leading-relaxed text-ink-soft">
               <span className="font-semibold text-ink">Équipe Bailly :</span> votre compte fonctionne ici aussi, vous choisirez ensuite l&apos;entreprise à afficher.{" "}
-              <Link href="/login" className="font-semibold text-ink underline-offset-4 hover:underline">
+              {/* Un simple lien, vers l'adresse complète : l'espace équipe vit dans l'autre app. Un <Link>
+                  vers /login était préchargé par Next, redirigé vers cette autre origine, et refusé (CORS). */}
+              <a href={versInterne("/login")} className="font-semibold text-ink underline-offset-4 hover:underline">
                 Aller à l&apos;espace équipe
-              </Link>
+              </a>
             </p>
           </div>
         </div>

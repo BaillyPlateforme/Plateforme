@@ -6,6 +6,7 @@ import { currentUser } from "@/crm/lib/auth";
 import { lireDemande } from "@/lib/espace-client/demandes";
 import { estInternationalCrm, ouvrirEspaceDepuisCrm, paysDeLAdresse, renvoyerLienClientEc, renvoyerLienCrm, type IssueOuverture } from "@/lib/espace-client/crm";
 import { espaceDuDossier, projeterEspace } from "@/crm/lib/espace";
+import { anneeParis } from "@/crm/lib/format";
 
 /*
  * L'espace client, ouvert depuis le CRM. Un dossier, deux faces : le dossier
@@ -130,7 +131,7 @@ export async function renvoyerLienEspace(dossierId: number) {
 }
 
 async function numeroDossier() {
-  const an = new Date().getFullYear();
+  const an = anneeParis();
   const r = await q1<{ n: number }>("select coalesce(max(substring(ref from '[0-9]+$')::int),0) + 1 as n from dossiers where ref like $1", [`BD-${an}-%`]);
   return `BD-${an}-${String(r!.n).padStart(4, "0")}`;
 }

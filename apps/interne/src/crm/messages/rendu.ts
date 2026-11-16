@@ -12,7 +12,9 @@ import { echapper, mettreEnPage, paragraphe, salutation } from "@/lib/email-layo
 export type Vars = Record<string, string | number | null | undefined>;
 
 /** Remplit {client} {commercial} {date} {heure} {ref}… — les variables du CRM. */
-export const remplir = (texte: string, vars: Vars) => texte.replace(/\{([a-z_]+)\}/gi, (m, k: string) => (vars[k] == null ? "" : String(vars[k])));
+// Object.hasOwn : « {constructor} » dans un texte de carte écrivait le code de la fonction d'Object.
+export const remplir = (texte: string, vars: Vars) =>
+  texte.replace(/\{([a-z_]+)\}/gi, (m, k: string) => (!Object.hasOwn(vars, k) || vars[k] == null ? "" : String(vars[k])));
 
 /** Ce que l'envoi sait de Bailly : l'adresse du site (logo, photo) et les coordonnées du pied. */
 export interface ContexteEmail {

@@ -29,7 +29,9 @@
   --accent: #f5d033;          /* le jaune de la charte */
   --accent-hover: #e0b81a;
   --on-accent: #1b1a18;       /* ce qui se pose sur le jaune */
-  --accent-deep: #8a6f00;     /* le jaune en texte, sur fond clair */
+  /* Le jaune en texte, sur fond clair : le brun doré de la charte (#8a6f00), à peine assombri — sur le
+     papier, il ne donnait que 4,3:1, sous les 4,5:1 du WCAG AA (surtitres, liens fléchés). */
+  --accent-deep: #856b00;
   --accent-tint: #fdf6d6;
   --danger: #c6362c;
   --danger-tint: #fbeae8;

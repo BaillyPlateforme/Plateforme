@@ -3,20 +3,17 @@ import { createRequestSchema } from "@/lib/schemas";
 import { createRequest } from "@/lib/requests";
 import type { RequestSource } from "@/lib/types";
 import { secretPresente } from "@/lib/secret-partage";
+import { lireJsonBorne } from "@/lib/requete-json";
 import { adresseIp, fenetreJour, fenetres, lireLimite, reponseTropDeDemandes, reserver } from "@/lib/limites";
 
 // POST /api/requests
 // Point d'entrée UNIQUE : le formulaire public ET n8n (mail parsé) postent ici.
 // n8n indique la source via l'en-tête x-request-source: email.
 export async function POST(req: Request) {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "JSON invalide" }, { status: 400 });
-  }
+  const lu = await lireJsonBorne(req);
+  if (!lu.ok) return lu.reponse;
 
-  const parsed = createRequestSchema.safeParse(body);
+  const parsed = createRequestSchema.safeParse(lu.corps);
   if (!parsed.success) {
     const premier = parsed.error.issues.find((i) => i.message && !/^(Invalid|Required|Expected)/.test(i.message))?.message;
     return NextResponse.json(
@@ -52,7 +49,8 @@ export async function POST(req: Request) {
     // Le jeton de modification : seul ce navigateur pourra corriger la demande depuis l'écran de son estimation.
     return NextResponse.json({ id: demande.id, status: demande.status, modification: jetonModification }, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur inconnue";
-    return NextResponse.json({ error: message }, { status: 500 });
+    // Le détail (message de la base…) reste dans les journaux : le visiteur n'a rien à en faire.
+    console.error("[demande] création en échec :", err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: "Votre demande n'a pas pu être enregistrée. Réessayez dans un instant." }, { status: 500 });
   }
 }

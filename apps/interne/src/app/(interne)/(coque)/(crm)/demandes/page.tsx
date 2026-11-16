@@ -182,7 +182,7 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
     );
   } else {
     const leads = await listLeads().catch(() => null);
-    contenu = <div className={`vue-equipe ${h.equipe}`}>{leads ? <SuiviLeads leads={leads} /> : <Indisponible texte="Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant." />}</div>;
+    contenu = <div className={`vue-equipe ${h.equipe}`}>{leads ? <SuiviLeads leads={leads} aujourdhui={jourParis()} /> : <Indisponible texte="Le suivi des leads ne se lit pas pour le moment : réessayez dans un instant." />}</div>;
   }
 
   return (

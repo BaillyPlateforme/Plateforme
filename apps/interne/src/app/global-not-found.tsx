@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./(interne)/globals.css";
 
 /*
@@ -19,9 +20,9 @@ export default function GlobalNotFound() {
           <p className="eyebrow text-brand-ink">Erreur 404</p>
           <h1 className="mt-3 text-[28px] font-bold">Cette page n&apos;existe pas</h1>
           <p className="mt-3 text-[15px] text-ink-soft">L&apos;adresse est peut-être incomplète, ou la page a été déplacée.</p>
-          <a href="/" className="mt-6 inline-flex h-11 items-center rounded-full bg-ink px-5 text-[14px] font-semibold text-shell">
+          <Link href="/" className="mt-6 inline-flex h-11 items-center rounded-full bg-ink px-5 text-[14px] font-semibold text-shell">
             Retour au CRM
-          </a>
+          </Link>
         </div>
       </body>
     </html>

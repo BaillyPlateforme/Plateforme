@@ -14,8 +14,11 @@ import { TONS } from "@/lib/tons";
  */
 const JOUR = 86_400_000;
 const nf = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+// Les k€ gardent leur chiffre après la virgule : formatés par `nf`, ils seraient
+// arrondis une seconde fois (1 500 € → « 2 k€ »).
+const nfK = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
 const eur = (n: number) =>
-  n >= 1000 ? `${nf.format(Math.round(n / 100) / 10)} k€` : `${nf.format(n)} €`;
+  n >= 1000 ? `${nfK.format(Math.round(n / 100) / 10)} k€` : `${nf.format(n)} €`;
 const moisCourt = new Intl.DateTimeFormat("fr-FR", { month: "short" });
 
 const somme = (rs: RequestRow[], f: (r: RequestRow) => number | null) =>

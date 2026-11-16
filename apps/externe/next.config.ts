@@ -17,6 +17,8 @@ const interne = (process.env.NEXT_PUBLIC_URL_INTERNE || "").replace(/\/$/, "");
 const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
+  /** Pas d'en-tête « X-Powered-By: Next.js » : rien n'oblige à dire à qui regarde sur quoi tourne le site. */
+  poweredByHeader: false,
   /**
    * Les en-têtes de sécurité. Le formulaire s'affiche en cadre dans le site
    * officiel (et le PDF du devis en cadre dans le formulaire) ; l'équipe ouvre

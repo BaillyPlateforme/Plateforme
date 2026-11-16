@@ -206,11 +206,17 @@ export function trier<T extends Pick<Appel, "echeance" | "score">>(appels: T[], 
 
 /* ─────────────── Le téléphone ─────────────── */
 
-/** « 0612345678 », « +33 6 12… », « 33612345678 » → « 06 12 34 56 78 » ; un numéro étranger reste tel quel. */
+/**
+ * Le « (0) » de la notation internationale (« +33 (0)6 12… ») : le 0 national, qui ne se compose pas
+ * après l'indicatif. Gardé, il donnerait « +330612… », dix chiffres après +33.
+ */
+const sansZeroNational = (b: string) => b.replace(/^(\s*(?:\+|00)\d{1,3})\s*\(\s*0\s*\)/, "$1");
+
+/** « 0612345678 », « +33 6 12… », « +33 (0)6 12… », « 33612345678 » → « 06 12 34 56 78 » ; un numéro étranger reste tel quel. */
 export function telAffiche(brut: string | null | undefined): string | null {
   const b = String(brut ?? "").trim();
   if (!b) return null;
-  let d = b.replace(/[^\d+]/g, "");
+  let d = sansZeroNational(b).replace(/[^\d+]/g, "");
   if (d.startsWith("+33")) d = `0${d.slice(3)}`;
   else if (d.startsWith("0033")) d = `0${d.slice(4)}`;
   else if (/^33\d{9}$/.test(d)) d = `0${d.slice(2)}`;
@@ -219,7 +225,7 @@ export function telAffiche(brut: string | null | undefined): string | null {
 
 /** Le lien d'appel : chiffres et « + » seuls ; un numéro français en +33. */
 export function telLien(brut: string | null | undefined): string | null {
-  let d = String(brut ?? "").replace(/[^\d+]/g, "");
+  let d = sansZeroNational(String(brut ?? "")).replace(/[^\d+]/g, "");
   if (!d.replace(/\D/g, "")) return null;
   if (/^0\d{9}$/.test(d)) d = `+33${d.slice(1)}`;
   else if (/^33\d{9}$/.test(d)) d = `+${d}`;

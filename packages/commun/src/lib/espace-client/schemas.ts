@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { aujourdhui } from "./format";
 import { PARTICULARITES_RUE } from "./libelles";
 
 export type Erreurs = Record<string, string>;
@@ -49,7 +50,9 @@ const entier = (min: number, max: number, vide: string, horsBornes: string) =>
     .transform(Number)
     .refine((n) => n >= min && n <= max, { error: horsBornes });
 
-export const TELEPHONE_FR = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
+// Entre deux groupes : une espace (insécable comprise, celle d'un numéro recopié), un point
+// ou un tiret. Pas « \s », qui laisserait passer un retour à la ligne ou une tabulation.
+export const TELEPHONE_FR = /^(?:(?:\+|00)33[ \u00a0\u202f.-]?|0)[1-9](?:[ \u00a0\u202f.-]?\d{2}){4}$/;
 
 const lu = (fd: FormData, k: string) => {
   const v = fd.get(k);
@@ -269,7 +272,8 @@ export const avarieSchema = z.object({
   reserves_emises: ouiNon("Indiquez si vous avez émis des réserves le jour de la livraison."),
   date_constat: z.iso
     .date({ error: "Indiquez la date du constat." })
-    .refine((d) => d <= new Date().toISOString().slice(0, 10), { error: "La date du constat ne peut pas être dans le futur." }),
+    // Le jour de Paris, pas celui d'UTC : juste après minuit, UTC est encore la veille.
+    .refine((d) => d <= aujourdhui(), { error: "La date du constat ne peut pas être dans le futur." }),
   objets: texte(2, 200, "L'objet endommagé"),
   description: texte(20, 2000, "La description"),
 });

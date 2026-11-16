@@ -5,6 +5,11 @@ export const eur = (n: number | string | null | undefined) =>
 export const m3 = (n: number | string | null | undefined) => `${String(Math.round(Number(n ?? 0) * 10) / 10).replace(".", ",")} m³`;
 export const dateFr = (d: Date | string | null | undefined, opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) =>
   d ? new Intl.DateTimeFormat("fr-FR", opts).format(new Date(d)) : "—";
+/**
+ * L'année à Paris, celle des numéros (DV-, BD-, LV-…) : le serveur tourne en temps universel (Railway), et
+ * getFullYear() y numérotait encore dans l'ancienne année ce qui est daté du 1er janvier entre 0 h et 1 h.
+ */
+export const anneeParis = (d = new Date()) => Number(d.toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }).slice(0, 4));
 export const heure = (h: number) => { const hh = Math.floor(h), m = Math.round((h - hh) * 60); return `${hh}h${m ? String(m).padStart(2, "0") : ""}`; };
 export const ilYa = (d: Date | string) => {
   const m = Math.max(1, Math.round((Date.now() - new Date(d).getTime()) / 60000));

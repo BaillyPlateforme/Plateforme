@@ -85,7 +85,9 @@ export const SEGMENTS: Record<TypeClient, Segment> = {
 
 export const LISTE_SEGMENTS: Segment[] = [SEGMENTS.particulier, SEGMENTS.grand_compte, SEGMENTS.militaire, SEGMENTS.logement_social];
 
-export const estSegment = (t: unknown): t is TypeClient => typeof t === "string" && t in SEGMENTS;
+// Object.hasOwn, pas « in » : « in » remonte la chaîne des prototypes, et « toString »,
+// « constructor » ou « __proto__ » passeraient pour des segments.
+export const estSegment = (t: unknown): t is TypeClient => typeof t === "string" && Object.hasOwn(SEGMENTS, t);
 
 /** Le segment d'un type de client ; le particulier à défaut. */
 export const segmentDe = (t: string | null | undefined): Segment => (estSegment(t) ? SEGMENTS[t] : SEGMENTS.particulier);

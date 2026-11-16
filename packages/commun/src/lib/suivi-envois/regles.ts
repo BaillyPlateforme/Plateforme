@@ -117,7 +117,9 @@ export function pageDuChemin(chemin: string, reference: string): string | null {
   });
   if (morceaux[0] !== "espace-client" || morceaux[1] !== reference) return null;
   const page = morceaux[2] ?? "accueil";
-  return page in PAGES && page !== "signature" ? page : null;
+  // Object.hasOwn, pas « in » : le chemin vient du navigateur, et « constructor » ou
+  // « toString », hérités d'Object, ne sont pas des pages de l'espace.
+  return Object.hasOwn(PAGES, page) && page !== "signature" ? page : null;
 }
 
 /* ─────────────── L'équipement d'un e-mail ─────────────── */
@@ -135,7 +137,8 @@ const ENTITES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"',
 const decoder = (s: string) =>
   s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+\d*);/gi, (m, e: string) => {
     const k = e.toLowerCase();
-    if (k in ENTITES) return ENTITES[k];
+    // Object.hasOwn : « &constructor; » ne doit pas rendre la fonction d'Object.
+    if (Object.hasOwn(ENTITES, k)) return ENTITES[k];
     if (k.startsWith("#x")) return String.fromCodePoint(parseInt(k.slice(2), 16));
     if (k.startsWith("#")) return String.fromCodePoint(Number(k.slice(1)));
     return m;

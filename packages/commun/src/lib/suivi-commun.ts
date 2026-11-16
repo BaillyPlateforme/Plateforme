@@ -137,7 +137,9 @@ export function versCsv(leads: Lead[]): string {
     // Un texte qui commence par = + - @ serait une formule pour Excel (=HYPERLINK(…) saisi dans le
     // formulaire public) : une apostrophe le garde en texte. Les nombres ne sont pas touchés.
     const t = typeof v === "string" && /^[=+\-@\t\r]/.test(brut) ? `'${brut}` : brut;
-    return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+    // Un retour chariot seul coupe aussi la ligne pour Excel : sans guillemets, la suite (« =cmd… ») ouvrait une
+    // nouvelle ligne et y redevenait une formule.
+    return /[";\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const statut = (s: StatutLead) => STATUTS.find((x) => x.key === s)?.label ?? s;
   const entetes = [
@@ -146,7 +148,8 @@ export function versCsv(leads: Lead[]): string {
   ];
   const lignes = leads.map((l) =>
     [
-      new Date(l.created_at).toLocaleDateString("fr-FR"),
+      // Le jour de Paris : le serveur tourne en temps universel, une demande de 23 h 30 changeait de jour.
+      new Date(l.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }),
       libelleDuLead(l),
       l.client_nom,
       l.client_tel,

@@ -120,6 +120,10 @@ export async function envoyerLienAuClient(client: Client, options: { reference?:
   else {
     compte = await assurerCompte(client);
     jeton = await jetonDeConnexion(client.email, compte);
+    // Supabase vient d'invalider les liens précédents de ce compte : le registre les clôt aussi. Sans cela, la page
+    // d'arrivée accueillait un lien remplacé comme valable (« Accéder à mon espace ») et seul le clic le refusait ;
+    // elle répond désormais d'emblée « Ce lien a déjà servi… un lien plus récent remplace le précédent ».
+    await annulerLiens(client.id);
   }
   const reference = options.reference ?? null;
   await enregistrerLien({

@@ -272,7 +272,11 @@ export function versTexteCarte(
     for (const b of valeurs) if (a !== b && a.v.includes(b.v)) return { ok: false, raison: `{${a.k}} et {${b.k}} ont des valeurs qui se recoupent (« ${b.v} »).` };
   }
   const compter = (texte: string, v: string) => texte.split(v).length - 1;
-  const lisibleOrigine = [origine.objet ?? "", texteLisible(origine.corps, vars, canal)].join("\n");
+  // Le texte d'origine tel que l'éditeur le présente (PanneauEnvoi) : objet REMPLI compris. Compté brut, une
+  // variable de l'objet (« Votre règlement de {montant} … ») semblerait écrite une fois de trop.
+  const { elements: _liste, ...autres } = vars;
+  void _liste;
+  const lisibleOrigine = [origine.objet ? remplir(origine.objet, autres) : "", texteLisible(origine.corps, vars, canal)].join("\n");
   const brutOrigine = [origine.objet ?? "", origine.corps].join("\n");
   const tout = [perso.objet ?? "", perso.corps].join("\n");
   for (const { k, v } of valeurs) {

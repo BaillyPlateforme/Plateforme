@@ -11,6 +11,8 @@ const racine = path.resolve(process.cwd(), "..", "..");
 const nextConfig: NextConfig = {
   turbopack: { root: racine },
   outputFileTracingRoot: racine,
+  /** Pas d'en-tête « X-Powered-By: Next.js » : rien n'oblige à dire à qui regarde sur quoi tourne le site. */
+  poweredByHeader: false,
   /**
    * La bulle de Next, en développement seulement : à gauche, elle couvrait le
    * bouton « Équipe » en bas du rail du CRM.

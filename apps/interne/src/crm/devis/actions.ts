@@ -9,6 +9,7 @@ import { projeterEspace, signerDevisUnique } from "@/crm/lib/espace";
 import { envoyerDevisParEmail } from "@/crm/envois";
 import { encaisser } from "@/crm/facturation/actions";
 import { formules } from "@/crm/lib/tarif";
+import { anneeParis } from "@/crm/lib/format";
 import {
   FORMULES, lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations,
   nomDevis, nouvelId, prestationsType, type EtatDevis, type Formule,
@@ -47,7 +48,7 @@ function rafraichir(dossierId: number, devisId?: number) {
   if (devisId) revalidatePath(`/dossiers/${dossierId}/devis/${devisId}`);
 }
 async function numero() {
-  const an = new Date().getFullYear();
+  const an = anneeParis();
   const r = await q1<{ n: number }>("select coalesce(max(substring(numero from '[0-9]+$')::int),0) + 1 as n from devis where numero like $1", [`DV-${an}-%`]);
   return `DV-${an}-${String(r!.n).padStart(4, "0")}`;
 }

@@ -22,6 +22,14 @@ export const lienDocumentDevis = (crmDevisId: number) =>
 
 /** Le devis du CRM que désigne le jeton, s'il est intact et pas échu. */
 export function devisDuLienDocument(jeton: string): number | null {
-  const c = desceller<{ exp: number; d: unknown }>(decodeURIComponent(jeton), USAGE);
+  // Un « % » isolé dans l'adresse ferait lever decodeURIComponent : la page publique
+  // doit dire « lien expiré », pas tomber en erreur.
+  let brut: string;
+  try {
+    brut = decodeURIComponent(jeton);
+  } catch {
+    return null;
+  }
+  const c = desceller<{ exp: number; d: unknown }>(brut, USAGE);
   return c && typeof c.d === "number" && Number.isInteger(c.d) && c.d > 0 ? c.d : null;
 }

@@ -51,11 +51,16 @@ export function AddressInput({
   const box = useRef<HTMLDivElement>(null);
   const skip = useRef(false);
   const idListe = useId();
+  // Moins de deux lettres : rien à chercher, et rien à montrer. La frappe vide la liste (plus bas) ; une
+  // valeur posée par la page (formulaire remis à zéro) la masque ici. L'effet n'a plus à la vider, ce
+  // qui refaisait un rendu à chaque fois.
+  const cherchable = value.trim().length >= 2;
+  const liste = open && cherchable && sugg.length > 0;
 
   useEffect(() => {
     if (skip.current) { skip.current = false; return; }
     const q = value.trim();
-    if (q.length < 2) { setSugg([]); setOpen(false); return; }
+    if (q.length < 2) return;
     const t = setTimeout(async () => {
       try {
         const typeParam = kind === "municipality" ? "&type=municipality" : "";
@@ -120,10 +125,14 @@ export function AddressInput({
     >
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          if (e.target.value.trim().length < 2) { setSugg([]); setOpen(false); }
+          onChange(e.target.value);
+        }}
         onFocus={() => sugg.length > 0 && setOpen(true)}
         onKeyDown={(e) => {
-          if (!open) return;
+          // Une liste masquée ne se choisit pas au clavier.
+          if (!liste) return;
           if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(sugg.length - 1, a + 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
           else if (e.key === "Enter" && sugg[active]) { e.preventDefault(); choose(sugg[active]); }
@@ -137,7 +146,7 @@ export function AddressInput({
         spellCheck={false}
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded={open && sugg.length > 0}
+        aria-expanded={liste}
         aria-controls={idListe}
         data-form-type="other"
         data-lpignore="true"
@@ -147,7 +156,7 @@ export function AddressInput({
       <span className="pointer-events-none absolute left-4 top-6 -translate-y-1/2 text-ink-soft">
         <Icone nom="pin" taille={17} />
       </span>
-      {open && sugg.length > 0 && (
+      {liste && (
         <ul id={idListe} role="listbox" className="liste-villes animate-step-in absolute z-50 mt-2 w-full overflow-hidden rounded-[18px] border border-line bg-card p-1.5 shadow-[0_24px_48px_-20px_rgba(27,26,24,0.45)]">
           {sugg.map((p, i) => (
             <li key={i}>

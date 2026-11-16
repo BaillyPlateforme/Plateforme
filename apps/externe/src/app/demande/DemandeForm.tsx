@@ -28,6 +28,7 @@ import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
 import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
+import { useEtapesDansLHistorique } from "./historique";
 import { remonter, useIntegre, usePleinEcran } from "./integration";
 import {
   ListeMeubles,
@@ -766,6 +767,8 @@ function CompleteForm({
   const [error, setError] = useState<string | null>(null);
   /** La demande déjà envoyée, que « Modifier ma demande » met à jour au lieu d'en créer une autre. */
   const [modif, setModif] = useState<Modif>(null);
+  // Retour et Avance du navigateur passent d'une étape à l'autre, sans quitter le formulaire.
+  const rembobiner = useEtapesDansLHistorique(step, setStep, done !== null);
 
   const totalVolume = useMemo(() => computeVolume(form), [form]);
 
@@ -953,7 +956,9 @@ function CompleteForm({
         }
         etiquette={`Étape ${step + 1} / ${etapes.length} · ${etape.label}`}
         progression={((step + 1) / etapes.length) * 100}
-        onBack={onBack}
+        // Quitter par la page : l'historique revient d'abord à la première étape, sinon Retour, sur
+        // l'accueil, repasserait par des étapes qui ne s'affichent plus.
+        onBack={() => { rembobiner(); onBack(); }}
         large={etape.cle === "prestations"}
         marque={marque}
         theme={theme}
@@ -1797,7 +1802,8 @@ function RecapCard({
             {g.lignes.map(([cle, valeur]) => (
               <div key={cle} className="grid gap-x-4 text-[13.5px] sm:grid-cols-[150px_minmax(0,1fr)]">
                 <dt className="text-ink-soft">{cle}</dt>
-                <dd className="text-ink">{valeur}</dd>
+                {/* Une adresse e-mail longue se coupe au lieu d'être rognée par la carte : on la relit en entier. */}
+                <dd className="text-ink wrap-anywhere">{valeur}</dd>
               </div>
             ))}
           </dl>

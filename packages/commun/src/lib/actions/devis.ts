@@ -12,6 +12,7 @@ import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import type { DevisStatus, RequestRow } from "@/lib/types";
 import { journaliserEquipe } from "@/lib/journal";
+import { insererDevisNumerote } from "@/lib/devis-reference";
 
 function devisCtx(d: {
   reference: string; client_nom: string | null; client_email: string | null;
@@ -32,13 +33,6 @@ function devisCtx(d: {
   };
 }
 
-async function nextReference(): Promise<string> {
-  const supabase = createServiceClient();
-  const { count } = await supabase.from("devis").select("id", { count: "exact", head: true });
-  const year = new Date().getFullYear();
-  return `DEV-${year}-${String((count ?? 0) + 1).padStart(4, "0")}`;
-}
-
 // Génère (et enregistre) un devis à partir d'une demande.
 export async function createDevisFromRequest(requestId: string) {
   await exigerEquipe();
@@ -49,13 +43,11 @@ export async function createDevisFromRequest(requestId: string) {
 
   const quote = estimerDemande(req);
   const settings = await getSettings();
-  const reference = await nextReference();
 
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + (settings.devis_validite_jours || 30));
 
-  await supabase.from("devis").insert({
-    reference,
+  const { reference } = await insererDevisNumerote({
     request_id: req.id,
     client_nom: req.client_nom,
     client_email: req.client_email,

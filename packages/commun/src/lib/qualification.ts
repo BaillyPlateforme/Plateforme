@@ -6,6 +6,7 @@ import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import type { RequestRow } from "@/lib/types";
 import { distanceEntreVilles } from "@/lib/trajet";
+import { insererDevisNumerote } from "@/lib/devis-reference";
 
 // ─────────────────────────────────────────────────────────────
 // Critères de qualification (chaque critère produit une note /100,
@@ -208,13 +209,6 @@ export function analyzeRequest(r: RequestRow, criteria: CriterionConfig[]): Qual
 // Qualification : génère le devis + l'analyse pour une demande complète
 // ─────────────────────────────────────────────────────────────
 
-const nextReference = async (): Promise<string> => {
-  const supabase = createServiceClient();
-  const { count } = await supabase.from("devis").select("id", { count: "exact", head: true });
-  const year = new Date().getFullYear();
-  return `DEV-${year}-${String((count ?? 0) + 1).padStart(4, "0")}`;
-};
-
 export async function qualifyRequest(requestId: string): Promise<QualifResult | null> {
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", requestId).maybeSingle();
@@ -259,15 +253,19 @@ export async function qualifyRequest(requestId: string): Promise<QualifResult | 
   const { data: existing } = await supabase.from("devis").select("id").eq("request_id", req.id).maybeSingle();
   if (!existing && chiffrable) {
     const settings = await getSettings();
-    const reference = await nextReference();
     const validUntil = new Date();
     validUntil.setDate(validUntil.getDate() + (settings.devis_validite_jours || 30));
-    await supabase.from("devis").insert({
-      reference, request_id: req.id, client_nom: req.client_nom, client_email: req.client_email,
+    // Sans devis enregistré, pas de message « devis créé » : il citerait une référence qui n'existe pas.
+    const cree = await insererDevisNumerote({
+      request_id: req.id, client_nom: req.client_nom, client_email: req.client_email,
       montant_ht: quote.ht, montant_tva: quote.tva, montant_ttc: quote.ttc,
       lignes: quote.lines, status: "brouillon", valid_until: validUntil.toISOString().slice(0, 10),
+    }).catch((e) => {
+      console.error(`[demande ${req.id}] devis non enregistré :`, e instanceof Error ? e.message : e);
+      return null;
     });
-    await fireEvent("devis_cree", {
+    const reference = cree?.reference;
+    if (cree) await fireEvent("devis_cree", {
       request_id: req.id, source: req.source, reference,
       client_nom: req.client_nom, client_email: req.client_email, client_tel: req.client_tel,
       montant_ttc: quote.ttc, montant_ht: quote.ht,

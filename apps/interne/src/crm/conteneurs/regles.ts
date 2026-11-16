@@ -18,7 +18,8 @@ export const STATUTS = {
   livre: { libelle: "Livré", ton: "vert" },
 } as const;
 export type Statut = keyof typeof STATUTS;
-export const estStatut = (v: unknown): v is Statut => typeof v === "string" && v in STATUTS;
+// Object.hasOwn, pas « in » : « toString » ou « constructor », hérités d'Object, ne passent pas.
+export const estStatut = (v: unknown): v is Statut => typeof v === "string" && Object.hasOwn(STATUTS, v);
 const RANG: Record<Statut, number> = { preparation: 0, charge: 1, en_mer: 2, arrive: 3, livre: 4 };
 
 /** Les jalons de Créagidem, dans l'ordre de la fiche : date prévue et date réelle. */

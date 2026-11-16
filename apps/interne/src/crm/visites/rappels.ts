@@ -81,7 +81,8 @@ export function canauxDeRappel(c: { email: string | null; telephone: string | nu
   return { sms: telephoneValide(c.telephone), email: EMAIL.test((c.email ?? "").trim()) };
 }
 
-const remplir = (modele: string, v: Record<string, string>) => modele.replace(/\{(\w+)\}/g, (tout, k: string) => (k in v ? v[k] : tout));
+// Object.hasOwn : « {constructor} » dans un modèle ne doit pas rendre la fonction d'Object.
+const remplir = (modele: string, v: Record<string, string>) => modele.replace(/\{(\w+)\}/g, (tout, k: string) => (Object.hasOwn(v, k) ? v[k] : tout));
 
 /**
  * Les messages à envoyer, `jour` étant la veille : les visites du lendemain

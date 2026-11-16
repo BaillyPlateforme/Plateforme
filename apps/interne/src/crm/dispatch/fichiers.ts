@@ -49,13 +49,23 @@ function lireCsv(texte: string): string[][] {
   return lignes;
 }
 
+/**
+ * Les octets 0x80 à 0x9F en Windows-1252 (« € ’ œ … – ») : là seulement il
+ * diffère du Latin-1. Les cinq octets sans caractère (0x81, 0x8D, 0x8F, 0x90,
+ * 0x9D) restent tels quels.
+ */
+const CP1252_80_9F = "€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ";
+
 /** UTF-8 si le fichier l'est vraiment, sinon Windows-1252 (l'« ANSI » d'Excel). */
 function decoder(octets: Uint8Array) {
   if (octets[0] === 0xef && octets[1] === 0xbb && octets[2] === 0xbf) return new TextDecoder("utf-8").decode(octets.subarray(3));
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(octets);
   } catch {
-    return new TextDecoder("windows-1252").decode(octets);
+    // Sous Node 22, TextDecoder("windows-1252") décode en fait du Latin-1 : 0x80–0x9F y deviennent des
+    // caractères de contrôle invisibles, et l'apostrophe d'un export Excel (« l’Église ») se perd. On les
+    // remplace par ceux de Windows-1252 (sans effet si le décodeur les a déjà bien lus).
+    return new TextDecoder("windows-1252").decode(octets).replace(/[\u0080-\u009f]/g, (c) => CP1252_80_9F[c.charCodeAt(0) - 0x80]);
   }
 }
 
@@ -68,9 +78,13 @@ function texteCellule(v: ExcelJS.CellValue): string {
   if (typeof v === "string") return v;
   if (typeof v === "object") {
     if ("richText" in v) return v.richText.map((r) => r.text).join("");
-    if ("result" in v) return texteCellule((v.result ?? "") as ExcelJS.CellValue);
+    // Une formule se lit par son résultat enregistré ; sans résultat calculé (classeur produit par un
+    // script, jamais recalculé), la clé `result` manque : la cellule est vide.
+    if ("formula" in v || "sharedFormula" in v || "result" in v) return texteCellule((v.result ?? "") as ExcelJS.CellValue);
     if ("text" in v) return String(v.text ?? "");
     if ("error" in v) return "";
+    // Une nature inconnue : vide, jamais « [object Object] ».
+    return "";
   }
   return String(v);
 }
@@ -84,7 +98,9 @@ function nettoyer(lignes: string[][]): string[][] {
 }
 
 export async function lireFichier(nom: string, octets: Uint8Array): Promise<{ format: "csv" | "excel"; feuilles: Feuille[] }> {
-  const ext = nom.toLowerCase().split(".").pop() ?? "";
+  // Sans point dans le nom, pas d'extension : le fichier est lu comme un CSV (ou un .xlsx à sa signature).
+  const point = nom.lastIndexOf(".");
+  const ext = point >= 0 ? nom.slice(point + 1).toLowerCase() : "";
   if (ext === "xls") throw new Error("Le format .xls (Excel 97-2003) n'est pas lu : enregistrez le fichier en .xlsx ou en CSV depuis Excel.");
   if (ext === "xlsx" || ext === "xlsm" || (octets[0] === 0x50 && octets[1] === 0x4b)) {
     const classeur = new ExcelJS.Workbook();

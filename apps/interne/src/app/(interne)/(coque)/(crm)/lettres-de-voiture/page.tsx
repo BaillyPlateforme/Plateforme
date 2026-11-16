@@ -20,7 +20,7 @@ const ST: Record<string, [string, string]> = { a_planifier: ["À planifier", "in
 
 export default async function Lettres({ searchParams }: { searchParams: Promise<{ q?: string; statut?: string; vue?: string }> }) {
   const sp = await searchParams;
-  const statut = sp.statut && sp.statut in ST ? sp.statut : undefined;
+  const statut = sp.statut && Object.hasOwn(ST, sp.statut) ? sp.statut : undefined;
   const sousTraitees = sp.vue === "sous-traitance";
   const [rows, annuaire] = await Promise.all([lettresDeVoiture({ q: sp.q?.trim() || undefined, statut, sousTraitees }), nomsExecutants()]);
   const lien = (p: Record<string, string | undefined>) => {

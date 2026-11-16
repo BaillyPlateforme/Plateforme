@@ -16,7 +16,7 @@ export const metadata = { title: "Litiges" };
  */
 export default async function Litiges({ searchParams }: { searchParams: Promise<{ vue?: string; q?: string }> }) {
   const sp = await searchParams;
-  const vue: VueLitiges = sp.vue && sp.vue in VUES_LITIGES ? (sp.vue as VueLitiges) : "cours";
+  const vue: VueLitiges = sp.vue && Object.hasOwn(VUES_LITIGES, sp.vue) ? (sp.vue as VueLitiges) : "cours";
   const [lignes, n, origines, sousTraitants, dossiers] = await Promise.all([
     litiges({ vue, q: sp.q?.trim() || undefined }),
     compteursLitiges(),

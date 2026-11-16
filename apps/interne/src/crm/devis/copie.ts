@@ -1,5 +1,6 @@
 import "server-only";
 import type { Db, Row } from "@/crm/lib/db";
+import { anneeParis } from "@/crm/lib/format";
 import { lireAchats, lireAssurance, lireInternational, lireLignes, lireMoyens, lirePrestations, nouvelId } from "./modele";
 import { calculer, lignesPourBase } from "./calcul";
 import { effectifs, type ParametresDevis } from "./parametres";
@@ -37,7 +38,7 @@ const plusJours = (j: number) => {
 /** Le numéro suivant, sous un verrou propre à la transaction : deux duplications simultanées ne prennent pas le même. */
 export async function numeroDevis(db: Db) {
   await db.query("select pg_advisory_xact_lock(hashtext('bailly.crm.numero.DV'))");
-  const an = new Date().getFullYear();
+  const an = anneeParis();
   const [r] = await db.query<{ n: number }>("select coalesce(max(substring(numero from '[0-9]+$')::int),0) + 1 as n from devis where numero like $1", [`DV-${an}-%`]);
   return `DV-${an}-${String(r.n).padStart(4, "0")}`;
 }

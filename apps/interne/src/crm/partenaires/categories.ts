@@ -15,7 +15,8 @@ export const CATEGORIES = {
 } as const;
 
 export type Categorie = keyof typeof CATEGORIES;
-export const estCategorie = (v: unknown): v is Categorie => typeof v === "string" && v in CATEGORIES;
+// Object.hasOwn, pas « in » : « toString » ou « constructor », hérités d'Object, ne passent pas.
+export const estCategorie = (v: unknown): v is Categorie => typeof v === "string" && Object.hasOwn(CATEGORIES, v);
 
 /** Les zones saisies (« Bretagne, 29, Martinique ») : une liste propre, sans doublon. */
 export function zonesDe(v: string | null | undefined): string[] {
