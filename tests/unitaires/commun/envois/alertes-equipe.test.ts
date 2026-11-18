@@ -52,7 +52,7 @@ function brancherBase() {
   });
 }
 
-const resultat = (statut = "envoye", doublon = false) => ({ statut, motif: null, brevoId: null, cle: "k", doublon, journalId: "j", bacASable: false });
+const resultat = (statut = "envoye", doublon = false) => ({ statut, motif: null, idFournisseur: null, fournisseur: null, cle: "k", doublon, journalId: "j", bacASable: false });
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchInterdit());

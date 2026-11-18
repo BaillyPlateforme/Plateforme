@@ -77,7 +77,7 @@ export async function calculerTourneeDuSamedi(samedi: string) {
  * cartons et le créneau sont connus. Un message déjà parti ne repart pas.
  *
  * `prevenus` : les clients traités (leur message est passé par le module
- * d'envoi) ; `partis` : les messages vraiment remis à Brevo — en recette ou
+ * d'envoi) ; `partis` : les messages vraiment remis au fournisseur — en recette ou
  * envoi désactivé, ils restent au journal. `incomplets` : les livraisons sans
  * nombre de cartons ou sans créneau, qui ne reçoivent rien.
  */

@@ -1,5 +1,6 @@
 import "server-only";
 import { q, type Row } from "@/crm/lib/db";
+import { fournisseurDe } from "@/lib/envois/fournisseurs";
 import type { Agent } from "@/lib/suivi-envois/regles";
 import { leJour, resumePiste, type SuiviEnvoi } from "./etapes";
 
@@ -14,8 +15,10 @@ import { leJour, resumePiste, type SuiviEnvoi } from "./etapes";
 
 const iso = (v: unknown): string | null => (v == null ? null : v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString());
 
+// Le fournisseur : la colonne de la migration 0022, lue par to_jsonb pour ne pas casser la requête tant qu'elle manque
+// (le nom se déduit alors de l'identifiant du message, fournisseurDe).
 const AGREGAT = `
-  select v.id::text as id, v.statut, v.motif, v.cree_le,
+  select v.id::text as id, v.statut, v.motif, v.cree_le, v.brevo_id, to_jsonb(v)->>'fournisseur' as fournisseur,
     (select min(e.cree_le) from public.envois_evenements e where e.envoi_id = v.id and e.type = 'delivre') as delivre,
     (select jsonb_build_object('genre', e.detail->>'genre', 'le', e.cree_le, 'raison', e.detail->>'raison')
        from public.envois_evenements e where e.envoi_id = v.id and e.type = 'rebond' order by e.cree_le desc limit 1) as rebond,
@@ -44,6 +47,7 @@ function suiviDe(r: Row): SuiviEnvoi {
     statut: r.statut,
     motif: r.motif ?? null,
     envoyeLe: iso(r.cree_le)!,
+    fournisseur: fournisseurDe({ fournisseur: r.fournisseur ?? null, brevo_id: r.brevo_id ?? null }),
     delivre: iso(r.delivre),
     rebond: r.rebond ? { genre: String(r.rebond.genre ?? "rebond"), le: iso(r.rebond.le)!, raison: r.rebond.raison ?? null } : null,
     plainte: iso(r.plainte),

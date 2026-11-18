@@ -2,9 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchInterdit, laisserFiler } from "./_outils";
 
 /*
- * Le module d'envoi, avec son journal et son transport simulés : on regarde
- * ce qui serait parti chez Brevo (posterEmail / posterSms) et ce qui est
+ * Le module d'envoi, avec son journal et ses transports simulés : on regarde
+ * ce qui serait parti chez Brevo (posterEmail / posterSms), chez SendGrid
+ * (posterEmailSendgrid) ou chez Twilio (posterSmsTwilio), et ce qui est
  * inscrit au journal (reserver / conclure).
+ *
+ * Sans accès SendGrid ni Twilio (le cas de ces premiers blocs), tout passe
+ * par Brevo, comme avant la bascule.
  */
 
 const m = vi.hoisted(() => ({
@@ -13,12 +17,16 @@ const m = vi.hoisted(() => ({
   partisSur24h: vi.fn(),
   posterEmail: vi.fn(),
   posterSms: vi.fn(),
+  posterEmailSendgrid: vi.fn(),
+  posterSmsTwilio: vi.fn(),
   equiperEmail: vi.fn(),
   alerterEquipe: vi.fn(),
 }));
 
 vi.mock("@/lib/envois/journal", () => ({ reserver: m.reserver, conclure: m.conclure, partisSur24h: m.partisSur24h }));
-vi.mock("@/lib/envois/brevo", () => ({ posterEmail: m.posterEmail, posterSms: m.posterSms, brevoConfigure: () => !!process.env.BREVO_API_KEY }));
+vi.mock("@/lib/envois/brevo", () => ({ posterEmail: m.posterEmail, posterSms: m.posterSms }));
+vi.mock("@/lib/envois/sendgrid", () => ({ posterEmailSendgrid: m.posterEmailSendgrid }));
+vi.mock("@/lib/envois/twilio", () => ({ posterSmsTwilio: m.posterSmsTwilio }));
 vi.mock("@/lib/suivi-envois", () => ({ equiperEmail: m.equiperEmail }));
 vi.mock("@/lib/alertes-equipe", () => ({ alerterEquipe: m.alerterEquipe }));
 
@@ -30,6 +38,8 @@ const email = (champs: Partial<EmailSortant> = {}): EmailSortant => ({ origine: 
 const sms = (champs: Partial<SmsSortant> = {}): SmsSortant => ({ origine: "veille", a: "06 12 34 56 78", texte: "Vos cartons arrivent demain.", ...champs });
 
 const quePartiChezBrevo = () => m.posterEmail.mock.calls.length + m.posterSms.mock.calls.length;
+/** Tout ce qui est sorti de la plateforme, quel que soit le fournisseur. */
+const quePartiTout = () => quePartiChezBrevo() + m.posterEmailSendgrid.mock.calls.length + m.posterSmsTwilio.mock.calls.length;
 const dernierConclu = () => m.conclure.mock.calls.at(-1)?.[1];
 
 function modeActif(extra: Record<string, string> = {}) {
@@ -45,6 +55,8 @@ beforeEach(() => {
   m.partisSur24h.mockReset().mockResolvedValue(0);
   m.posterEmail.mockReset().mockResolvedValue({ ok: true, id: "<brevo-1>" });
   m.posterSms.mockReset().mockResolvedValue({ ok: true, id: "sms-1" });
+  m.posterEmailSendgrid.mockReset().mockResolvedValue({ ok: true, id: "sg-1" });
+  m.posterSmsTwilio.mockReset().mockResolvedValue({ ok: true, id: `SM${"a".repeat(32)}` });
   m.equiperEmail.mockReset().mockImplementation(async (_id: string, html: string) => `${html}<img suivi>`);
   m.alerterEquipe.mockReset().mockResolvedValue({ destinataires: 1, partis: 1 });
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -64,7 +76,7 @@ describe("envois — mode désactivé : rien ne part", () => {
     expect(r.statut).toBe("journalise");
     expect(r.motif).toBe("Envoi désactivé (ENVOI_MODE) : journalisé, rien n'est parti.");
     expect(quePartiChezBrevo()).toBe(0);
-    expect(m.conclure).toHaveBeenCalledWith(ligne().id, { statut: "journalise", motif: r.motif, brevo_id: null });
+    expect(m.conclure).toHaveBeenCalledWith(ligne().id, { statut: "journalise", motif: r.motif, brevo_id: null, fournisseur: null });
   });
 
   it("un SMS est journalisé de même", async () => {
@@ -254,7 +266,7 @@ describe("envois — mode actif et réponses de Brevo", () => {
 
   it("un e-mail part une fois, avec l'identifiant de Brevo au journal", async () => {
     const r = await envoyerEmail(email({ texte: "Bonjour", repondreA: "conseiller@bailly.fr", piecesJointes: [{ nom: "a.pdf", base64: "AA==" }] }));
-    expect(r).toMatchObject({ statut: "envoye", motif: null, brevoId: "<brevo-1>", doublon: false, journalId: ligne().id, bacASable: false });
+    expect(r).toMatchObject({ statut: "envoye", motif: null, idFournisseur: "<brevo-1>", fournisseur: "brevo", doublon: false, journalId: ligne().id, bacASable: false });
     expect(estParti(r)).toBe(true);
     expect(m.posterEmail).toHaveBeenCalledTimes(1);
     expect(m.posterEmail.mock.calls[0][0]).toEqual({
@@ -267,7 +279,7 @@ describe("envois — mode actif et réponses de Brevo", () => {
       piecesJointes: [{ nom: "a.pdf", base64: "AA==" }],
       bacASable: false,
     });
-    expect(dernierConclu()).toEqual({ statut: "envoye", motif: null, brevo_id: "<brevo-1>" });
+    expect(dernierConclu()).toEqual({ statut: "envoye", motif: null, brevo_id: "<brevo-1>", fournisseur: "brevo" });
   });
 
   it("l'expéditeur par défaut se règle par ENVOI_EXPEDITEUR_NOM / _EMAIL, l'appelant l'emporte", async () => {
@@ -284,7 +296,7 @@ describe("envois — mode actif et réponses de Brevo", () => {
   it("Brevo refuse (4xx) : « echec », le message peut être retenté", async () => {
     m.posterEmail.mockResolvedValue({ ok: false, definitif: true, message: "Brevo 400 : invalid email" });
     const r = await envoyerEmail(email());
-    expect(r).toMatchObject({ statut: "echec", motif: "Brevo 400 : invalid email", brevoId: null });
+    expect(r).toMatchObject({ statut: "echec", motif: "Brevo 400 : invalid email", idFournisseur: null, fournisseur: "brevo" });
     expect(estParti(r)).toBe(false);
   });
 
@@ -330,7 +342,7 @@ describe("envois — bac à sable", () => {
   it("le SMS ne quitte pas la plateforme", async () => {
     const r = await envoyerSms(sms());
     expect(r.statut).toBe("bac_a_sable");
-    expect(r.motif).toBe("Bac à sable : le SMS n'est pas transmis à Brevo (pas de bac à sable pour les SMS).");
+    expect(r.motif).toBe("Bac à sable : le SMS n'est pas transmis au fournisseur (pas de bac à sable pour les SMS).");
     expect(m.posterSms).not.toHaveBeenCalled();
   });
 
@@ -344,9 +356,9 @@ describe("envois — idempotence et journal", () => {
   beforeEach(() => modeActif());
 
   it("une clé déjà prise ne repart pas : le statut est celui du premier passage", async () => {
-    m.reserver.mockResolvedValue({ reservee: false, ligne: ligne({ statut: "envoye", motif: null, brevo_id: "<premier>", bac_a_sable: false }) });
+    m.reserver.mockResolvedValue({ reservee: false, ligne: ligne({ statut: "envoye", motif: null, brevo_id: "<premier@smtp-relay.mailin.fr>", bac_a_sable: false }) });
     const r = await envoyerEmail(email({ cle: "questionnaires:demande_recue:r1:d1" }));
-    expect(r).toMatchObject({ statut: "envoye", doublon: true, brevoId: "<premier>", cle: "questionnaires:demande_recue:r1:d1" });
+    expect(r).toMatchObject({ statut: "envoye", doublon: true, idFournisseur: "<premier@smtp-relay.mailin.fr>", fournisseur: "brevo", cle: "questionnaires:demande_recue:r1:d1" });
     expect(quePartiChezBrevo()).toBe(0);
     expect(m.conclure).not.toHaveBeenCalled();
     expect(m.equiperEmail).not.toHaveBeenCalled();
@@ -571,11 +583,13 @@ describe("envois — libelleStatut, estParti, etatEnvois", () => {
       ["bloque", "bloqué (recette, hors liste blanche)"],
       ["fictif", "non envoyé (destinataire fictif)"],
       ["bac_a_sable", "bac à sable (non délivré)"],
-      ["incertain", "incertain (à vérifier chez Brevo)"],
+      ["incertain", "incertain (à vérifier chez le fournisseur)"],
       ["echec", "échec"],
       ["en_cours", "en cours"],
     ];
     for (const [statut, libelle] of cas) expect(libelleStatut({ statut: statut as never, doublon: false })).toBe(libelle);
+    expect(libelleStatut({ statut: "incertain", doublon: false, fournisseur: "sendgrid" })).toBe("incertain (à vérifier chez SendGrid)");
+    expect(libelleStatut({ statut: "incertain", doublon: false, fournisseur: "brevo" })).toBe("incertain (à vérifier chez Brevo)");
   });
 
   it("seul « envoye » est parti : ni le bac à sable, ni l'incertain", () => {
@@ -587,7 +601,7 @@ describe("envois — libelleStatut, estParti, etatEnvois", () => {
     vi.stubEnv("ENVOI_MODE", "");
     vi.stubEnv("BREVO_API_KEY", "");
     const e = etatEnvois();
-    expect(e).toMatchObject({ mode: "desactive", libelle: "Désactivé", brevo: false, bacASable: false });
+    expect(e).toMatchObject({ mode: "desactive", libelle: "Désactivé", bacASable: false, par: "Brevo", fournisseurs: { email: "brevo", sms: "brevo", emailPret: false, smsPret: false } });
     expect(e.detail).toBe("Rien ne part : chaque e-mail et chaque SMS est journalisé, sans appel à Brevo.");
     expect(e.avertissements).toEqual([]);
   });
@@ -616,5 +630,219 @@ describe("envois — libelleStatut, estParti, etatEnvois", () => {
     vi.stubEnv("ENVOI_MODE", "desactive");
     vi.stubEnv("ENVOI_BAC_A_SABLE", "1");
     expect(etatEnvois().libelle).toBe("Désactivé");
+  });
+});
+
+/*
+ * La bascule vers Twilio (décision du 18/11/2026) : SendGrid pour les e-mails,
+ * Twilio pour les SMS, dès que leurs accès sont posés ; Brevo tant qu'ils
+ * manquent. Les garde-fous et le journal ne changent pas d'un fournisseur à
+ * l'autre. Les accès sont factices : les transports sont simulés.
+ */
+describe("envois — fournisseur Twilio (SendGrid pour les e-mails, Twilio pour les SMS)", () => {
+  const SID = `SM${"a".repeat(32)}`;
+  function accesSendgrid() {
+    vi.stubEnv("SENDGRID_API_KEY", "cle-sendgrid-factice");
+  }
+  function accesTwilio() {
+    vi.stubEnv("TWILIO_ACCOUNT_SID", "ACfactice");
+    vi.stubEnv("TWILIO_AUTH_TOKEN", "jeton-factice");
+  }
+  function modeTwilio(extra: Record<string, string> = {}) {
+    modeActif(extra);
+    accesSendgrid();
+    accesTwilio();
+  }
+
+  it("ses accès posés, Twilio prend les deux canaux : Brevo n'est plus appelé, même avec sa clé", async () => {
+    modeTwilio();
+    m.posterSmsTwilio.mockResolvedValue({ ok: true, id: SID });
+    const r = await envoyerEmail(email({ texte: "Bonjour", repondreA: "conseiller@bailly.fr", piecesJointes: [{ nom: "devis.pdf", base64: "AA==" }] }));
+    expect(r).toMatchObject({ statut: "envoye", motif: null, idFournisseur: "sg-1", fournisseur: "sendgrid", journalId: ligne().id });
+    // Le même message que pour Brevo, plus la ligne du journal (custom_args du webhook).
+    expect(m.posterEmailSendgrid).toHaveBeenCalledWith({
+      a: "claire@gmail.com",
+      sujet: "Votre espace",
+      html: "<p>Bonjour</p><img suivi>",
+      texte: "Bonjour",
+      expediteur: { nom: "Bailly Déménagement", email: "no-reply@bailly.fr" },
+      repondreA: "conseiller@bailly.fr",
+      piecesJointes: [{ nom: "devis.pdf", base64: "AA==" }],
+      bacASable: false,
+      envoiId: ligne().id,
+    });
+    expect(dernierConclu()).toEqual({ statut: "envoye", motif: null, brevo_id: "sg-1", fournisseur: "sendgrid" });
+
+    const s = await envoyerSms(sms({ expediteur: "Bailly" }));
+    expect(s).toMatchObject({ statut: "envoye", idFournisseur: SID, fournisseur: "twilio" });
+    expect(m.posterSmsTwilio).toHaveBeenCalledWith({ a: "06 12 34 56 78", texte: "Vos cartons arrivent demain.", expediteur: "Bailly", envoiId: ligne().id });
+    expect(dernierConclu()).toEqual({ statut: "envoye", motif: null, brevo_id: SID, fournisseur: "twilio" });
+    expect(quePartiChezBrevo()).toBe(0);
+  });
+
+  it("l'expéditeur de l'e-mail : ENVOI_EXPEDITEUR_NOM / _EMAIL par défaut, celui de l'appelant (réglages du CRM) d'abord", async () => {
+    modeTwilio({ ENVOI_EXPEDITEUR_NOM: "Bailly Recette", ENVOI_EXPEDITEUR_EMAIL: "recette@bailly.fr" });
+    await envoyerEmail(email());
+    expect(m.posterEmailSendgrid.mock.calls[0][0].expediteur).toEqual({ nom: "Bailly Recette", email: "recette@bailly.fr" });
+    await envoyerEmail(email({ expediteur: { nom: "Bailly Déménagement", email: "contact@bailly.fr" } }));
+    expect(m.posterEmailSendgrid.mock.calls[1][0].expediteur).toEqual({ nom: "Bailly Déménagement", email: "contact@bailly.fr" });
+  });
+
+  it("canal par canal : la clé SendGrid seule bascule les e-mails, les SMS restent chez Brevo", async () => {
+    modeActif();
+    accesSendgrid();
+    expect((await envoyerEmail(email())).fournisseur).toBe("sendgrid");
+    expect((await envoyerSms(sms())).fournisseur).toBe("brevo");
+    expect(m.posterEmailSendgrid).toHaveBeenCalledTimes(1);
+    expect(m.posterSms).toHaveBeenCalledTimes(1);
+    expect(m.posterEmail).not.toHaveBeenCalled();
+    expect(m.posterSmsTwilio).not.toHaveBeenCalled();
+  });
+
+  it("canal par canal : les accès Twilio seuls basculent les SMS, les e-mails restent chez Brevo", async () => {
+    modeActif();
+    accesTwilio();
+    expect((await envoyerEmail(email())).fournisseur).toBe("brevo");
+    expect((await envoyerSms(sms())).fournisseur).toBe("twilio");
+    expect(m.posterEmail).toHaveBeenCalledTimes(1);
+    expect(m.posterSmsTwilio).toHaveBeenCalledTimes(1);
+  });
+
+  it("un accès Twilio à moitié posé (le SID sans le jeton) ne bascule rien", async () => {
+    modeActif();
+    vi.stubEnv("TWILIO_ACCOUNT_SID", "ACfactice");
+    expect((await envoyerSms(sms())).fournisseur).toBe("brevo");
+    expect(m.posterSmsTwilio).not.toHaveBeenCalled();
+  });
+
+  it("ENVOI_FOURNISSEUR=brevo : tout reste chez Brevo malgré les accès Twilio (le retour arrière)", async () => {
+    modeTwilio({ ENVOI_FOURNISSEUR: "brevo" });
+    expect((await envoyerEmail(email())).fournisseur).toBe("brevo");
+    expect((await envoyerSms(sms())).fournisseur).toBe("brevo");
+    expect(m.posterEmailSendgrid).not.toHaveBeenCalled();
+    expect(m.posterSmsTwilio).not.toHaveBeenCalled();
+  });
+
+  it("ENVOI_FOURNISSEUR=twilio sans ses accès : échec dit, et Brevo n'est pas appelé à la place", async () => {
+    modeActif({ ENVOI_FOURNISSEUR: "twilio" });
+    const r = await envoyerEmail(email());
+    expect(r).toMatchObject({ statut: "echec", motif: "Clé SendGrid absente (SENDGRID_API_KEY) : rien n'est parti.", fournisseur: null });
+    const s = await envoyerSms(sms());
+    expect(s).toMatchObject({ statut: "echec", motif: "Accès Twilio absents (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : rien n'est parti." });
+    expect(quePartiTout()).toBe(0);
+  });
+
+  it("ENVOI_FOURNISSEUR= Twilio (casse, espaces) vaut twilio ; une valeur inconnue laisse le choix automatique", async () => {
+    modeTwilio({ ENVOI_FOURNISSEUR: " Twilio " });
+    expect((await envoyerEmail(email())).fournisseur).toBe("sendgrid");
+    vi.stubEnv("ENVOI_FOURNISSEUR", "mailchimp");
+    expect((await envoyerEmail(email())).fournisseur).toBe("sendgrid");
+    vi.stubEnv("SENDGRID_API_KEY", "");
+    expect((await envoyerEmail(email())).fournisseur).toBe("brevo");
+  });
+
+  it("SendGrid refuse (4xx) : « echec », retentable ; Twilio en 5xx : « incertain », jamais renvoyé tout seul", async () => {
+    modeTwilio();
+    m.posterEmailSendgrid.mockResolvedValue({ ok: false, definitif: true, message: "SendGrid 403 : expéditeur non vérifié" });
+    const r = await envoyerEmail(email());
+    expect(r).toMatchObject({ statut: "echec", motif: "SendGrid 403 : expéditeur non vérifié", fournisseur: "sendgrid", idFournisseur: null });
+    expect(dernierConclu()).toEqual({ statut: "echec", motif: r.motif, brevo_id: null, fournisseur: "sendgrid" });
+    m.posterSmsTwilio.mockResolvedValue({ ok: false, definitif: false, message: "Twilio 503 : indisponible" });
+    const s = await envoyerSms(sms());
+    expect(s.statut).toBe("incertain");
+    expect(s.motif).toBe("Twilio 503 : indisponible — Twilio a peut-être accepté le message : il n'est pas renvoyé tout seul.");
+    expect(libelleStatut(s)).toBe("incertain (à vérifier chez Twilio)");
+    expect(m.posterSmsTwilio).toHaveBeenCalledTimes(1);
+  });
+
+  it("bac à sable : l'e-mail part chez SendGrid en bac à sable, le SMS ne va jamais chez Twilio", async () => {
+    modeTwilio({ ENVOI_BAC_A_SABLE: "1" });
+    m.posterEmailSendgrid.mockResolvedValue({ ok: true, id: null });
+    const r = await envoyerEmail(email());
+    expect(m.posterEmailSendgrid.mock.calls[0][0].bacASable).toBe(true);
+    expect(r).toMatchObject({ statut: "bac_a_sable", motif: "Bac à sable SendGrid : accepté par SendGrid, jamais délivré.", fournisseur: "sendgrid" });
+    expect(estParti(r)).toBe(false);
+    const s = await envoyerSms(sms());
+    expect(s).toMatchObject({ statut: "bac_a_sable", fournisseur: null });
+    expect(m.posterSmsTwilio).not.toHaveBeenCalled();
+  });
+
+  it("matrice : mode × bac à sable × canal × destinataire × options — avec Twilio, rien ne sort hors « actif » ou liste blanche", async () => {
+    accesSendgrid();
+    accesTwilio();
+    vi.stubEnv("ENVOI_DESTINATAIRES_AUTORISES", "david@bailly.fr, 06 12 34 56 78");
+    const destinataires = [
+      { canal: "email", a: "client.reel@gmail.com", liste: false, fictif: false },
+      { canal: "email", a: "david@bailly.fr", liste: true, fictif: false },
+      { canal: "email", a: "claire@example.com", liste: false, fictif: true },
+      { canal: "sms", a: "07 99 99 99 99", liste: false, fictif: false },
+      { canal: "sms", a: "06 12 34 56 78", liste: true, fictif: false },
+    ] as const;
+    const options: Partial<EmailSortant & SmsSortant>[] = [{}, { plafonne: true, origine: "questionnaires" }, { fictif: true }, { retenu: "raison" }];
+    for (const mode of ["", "desactive", "inconnu", "recette", "actif"]) {
+      for (const sable of ["", "1"]) {
+        vi.stubEnv("ENVOI_MODE", mode);
+        vi.stubEnv("ENVOI_BAC_A_SABLE", sable);
+        for (const d of destinataires) {
+          for (const o of options) {
+            m.posterEmailSendgrid.mockClear();
+            m.posterSmsTwilio.mockClear();
+            const r = d.canal === "email" ? await envoyerEmail(email({ a: d.a, ...o })) : await envoyerSms(sms({ a: d.a, ...o }));
+            const autorise = (mode === "actif" || (mode === "recette" && d.liste)) && !d.fictif && !o.fictif && !o.retenu;
+            const attendu = autorise && !(sable === "1" && d.canal === "sms") ? 1 : 0;
+            expect(quePartiTout(), `${mode}/${sable}/${d.a}/${JSON.stringify(o)} → ${r.statut}`).toBe(attendu);
+          }
+        }
+      }
+    }
+    // Brevo, lui, n'a jamais été appelé : Twilio porte les deux canaux.
+    expect(quePartiChezBrevo()).toBe(0);
+  });
+
+  it("les plafonds des envois du formulaire valent aussi chez Twilio", async () => {
+    modeTwilio();
+    m.partisSur24h.mockResolvedValue(30);
+    const s = await envoyerSms(sms({ origine: "questionnaires", plafonne: true }));
+    expect(s).toMatchObject({ statut: "bloque", fournisseur: null });
+    expect(m.posterSmsTwilio).not.toHaveBeenCalled();
+  });
+
+  it("un doublon d'un message parti par Twilio dit son fournisseur, lu au journal ou déduit de l'identifiant", async () => {
+    modeTwilio();
+    m.reserver.mockResolvedValue({ reservee: false, ligne: ligne({ statut: "envoye", brevo_id: SID }) });
+    expect(await envoyerSms(sms({ cle: "veille:cartons:1" }))).toMatchObject({ doublon: true, fournisseur: "twilio", idFournisseur: SID });
+    m.reserver.mockResolvedValue({ reservee: false, ligne: ligne({ statut: "envoye", brevo_id: "x", fournisseur: "sendgrid" }) });
+    expect((await envoyerEmail(email({ cle: "ec:1" }))).fournisseur).toBe("sendgrid");
+    expect(quePartiTout()).toBe(0);
+  });
+
+  it("etatEnvois : les deux fournisseurs nommés ; ce qui manque, dit sans jamais montrer une clé", () => {
+    modeTwilio();
+    let e = etatEnvois();
+    expect(e.par).toBe("SendGrid (e-mails) et Twilio (SMS)");
+    expect(e.detail).toBe("Les e-mails et les SMS partent par SendGrid (e-mails) et Twilio (SMS) vers tous les destinataires réels.");
+    expect(e.fournisseurs).toEqual({ email: "sendgrid", sms: "twilio", emailPret: true, smsPret: true });
+    expect(e.avertissements).toEqual([]);
+    expect(JSON.stringify(e)).not.toContain("cle-sendgrid-factice");
+    expect(JSON.stringify(e)).not.toContain("jeton-factice");
+
+    vi.stubEnv("ENVOI_FOURNISSEUR", "twilio");
+    vi.stubEnv("SENDGRID_API_KEY", "");
+    e = etatEnvois();
+    expect(e.avertissements).toEqual(["Aucune clé SendGrid (SENDGRID_API_KEY) : les e-mails autorisés échoueront."]);
+
+    vi.stubEnv("ENVOI_FOURNISSEUR", "");
+    vi.stubEnv("BREVO_API_KEY", "");
+    e = etatEnvois();
+    expect(e.par).toBe("Brevo (e-mails) et Twilio (SMS)");
+    expect(e.avertissements).toEqual(["Aucune clé Brevo (BREVO_API_KEY) : les e-mails autorisés échoueront."]);
+
+    vi.stubEnv("ENVOI_FOURNISSEUR", "autre");
+    expect(etatEnvois().avertissements[0]).toContain('ENVOI_FOURNISSEUR="autre" n\'est pas reconnu');
+
+    vi.stubEnv("ENVOI_MODE", "desactive");
+    vi.stubEnv("ENVOI_FOURNISSEUR", "");
+    accesSendgrid();
+    expect(etatEnvois().detail).toBe("Rien ne part : chaque e-mail et chaque SMS est journalisé, sans appel à SendGrid (e-mails) et Twilio (SMS).");
   });
 });

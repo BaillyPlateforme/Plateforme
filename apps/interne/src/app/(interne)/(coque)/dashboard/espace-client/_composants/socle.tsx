@@ -149,13 +149,13 @@ export const euro = (n: number) => n.toLocaleString("fr-FR", { style: "currency"
  * vraiment. Il ne parle qu'en démonstration : en base, l'état des envois se
  * lit dans les Réglages de la section et sur chaque message (« journalisé »).
  */
-export function BandeauMode({ mode }: { mode: { donnees: string; envoi: boolean; demoEquipe: boolean } }) {
+export function BandeauMode({ mode }: { mode: { donnees: string; envoi: boolean; demoEquipe: boolean; envois?: { par?: string } } }) {
   const { demo } = usePorte();
   if (mode.donnees !== "demo" && !demo) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
       {mode.donnees === "demo" ? <Pastille ton="attente">Données de démonstration, en mémoire</Pastille> : <Pastille ton="ok">Données en base (tables ec_*, cloisonnées par client)</Pastille>}
-      {mode.envoi ? <Pastille ton="ok">E-mails et SMS envoyés par Brevo</Pastille> : <Pastille>E-mails et SMS journalisés, non envoyés</Pastille>}
+      {mode.envoi ? <Pastille ton="ok">E-mails et SMS envoyés par {mode.envois?.par ?? "le fournisseur"}</Pastille> : <Pastille>E-mails et SMS journalisés, non envoyés</Pastille>}
       {demo && <Pastille ton="alerte">Back-office de démonstration, sans connexion</Pastille>}
     </div>
   );

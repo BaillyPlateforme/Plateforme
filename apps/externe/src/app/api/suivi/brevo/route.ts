@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 /**
  * Le webhook des e-mails transactionnels de Brevo : POST /api/suivi/brevo.
  *
+ * À RETIRER APRÈS LA BASCULE VERS TWILIO (décision du 18/11/2026) : les
+ * e-mails passent désormais par SendGrid, dont les événements arrivent sur
+ * /api/suivi/sendgrid. Cette route ne sert plus qu'aux messages encore
+ * partis par Brevo (avant la bascule, ou si ENVOI_FOURNISSEUR=brevo).
+ *
  * INACTIF tant que BREVO_WEBHOOK_SECRET n'est pas réglé : la route répond
  * alors 404, comme si elle n'existait pas. Une fois réglé, chaque appel doit
  * porter ce secret — en-tête « Authorization: Bearer <secret> » (le jeton

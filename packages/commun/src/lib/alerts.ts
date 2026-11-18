@@ -175,7 +175,7 @@ export async function fireEvent(event: string, ctx: MessageContext): Promise<voi
       }
 
       const contenu = renderTemplate(tpl.contenu, a.channel === "email" ? varsEmail : fullCtx);
-      // Tout part par le module d'envoi (lib/envois) : garde-fous, journal, Brevo.
+      // Tout part par le module d'envoi (lib/envois) : garde-fous, journal, fournisseur.
       // Un événement automatique ne se produit qu'une fois par demande : sa clé
       // l'empêche de partir deux fois pour la même règle. Les gestes de
       // l'équipe (devis envoyé, accepté…) peuvent se répéter : clé unique.

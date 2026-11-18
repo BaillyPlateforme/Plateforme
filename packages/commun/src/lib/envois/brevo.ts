@@ -1,13 +1,21 @@
 import "server-only";
+import type { ReponseFournisseur } from "./fournisseurs";
 import { normaliserTelephone } from "./garde-fous";
 
 /*
- * Le transport : les deux appels à l'API de Brevo, et rien d'autre. Ils ne
- * se font QUE depuis le module d'envoi (index.ts), une fois les garde-fous
+ * L'ANCIEN transport : les deux appels à l'API de Brevo, et rien d'autre. Ils
+ * ne se font QUE depuis le module d'envoi (index.ts), une fois les garde-fous
  * passés et le message inscrit au journal : aucun autre fichier de la
  * plateforme ne parle à Brevo pour envoyer.
  *
- * Une réponse de Brevo se range en trois cas :
+ * À RETIRER APRÈS LA BASCULE VERS TWILIO (décision du 18/11/2026) : la
+ * plateforme envoie désormais par SendGrid (sendgrid.ts) et Twilio
+ * (twilio.ts) dès que leurs accès sont posés (fournisseurs.ts). Ce fichier
+ * ne sert plus que tant qu'ils manquent, ou si ENVOI_FOURNISSEUR=brevo
+ * l'impose. Une fois Twilio éprouvé en production : supprimer ce fichier,
+ * lib/brevo.ts, la route api/suivi/brevo et la variable BREVO_API_KEY.
+ *
+ * Une réponse de Brevo se range en trois cas (ReponseFournisseur) :
  *   - acceptée : son identifiant (messageId) va au journal ;
  *   - refusée (4xx) : rien n'est parti, le message peut être retenté ;
  *   - incertaine (réseau coupé, délai dépassé, 5xx) : Brevo a peut-être
@@ -17,7 +25,7 @@ import { normaliserTelephone } from "./garde-fous";
 const BREVO = "https://api.brevo.com/v3";
 const DELAI_MS = 15_000;
 
-export type ReponseBrevo = { ok: true; id: string | null } | { ok: false; definitif: boolean; message: string };
+export type ReponseBrevo = ReponseFournisseur;
 
 const cleBrevo = () => process.env.BREVO_API_KEY ?? "";
 export const brevoConfigure = () => !!cleBrevo();

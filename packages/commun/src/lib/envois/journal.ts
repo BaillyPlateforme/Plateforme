@@ -1,17 +1,25 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
+import type { NomFournisseur } from "./fournisseurs";
 import type { Canal, ModeEnvoi } from "./garde-fous";
 
 /*
  * Le journal des envois : la table public.envois (migration 0013). Une ligne
- * par message, envoyé ou non, avec son statut, l'identifiant de Brevo et sa
- * clé d'idempotence, unique.
+ * par message, envoyé ou non, avec son statut, l'identifiant du message chez
+ * son fournisseur et sa clé d'idempotence, unique.
  *
- * La clé est réservée AVANT tout appel à Brevo, en une seule requête (« on
- * conflict do nothing ») : deux appels simultanés avec la même clé — un
+ * L'identifiant du message vit dans la colonne `brevo_id`, quel que soit le
+ * fournisseur (Brevo, SendGrid ou Twilio) : le nom date de Brevo, et renommer
+ * la colonne casserait le code en service le temps du déploiement. Le nom du
+ * fournisseur, dans la colonne `fournisseur` (migration 0022) — facultative :
+ * tant qu'elle manque, il n'est pas écrit (conclure), et les écrans le
+ * déduisent de la forme de l'identifiant (fournisseurDe, fournisseurs.ts).
+ *
+ * La clé est réservée AVANT tout appel au fournisseur, en une seule requête
+ * (« on conflict do nothing ») : deux appels simultanés avec la même clé — un
  * double clic, une tâche relancée — n'en font partir qu'un. Une clé déjà
- * prise ne repart pas, sauf si son message a été refusé par Brevo (4xx :
- * rien n'est parti) : celui-là peut être retenté sous la même clé.
+ * prise ne repart pas, sauf si son message a été refusé par le fournisseur
+ * (4xx : rien n'est parti) : celui-là peut être retenté sous la même clé.
  *
  * Le journal ne garde pas le corps des e-mails : un lien d'accès à l'espace
  * client, par exemple, ouvre l'espace d'un vrai client. Il garde l'objet, et
@@ -36,7 +44,10 @@ export interface LigneEnvoi {
   motif: string | null;
   mode: ModeEnvoi;
   bac_a_sable: boolean;
+  /** L'identifiant du message chez son fournisseur (Brevo, SendGrid ou Twilio), malgré le nom de la colonne. */
   brevo_id: string | null;
+  /** Le fournisseur qui a reçu le message (migration 0022) : absent tant que la colonne n'existe pas. */
+  fournisseur?: NomFournisseur | null;
   tentatives: number;
   cree_le: string;
   traite_le: string | null;
@@ -81,7 +92,7 @@ export async function reserver(l: NouvelEnvoi): Promise<{ reservee: boolean; lig
   const lu = await avecDelai(db.from(TABLE).select("*").eq("cle", l.cle).maybeSingle());
   if (lu.error || !lu.data) throw new Error(lu.error?.message ?? "clé introuvable après conflit");
   const existante = lu.data as LigneEnvoi;
-  // Refusé par Brevo : rien n'est parti, on peut retenter — une seule reprise à la fois.
+  // Refusé par le fournisseur : rien n'est parti, on peut retenter — une seule reprise à la fois.
   if (existante.statut === "echec") {
     const repris = await avecDelai(
       db
@@ -98,13 +109,38 @@ export async function reserver(l: NouvelEnvoi): Promise<{ reservee: boolean; lig
   return { reservee: false, ligne: existante };
 }
 
-export async function conclure(id: string, champs: { statut: Exclude<StatutEnvoi, "en_cours">; motif: string | null; brevo_id?: string | null }) {
-  const { error } = await avecDelai(
-    createServiceClient()
-      .from(TABLE)
-      .update({ ...champs, traite_le: new Date().toISOString() })
-      .eq("id", id),
-  );
+/*
+ * La colonne `fournisseur` (migration 0022) peut manquer : la base n'a pas
+ * encore reçu la migration. Rien ne doit casser pour autant (règle du
+ * projet) : si la base la refuse, le statut s'inscrit sans elle, et on ne
+ * la propose plus pendant dix minutes — le temps qu'une migration appliquée
+ * entre-temps soit vue sans redémarrer.
+ */
+const SANS_COLONNE_MS = 10 * 60_000;
+const coffre = globalThis as typeof globalThis & { __envoisSansFournisseur?: number };
+const colonneFournisseurAbsente = () => !!coffre.__envoisSansFournisseur && Date.now() - coffre.__envoisSansFournisseur < SANS_COLONNE_MS;
+/** L'erreur dit-elle que la colonne n'existe pas ? (PostgREST : PGRST204 « Could not find the 'fournisseur' column ».) */
+const colonneManquante = (e: { message?: string; code?: string }) =>
+  e.code === "PGRST204" || e.code === "42703" || /fournisseur/i.test(e.message ?? "");
+
+export async function conclure(
+  id: string,
+  champs: { statut: Exclude<StatutEnvoi, "en_cours">; motif: string | null; brevo_id?: string | null; fournisseur?: NomFournisseur | null },
+) {
+  const { fournisseur, ...reste } = champs;
+  const ecrire = (c: Record<string, unknown>) =>
+    avecDelai(
+      createServiceClient()
+        .from(TABLE)
+        .update({ ...c, traite_le: new Date().toISOString() })
+        .eq("id", id),
+    );
+  const avecFournisseur = fournisseur !== undefined && !colonneFournisseurAbsente();
+  let { error } = await ecrire(avecFournisseur ? { ...reste, fournisseur } : reste);
+  if (error && avecFournisseur && colonneManquante(error)) {
+    coffre.__envoisSansFournisseur = Date.now();
+    ({ error } = await ecrire(reste));
+  }
   if (error) throw new Error(error.message);
 }
 

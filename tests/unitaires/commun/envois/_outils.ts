@@ -92,12 +92,13 @@ export function fausseBase(repondre: Repondeur = () => ({ data: null, error: nul
   return { client, requetes, de: (table: string, action?: Requete["action"]) => requetes.filter((r) => r.table === table && (!action || r.action === action)) };
 }
 
-/** Une réponse HTTP minimale pour un `fetch` simulé. */
-export function reponseHttp(statut: number, corps: unknown = "", options: { texteEchoue?: boolean } = {}) {
+/** Une réponse HTTP minimale pour un `fetch` simulé (avec ses en-têtes : SendGrid rend son identifiant dans X-Message-Id). */
+export function reponseHttp(statut: number, corps: unknown = "", options: { texteEchoue?: boolean; entetes?: Record<string, string> } = {}) {
   const texte = typeof corps === "string" ? corps : JSON.stringify(corps);
   return {
     ok: statut >= 200 && statut < 300,
     status: statut,
+    headers: new Headers(options.entetes ?? {}),
     text: options.texteEchoue ? () => Promise.reject(new Error("corps illisible")) : () => Promise.resolve(texte),
     json: () => Promise.resolve(JSON.parse(texte)),
   } as unknown as Response;

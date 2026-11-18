@@ -2,7 +2,11 @@ import "server-only";
 import { env } from "@/lib/env";
 
 /*
- * La connexion au compte Brevo, pour l'écran des Paramètres.
+ * La connexion au compte Brevo, pour l'écran des Paramètres (par
+ * lib/connexion-envois.ts, tant que Brevo porte un canal).
+ *
+ * À RETIRER APRÈS LA BASCULE VERS TWILIO (décision du 18/11/2026), avec
+ * envois/brevo.ts.
  *
  * Les envois, eux, ne passent plus par ici : tout e-mail et tout SMS part
  * par le module d'envoi (lib/envois), seul à appeler Brevo, après ses

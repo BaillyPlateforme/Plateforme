@@ -182,6 +182,62 @@ describe("envois/journal — conclure et lireEnvois", () => {
     await expect(conclure("l1", { statut: "echec", motif: "x" })).rejects.toThrow("timeout");
   });
 
+  describe("le nom du fournisseur (colonne de la migration 0022, facultative)", () => {
+    beforeEach(() => {
+      (globalThis as { __envoisSansFournisseur?: number }).__envoisSansFournisseur = undefined;
+    });
+
+    it("la colonne existe : le fournisseur s'inscrit avec le statut, en une requête", async () => {
+      const b = brancher(() => undefined);
+      await conclure("l1", { statut: "envoye", motif: null, brevo_id: "sg-1", fournisseur: "sendgrid" });
+      const maj = b.de("envois", "update");
+      expect(maj).toHaveLength(1);
+      expect(maj[0].charge).toMatchObject({ statut: "envoye", brevo_id: "sg-1", fournisseur: "sendgrid" });
+    });
+
+    it("la colonne manque (migration pas encore appliquée) : le statut s'inscrit sans elle, rien ne casse", async () => {
+      const b = brancher((r) => {
+        const c = r.charge as Record<string, unknown>;
+        return "fournisseur" in c ? { error: { message: "Could not find the 'fournisseur' column of 'envois' in the schema cache" } } : undefined;
+      });
+      await conclure("l1", { statut: "envoye", motif: null, brevo_id: `SM${"0".repeat(32)}`, fournisseur: "twilio" });
+      const maj = b.de("envois", "update");
+      expect(maj).toHaveLength(2);
+      expect(maj[1].charge).not.toHaveProperty("fournisseur");
+      expect(maj[1].charge).toMatchObject({ statut: "envoye", brevo_id: `SM${"0".repeat(32)}` });
+      // Les suivants ne la proposent plus (une requête chacun)…
+      await conclure("l2", { statut: "envoye", motif: null, brevo_id: "x", fournisseur: "sendgrid" });
+      expect(b.de("envois", "update")).toHaveLength(3);
+    });
+
+    it("… pendant dix minutes seulement : une migration appliquée entre-temps est vue sans redémarrer", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-18T10:00:00Z"));
+      let colonne = false;
+      const b = brancher((r) => ("fournisseur" in (r.charge as object) && !colonne ? { error: { message: "column envois.fournisseur does not exist", code: "42703" } as never } : undefined));
+      await conclure("l1", { statut: "envoye", motif: null, fournisseur: "twilio" });
+      colonne = true;
+      vi.setSystemTime(new Date("2026-11-18T10:09:59Z"));
+      await conclure("l2", { statut: "envoye", motif: null, fournisseur: "twilio" });
+      expect(b.de("envois", "update").at(-1)!.charge).not.toHaveProperty("fournisseur");
+      vi.setSystemTime(new Date("2026-11-18T10:10:01Z"));
+      await conclure("l3", { statut: "envoye", motif: null, fournisseur: "twilio" });
+      expect(b.de("envois", "update").at(-1)!.charge).toMatchObject({ fournisseur: "twilio" });
+    });
+
+    it("une autre erreur que la colonne manquante lève, sans nouvel essai", async () => {
+      const b = brancher(() => ({ error: { message: "permission denied for table envois" } }));
+      await expect(conclure("l1", { statut: "envoye", motif: null, fournisseur: "sendgrid" })).rejects.toThrow("permission denied");
+      expect(b.de("envois", "update")).toHaveLength(1);
+    });
+
+    it("sans fournisseur donné (appel d'avant la bascule), la charge reste celle d'avant", async () => {
+      const b = brancher(() => undefined);
+      await conclure("l1", { statut: "journalise", motif: "x", brevo_id: null });
+      expect(b.de("envois", "update")[0].charge).not.toHaveProperty("fournisseur");
+    });
+  });
+
   it("borne la lecture du journal à 1000 lignes", async () => {
     const b = brancher(() => ({ data: [] }));
     await lireEnvois({ limite: 50_000, origine: "crm" });

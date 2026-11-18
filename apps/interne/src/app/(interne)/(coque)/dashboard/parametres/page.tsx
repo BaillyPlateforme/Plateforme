@@ -6,8 +6,9 @@ import { useRessource } from "@/lib/donnees";
 import { Echec, Squelette } from "@/components/Squelette";
 import ParametresClient from "./ParametresClient";
 import type { SettingsRow } from "@/lib/types";
+import type { ConnexionEnvois } from "@/lib/connexion-envois";
 
-type Donnees = { settings: SettingsRow; brevo: { ok: boolean; message: string } };
+type Donnees = { settings: SettingsRow; connexion: ConnexionEnvois };
 
 export default function ParametresPage() {
   const { donnees, erreur, recharger } = useRessource<Donnees>("/api/data/parametres");
@@ -25,7 +26,7 @@ export default function ParametresPage() {
       ) : !donnees ? (
         <Squelette titre={false} lignes={6} />
       ) : (
-        <ParametresClient settings={donnees.settings} brevo={donnees.brevo} />
+        <ParametresClient settings={donnees.settings} connexion={donnees.connexion} />
       )}
     </div>
   );

@@ -21,9 +21,16 @@ describe("suivi/etapes · la piste d'un e-mail", () => {
     expect(leJour("2026-12-31T23:30:00Z")).toBe("le 1 janv.");
   });
   it("envoyé sans nouvelle : « pas d'ouverture relevée », jamais « non lu »", () => {
-    const p = etapesPiste(suivi());
+    const p = etapesPiste(suivi({ fournisseur: "brevo" }));
     expect(p.map((e) => [e.cle, e.libelle, e.etat])).toEqual([["depart", "Envoyé", "ok"], ["ouverture", "Pas d'ouverture relevée", "attente"]]);
     expect(p[0].titre).toBe("Parti chez Brevo · le 8 nov. à 14:05");
+  });
+  it("le départ et la délivrance nomment le fournisseur de l'e-mail (SendGrid après la bascule), « le fournisseur » s'il est inconnu", () => {
+    const p = etapesPiste(suivi({ fournisseur: "sendgrid", delivre: "2026-11-08T13:06:00Z" }));
+    expect(p[0].titre).toBe("Parti chez SendGrid · le 8 nov. à 14:05");
+    expect(p[1].titre).toBe("Délivré le 8 nov. à 14:06 — selon SendGrid");
+    expect(etapesPiste(suivi({ statut: "incertain", motif: "SendGrid 503", fournisseur: "sendgrid" }))[0].titre).toBe("Incertain : à vérifier chez SendGrid · le 8 nov. à 14:05 · SendGrid 503");
+    expect(etapesPiste(suivi())[0].titre).toBe("Parti chez le fournisseur · le 8 nov. à 14:05");
   });
   it("journalisé : rien n'est parti, la raison suit ; pas d'étape d'ouverture", () => {
     const p = etapesPiste(suivi({ statut: "journalise", motif: "ENVOI_MODE=desactive" }));
@@ -35,7 +42,7 @@ describe("suivi/etapes · la piste d'un e-mail", () => {
     expect(etapesPiste(suivi({ statut: "mystere" }))[0]).toMatchObject({ libelle: "mystere", etat: "neutre" });
   });
   it("rebond : « Non délivré », et plus d'attente d'ouverture ; délivré seulement si Brevo l'a dit", () => {
-    const p = etapesPiste(suivi({ rebond: { genre: "hard_bounce", le: "2026-11-08T13:06:00Z", raison: "boîte inconnue" }, delivre: "2026-11-08T13:06:00Z" }));
+    const p = etapesPiste(suivi({ fournisseur: "brevo", rebond: { genre: "hard_bounce", le: "2026-11-08T13:06:00Z", raison: "boîte inconnue" }, delivre: "2026-11-08T13:06:00Z" }));
     expect(p.map((e) => e.libelle)).toEqual(["Envoyé", "Non délivré"]);
     expect(p[1].titre).toBe("Rebond (hard bounce) le 8 nov. à 14:06 · boîte inconnue — selon Brevo");
     expect(etapesPiste(suivi({ delivre: "2026-11-08T13:06:00Z" }))[1]).toMatchObject({ libelle: "Délivré", etat: "ok" });

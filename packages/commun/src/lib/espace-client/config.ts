@@ -17,7 +17,7 @@ import { estAdresseFictive } from "@/lib/envois/garde-fous";
  *                                    paiement simulé ; à défaut, la clé
  *                                    service_role.
  *   ENVOI_MODE, ENVOI_…              les envois réels (e-mails et SMS par
- *                                    Brevo) se règlent pour toute la
+ *                                    Twilio, ou Brevo) se règlent pour toute la
  *                                    plateforme : voir lib/envois. L'ancienne
  *                                    ESPACE_CLIENT_ENVOI n'est plus lue.
  *   STRIPE_SECRET_KEY,               le paiement en ligne par Stripe (voir

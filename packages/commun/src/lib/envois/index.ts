@@ -1,8 +1,22 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { brevoConfigure, posterEmail, posterSms, type ReponseBrevo } from "./brevo";
-import { decider, lireReglage, MOTIFS, type Canal, type ModeEnvoi, type ReglageEnvois } from "./garde-fous";
+import { posterEmail, posterSms } from "./brevo";
+import {
+  ACCES_ABSENT,
+  choisirFournisseurs,
+  fournisseurDe,
+  fournisseurPresent,
+  fournisseursEnClair,
+  NOM_FOURNISSEUR,
+  nomDuFournisseur,
+  type ChoixFournisseurs,
+  type NomFournisseur,
+  type ReponseFournisseur,
+} from "./fournisseurs";
+import { decider, lireReglage, MOTIFS, motifBacASableEmail, type Canal, type ModeEnvoi, type ReglageEnvois } from "./garde-fous";
 import { conclure, partisSur24h, reserver, type LigneEnvoi, type OrigineEnvoi, type StatutEnvoi } from "./journal";
+import { posterEmailSendgrid } from "./sendgrid";
+import { posterSmsTwilio } from "./twilio";
 import { equiperEmail } from "@/lib/suivi-envois";
 
 /*
@@ -17,8 +31,13 @@ import { equiperEmail } from "@/lib/suivi-envois";
  *      ne part pas ; un échec du suivi le laisse partir tel quel ;
  *   2. les garde-fous décident (garde-fous.ts) : destinataire fictif, envoi
  *      désactivé, recette et liste blanche, bac à sable ;
- *   3. s'il a le droit de partir, Brevo est appelé, et sa réponse (son
- *      identifiant, ou l'erreur) est inscrite au journal.
+ *   3. s'il a le droit de partir, son fournisseur est appelé — SendGrid pour
+ *      un e-mail, Twilio pour un SMS, ou Brevo tant que leurs accès manquent
+ *      (fournisseurs.ts) —, et sa réponse (son identifiant, ou l'erreur) est
+ *      inscrite au journal, avec le nom du fournisseur.
+ *
+ * Les garde-fous, les plafonds et le journal sont les mêmes quel que soit le
+ * fournisseur : il n'est choisi qu'au dernier moment, juste avant l'appel.
  *
  * Si le journal ne répond pas, rien ne part : sans clé réservée, on ne
  * saurait pas garantir qu'un message ne parte pas deux fois.
@@ -27,7 +46,7 @@ import { equiperEmail } from "@/lib/suivi-envois";
  * l'appelant affiche ou consigne.
  */
 
-export type { Canal, ModeEnvoi, LigneEnvoi, OrigineEnvoi, StatutEnvoi };
+export type { Canal, ModeEnvoi, LigneEnvoi, NomFournisseur, OrigineEnvoi, StatutEnvoi };
 
 interface Commun {
   /** La clé d'idempotence : deux appels avec la même clé n'envoient qu'une fois. Sans clé, une clé unique. */
@@ -82,7 +101,10 @@ export interface ResultatEnvoi {
   /** « en_cours » seulement pour un doublon dont le premier passage n'a pas fini. */
   statut: StatutEnvoi;
   motif: string | null;
-  brevoId: string | null;
+  /** L'identifiant du message chez son fournisseur (colonne brevo_id du journal). */
+  idFournisseur: string | null;
+  /** Le fournisseur qui a reçu le message ; null s'il n'est allé chez personne. */
+  fournisseur: NomFournisseur | null;
   cle: string;
   /** La clé était déjà prise : rien n'a été refait, le statut est celui du premier passage. */
   doublon: boolean;
@@ -92,6 +114,9 @@ export interface ResultatEnvoi {
 
 /** Le réglage en vigueur (lu à chaque envoi : un changement de variable vaut au redémarrage). */
 export const reglageEnvois = (): ReglageEnvois => lireReglage(process.env);
+
+/** Les fournisseurs en vigueur, canal par canal (lus à chaque envoi, comme le réglage). */
+export const fournisseursEnvois = (): ChoixFournisseurs => choisirFournisseurs(process.env);
 
 /** L'expéditeur par défaut, quand l'appelant n'en donne pas : celui de toujours, réglable. */
 function expediteurParDefaut() {
@@ -121,17 +146,24 @@ const HORS_CLIENT = /(_equipe$|^avarie_bailleur$|^Alerte équipe)/;
 const suiviParDefaut = (m: Pick<EmailSortant, "origine" | "cle" | "modele">) =>
   m.origine !== "test" && !String(m.cle ?? "").startsWith("alerte:") && !HORS_CLIENT.test(m.modele ?? "");
 
+/**
+ * L'appel au fournisseur, que chaque canal prépare : le fournisseur choisi,
+ * le bac à sable, et la ligne du journal (SendGrid la rend dans ses
+ * événements, Twilio dans l'adresse de son rappel d'état).
+ */
+type Appel = (fournisseur: NomFournisseur, bacASable: boolean, envoiId: string) => Promise<ReponseFournisseur>;
+
 async function envoyer(
   canal: Canal,
   m: Commun & { a: string; sujet: string | null; apercu: string | null },
-  appeler: (bacASable: boolean) => Promise<ReponseBrevo>,
+  appeler: Appel,
   /** Juste après la réservation, avant tout : l'e-mail est équipé pour le suivi avec l'identifiant de sa ligne (lib/suivi-envois). */
   preparer?: (envoiId: string) => Promise<void>,
 ): Promise<ResultatEnvoi> {
   const reglage = reglageEnvois();
   const cle = cleDe(m.cle);
   const destinataire = m.a.trim();
-  const base = { cle, brevoId: null, doublon: false, journalId: null, bacASable: reglage.bacASable };
+  const base = { cle, idFournisseur: null, fournisseur: null, doublon: false, journalId: null, bacASable: reglage.bacASable };
 
   let r: { reservee: boolean; ligne: LigneEnvoi };
   try {
@@ -144,20 +176,34 @@ async function envoyer(
     return { ...base, statut: "echec", motif: `Journal des envois indisponible : rien n'est parti (${e instanceof Error ? e.message : "erreur"}).` };
   }
   if (!r.reservee) {
-    return { ...base, statut: r.ligne.statut, motif: r.ligne.motif, brevoId: r.ligne.brevo_id, doublon: true, journalId: r.ligne.id, bacASable: r.ligne.bac_a_sable };
+    return {
+      ...base,
+      statut: r.ligne.statut,
+      motif: r.ligne.motif,
+      idFournisseur: r.ligne.brevo_id,
+      fournisseur: fournisseurDe(r.ligne),
+      doublon: true,
+      journalId: r.ligne.id,
+      bacASable: r.ligne.bac_a_sable,
+    };
   }
 
   // Même journalisé ou retenu, l'e-mail est équipé : ses liens se retrouvent, et le suivi s'éprouve sans rien envoyer.
   if (preparer) await preparer(r.ligne.id);
 
-  const finir = async (statut: Exclude<StatutEnvoi, "en_cours">, motif: string | null, brevoId: string | null = null): Promise<ResultatEnvoi> => {
+  const finir = async (
+    statut: Exclude<StatutEnvoi, "en_cours">,
+    motif: string | null,
+    idFournisseur: string | null = null,
+    fournisseur: NomFournisseur | null = null,
+  ): Promise<ResultatEnvoi> => {
     try {
-      await conclure(r.ligne.id, { statut, motif, brevo_id: brevoId });
+      await conclure(r.ligne.id, { statut, motif, brevo_id: idFournisseur, fournisseur });
     } catch (e) {
       // Le message est traité ; seule sa ligne n'a pas pu être mise à jour (elle reste « en cours »).
       console.error(`Envois : statut « ${statut} » non inscrit pour ${cle}`, e instanceof Error ? e.message : e);
     }
-    return { ...base, statut, motif, brevoId, journalId: r.ligne.id };
+    return { ...base, statut, motif, idFournisseur, fournisseur, journalId: r.ligne.id };
   };
 
   const decision = decider(reglage, { canal, destinataire, fictif: m.fictif });
@@ -169,8 +215,8 @@ async function envoyer(
 
   const partir = async (): Promise<ResultatEnvoi> => {
     // Les messages que le public déclenche (le formulaire) ont un plafond sur 24 heures : au total
-    // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : Brevo en accorde 300 par jour, le reste va
-    // aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
+    // (ENVOI_PLAFOND_QUESTIONNAIRES_EMAIL, 200 par défaut : le compte gratuit de Brevo en accordait 300
+    // par jour, le reste va aux liens de connexion des clients et au CRM ; _SMS, 30) et par destinataire
     // (ENVOI_PLAFOND_PAR_DESTINATAIRE, 6) : un robot ne vide plus le quota, ni la boîte d'une victime.
     if (m.plafonne) {
       const lire = (nom: string, defaut: number) => {
@@ -196,11 +242,21 @@ async function envoyer(
 
     // Le SMS en bac à sable ne quitte pas la plateforme.
     if (decision.bacASable && canal === "sms") return finir("bac_a_sable", MOTIFS.bacASableSms);
-    if (!brevoConfigure()) return finir("echec", "Clé Brevo absente (BREVO_API_KEY) : rien n'est parti.");
 
-    const rep = await appeler(decision.bacASable);
-    if (rep.ok) return finir(decision.bacASable ? "bac_a_sable" : "envoye", decision.bacASable ? MOTIFS.bacASableEmail : null, rep.id);
-    return finir(rep.definitif ? "echec" : "incertain", rep.definitif ? rep.message : `${rep.message} — Brevo a peut-être accepté le message : il n'est pas renvoyé tout seul.`);
+    // Le fournisseur n'est choisi qu'ici, une fois tous les garde-fous passés : ils valent pour tous.
+    const choix = fournisseursEnvois();
+    const fournisseur: NomFournisseur = canal === "email" ? choix.email : choix.sms;
+    if (!fournisseurPresent(fournisseur, process.env)) return finir("echec", ACCES_ABSENT[fournisseur]);
+    const nom = NOM_FOURNISSEUR[fournisseur];
+
+    const rep = await appeler(fournisseur, decision.bacASable, r.ligne.id);
+    if (rep.ok) return finir(decision.bacASable ? "bac_a_sable" : "envoye", decision.bacASable ? motifBacASableEmail(nom) : null, rep.id, fournisseur);
+    return finir(
+      rep.definitif ? "echec" : "incertain",
+      rep.definitif ? rep.message : `${rep.message} — ${nom} a peut-être accepté le message : il n'est pas renvoyé tout seul.`,
+      null,
+      fournisseur,
+    );
   };
   // Le compte des 24 heures ne voit que les messages déjà partis : des envois plafonnés lancés au même instant
   // (un robot qui soumet le formulaire en rafale) le lisaient tous avant le départ du premier, et partaient tous.
@@ -230,8 +286,9 @@ export function envoyerEmail(m: EmailSortant): Promise<ResultatEnvoi> {
   return envoyer(
     "email",
     { ...m, sujet: m.sujet, apercu: null },
-    (bacASable) =>
-      posterEmail({
+    (fournisseur, bacASable, envoiId) => {
+      // Le même message, quel que soit le fournisseur : l'expéditeur et le « répondre à » de l'appelant, ses pièces jointes.
+      const e = {
         a: m.a.trim(),
         sujet: m.sujet,
         html,
@@ -240,20 +297,28 @@ export function envoyerEmail(m: EmailSortant): Promise<ResultatEnvoi> {
         repondreA: m.repondreA,
         piecesJointes: m.piecesJointes,
         bacASable,
-      }),
+      };
+      // Brevo : l'ancien chemin, à retirer après la bascule.
+      return fournisseur === "sendgrid" ? posterEmailSendgrid({ ...e, envoiId }) : posterEmail(e);
+    },
     equiper,
   );
 }
 
 export function envoyerSms(m: SmsSortant): Promise<ResultatEnvoi> {
-  return envoyer("sms", { ...m, sujet: null, apercu: m.texte.slice(0, 640) }, () => posterSms({ a: m.a, texte: m.texte, expediteur: m.expediteur }));
+  return envoyer("sms", { ...m, sujet: null, apercu: m.texte.slice(0, 640) }, (fournisseur, _bacASable, envoiId) =>
+    // Brevo : l'ancien chemin, à retirer après la bascule.
+    fournisseur === "twilio"
+      ? posterSmsTwilio({ a: m.a, texte: m.texte, expediteur: m.expediteur, envoiId })
+      : posterSms({ a: m.a, texte: m.texte, expediteur: m.expediteur }),
+  );
 }
 
 /** Le message est-il vraiment parti chez son destinataire ? */
 export const estParti = (r: Pick<ResultatEnvoi, "statut">) => r.statut === "envoye";
 
 /** Le statut, dit en quelques mots : pour un fil d'activité ou un message à l'équipe. */
-export function libelleStatut(r: Pick<ResultatEnvoi, "statut" | "doublon">): string {
+export function libelleStatut(r: Pick<ResultatEnvoi, "statut" | "doublon"> & { fournisseur?: NomFournisseur | null }): string {
   if (r.doublon) return r.statut === "envoye" ? "déjà envoyé" : "déjà traité";
   switch (r.statut) {
     case "envoye":
@@ -267,7 +332,7 @@ export function libelleStatut(r: Pick<ResultatEnvoi, "statut" | "doublon">): str
     case "bac_a_sable":
       return "bac à sable (non délivré)";
     case "incertain":
-      return "incertain (à vérifier chez Brevo)";
+      return `incertain (à vérifier chez ${nomDuFournisseur(r.fournisseur)})`;
     case "echec":
       return "échec";
     default:
@@ -282,30 +347,55 @@ export interface EtatEnvois {
   detail: string;
   bacASable: boolean;
   liste: string[];
-  brevo: boolean;
+  /** Le fournisseur de chaque canal, et si ses accès sont posés. */
+  fournisseurs: { email: NomFournisseur; sms: NomFournisseur; emailPret: boolean; smsPret: boolean };
+  /** Les fournisseurs en clair : « Brevo », « SendGrid (e-mails) et Twilio (SMS) ». */
+  par: string;
   avertissements: string[];
 }
 
-/** L'état des envois, pour le back-office : ce qui part vraiment, et vers qui. */
+/** Ce qui manque à un fournisseur, pour l'écran : jamais la valeur d'une clé, seulement le nom de sa variable. */
+const MANQUE: Record<NomFournisseur, string> = {
+  brevo: "Aucune clé Brevo (BREVO_API_KEY)",
+  sendgrid: "Aucune clé SendGrid (SENDGRID_API_KEY)",
+  twilio: "Aucun accès Twilio (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)",
+};
+
+/** L'état des envois, pour le back-office : ce qui part vraiment, par qui, et vers qui. */
 export function etatEnvois(): EtatEnvois {
   const r = reglageEnvois();
+  const choix = fournisseursEnvois();
+  const par = fournisseursEnClair(choix);
   const liste = [...r.liste.emails, ...r.liste.domaines.map((d) => `@${d}`), ...r.liste.telephones.map((t) => `+${t}`)];
   const libelle = r.mode === "actif" ? "Actif" : r.mode === "recette" ? "Recette (liste blanche)" : "Désactivé";
   const detail =
     r.mode === "actif"
-      ? "Les e-mails et les SMS partent par Brevo vers tous les destinataires réels."
+      ? `Les e-mails et les SMS partent par ${par} vers tous les destinataires réels.`
       : r.mode === "recette"
-        ? `Seuls les destinataires de la liste blanche reçoivent (${liste.length} entrée${liste.length > 1 ? "s" : ""}) ; les autres messages sont bloqués et journalisés.`
-        : "Rien ne part : chaque e-mail et chaque SMS est journalisé, sans appel à Brevo.";
-  const avertissements = [...r.avertissements];
-  if (r.mode !== "desactive" && !brevoConfigure()) avertissements.push("Aucune clé Brevo (BREVO_API_KEY) : les messages autorisés échoueront.");
+        ? `Seuls les destinataires de la liste blanche reçoivent (${liste.length} entrée${liste.length > 1 ? "s" : ""}), par ${par} ; les autres messages sont bloqués et journalisés.`
+        : `Rien ne part : chaque e-mail et chaque SMS est journalisé, sans appel à ${par}.`;
+  const emailPret = fournisseurPresent(choix.email, process.env);
+  const smsPret = fournisseurPresent(choix.sms, process.env);
+  // Ce qui a été mal lu dans le choix du fournisseur se dit toujours ; ce qui manque, seulement quand quelque chose doit partir.
+  const avertissements = [...r.avertissements, ...choix.avertissements];
+  if (r.mode !== "desactive") {
+    if (choix.email === choix.sms && !emailPret) avertissements.push(`${MANQUE[choix.email]} : les messages autorisés échoueront.`);
+    else {
+      if (!emailPret) avertissements.push(`${MANQUE[choix.email]} : les e-mails autorisés échoueront.`);
+      if (!smsPret) avertissements.push(`${MANQUE[choix.sms]} : les SMS autorisés échoueront.`);
+    }
+  }
   return {
     mode: r.mode,
     libelle: r.bacASable && r.mode !== "desactive" ? `${libelle} · bac à sable` : libelle,
-    detail: r.bacASable && r.mode !== "desactive" ? `${detail} Bac à sable : les e-mails sont acceptés par Brevo sans être délivrés, les SMS ne sont pas transmis.` : detail,
+    detail:
+      r.bacASable && r.mode !== "desactive"
+        ? `${detail} Bac à sable : les e-mails sont acceptés par ${NOM_FOURNISSEUR[choix.email]} sans être délivrés, les SMS ne sont pas transmis.`
+        : detail,
     bacASable: r.bacASable,
     liste,
-    brevo: brevoConfigure(),
+    fournisseurs: { email: choix.email, sms: choix.sms, emailPret, smsPret },
+    par,
     avertissements,
   };
 }

@@ -19,7 +19,7 @@ export interface EmailInput {
   template?: string | null;
 }
 
-// Envoie un email via Brevo et le journalise.
+// Envoie un email par le module d'envoi (son fournisseur : SendGrid, ou Brevo avant la bascule) et le journalise.
 export async function sendEmail(input: EmailInput) {
   await exigerEquipe();
   const supabase = createServiceClient();

@@ -11,9 +11,13 @@
  *                       en « @domaine.fr », numéros de téléphone) ;
  *   ENVOI_MODE=actif    tout destinataire réel reçoit.
  *
- * Par-dessus, ENVOI_BAC_A_SABLE=1 : les e-mails partent chez Brevo en bac à
- * sable (acceptés, jamais délivrés) et les SMS ne sont pas transmis du tout
- * — Brevo n'a pas de bac à sable pour les SMS.
+ * Par-dessus, ENVOI_BAC_A_SABLE=1 : les e-mails partent chez le fournisseur
+ * en bac à sable (SendGrid ou Brevo : acceptés, jamais délivrés) et les SMS
+ * ne sont pas transmis du tout — ni Twilio ni Brevo n'ont de bac à sable pour
+ * les SMS envoyés depuis un vrai compte.
+ *
+ * Ces règles valent à l'identique quel que soit le fournisseur (fournisseurs.ts) :
+ * elles décident AVANT qu'il soit choisi.
  *
  * Et dans tous les modes, un destinataire fictif ne reçoit jamais rien : une
  * adresse d'un domaine réservé aux exemples (example.com, .example, .test…)
@@ -39,7 +43,7 @@ export interface ReglageEnvois {
   avertissements: string[];
 }
 
-/** « 06 12 34 56 78 », « +33 6 12… », « 0033 6… » → « 33612345678 » : le format qu'attend Brevo. */
+/** « 06 12 34 56 78 », « +33 6 12… », « 0033 6… » → « 33612345678 » : le format international sans « + » (Twilio y ajoute le « + »). */
 export function normaliserTelephone(brut: string): string {
   let t = String(brut ?? "").replace(/[^\d+]/g, "");
   if (t.startsWith("+")) t = t.slice(1);
@@ -113,9 +117,11 @@ export const MOTIFS = {
   bloque: "Recette : destinataire hors de la liste blanche (ENVOI_DESTINATAIRES_AUTORISES).",
   emailInvalide: "Adresse e-mail invalide.",
   telephoneInvalide: "Numéro de téléphone invalide.",
-  bacASableEmail: "Bac à sable Brevo : accepté par Brevo, jamais délivré.",
-  bacASableSms: "Bac à sable : le SMS n'est pas transmis à Brevo (pas de bac à sable pour les SMS).",
+  bacASableSms: "Bac à sable : le SMS n'est pas transmis au fournisseur (pas de bac à sable pour les SMS).",
 } as const;
+
+/** Le bac à sable d'un e-mail, dit avec son fournisseur : « Bac à sable SendGrid : accepté par SendGrid, jamais délivré. » */
+export const motifBacASableEmail = (nom: string) => `Bac à sable ${nom} : accepté par ${nom}, jamais délivré.`;
 
 /**
  * Ce que le message a le droit de faire. L'ordre compte : un destinataire

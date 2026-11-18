@@ -439,7 +439,8 @@ export async function verifierEnvois(db: Base, k: Constats, o: { id: string; ema
     if (!k.vrai("envois", `« ${r.name} » (${r.channel}, ${r.event}) au journal des envois`, !!l, lignes.map((x) => x.cle))) continue;
     k.egal("envois", `« ${r.name} » : destinataire`, l!.destinataire.toLowerCase(), r.channel === "email" ? o.email.toLowerCase() : o.tel);
     k.vrai("envois", `« ${r.name} » : rien n'est parti`, r.channel === "email" ? l!.statut === "fictif" : ["fictif", "journalise"].includes(l!.statut), l!.statut, r.channel === "email" ? "fictif" : "fictif ou journalise");
-    k.egal("envois", `« ${r.name} » : pas d'identifiant Brevo`, l!.brevo_id, null);
+    // brevo_id : l'identifiant du message chez son fournisseur, quel qu'il soit (Brevo, SendGrid ou Twilio).
+    k.egal("envois", `« ${r.name} » : pas d'identifiant du fournisseur`, l!.brevo_id, null);
   }
   const partis = lignes.filter((l) => ["envoye", "bac_a_sable", "en_cours", "incertain"].includes(l.statut));
   k.vrai("envois", "aucun message réellement envoyé pour cette demande", partis.length === 0, partis);

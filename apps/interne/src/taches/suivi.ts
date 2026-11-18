@@ -6,7 +6,7 @@ import type { Tache } from "./types";
 /*
  * La conservation du suivi des e-mails (lib/suivi-envois) : chaque jour, ce qui a
  * passé RETENTION_JOURS (13 mois) est effacé — ouvertures, clics, visites du
- * portail, événements de Brevo, et les liens suivis eux-mêmes (un lien de
+ * portail, événements des fournisseurs (SendGrid, Twilio, Brevo), et les liens suivis eux-mêmes (un lien de
  * plus de 13 mois mène alors à l'accueil du site). Relancée le même jour,
  * elle n'a simplement plus rien à effacer.
  */
