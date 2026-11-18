@@ -7,6 +7,7 @@ import { m3Client, volumeClient } from "./volume-client";
 import { dimensionsLisibles, libelleDepartement, libelleSituation, nomVehicule, resumeRepli } from "@/crm/cimob/commun";
 import { designation } from "@/lib/visite/regles";
 import { estTransporte } from "@/lib/visite/destinations";
+import { kilometresDuDossier, lignesKilometres, nomDuPort, portsDuTrajet } from "@/crm/creation/kilometres";
 
 /** Ce que Bailly transporte (Dragan, 18/11/2026) : sans ce qui est laissé sur place ni pris en charge par le client. */
 const transportes = (inv: any[]) => inv.filter((i) => estTransporte(i));
@@ -37,7 +38,9 @@ const ouiNon = (v: unknown) => (v ? "oui" : "non");
  * d'accès, surface habitable, accès en camion, précisions.
  */
 function Itineraire({ d }: { d: any }) {
-  const km = d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km par la route` : null;
+  // Par la mer (Céline, 18/11/2026) : trois distances, l'une sous l'autre, sous le tableau ; sinon, les km dans le titre.
+  const distances = lignesKilometres(kilometresDuDossier(d), portsDuTrajet(d.stops));
+  const km = !distances.length && d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km par la route` : null;
   return (
     <Section titre={km ? `Itinéraire · ${km}` : "Itinéraire"}>
       <Tableau
@@ -46,6 +49,7 @@ function Itineraire({ d }: { d: any }) {
           <b key="g">{GENRE[e.genre] ?? "Étape"}</b>,
           [e.adresse, [e.code_postal && !String(e.adresse ?? "").includes(e.code_postal) ? e.code_postal : null, e.ville && !String(e.adresse ?? "").toLowerCase().includes(String(e.ville).toLowerCase()) ? e.ville : null].filter(Boolean).join(" ")]
             .concat(libelleDepartement(e.departement_om) ?? [])
+            .concat(e.port ? `port : ${nomDuPort(e.port)}` : [])
             .filter(Boolean)
             .join(" · ") || "—",
           e.genre === "garde_meuble"
@@ -66,6 +70,13 @@ function Itineraire({ d }: { d: any }) {
                 .join(" · "),
         ])}
       />
+      {distances.length > 0 && (
+        <Encadre>
+          {distances.map((l) => (
+            <div key={l}>{l}</div>
+          ))}
+        </Encadre>
+      )}
     </Section>
   );
 }

@@ -8,7 +8,7 @@ import { projeterEspace } from "@/crm/lib/espace";
 import { entrepriseValide } from "@/crm/clients/entreprises";
 import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
 import { majDistanceDossier } from "@/crm/creation/distance";
-import { ACCES_CAMION_DEFAUT } from "@/crm/creation/commun";
+import { ACCES_CAMION_DEFAUT, portSaisi } from "@/crm/creation/commun";
 import { departementOm, lireVolume, matriculeValide, situationValide } from "@/crm/cimob/commun";
 import { conflit, occupation } from "@/crm/visites/creneaux";
 import { estVisite } from "@/crm/visites/cycle";
@@ -172,6 +172,8 @@ export async function majItineraire(id: number, f: FormData) {
       ]);
       // CIMOB/DICOM : le département d'outre-mer de l'adresse, quand la fenêtre le montre.
       if (f.has(`departement_om_${e}`)) await db.query("update etapes_trajet set departement_om=$3 where id=$1 and dossier_id=$2", [e, id, departementOm(f.get(`departement_om_${e}`))]);
+      // La case Port d'un chargement ou d'une livraison (Céline, 18/11/2026), quand la fenêtre la montre : les km la suivent.
+      if (f.has(`port_${e}`)) await db.query("update etapes_trajet set port=$3 where id=$1 and dossier_id=$2", [e, id, portSaisi(f.get(`port_${e}`))]);
       // La surface habitable n'est demandée qu'au départ : ailleurs, elle reste telle quelle.
       if (f.has(`surface_m2_${e}`)) {
         const surface = n(f, `surface_m2_${e}`);

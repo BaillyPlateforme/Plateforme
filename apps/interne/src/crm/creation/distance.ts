@@ -1,6 +1,9 @@
 import "server-only";
 import { q } from "@/crm/lib/db";
-import { situerVille, volOiseauKm, type Point } from "@/lib/trajet";
+import { situerVille, territoire, volOiseauKm, type Commune, type Point } from "@/lib/trajet";
+import { trouverPort } from "@/lib/ports";
+import { cpVilleDe } from "./commun";
+import { SANS_KM, cotesDuTrajet, type Kilometres } from "./kilometres";
 
 /*
  * Les kilomètres d'un trajet (retours de Céline, 16/11/2026 : « il faut que
@@ -16,6 +19,15 @@ import { situerVille, volOiseauKm, type Point } from "@/lib/trajet";
  *
  * Un trajet qu'on ne sait pas situer en entier n'a pas de kilomètres : rien
  * plutôt qu'un chiffre faux.
+ *
+ * Par la mer (Céline, 18/11/2026) : une case Port sur les adresses de départ
+ * et de livraison. La route se compte alors de l'adresse de départ au port de
+ * départ, et du port d'arrivée à la livraison ; d'un port à l'autre, à vol
+ * d'oiseau (distancesTrajet, ./kilometres.ts). Un port du référentiel
+ * (lib/ports.ts) a ses coordonnées ; un port saisi librement se situe comme
+ * une adresse s'il porte un code postal, sinon comme une commune, avec les
+ * exigences de lib/trajet.ts ; introuvable, son tronçon n'a pas de
+ * kilomètres.
  */
 
 export interface PointTrajet {
@@ -24,6 +36,10 @@ export interface PointTrajet {
   ville?: string | null;
   lat?: number | null;
   lon?: number | null;
+  /** depart, garde_meuble, autre ou arrivee : il sépare les deux côtés de la mer. */
+  genre?: string | null;
+  /** La case Port d'un chargement ou d'une livraison. */
+  port?: string | null;
 }
 
 const ATTENTE = 3500;
@@ -44,6 +60,9 @@ async function lireJson(url: string): Promise<unknown> {
   if (!r.ok) throw new Error(String(r.status));
   return r.json();
 }
+
+/** Une étape a-t-elle de quoi être située ? */
+const utile = (e: PointTrajet) => !!((e.adresse ?? "").trim() || (e.ville ?? "").trim() || (typeof e.lat === "number" && typeof e.lon === "number"));
 
 /** Une adresse tapée, située par la Base Adresse ; sinon sa ville ; sinon rien. */
 async function situer(p: PointTrajet): Promise<Point | null> {
@@ -94,12 +113,107 @@ async function route(points: Point[]): Promise<number> {
 
 /** Les kilomètres d'un trajet, d'une adresse à la suivante ; rien si une adresse reste introuvable ou s'il n'y en a qu'une. */
 export async function distanceTrajet(etapes: PointTrajet[]): Promise<number | null> {
-  const utiles = etapes.filter((e) => (e.adresse ?? "").trim() || (e.ville ?? "").trim() || (typeof e.lat === "number" && typeof e.lon === "number"));
+  const utiles = etapes.filter(utile);
   if (utiles.length < 2) return null;
   const points = await Promise.all(utiles.map(situer));
   if (points.some((p) => !p)) return null;
   const km = await route(points as Point[]);
   return km >= 0 && km <= 40_000 ? km : null;
+}
+
+/* ---------- par la mer : les ports ---------- */
+
+/** Un port situé, et son territoire (lib/trajet.ts : « metropole », un code d'outre-mer, ou « hors-metropole » faute de mieux). */
+export type PortSitue = Point & { territoire: string | null };
+
+/**
+ * « Port de Saint-Malo » → « Saint-Malo », « Port du Havre » → « Le Havre »,
+ * « Port de La Turballe » → « La Turballe » : la commune d'un port saisi
+ * librement, son article rendu. « Port-Vendres », sans « de », est une
+ * commune et reste tel quel.
+ */
+export function communeDuPort(texte: string): string {
+  const t = texte.trim();
+  const m = t.match(/^(?:grand port maritime|port autonome|port|terminal|gare maritime)\s+(de\s+la\s+|de\s+l['’]\s*|des\s+|du\s+|de\s+|d['’]\s*)(.+)$/i);
+  if (!m) return t;
+  const lien = m[1].toLowerCase().replace(/\s+/g, " ").trim();
+  const article = lien === "du" ? "Le " : lien === "des" ? "Les " : lien === "de la" ? "La " : /^de l/.test(lien) ? "L'" : "";
+  return `${article}${m[2].trim()}`;
+}
+
+/**
+ * Où est un port. Celui du référentiel : ses coordonnées. Un port saisi
+ * librement : avec un code postal, comme une adresse ; sinon comme une
+ * commune, que la base doit rendre sous ce nom exactement (lib/trajet.ts). La
+ * Base Adresse rend toujours quelque chose de proche du texte : le 18/11/2026,
+ * « Port 2000 Le Havre » y donnait une rue du Havre au Port (La Réunion),
+ * « Port de Toulon » une rue de Granville, « Anvers » un lieu-dit de
+ * Haute-Vienne. Un port étranger reste donc introuvable : pas de kilomètres
+ * plutôt que des kilomètres faux.
+ */
+export async function situerPort(texte: string): Promise<PortSitue | null> {
+  const connu = trouverPort(texte);
+  if (connu) return { lat: connu.lat, lon: connu.lon, territoire: connu.territoire };
+  const t = texte.replace(/\s+/g, " ").trim().slice(0, 120);
+  if (!t) return null;
+  const cle = `port:${t.toLowerCase()}`;
+  const deja = situes.get(cle) as Commune | null | undefined;
+  if (deja !== undefined) return deja ? { lat: deja.lat, lon: deja.lon, territoire: territoire(deja) } : null;
+  const cp = t.match(/\b\d{5}\b/)?.[0] ?? null;
+  const p: Commune | null = cp ? await situer({ adresse: t }) : await situerVille(communeDuPort(t));
+  // Un échec ne se retient pas : il peut venir d'une panne des services.
+  if (!p) return null;
+  const point: Commune = { lat: p.lat, lon: p.lon, ...((cp ?? p.code_postal) ? { code_postal: cp ?? p.code_postal } : {}) };
+  retenir(situes, cle, point);
+  return { lat: point.lat, lon: point.lon, territoire: territoire(point) };
+}
+
+/**
+ * Deux territoires que la route relie ? Le même, ou un qu'on ne connaît pas.
+ * « hors-metropole » (un point hors du cadre de la France continentale, sans
+ * code postal) ne contredit qu'un lieu de métropole.
+ */
+export function memeRive(a: string | null, b: string | null): boolean {
+  if (!a || !b || a === b) return true;
+  if (a === "hors-metropole" || b === "hors-metropole") return a !== "metropole" && b !== "metropole";
+  return false;
+}
+
+/**
+ * Un tronçon par la route entre un port et les adresses de son côté de la
+ * mer, dans l'ordre. Rien s'il n'y a aucune adresse, si l'une reste
+ * introuvable, ou si l'une est de l'autre côté de la mer (un port de
+ * Martinique noté au départ de Paris) : la route ne traverse pas l'océan.
+ */
+async function tronconRoutier(adresses: PointTrajet[], port: PortSitue, sens: "vers" | "depuis"): Promise<number | null> {
+  const utiles = adresses.filter(utile);
+  if (!utiles.length) return null;
+  const situees = await Promise.all(utiles.map(situer));
+  if (situees.some((p) => !p)) return null;
+  const points = situees as Point[];
+  for (const [i, p] of points.entries()) {
+    const cp = (utiles[i].code_postal ?? "").trim() || cpVilleDe(utiles[i].adresse)?.code_postal || undefined;
+    if (!memeRive(territoire({ ...p, code_postal: cp }), port.territoire)) return null;
+  }
+  const km = await route(sens === "vers" ? [...points, port] : [port, ...points]);
+  return km >= 0 && km <= 40_000 ? km : null;
+}
+
+/**
+ * Tous les kilomètres d'un trajet (./kilometres.ts). Sans port : ceux de
+ * distanceTrajet, comme avant. Avec des ports : des chargements au port de
+ * départ, et du port d'arrivée aux livraisons, par la route ; d'un port à
+ * l'autre, à vol d'oiseau ; la route en tout seulement si ses deux tronçons
+ * sont connus. Un seul port : ce qu'il permet de calculer, rien de plus.
+ */
+export async function distancesTrajet(etapes: PointTrajet[]): Promise<Kilometres> {
+  const { avant, apres, portDepart, portArrivee } = cotesDuTrajet(etapes);
+  if (!portDepart && !portArrivee) return { ...SANS_KM, km: await distanceTrajet(etapes) };
+  const [pd, pa] = await Promise.all([portDepart ? situerPort(portDepart) : null, portArrivee ? situerPort(portArrivee) : null]);
+  const [versPort, depuisPort] = await Promise.all([pd ? tronconRoutier(avant, pd, "vers") : null, pa ? tronconRoutier(apres, pa, "depuis") : null]);
+  const mer = pd && pa ? Math.round(volOiseauKm(pd, pa)) : null;
+  const km = versPort != null && depuisPort != null && versPort + depuisPort <= 40_000 ? versPort + depuisPort : null;
+  return { km, versPort, mer, depuisPort };
 }
 
 /**
@@ -109,10 +223,10 @@ export async function distanceTrajet(etapes: PointTrajet[]): Promise<number | nu
  */
 export async function majDistanceDossier(dossierId: number): Promise<number | null> {
   try {
-    const etapes = await q<PointTrajet>("select adresse, code_postal, ville from etapes_trajet where dossier_id=$1 order by ordre, id", [dossierId]);
-    const km = await distanceTrajet(etapes);
-    await q("update dossiers set distance_km=$2 where id=$1", [dossierId, km]);
-    return km;
+    const etapes = await q<PointTrajet>("select genre, adresse, code_postal, ville, port from etapes_trajet where dossier_id=$1 order by ordre, id", [dossierId]);
+    const k = await distancesTrajet(etapes);
+    await q("update dossiers set distance_km=$2, distance_vers_port_km=$3, distance_mer_km=$4, distance_depuis_port_km=$5 where id=$1", [dossierId, k.km, k.versPort, k.mer, k.depuisPort]);
+    return k.km;
   } catch (e) {
     console.error("Dossier : calcul des kilomètres impossible", e instanceof Error ? e.message : e);
     return null;

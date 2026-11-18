@@ -71,6 +71,8 @@ export interface EtapeReprise {
   acces_camion?: string | null;
   /** CIMOB/DICOM : le département d'outre-mer de l'adresse (cimob/commun.ts). */
   departement_om?: string | null;
+  /** La case Port (Céline, 18/11/2026 ; ./kilometres.ts). */
+  port?: string | null;
 }
 
 /* ---------- les adresses de la fiche du premier appel ---------- */
@@ -109,6 +111,11 @@ export interface AdresseSaisie {
   acces: string;
   /** CIMOB/DICOM (Céline, 17/11/2026) : le département d'outre-mer, par son code (971…988) ; vide par défaut. */
   departement_om: string;
+  /**
+   * Le port d'embarquement (au départ) ou de débarquement (à la livraison), quand le trajet passe par la mer
+   * (Céline, 18/11/2026) : un port du référentiel (lib/ports.ts) ou un texte libre ; vide par défaut.
+   */
+  port: string;
 }
 
 /** « Accès en camion » : la mention écrite d'office, modifiable (Céline : « automatiquement notée facile aux poids lourds »). */
@@ -117,7 +124,7 @@ export const ACCES_CAMION_DEFAUT = "Facile aux poids lourds";
 export const ADRESSE_VIDE: AdresseSaisie = {
   adresse: "", complement: "", code_postal: "", ville: "", pays: "", lat: null, lon: null,
   etage: "", ascenseur: false, ascenseur_taille: "", monte_meuble: false, transbordement: false, portage: false,
-  code_acces: "", surface: "", acces_camion: ACCES_CAMION_DEFAUT, acces: "", departement_om: "",
+  code_acces: "", surface: "", acces_camion: ACCES_CAMION_DEFAUT, acces: "", departement_om: "", port: "",
 };
 
 /** Au plus, par genre : un déménagement à dix adresses de chargement se saisit sur la fiche. */
@@ -142,6 +149,7 @@ export function adresseDepuisEtape(e: EtapeReprise, depart: boolean): AdresseSai
     acces_camion: e.acces_camion ?? ACCES_CAMION_DEFAUT,
     acces: e.acces ?? "",
     departement_om: departementOm(e.departement_om) ?? "",
+    port: portSaisi(e.port) ?? "",
   };
 }
 
@@ -165,6 +173,7 @@ export interface EtapeSaisie {
   acces_camion: string | null;
   acces: string | null;
   departement_om: string | null;
+  port: string | null;
 }
 
 const texteBorne = (v: unknown, max: number) => {
@@ -172,6 +181,9 @@ const texteBorne = (v: unknown, max: number) => {
   return t || null;
 };
 const coordonnee = (v: unknown, borne: number) => (typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= borne ? v : null);
+
+/** Une case Port relue (./kilometres.ts) : espaces resserrés, 80 caractères au plus ; vide, rien. */
+export const portSaisi = (v: unknown): string | null => texteBorne(v, 80);
 
 /** « 12 Rue de la Paix, 75002 Paris » : le code postal et la ville de la fin, quand l'adresse les porte. */
 export function cpVilleDe(adresse: string | null | undefined): { code_postal: string; ville: string } | null {
@@ -231,11 +243,12 @@ export function lireLieux(brut: unknown): EtapeSaisie[] {
       acces_camion: texteBorne(o.acces_camion, 200),
       acces: texteBorne(o.acces, 500),
       departement_om: departementOm(o.departement_om),
+      port: portSaisi(o.port),
     });
   }
   const vide = (genre: "depart" | "arrivee"): EtapeSaisie => ({
     genre, adresse: null, code_postal: null, ville: null, pays: null, lat: null, lon: null, etage: null, ascenseur: false, ascenseur_taille: null,
-    monte_meuble: "non", transbordement: false, portage: false, code_acces: null, surface_m2: null, acces_camion: null, acces: null, departement_om: null,
+    monte_meuble: "non", transbordement: false, portage: false, code_acces: null, surface_m2: null, acces_camion: null, acces: null, departement_om: null, port: null,
   });
   if (!parGenre.depart) etapes.unshift(vide("depart"));
   if (!parGenre.arrivee) etapes.push(vide("arrivee"));

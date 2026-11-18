@@ -14,6 +14,8 @@ import { telephonesDuClient } from "@/crm/clients/telephones";
 import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE, designation } from "@/lib/visite/regles";
 import { DESTINATIONS_SPECIALES, bilanVolumes, estSpeciale } from "@/lib/visite/destinations";
 import { DEPARTEMENTS_OM, GROUPES_OM, SITUATIONS_FAMILLE } from "@/crm/cimob/commun";
+import { casePortVisible, kilometresDuDossier, lignesKilometres, portsDuTrajet } from "@/crm/creation/kilometres";
+import ListePorts from "@/crm/creation/ListePorts";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
 import { Picto } from "./Picto";
@@ -191,10 +193,16 @@ export function FenetreAdresses({ d }: { d: Row }) {
   const moisCa = d.mois_ca ? new Date(d.mois_ca).toISOString().slice(0, 7) : "";
   // CIMOB/DICOM (Céline, 17/11/2026 : « IMPÉRATIF ») : le département d'outre-mer de chaque adresse.
   const outreMer = d.type === "militaire" || d.stops.some((x: Row) => x.departement_om);
+  // La case Port des chargements et des livraisons (Céline, 18/11/2026) : toujours pour un CIMOB/DICOM, dès qu'une
+  // adresse est outre-mer ou à l'étranger, et toujours quand une case est remplie (crm/creation/kilometres.ts).
+  const ports = casePortVisible(d.type === "militaire", d.stops);
+  const avecPort = (e: Row) => ports && (e.genre === "depart" || e.genre === "arrivee");
   // Un chargement ou une livraison de plus se retire ; le seul départ, la seule arrivée, jamais.
   const nombre = (genre: string) => d.stops.filter((x: Row) => x.genre === genre).length;
+  const distances = lignesKilometres(kilometresDuDossier(d), portsDuTrajet(d.stops));
   return (
     <form action={F.majItineraire.bind(null, d.id)}>
+      {ports && <ListePorts id="ports-fiche" />}
       {d.stops.map((e: Row, i: number) => (
         <fieldset key={e.id} className={s.etape}>
           <legend>
@@ -307,9 +315,14 @@ export function FenetreAdresses({ d }: { d: Row }) {
                 <input type="text" name={`surface_m2_${e.id}`} defaultValue={e.surface_m2 ?? ""} inputMode="numeric" />
               </Champ>
             )}
-            <Champ l={outreMer && e.genre !== "garde_meuble" ? 8 : 12} titre="Accès en camion">
+            <Champ l={(12 - (outreMer && e.genre !== "garde_meuble" ? 4 : 0) - (avecPort(e) ? 4 : 0)) as 4 | 8 | 12} titre="Accès en camion">
               <input type="text" name={`acces_camion_${e.id}`} defaultValue={e.acces_camion ?? ""} />
             </Champ>
+            {avecPort(e) && (
+              <Champ l={4} titre="Port">
+                <input type="text" name={`port_${e.id}`} defaultValue={e.port ?? ""} list="ports-fiche" autoComplete="off" placeholder={e.genre === "depart" ? "Port de départ" : "Port d’arrivée"} />
+              </Champ>
+            )}
             {outreMer && e.genre !== "garde_meuble" && (
               <Champ l={4} titre="Département d’outre-mer">
                 <select name={`departement_om_${e.id}`} defaultValue={e.departement_om ?? ""}>
@@ -350,7 +363,16 @@ export function FenetreAdresses({ d }: { d: Row }) {
       </div>
       <div className={s.pied}>
         <p>
-          {d.distance_km != null && <b>{Number(d.distance_km).toLocaleString("fr-FR")} km par la route · </b>}
+          {/* Par la mer (Céline, 18/11/2026) : la route jusqu'au port, la mer à vol d'oiseau, la route depuis le port, l'une sous l'autre. */}
+          {distances.length > 0 ? (
+            <span className={s.distances}>
+              {distances.map((l) => (
+                <b key={l}>{l}</b>
+              ))}
+            </span>
+          ) : (
+            d.distance_km != null && <b>{Number(d.distance_km).toLocaleString("fr-FR")} km par la route · </b>
+          )}
           Les adresses servent aussi au devis, aux lettres de voiture et à l’espace du client.
         </p>
         <Valider garder nom="ajouter" valeur="depart" ton="doux">

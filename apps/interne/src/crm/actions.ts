@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { lireLieux, moisDepuisPeriode, segmentValide, typeValide } from "@/crm/creation/commun";
 import { oublierCandidats } from "@/crm/creation/donnees";
 import { majDistanceDossier } from "@/crm/creation/distance";
+import { kmRecevable } from "@/crm/creation/kilometres";
 import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
 import { entrepriseValide } from "@/crm/clients/entreprises";
 import { instantParis } from "@/lib/visite/regles";
@@ -84,7 +85,13 @@ export async function creerDossier(f: FormData) {
     { genre: "depart", adresse: s(f, "depart"), etage: s(f, "depart_etage"), ascenseur: f.get("depart_asc") === "on", acces: s(f, "depart_acces") },
     { genre: "arrivee", adresse: s(f, "arrivee"), etage: s(f, "arrivee_etage"), ascenseur: f.get("arrivee_asc") === "on", acces: s(f, "arrivee_acces") },
   ]);
-  const kmEcran = n(f, "distance_km");
+  // Les kilomètres que l'écran a calculés (crm/creation/kilometres.ts) ; par la mer, chaque tronçon à part, et
+  // seulement si une adresse note un port.
+  const ports = lieux.some((e) => e.port);
+  const kmEcran = kmRecevable(f.get("distance_km"));
+  const versPort = ports ? kmRecevable(f.get("distance_vers_port_km")) : null;
+  const mer = ports ? kmRecevable(f.get("distance_mer_km")) : null;
+  const depuisPort = ports ? kmRecevable(f.get("distance_depuis_port_km")) : null;
   const { id, dup } = await transaction(async (db) => {
     const rattache = n(f, "client_id");
     let clientId = rattache ? (await db.query<{ id: number }>("select id from clients where id=$1", [rattache]))[0]?.id : undefined;
@@ -99,18 +106,19 @@ export async function creerDossier(f: FormData) {
     // Les droits ne valent que pour un client CIMOB/DICOM (le segment du client rattaché, sinon celui de l'écran).
     const segment = rattache ? (await db.query<{ type: string }>("select type from clients where id=$1", [clientId]))[0]?.type : type;
     const [d] = await db.query<{ id: number }>(
-      `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,type_demenagement,vehicule,cree_par_id,origine_demande,volume_droits,distance_km)
-       values($1,$2,$3,$4,'prospect',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
+      `insert into dossiers(ref,client_id,commercial_id,traite_par_id,statut,periode,mois_ca,volume,observations,type_demenagement,vehicule,cree_par_id,origine_demande,volume_droits,distance_km,
+         distance_vers_port_km,distance_mer_km,distance_depuis_port_km)
+       values($1,$2,$3,$4,'prospect',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) returning id`,
       [ref, clientId, com, n(f, "traite_par_id"), s(f, "periode"), moisCa, n(f, "volume") ?? 0, s(f, "observations"), tdm, f.get("vehicule") === "on", u.id,
         s(f, "origine")?.slice(0, 120) ?? null,
         segment === "militaire" && droits != null && droits > 0 && droits < 100_000 ? Math.round(droits * 100) / 100 : null,
-        kmEcran != null && Number.isInteger(kmEcran) && kmEcran >= 0 && kmEcran <= 40_000 ? kmEcran : null]);
+        kmEcran, versPort, mer, depuisPort]);
     // Les adresses dans l'ordre du trajet : les chargements, le garde-meuble s'il y en a un, les livraisons.
-    const etape = `insert into etapes_trajet(dossier_id,ordre,genre,adresse,code_postal,ville,pays,etage,ascenseur,ascenseur_taille,monte_meuble,transbordement,portage,code_acces,surface_m2,acces_camion,acces,departement_om)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`;
+    const etape = `insert into etapes_trajet(dossier_id,ordre,genre,adresse,code_postal,ville,pays,etage,ascenseur,ascenseur_taille,monte_meuble,transbordement,portage,code_acces,surface_m2,acces_camion,acces,departement_om,port)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`;
     let ordre = 0;
     const poser = (e: (typeof lieux)[number]) =>
-      db.query(etape, [d.id, ordre++, e.genre, e.adresse, e.code_postal, e.ville, e.pays, e.etage, e.ascenseur, e.ascenseur_taille, e.monte_meuble, e.transbordement, e.portage, e.code_acces, e.surface_m2, e.acces_camion, e.acces, e.departement_om]);
+      db.query(etape, [d.id, ordre++, e.genre, e.adresse, e.code_postal, e.ville, e.pays, e.etage, e.ascenseur, e.ascenseur_taille, e.monte_meuble, e.transbordement, e.portage, e.code_acces, e.surface_m2, e.acces_camion, e.acces, e.departement_om, e.port]);
     for (const e of lieux.filter((x) => x.genre === "depart")) await poser(e);
     if (f.get("garde_meuble") === "on") await db.query("insert into etapes_trajet(dossier_id,ordre,genre,adresse) values($1,$2,'garde_meuble','Garde-meuble Bailly')", [d.id, ordre++]);
     for (const e of lieux.filter((x) => x.genre === "arrivee")) await poser(e);
@@ -123,7 +131,8 @@ export async function creerDossier(f: FormData) {
     return { id: d.id, dup: await reprendreDuplication(db, d.id, clientId!, u, f) };
   });
   // Les kilomètres que l'écran n'a pas eu le temps de calculer : par le serveur, sans faire attendre plus de quelques secondes.
-  if (kmEcran == null && lieux.filter((e) => e.adresse).length >= 2) {
+  // Par la mer, une seule adresse et son port suffisent à un tronçon ; sans port, la règle d'avant.
+  if ([kmEcran, versPort, mer, depuisPort].every((x) => x == null) && (ports || lieux.filter((e) => e.adresse).length >= 2)) {
     await Promise.race([majDistanceDossier(id), new Promise((ok) => setTimeout(ok, 6000))]);
   }
   // Le point de départ choisi à l'écran : un modèle (son compteur d'usage avance) ou un dossier passé.

@@ -18,6 +18,8 @@ export interface EtapeSource {
   acces: string | null;
   /** CIMOB/DICOM : le département d'outre-mer de l'adresse. */
   departement_om?: string | null;
+  /** La case Port (Céline, 18/11/2026). */
+  port?: string | null;
 }
 
 /** Un dossier à dupliquer pour un nouveau client (/dossiers/nouveau?depuis=<id>). */

@@ -23,6 +23,16 @@
  * - dossiers.distance_km : les kilomètres du trajet, d'une adresse à la
  *   suivante, par la route (src/crm/creation/distance.ts). Calculés à la
  *   création et à chaque enregistrement des adresses.
+ * - par la mer (Céline, 18/11/2026) : etapes_trajet.port, la case « Port »
+ *   d'une adresse de chargement ou de livraison (un port du référentiel,
+ *   lib/ports.ts, ou un texte libre) ; et les trois distances d'un trajet qui
+ *   passe par la mer, chacune à part (src/crm/creation/kilometres.ts) :
+ *   dossiers.distance_vers_port_km (des chargements au port de départ, par
+ *   la route), distance_mer_km (d'un port à l'autre, à vol d'oiseau),
+ *   distance_depuis_port_km (du port d'arrivée aux livraisons, par la
+ *   route). distance_km garde son sens : les km par la route, la somme des
+ *   deux tronçons routiers quand il y a deux ports. Sans port, les trois
+ *   restent vides.
  */
 export const SCHEMA_FICHE = `
 create table if not exists crm.contacts (
@@ -46,6 +56,11 @@ alter table crm.clients add column if not exists telephone_libelle text;
 alter table crm.clients add column if not exists telephone2_libelle text;
 alter table crm.clients add column if not exists telephones_autres jsonb not null default '[]'::jsonb check (jsonb_typeof(telephones_autres) = 'array');
 alter table crm.dossiers add column if not exists distance_km int check (distance_km is null or distance_km between 0 and 40000);
+-- Céline (18/11/2026) : la case Port des adresses, et les distances d'un trajet par la mer.
+alter table crm.etapes_trajet add column if not exists port text;
+alter table crm.dossiers add column if not exists distance_vers_port_km int check (distance_vers_port_km is null or distance_vers_port_km between 0 and 40000);
+alter table crm.dossiers add column if not exists distance_mer_km int check (distance_mer_km is null or distance_mer_km between 0 and 40000);
+alter table crm.dossiers add column if not exists distance_depuis_port_km int check (distance_depuis_port_km is null or distance_depuis_port_km between 0 and 40000);
 alter table crm.contacts enable row level security;
 alter table crm.services enable row level security;
 `;

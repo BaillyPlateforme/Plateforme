@@ -36,8 +36,9 @@ import { copierCimob } from "@/crm/cimob/donnees";
 
 const COLS_ETAPE =
   "genre, adresse, etage, ascenseur, acces, escalier, portage_m, stationnement, poids_lourd, monte_meuble, code_postal, ville, pays, telephone, monte_charge, transbordement" +
-  // La fiche du premier appel (retours de Céline, 16/11/2026) ; le département d'outre-mer (CIMOB/DICOM, 17/11/2026).
-  ", ascenseur_taille, portage, code_acces, surface_m2, acces_camion, departement_om";
+  // La fiche du premier appel (retours de Céline, 16/11/2026) ; le département d'outre-mer (CIMOB/DICOM, 17/11/2026) ;
+  // la case Port (18/11/2026).
+  ", ascenseur_taille, portage, code_acces, surface_m2, acces_camion, departement_om, port";
 const DETAIL_ACCES = "escalier, portage_m, stationnement, poids_lourd, monte_meuble, code_postal, ville, pays, monte_charge, transbordement, departement_om";
 
 /** Ce qu'une duplication a fait, pour le fil du dossier et le journal. */
@@ -140,7 +141,8 @@ export async function reprendreDuplication(db: Db, nouveauId: number, clientId: 
     await db.query(
       `update dossiers n set commercial_id=o.commercial_id, traite_par_id=o.traite_par_id, periode=o.periode, mois_ca=o.mois_ca, volume=o.volume,
           observations=o.observations, type_demenagement=o.type_demenagement, vehicule=o.vehicule, passer_en_dernier=o.passer_en_dernier,
-          origine_demande=o.origine_demande, volume_droits=o.volume_droits, distance_km=o.distance_km, statut='prospect'
+          origine_demande=o.origine_demande, volume_droits=o.volume_droits, distance_km=o.distance_km,
+          distance_vers_port_km=o.distance_vers_port_km, distance_mer_km=o.distance_mer_km, distance_depuis_port_km=o.distance_depuis_port_km, statut='prospect'
          from dossiers o where n.id=$1 and o.id=$2`,
       [nouveauId, sourceId],
     );

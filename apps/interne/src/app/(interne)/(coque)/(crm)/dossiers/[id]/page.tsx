@@ -14,6 +14,7 @@ import * as A from "@/crm/actions";
 import { litiges as getLitiges } from "@/crm/lib/data2";
 import { etatsRdv } from "@/crm/rdv/sms";
 import EnregistrerModele from "@/crm/creation/EnregistrerModele";
+import { kilometresDuDossier, kmEnBref, portsDuTrajet } from "@/crm/creation/kilometres";
 import { ficheDossier } from "@/crm/fiche/donnees";
 import { entreprisesPro } from "@/crm/clients/entreprises";
 import { construireFiche, maintenant, visiteDuSousTitre } from "@/crm/fiche/sections";
@@ -117,7 +118,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
             {" → "}
             {d.stops[d.stops.length - 1]?.adresse ?? "—"}
             {d.stops.length > 1 && <LienStreetView adresse={d.stops[d.stops.length - 1]?.adresse} ton="bandeau" court />}
-            {[periodeDuSousTitre(d), visiteLe, d.type === "militaire" ? null : d.volume_droits != null ? `Droits ${m3(Number(d.volume_droits))}` : null, d.type === "militaire" ? null : d.volume_droits != null ? `réel ${m3(d.volume)}` : m3(d.volume), d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km` : null]
+            {/* Les km : par la mer (Céline, 18/11/2026), la route et la mer côte à côte, jamais additionnées. */}
+            {[periodeDuSousTitre(d), visiteLe, d.type === "militaire" ? null : d.volume_droits != null ? `Droits ${m3(Number(d.volume_droits))}` : null, d.type === "militaire" ? null : d.volume_droits != null ? `réel ${m3(d.volume)}` : m3(d.volume), ...kmEnBref(kilometresDuDossier(d), portsDuTrajet(d.stops))]
               .filter(Boolean)
               .map((x) => ` · ${x}`)}
           </>

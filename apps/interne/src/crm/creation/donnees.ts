@@ -19,7 +19,7 @@ import {
 export const instant = () => Date.now();
 
 /** Ce qui se reprend d'une étape : l'adresse et la fiche du premier appel (retours de Céline, 16/11/2026). */
-const ETAPE = `adresse, etage, ascenseur, acces, code_postal, ville, pays, ascenseur_taille, monte_meuble, transbordement, portage, code_acces, surface_m2, acces_camion, departement_om`;
+const ETAPE = `adresse, etage, ascenseur, acces, code_postal, ville, pays, ascenseur_taille, monte_meuble, transbordement, portage, code_acces, surface_m2, acces_camion, departement_om, port`;
 
 /** Un dossier et ce qui s'en reprend : ses étapes de départ et d'arrivée, ses options. */
 const DOSSIER = `select d.id, d.ref, d.client_id, d.statut, d.cree_le, d.type_demenagement, d.volume::float8 as volume, d.vehicule, d.observations,

@@ -13,6 +13,8 @@ import ChampAdresse from "@/ui/ChampAdresse";
 import ChampsTelephones from "@/crm/clients/ChampsTelephones";
 import { TELEPHONE_VIDE, telLisible, type Telephone } from "@/crm/clients/telephones";
 import { Picto } from "./Picto";
+import ListePorts from "./ListePorts";
+import { SANS_KM, casePortVisible, lignesKilometres, portsDuTrajet, type Kilometres } from "./kilometres";
 import type { SourceDuplication } from "@/crm/duplication/types";
 import PanneauDuplication, { COCHES_DEFAUT, cochesInitiales, type Coches } from "@/crm/duplication/composants/PanneauDuplication";
 import {
@@ -32,7 +34,9 @@ import s from "./creation.module.css";
  * CIMOB/DICOM ; le compte BAILLY d'un client compte ; l'origine), 2 · la
  * période, une seule pour tout le déménagement, 3 · l'adresse de départ et
  * 4 · l'adresse de livraison — chacune avec ses accès, et « + » pour en
- * ajouter une —, les kilomètres calculés entre elles, 5 · les observations.
+ * ajouter une —, les kilomètres calculés entre elles (par la mer, avec la
+ * case Port des adresses : la route jusqu'au port, la mer à vol d'oiseau, la
+ * route depuis le port ; Céline, 18/11/2026), 5 · les observations.
  * L'ancienne section « Si vous le savez » (type, volume, commercial,
  * options) est retirée de l'écran : tout se complète sur la fiche, et ce
  * qu'une reprise apporte suit, caché.
@@ -443,22 +447,28 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
   const doublons = reperes.doublons.filter((d) => !ignores.includes(-d.id));
 
   /* ---------- les kilomètres, d'une adresse à la suivante (chargements, puis livraisons) ---------- */
-  const trajet = [...v.departs, ...v.arrivees]
-    .filter((l) => l.adresse.trim())
-    .map((l) => ({ adresse: l.adresse, code_postal: l.code_postal, ville: l.ville, lat: l.lat, lon: l.lon }));
-  const cleTrajet = trajet.length >= 2 ? JSON.stringify(trajet) : "";
-  const [kms, setKms] = useState<{ cle: string; km: number | null } | null>(null);
+  // Par la mer (Céline, 18/11/2026) : chaque adresse avec son genre et sa case Port ; la route jusqu'au port, la mer à
+  // vol d'oiseau, la route depuis le port (./kilometres.ts). Une adresse et son port suffisent à un tronçon.
+  const lieuxTrajet = [...v.departs.map((l) => ({ ...l, genre: "depart" })), ...v.arrivees.map((l) => ({ ...l, genre: "arrivee" }))];
+  const portsTrajet = portsDuTrajet(lieuxTrajet);
+  const parMer = !!(portsTrajet.depart || portsTrajet.arrivee);
+  const trajet = lieuxTrajet
+    .filter((l) => l.adresse.trim() || l.port.trim())
+    .map((l) => ({ adresse: l.adresse, code_postal: l.code_postal, ville: l.ville, lat: l.lat, lon: l.lon, genre: l.genre, ...(l.port.trim() ? { port: l.port.trim() } : {}) }));
+  const nbAdresses = trajet.filter((l) => l.adresse.trim()).length;
+  const cleTrajet = nbAdresses >= (parMer ? 1 : 2) ? JSON.stringify(trajet) : "";
+  const [kms, setKms] = useState<{ cle: string; k: Kilometres } | null>(null);
   useEffect(() => {
     if (!cleTrajet) return;
     const ctrl = new AbortController();
     const minuterie = setTimeout(async () => {
       try {
         const r = await fetch("/api/dossiers/distance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ etapes: JSON.parse(cleTrajet) }), signal: ctrl.signal });
-        const j = r.ok ? ((await r.json()) as { km: number | null }) : { km: null };
-        setKms({ cle: cleTrajet, km: j.km });
+        const j = r.ok ? ((await r.json()) as Partial<Kilometres>) : {};
+        setKms({ cle: cleTrajet, k: { ...SANS_KM, ...j } });
       } catch {
         // Une adresse plus récente a pris le relais (le calcul reprendra avec elle), ou le réseau a manqué.
-        if (!ctrl.signal.aborted) setKms({ cle: cleTrajet, km: null });
+        if (!ctrl.signal.aborted) setKms({ cle: cleTrajet, k: SANS_KM });
       }
     }, 650);
     return () => {
@@ -466,8 +476,11 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
       ctrl.abort();
     };
   }, [cleTrajet]);
-  const km = cleTrajet && kms?.cle === cleTrajet ? kms.km : null;
+  const kmsTrajet: Kilometres = cleTrajet && kms?.cle === cleTrajet ? kms.k : SANS_KM;
+  const km = kmsTrajet.km;
   const kmEnCours = !!cleTrajet && kms?.cle !== cleTrajet;
+  /** La case Port de chaque adresse : toujours pour un CIMOB/DICOM, dès qu'une adresse est outre-mer ou à l'étranger, et quand une est remplie. */
+  const casesPort = casePortVisible(militaire, lieuxTrajet);
 
   /* ---------- raccourcis ⌥1 à ⌥9 ---------- */
   const raccourcis: Record<number, (() => void) | undefined> = {
@@ -587,6 +600,20 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
               <ChoixDepartementOm valeur={l.departement_om} onChoisir={(x) => majLieu(g, i, { departement_om: x })} />
             </div>
           )}
+          {/* Le port d'embarquement ou de débarquement (Céline, 18/11/2026) : un de la liste, ou un texte libre. */}
+          {casesPort && (
+            <label className={`${s.champ} ${s.w4}`}>
+              <span className={s.etiquette}>Port</span>
+              <input
+                value={l.port}
+                onChange={(e) => majLieu(g, i, { port: e.target.value.slice(0, 80) })}
+                list="ports-creation"
+                placeholder={depart ? "Port de départ" : "Port d’arrivée"}
+                autoComplete="off"
+                className={s.saisie}
+              />
+            </label>
+          )}
           <label className={`${s.champ} ${s.w2}`}>
             <span className={s.etiquette}>Étage</span>
             <input value={l.etage} onChange={(e) => majLieu(g, i, { etage: e.target.value })} placeholder="RDC, 3…" autoComplete="off" className={s.saisie} />
@@ -622,7 +649,8 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
               </span>
             </label>
           )}
-          <label className={`${s.champ} ${depart ? s.w8 : s.w12}`}>
+          {/* Avec la case Port, la dernière rangée se resserre : elle reste sur 12 colonnes. */}
+          <label className={`${s.champ} ${depart ? (casesPort ? s.w4 : s.w8) : casesPort ? s.w8 : s.w12}`}>
             <span className={s.etiquette}>Accès en camion</span>
             <input value={l.acces_camion} onChange={(e) => majLieu(g, i, { acces_camion: e.target.value })} autoComplete="off" className={s.saisie} />
           </label>
@@ -1245,9 +1273,16 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
             militaire ? 3 : 4,
             militaire ? "Livraison" : "Adresse de livraison",
             "Ajouter une adresse de livraison",
-            <span className={s.km} aria-live="polite" data-etat={km != null ? "ok" : kmEnCours ? "calcul" : "vide"}>
-              {km != null ? `${km.toLocaleString("fr-FR")} km` : kmEnCours ? "Calcul des km…" : cleTrajet ? "Km : adresse introuvable" : "Km calculés dès deux adresses"}
-            </span>,
+            parMer ? (
+              // Par la mer : trois distances, l'une sous l'autre, jamais additionnées (choix de David, 18/11/2026).
+              <ul className={s.kmMer} aria-live="polite" aria-label="Kilomètres du trajet" data-etat={kmEnCours ? "calcul" : "ok"}>
+                {kmEnCours ? <li>Calcul des km…</li> : lignesKilometres(kmsTrajet, portsTrajet).map((l) => <li key={l}>{l}</li>)}
+              </ul>
+            ) : (
+              <span className={s.km} aria-live="polite" data-etat={km != null ? "ok" : kmEnCours ? "calcul" : "vide"}>
+                {km != null ? `${km.toLocaleString("fr-FR")} km` : kmEnCours ? "Calcul des km…" : cleTrajet ? "Km : adresse introuvable" : "Km calculés dès deux adresses"}
+              </span>
+            ),
           )}
 
           {/* Sur écran étroit, les plus proches s'affichent ici, sous le trajet (le rail passe alors au-dessus du formulaire). */}
@@ -1294,6 +1329,14 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
           <input type="hidden" name="type_demenagement" value={v.type_demenagement} />
           <input type="hidden" name="lieux" value={lieuxEnvoyes} />
           <input type="hidden" name="distance_km" value={km ?? ""} />
+          {parMer && (
+            <>
+              <input type="hidden" name="distance_vers_port_km" value={kmsTrajet.versPort ?? ""} />
+              <input type="hidden" name="distance_mer_km" value={kmsTrajet.mer ?? ""} />
+              <input type="hidden" name="distance_depuis_port_km" value={kmsTrajet.depuisPort ?? ""} />
+            </>
+          )}
+          {casesPort && <ListePorts id="ports-creation" />}
           {v.volume && <input type="hidden" name="volume" value={v.volume} />}
           {v.commercial_id && <input type="hidden" name="commercial_id" value={v.commercial_id} />}
           {v.garde_meuble && <input type="hidden" name="garde_meuble" value="on" />}

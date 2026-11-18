@@ -44,9 +44,9 @@ export async function sourceDuplication(id: number): Promise<SourceDuplication |
   const d = await q1(
     `select d.id, d.ref, d.client_id, d.type_demenagement, d.volume::float8 as volume, d.vehicule, d.observations,
         c.type, c.civilite, c.prenom, c.nom, c.societe,
-        (select row_to_json(e) from (select adresse, etage, ascenseur, acces, departement_om from etapes_trajet
+        (select row_to_json(e) from (select adresse, etage, ascenseur, acces, departement_om, port from etapes_trajet
            where dossier_id = d.id and genre = 'depart' order by ordre, id limit 1) e) as depart,
-        (select row_to_json(e) from (select adresse, etage, ascenseur, acces, departement_om from etapes_trajet
+        (select row_to_json(e) from (select adresse, etage, ascenseur, acces, departement_om, port from etapes_trajet
            where dossier_id = d.id and genre = 'arrivee' order by ordre desc, id desc limit 1) e) as arrivee,
         (select count(*)::int from etapes_trajet where dossier_id = d.id and genre = 'autre') as intermediaires,
         exists (select 1 from etapes_trajet where dossier_id = d.id and genre = 'garde_meuble') as garde_meuble,

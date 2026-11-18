@@ -464,6 +464,23 @@
   background: var(--doux);
   color: var(--indigo-fonce);
 }
+/* Par la mer : la route jusqu'au port, la mer, la route depuis le port, l'une sous l'autre (Céline, 18/11/2026). */
+.kmMer {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 0 auto;
+  padding: 7px 14px;
+  border-radius: 12px;
+  background: var(--doux);
+  color: var(--indigo-fonce);
+  font-size: 12.5px;
+  font-weight: 700;
+  list-style: none;
+}
+.kmMer[data-etat="calcul"] {
+  background: #f3f2f7;
+  color: var(--gris);
+}
 .formulaire .saisie:disabled {
   border-color: #f0eef6;
   background: #f7f6fa;
@@ -1320,7 +1337,8 @@
   .lieu .w7 {
     grid-column: span 12;
   }
-  .km {
+  .km,
+  .kmMer {
     margin-left: 36px;
   }
   .choix:not(.choixPlein) {
