@@ -26,7 +26,7 @@ import ChoixFormule, {
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
-import { AddressInput, roadDistanceKm, type Place } from "./AddressInput";
+import { AddressInput, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { useEtapesDansLHistorique } from "./historique";
 import { remonter, useIntegre, usePleinEcran } from "./integration";
@@ -44,7 +44,8 @@ import {
   type VolumeMode,
 } from "./volume";
 import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic, type QuestionCle } from "@/lib/espaces";
-import { situerVille } from "@/lib/trajet";
+import { chercherVille, distanceEntrePoints, enFrance, estOutreMer, territoire, type Recherche } from "@/lib/trajet";
+import { aujourdhuiParis, telephoneValide } from "@/lib/saisies";
 import { SUPPLEMENTS, type NiveauGarantie } from "@/lib/pricing/grille";
 
 /* ============================ Types ============================ */
@@ -256,19 +257,23 @@ const initial: FormState = {
   commentaire: "",
 };
 
-const DEMO: FormState = {
+/** La date de l'exemple : dans deux mois, pour qu'elle ne passe jamais (une date passée est refusée). */
+const dateExemple = () => aujourdhuiParis(new Date(Date.now() + 60 * 86_400_000));
+
+const DEMO = (): FormState => ({
   ...initial,
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
-  articles_lourds: "non", charges_lourdes: [], piano: "non", periode: "2026-11-15", periode_mode: "date",
+  articles_lourds: "non", charges_lourdes: [], piano: "non", periode: dateExemple(), periode_mode: "date",
   depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   volumeMode: "explicit", explicitVolume: "30",
-};
+});
 
 const EXPRESS_VIDE = {
-  nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "",
+  // Les codes postaux viennent de la ville choisie dans la liste : une ville retapée les efface.
+  nom: "", email: "", tel: "", departVille: "", departCP: "", arriveeVille: "", arriveeCP: "",
   dateMode: "date" as PeriodeMode, date: "", periode: "",
   volMode: "explicit" as "explicit" | "ai" | "logement", explicitVolume: "", photos: [] as AnalyzedPhoto[],
   repere: REPERE_VIDE,
@@ -435,7 +440,10 @@ function ExpressForm({
   useEffect(() => { if (submitting) remonter(); }, [submitting]);
   const [departCoord, setDepartCoord] = useState<Place | null>(null);
   const [arriveeCoord, setArriveeCoord] = useState<Place | null>(null);
-  const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
+  // km vaut null quand le trajet n'a pas de distance par la route (l'outre-mer vers ailleurs, une route invraisemblable).
+  const [trajet, setTrajet] = useState<{ cle: string; km: number | null } | null>(null);
+  /** Ce que la recherche a donné pour une ville tapée sans être choisie dans la liste. */
+  const [recherches, setRecherches] = useState<Partial<Record<Cote, RechercheVille>>>({});
   const set = (p: Partial<typeof f>) => setF((x) => ({ ...x, ...p }));
 
   // La distance appartient à un couple de villes : dès qu'une ville change,
@@ -447,38 +455,47 @@ function ExpressForm({
   useEffect(() => {
     if (!cleTrajet || !departCoord || !arriveeCoord) return;
     let cancelled = false;
-    roadDistanceKm(departCoord, arriveeCoord).then((km) => {
+    distanceEntrePoints(departCoord, arriveeCoord).then((km) => {
       if (!cancelled) setTrajet({ cle: cleTrajet, km });
     });
     return () => { cancelled = true; };
   }, [cleTrajet, departCoord, arriveeCoord]);
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
+  const sansRoute = !!trajet && trajet.cle === cleTrajet && trajet.km == null;
 
   // Une ville tapée sans être choisie dans la liste n'a pas de coordonnées :
   // pas de distance, donc un prix faux. On la situe nous-mêmes, une fois la
-  // frappe terminée — la liste reste là pour qui veut préciser.
+  // frappe terminée — la liste reste là pour qui veut préciser. Seulement si
+  // la base rend vraiment cette commune (lib/trajet) : sinon, on le dit.
   useEffect(() => {
     if (departCoord || f.departVille.trim().length < 2) return;
-    const ville = f.departVille, cp = f.departCP;
+    const ville = f.departVille;
     const t = setTimeout(async () => {
-      const p = await situerVille(ville, cp);
-      if (p) setDepartCoord((c) => c ?? { label: ville, ville, code_postal: cp, context: "", ...p });
+      const r = await chercherVille(ville);
+      if ("commune" in r) setDepartCoord((c) => c ?? { label: ville, ville, context: "", code_postal: "", ...r.commune });
+      setRecherches((x) => ({ ...x, depart: { ville, r } }));
     }, 700);
     return () => clearTimeout(t);
-  }, [f.departVille, f.departCP, departCoord]);
+  }, [f.departVille, departCoord]);
   useEffect(() => {
     if (arriveeCoord || f.arriveeVille.trim().length < 2) return;
     const ville = f.arriveeVille;
     const t = setTimeout(async () => {
-      const p = await situerVille(ville);
-      if (p) setArriveeCoord((c) => c ?? { label: ville, ville, code_postal: "", context: "", ...p });
+      const r = await chercherVille(ville);
+      if ("commune" in r) setArriveeCoord((c) => c ?? { label: ville, ville, context: "", code_postal: "", ...r.commune });
+      setRecherches((x) => ({ ...x, arrivee: { ville, r } }));
     }, 700);
     return () => clearTimeout(t);
   }, [f.arriveeVille, arriveeCoord]);
+  const remarques = [
+    remarqueVille(recherches.depart, f.departVille, departCoord != null),
+    remarqueVille(recherches.arrivee, f.arriveeVille, arriveeCoord != null),
+    sansRoute && departCoord && arriveeCoord ? remarqueOutreMer(departCoord, arriveeCoord) : null,
+  ].filter((x): x is string => !!x);
 
   /** Le raccourci de démonstration : tout le formulaire, rempli d'un exemple. */
   const remplir = () =>
-    setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", dateMode: "date", date: "2026-11-15", periode: "", volMode: "explicit", explicitVolume: "30" }));
+    setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", arriveeCP: "31000", dateMode: "date", date: dateExemple(), periode: "", volMode: "explicit", explicitVolume: "30" }));
 
   // Le même raccourci, déclenché par ?demo=1. Différé d'un tour : le premier
   // rendu doit être le même côté serveur et côté navigateur.
@@ -494,19 +511,26 @@ function ExpressForm({
   const volume = volumeDe(volMode, f.explicitVolume, [], f.photos, f.repere);
 
   const coordOk = f.nom.trim().length > 0 && /.+@.+\..+/.test(f.email);
+  // Le téléphone reste facultatif ; donné, il doit être un vrai numéro.
+  const telOk = !f.tel.trim() || telephoneValide(f.tel);
   const trajetOk = f.departVille.trim().length > 0 && f.arriveeVille.trim().length > 0;
   const dateOk = f.dateMode === "date" ? !!f.date : !!f.periode;
+  const datePassee = f.dateMode === "date" && !!f.date && f.date < aujourdhuiParis();
   const manque = !f.nom.trim()
     ? "Indiquez votre nom"
     : !coordOk
       ? "Indiquez un e-mail valide"
-      : !f.departVille.trim()
-        ? "Indiquez la ville de départ"
-        : !f.arriveeVille.trim()
-          ? "Indiquez la ville d'arrivée"
-          : volume == null
-            ? "Renseignez le volume à déménager"
-            : null;
+      : !telOk
+        ? "Indiquez un téléphone valide"
+        : !f.departVille.trim()
+          ? "Indiquez la ville de départ"
+          : !f.arriveeVille.trim()
+            ? "Indiquez la ville d'arrivée"
+            : datePassee
+              ? "Choisissez une date à venir"
+              : volume == null
+                ? manqueVolume(volMode, f.explicitVolume)
+                : null;
   // La date ne bloque plus : sans elle, on retient « je ne sais pas encore ».
   const faits = [coordOk, trajetOk, volume != null].filter(Boolean).length;
 
@@ -521,9 +545,10 @@ function ExpressForm({
         ? { method: "ai" as const, photos: f.photos }
         : { method: "explicit" as const, volume_m3: volume ?? 0 };
       const data = await envoyerOuModifier({
-          client: { nom: f.nom, email: f.email, tel: f.tel || undefined },
+          client: { nom: f.nom, email: f.email, tel: f.tel.trim() || undefined },
+          // Code postal et pays : ceux de la ville choisie dans la liste, qui ne propose que des communes françaises.
           depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
-          arrivee: { ville: f.arriveeVille || undefined },
+          arrivee: { ville: f.arriveeVille || undefined, code_postal: f.arriveeCP || undefined },
           date_souhaitee: f.dateMode === "date" ? (f.date || undefined) : undefined,
           flexibilite: dateOk ? (f.dateMode === "date" ? undefined : f.periode) : PERIODE_PAR_DEFAUT,
           distance_km: distanceKm ?? undefined,
@@ -531,6 +556,8 @@ function ExpressForm({
           type_client: "particulier",
           details: {
             express: true,
+            ...(f.departCP ? { depart: { pays: "France" } } : {}),
+            ...(f.arriveeCP ? { arrivee: { pays: "France" } } : {}),
             ...(volMode === "logement" ? { repere_logement: { type: f.repere.type, resume: f.repere.type } } : {}),
           } as unknown as Record<string, unknown>,
           espace: espace?.slug, espace_code: espace?.code,
@@ -550,7 +577,7 @@ function ExpressForm({
   if (done || submitting) {
     return affichePrix ? (
       <InstantResult requestId={done} volume={volume} count={doneCount} theme={theme} marque={marque}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); remonter(); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setF(EXPRESS_VIDE); setDepartCoord(null); setArriveeCoord(null); setTrajet(null); setRecherches({}); remonter(); }}
         onModifier={modif ? () => { setDone(null); remonter(); } : undefined}
       />
     ) : !done ? (
@@ -649,15 +676,16 @@ function ExpressForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Ville de départ *">
                 <AddressInput kind="municipality" value={f.departVille} placeholder="Lyon"
-                  onChange={(v) => { set({ departVille: v }); setDepartCoord(null); }}
+                  onChange={(v) => { set({ departVille: v, departCP: "" }); setDepartCoord(null); }}
                   onSelect={(p) => { set({ departVille: p.ville, departCP: p.code_postal }); setDepartCoord(p); }} />
               </Field>
               <Field label="Ville d'arrivée *">
                 <AddressInput kind="municipality" value={f.arriveeVille} placeholder="Toulouse"
-                  onChange={(v) => { set({ arriveeVille: v }); setArriveeCoord(null); }}
-                  onSelect={(p) => { set({ arriveeVille: p.ville }); setArriveeCoord(p); }} />
+                  onChange={(v) => { set({ arriveeVille: v, arriveeCP: "" }); setArriveeCoord(null); }}
+                  onSelect={(p) => { set({ arriveeVille: p.ville, arriveeCP: p.code_postal }); setArriveeCoord(p); }} />
               </Field>
             </div>
+            {remarques.map((r) => <RemarqueTrajet key={r}>{r}</RemarqueTrajet>)}
             {distanceKm != null && (
               <div className="animate-step-in mt-4 inline-flex max-w-full items-center gap-2.5 rounded-full bg-ink py-2 pl-3 pr-4 text-[12.5px] text-shell">
                 <span className="coche-or"><Icone nom="route" taille={15} /></span>
@@ -763,7 +791,10 @@ function CompleteForm({
   const [done, setDone] = useState<string | null>(null);
   const [doneCount, setDoneCount] = useState(1);
   const [compare, setCompare] = useState(false);
-  const [trajet, setTrajet] = useState<{ cle: string; km: number } | null>(null);
+  // km vaut null quand le trajet n'a pas de distance par la route (l'outre-mer vers ailleurs, une route invraisemblable).
+  const [trajet, setTrajet] = useState<{ cle: string; km: number | null } | null>(null);
+  /** Ce que la recherche a donné pour une ville tapée sans être choisie dans la liste. */
+  const [recherches, setRecherches] = useState<Partial<Record<Cote, RechercheVille>>>({});
   const [error, setError] = useState<string | null>(null);
   /** La demande déjà envoyée, que « Modifier ma demande » met à jour au lieu d'en créer une autre. */
   const [modif, setModif] = useState<Modif>(null);
@@ -773,25 +804,25 @@ function CompleteForm({
   const totalVolume = useMemo(() => computeVolume(form), [form]);
 
   // La distance appartient à un couple d'adresses : dès qu'une adresse change,
-  // la clé ne correspond plus et l'ancienne distance cesse de s'afficher.
+  // la clé ne correspond plus et l'ancienne distance cesse de s'afficher. Une
+  // adresse hors de France n'en a pas : la grille ne vaut que pour la France.
   const d = form.depart, a = form.arrivee;
   const cleTrajet =
-    d.lat != null && d.lon != null && a.lat != null && a.lon != null
-      ? `${d.lat},${d.lon}|${a.lat},${a.lon}`
+    d.lat != null && d.lon != null && a.lat != null && a.lon != null && enFrance(d.pays) && enFrance(a.pays)
+      ? JSON.stringify([d.lat, d.lon, d.code_postal, a.lat, a.lon, a.code_postal])
       : null;
   useEffect(() => {
     if (!cleTrajet) return;
-    const [dep, arr] = cleTrajet.split("|").map((c) => {
-      const [lat, lon] = c.split(",").map(Number);
-      return { lat, lon };
-    });
+    const [dlat, dlon, dcp, alat, alon, acp] = JSON.parse(cleTrajet) as [number, number, string, number, number, string];
     let cancelled = false;
-    roadDistanceKm(dep, arr).then((km) => {
+    // Le code postal dit le territoire : l'outre-mer n'a pas de route vers la métropole.
+    distanceEntrePoints({ lat: dlat, lon: dlon, code_postal: dcp }, { lat: alat, lon: alon, code_postal: acp }).then((km) => {
       if (!cancelled) setTrajet({ cle: cleTrajet, km });
     });
     return () => { cancelled = true; };
   }, [cleTrajet]);
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
+  const sansRoute = !!trajet && trajet.cle === cleTrajet && trajet.km == null;
 
   // À chaque changement d'étape, on remonte en haut de la page — pas au
   // premier affichage : intégré au site officiel, le devis ne doit pas tirer
@@ -808,21 +839,37 @@ function CompleteForm({
 
   // Une ville tapée sans être choisie dans la liste n'a pas de coordonnées :
   // pas de distance, donc un prix faux. On la situe nous-mêmes, une fois la
-  // frappe terminée — la liste reste là pour qui veut préciser.
-  const { ville: villeDepart, code_postal: cpDepart, lat: latDepart } = form.depart;
-  const { ville: villeArrivee, code_postal: cpArrivee, lat: latArrivee } = form.arrivee;
+  // frappe terminée — la liste reste là pour qui veut préciser. Seulement en
+  // France, et si la base rend vraiment cette commune (lib/trajet) : sinon, on
+  // le dit au visiteur.
+  const { ville: villeDepart, code_postal: cpDepart, lat: latDepart, pays: paysDepart } = form.depart;
+  const { ville: villeArrivee, code_postal: cpArrivee, lat: latArrivee, pays: paysArrivee } = form.arrivee;
   useEffect(() => {
-    const situer = (cle: "depart" | "arrivee", ville: string, cp: string, lat: number | undefined) => {
-      if (lat != null || ville.trim().length < 2) return null;
+    const situer = (cle: Cote, ville: string, cp: string, lat: number | undefined, pays: string) => {
+      if (lat != null || ville.trim().length < 2 || !enFrance(pays)) return null;
       return setTimeout(async () => {
-        const p = await situerVille(ville, cp);
-        // Entre-temps, la ville a pu changer ou être choisie dans la liste.
-        if (p) setForm((f) => (f[cle].ville === ville && f[cle].lat == null ? { ...f, [cle]: { ...f[cle], ...p } } : f));
+        const r = await chercherVille(ville, cp);
+        // Entre-temps, la ville a pu changer ou être choisie dans la liste. Le code postal saisi reste celui du visiteur.
+        if ("commune" in r) {
+          const { lat: la, lon: lo } = r.commune;
+          setForm((f) => (f[cle].ville === ville && f[cle].lat == null ? { ...f, [cle]: { ...f[cle], lat: la, lon: lo } } : f));
+        }
+        setRecherches((x) => ({ ...x, [cle]: { ville, r } }));
       }, 700);
     };
-    const minuteurs = [situer("depart", villeDepart, cpDepart, latDepart), situer("arrivee", villeArrivee, cpArrivee, latArrivee)];
+    const minuteurs = [situer("depart", villeDepart, cpDepart, latDepart, paysDepart), situer("arrivee", villeArrivee, cpArrivee, latArrivee, paysArrivee)];
     return () => minuteurs.forEach((t) => t && clearTimeout(t));
-  }, [villeDepart, cpDepart, latDepart, villeArrivee, cpArrivee, latArrivee]);
+  }, [villeDepart, cpDepart, latDepart, paysDepart, villeArrivee, cpArrivee, latArrivee, paysArrivee]);
+
+  /** Ce que l'étape d'une adresse dit de sa distance : l'étranger, une ville introuvable, l'outre-mer. */
+  const remarque = (cote: Cote): string | null => {
+    const adr = form[cote];
+    if (!enFrance(adr.pays)) return TEXTE_ETRANGER;
+    const ville = remarqueVille(recherches[cote], adr.ville, adr.lat != null);
+    if (ville) return ville;
+    // L'outre-mer, une fois les deux adresses connues : à l'arrivée.
+    return cote === "arrivee" && sansRoute ? remarqueOutreMer(d, a) : null;
+  };
 
   // « C'est professionnel », et la société a son espace : la page devient la
   // sienne. On attend la fin de la frappe ; si le client dit que ce n'est pas
@@ -854,7 +901,7 @@ function CompleteForm({
 
   /** Le raccourci de démonstration : tout rempli d'un exemple, et droit à la relecture. */
   const remplir = () => {
-    setForm(DEMO);
+    setForm(DEMO());
     setStep(etapes.length - 1);
   };
 
@@ -863,7 +910,7 @@ function CompleteForm({
   useEffect(() => {
     const id = setTimeout(() => {
       if (new URLSearchParams(window.location.search).get("demo") !== "1") return;
-      setForm(DEMO);
+      setForm(DEMO());
       setStep(etapes.length - 1);
     }, 0);
     return () => clearTimeout(id);
@@ -899,7 +946,7 @@ function CompleteForm({
   if (done || submitting) {
     return affichePrix ? (
       <InstantResult requestId={done} volume={totalVolume} count={doneCount} theme={theme} marque={marque}
-        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setForm(initial); setStep(0); setTrajet(null); }}
+        onNewQuote={() => { setDone(null); setDoneCount(1); setModif(null); setForm(initial); setStep(0); setTrajet(null); setRecherches({}); }}
         onModifier={modif ? () => { setDone(null); remonter(); } : undefined}
       />
     ) : !done ? (
@@ -1046,8 +1093,8 @@ function CompleteForm({
             sub={etape.sub}
           />
           {etape.cle === "vous" && <VousStep form={form} patch={patch} masque={masque} />}
-          {etape.cle === "depart" && <AddressStep which="depart" form={form} patch={patch} masque={masque} />}
-          {etape.cle === "arrivee" && <AddressStep which="arrivee" form={form} patch={patch} masque={masque} />}
+          {etape.cle === "depart" && <AddressStep which="depart" form={form} patch={patch} masque={masque} remarque={remarque("depart")} />}
+          {etape.cle === "arrivee" && <AddressStep which="arrivee" form={form} patch={patch} masque={masque} remarque={remarque("arrivee")} />}
           {etape.cle === "prestations" && <ChoixFormule value={form.prestations} onChange={(prestations) => patch({ prestations })} />}
           {etape.cle === "emballage" && <EmballageStep form={form} patch={patch} />}
           {etape.cle === "inventaire" && (
@@ -1215,7 +1262,7 @@ function VousStep({ form, patch, masque }: StepProps & AvecMasque) {
   );
 }
 
-function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { which: "depart" | "arrivee" }) {
+function AddressStep({ which, form, patch, masque, remarque }: StepProps & AvecMasque & { which: Cote; remarque?: string | null }) {
   const a = form[which];
   const set = (p: Partial<Address>) => patch({ [which]: { ...a, ...p } } as Partial<FormState>);
   const depart = which === "depart";
@@ -1229,7 +1276,7 @@ function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { 
         <div className="space-y-5">
           <div>
             <Field label={`Adresse ${depart ? "de départ" : "d'arrivée"}`}>
-              <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris"
+              <AddressInput kind="address" value={a.adresse} placeholder="12 rue de la République, Paris" pays={a.pays}
                 onChange={(v) => set({ adresse: v, lat: undefined, lon: undefined })}
                 onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal, lat: p.lat, lon: p.lon })} />
             </Field>
@@ -1247,7 +1294,7 @@ function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { 
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
             <Field label="Code postal"><TextInput value={a.code_postal} onChange={(e) => set({ code_postal: e.target.value })} placeholder="75011" inputMode="numeric" /></Field>
             <Field label="Ville *" hint="choisissez dans la liste">
-              <AddressInput kind="municipality" value={a.ville} placeholder="Paris"
+              <AddressInput kind="municipality" value={a.ville} placeholder="Paris" pays={a.pays}
                 /* Les coordonnées repartent à zéro dès qu'on retape : sans ça, une
                    ville saisie à la main gardait celles de l'adresse précédente, et
                    la distance comme la carte restaient sur l'ancienne commune. */
@@ -1258,11 +1305,13 @@ function AddressStep({ which, form, patch, masque }: StepProps & AvecMasque & { 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="État / Province / Région"><TextInput value={a.region} onChange={(e) => set({ region: e.target.value })} placeholder="Île-de-France" /></Field>
             <Field label="Pays">
-              <Selecteur value={a.pays} onChange={(e) => set({ pays: e.target.value })}>
+              {/* Hors de France, les coordonnées d'une commune française choisie avant ne valent plus rien. */}
+              <Selecteur value={a.pays} onChange={(e) => set(enFrance(e.target.value) ? { pays: e.target.value } : { pays: e.target.value, lat: undefined, lon: undefined })}>
                 {PAYS.map((p) => <option key={p} value={p}>{p}</option>)}
               </Selecteur>
             </Field>
           </div>
+          {remarque && <RemarqueTrajet>{remarque}</RemarqueTrajet>}
         </div>
       </Bloc>
 
@@ -1602,7 +1651,8 @@ export function ChampPeriode({
       <div key={mode} className="animate-step-in mt-3">
         {mode === "date" && (
           <div className="sm:max-w-[260px]">
-            <TextInput type="date" value={valeur} onChange={(e) => onChange("date", e.target.value)} aria-label="Date souhaitée" />
+            {/* Pas de date passée : le calendrier commence aujourd'hui (à l'heure de Paris). */}
+            <TextInput type="date" min={aujourdhuiParis()} value={valeur} onChange={(e) => onChange("date", e.target.value)} aria-label="Date souhaitée" />
           </div>
         )}
         {mode === "suggestion" && (
@@ -1878,7 +1928,9 @@ function manque(cle: EtapeCle, form: FormState): string | null {
         if (!form.societe.trim() && !nomme) return "Indiquez la raison sociale";
       } else if (!nomme) return "Indiquez votre nom";
       if (!form.tel.trim()) return "Indiquez votre téléphone";
+      if (!telephoneValide(form.tel)) return "Indiquez un téléphone valide";
       if (!/.+@.+\..+/.test(form.email)) return "Indiquez un e-mail valide";
+      if (form.periode_mode === "date" && form.periode && form.periode < aujourdhuiParis()) return "Choisissez une date à venir";
       return null;
     }
     // La ville est le minimum : sans elle, ni distance ni prix.
@@ -1889,10 +1941,58 @@ function manque(cle: EtapeCle, form: FormState): string | null {
       if (!form.arrivee.ville.trim()) return "Indiquez la ville d'arrivée";
       return surfaceManquante(form.arrivee);
     case "inventaire":
-      return computeVolume(form) != null ? null : "Renseignez le volume à déménager";
+      return computeVolume(form) != null ? null : manqueVolume(form.volumeMode, form.explicitVolume);
     default:
       return null;
   }
+}
+
+/** Ce que dit la barre quand le volume manque — ou qu'il est nul ou négatif (-12 m³ s'affichait « à déménager »). */
+function manqueVolume(mode: VolumeMode, saisi: string): string {
+  return mode === "explicit" && saisi.trim() ? "Indiquez un volume supérieur à 0 m³" : "Renseignez le volume à déménager";
+}
+
+/* ---------- La distance du trajet, quand elle ne se calcule pas ---------- */
+
+type Cote = "depart" | "arrivee";
+/** Une ville tapée, et ce que la recherche en a donné. */
+type RechercheVille = { ville: string; r: Recherche };
+
+const TEXTE_ETRANGER =
+  "Hors de France, la distance ne se calcule pas automatiquement : un conseiller établit votre devis et vous l'adresse par e-mail.";
+
+/**
+ * Une ville tapée sans être choisie dans la liste, que la base n'a pas su
+ * situer : introuvable (une ville étrangère, une faute de frappe), ou portée
+ * par plusieurs communes. Rien tant que la recherche n'a pas répondu pour ce
+ * texte-là, ni quand les services d'adresses sont muets.
+ */
+function remarqueVille(recherche: RechercheVille | undefined, ville: string, situee: boolean): string | null {
+  if (situee || !recherche || recherche.ville !== ville || !ville.trim()) return null;
+  const nom = ville.trim();
+  if ("introuvable" in recherche.r)
+    return `Ville introuvable dans la liste des communes : « ${nom} ». Choisissez-la parmi les suggestions pour calculer la distance ; sinon, un conseiller établit votre devis et vous l'adresse par e-mail.`;
+  if ("homonymes" in recherche.r)
+    return `Plusieurs communes s'appellent « ${nom} » : choisissez la vôtre dans la liste pour calculer la distance ; sinon, un conseiller établit votre devis et vous l'adresse par e-mail.`;
+  return null;
+}
+
+/** L'outre-mer d'un côté, un autre territoire de l'autre : pas de distance par la route, et on le dit. */
+function remarqueOutreMer(a: { code_postal?: string; lat?: number; lon?: number }, b: { code_postal?: string; lat?: number; lon?: number }): string | null {
+  const ta = territoire(a), tb = territoire(b);
+  const outreMer = estOutreMer(a.code_postal) || estOutreMer(b.code_postal) || ta === "hors-metropole" || tb === "hors-metropole";
+  return outreMer && ta !== tb
+    ? "Outre-mer : la distance ne se calcule pas par la route. Un conseiller établit votre devis et vous l'adresse par e-mail."
+    : null;
+}
+
+function RemarqueTrajet({ children }: { children: string }) {
+  return (
+    <p aria-live="polite" className="animate-step-in mt-3 flex gap-2 text-[12.5px] leading-snug text-ink-soft">
+      <Icone nom="info" taille={14} className="mt-px shrink-0" />
+      <span>{children}</span>
+    </p>
+  );
 }
 
 /**
@@ -2034,6 +2134,9 @@ function buildPayload(form: FormState) {
     monte_meuble: false, garde_meuble: false,
   };
   const bailly = LIGNES_CARTE.filter((p) => form.prestations[p.key] === "bailly").length;
+  // La grille appliquée. Le « transport de meubles uniquement » n'a pas de tableau à lui : il se chiffre
+  // sur l'Économique, mais il reste dit pour ce qu'il est (prestations.transport = « bailly ») — dans
+  // Créagidem, le CRM et l'e-mail au client (lib/pricing/grille : transportSeul).
   const formule = bailly >= 4 ? "luxe" : bailly >= 2 ? "standard" : "eco";
 
   return {

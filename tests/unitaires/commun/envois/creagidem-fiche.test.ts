@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateOuPeriode, ficheDepuisDemande, jourCreagidem, manquesFiche, valeurDeclaree } from "@/lib/creagidem/fiche";
+import { CP_MAX, codePostalCreagidem, dateOuPeriode, ficheDepuisDemande, jourCreagidem, manquesFiche, valeurDeclaree } from "@/lib/creagidem/fiche";
 import { demande } from "./_demande";
 
 
@@ -102,14 +102,59 @@ describe("creagidem/fiche — ficheDepuisDemande", () => {
     expect(f.client.nom).toBe("Émilie Çelik-Œuvray <b>&</b>");
   });
 
-  it("code postal : chiffres seulement ; pays « France » pour un code à 5 chiffres", () => {
+  it("code postal français : ses chiffres ; pays « France » pour un code à 5 chiffres", () => {
     const f = ficheDepuisDemande(demande({ depart_code_postal: "75 002", arrivee_code_postal: "H2X 1Y4", raw_payload: { details: { arrivee: { pays: "Canada" } } } }), o);
     expect(f.chargement.code_postal).toBe("75002");
     expect(f.chargement.pays).toBe("France");
-    expect(f.livraison.code_postal).toBe("214");
     expect(f.livraison.pays).toBe("Canada");
     const sansPays = ficheDepuisDemande(demande({ arrivee_code_postal: "1000" }), o);
+    expect(sansPays.livraison.code_postal).toBe("1000");
     expect(sansPays.livraison.pays).toBe("");
+  });
+
+  // Campagne du 18/11/2026 : « SW1A 1AA » partait en « 11 », « H2X 1Y4 » en « 214 » — deux autres codes.
+  it.each([
+    ["SW1A 1AA", "SW1A 1AA"],
+    ["H2X 1Y4", "H2X 1Y4"],
+    ["1100-148", "1100-148"],
+    ["1012 AB", "1012 AB"],
+    ["08001", "08001"],
+    ["10115", "10115"],
+  ])("code postal étranger « %s » : tel quel (%s), jamais réduit à ses chiffres", (cp, attendu) => {
+    const f = ficheDepuisDemande(demande({ arrivee_code_postal: cp, raw_payload: { details: { arrivee: { pays: "Ailleurs" } } } }), o);
+    expect(f.livraison.code_postal).toBe(attendu);
+    expect(f.livraison.detail_acces).not.toContain("Code postal");
+  });
+
+  it("un code étranger trop long pour le champ, ou de forme inconnue : vide, et le code en tête du détail d'accès", () => {
+    expect(codePostalCreagidem("EC1A 1BB 2XY")).toEqual({ code: "", aParte: "EC1A 1BB 2XY" });
+    expect(codePostalCreagidem("75 011")).toEqual({ code: "75011", aParte: "" });
+    expect(codePostalCreagidem("  ")).toEqual({ code: "", aParte: "" });
+    expect(codePostalCreagidem(null)).toEqual({ code: "", aParte: "" });
+    const f = ficheDepuisDemande(demande({ arrivee_code_postal: "C/ 08001 (BCN)", raw_payload: { details: { arrivee: { pays: "Espagne" } } } }), o);
+    expect(f.livraison.code_postal).toBe("");
+    expect(f.livraison.detail_acces).toMatch(/^Code postal : C\/ 08001 \(BCN\)\./);
+    expect(CP_MAX).toBe(10);
+  });
+
+  it("transport de meubles uniquement : dit pour ce qu'il est, jamais « Économique »", () => {
+    const f = ficheDepuisDemande(demande({ formule: "eco", raw_payload: { prestations: { fragile: "moi", embNonFragile: "moi", debNonFragile: "moi", demontage: "moi", transport: "bailly" } } }), o);
+    expect(f.operation.detail).toContain("Formule : Transport de meubles uniquement");
+    expect(f.operation.detail).not.toContain("Économique");
+    const eco = ficheDepuisDemande(demande({ formule: "eco", raw_payload: { prestations: { fragile: "moi", demontage: "bailly", transport: "moi" } } }), o);
+    expect(eco.operation.detail).toContain("Formule : Économique");
+  });
+
+  it("une formule inconnue de la table, ou un nom hérité d'Object : écrit tel quel", () => {
+    expect(ficheDepuisDemande(demande({ formule: "toString" }), o).operation.detail).toContain("Formule : toString");
+  });
+
+  it("sans distance (étranger, outre-mer, ville introuvable) : « 0.00 », et le détail le dit", () => {
+    const f = ficheDepuisDemande(demande(), { ...o, distanceKm: null });
+    expect(f.operation.distance).toBe("0.00");
+    expect(f.operation.detail).toMatch(/Distance : non calculée/);
+    expect(ficheDepuisDemande(demande(), o).operation.detail).not.toMatch(/Distance : non calculée/);
+    expect(ficheDepuisDemande(demande(), { ...o, distanceKm: 0 }).operation.detail).not.toMatch(/Distance : non calculée/);
   });
 
   it("étage : entier positif ; RDC seulement pour l'étage 0 ; étage inconnu = 0, sans RDC", () => {

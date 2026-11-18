@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { adresseSchema, createRequestSchema, itemSchema, volumeSchema } from "@/lib/schemas";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  MESSAGE_TELEPHONE,
+  adresseSchema,
+  aujourdhuiParis,
+  createRequestSchema,
+  erreurEnFrancais,
+  itemSchema,
+  messageDeRefus,
+  telephoneValide,
+  volumeSchema,
+} from "@/lib/schemas";
 
 /*
  * Le schéma de la demande du formulaire public (lib/schemas.ts) : la seule
@@ -168,13 +178,37 @@ describe("createRequestSchema — l'e-mail du client", () => {
 
 describe("createRequestSchema — le téléphone et les champs bornés", () => {
   it("accepte un téléphone de 30 caractères et refuse le 31e", () => {
-    expect(demande({ nom: "Jean", tel: "0".repeat(30) }).success).toBe(true);
+    const trente = "+33 (0) 6 . 12 . 34 . 56 . 78 ";
+    expect(trente.length).toBe(30);
+    expect(demande({ nom: "Jean", tel: trente }).success).toBe(true);
+    expect(demande({ nom: "Jean", tel: `${trente} ` }).success).toBe(false);
     expect(demande({ nom: "Jean", tel: "0".repeat(31) }).success).toBe(false);
   });
 
-  it("le téléphone est facultatif", () => {
+  it("le téléphone est facultatif ; vide, il vaut « pas de téléphone »", () => {
     expect(demande({ nom: "Jean" }).success).toBe(true);
+    expect(demande({ nom: "Jean", tel: "" }).success).toBe(true);
+    expect(demande({ nom: "Jean", tel: "   " }).success).toBe(true);
   });
+
+  // Campagne du 18/11/2026 : « 06 12 » passait, et partait dans la fiche Créagidem.
+  it.each(["06 12 34 56 78", "0612345678", "06.12.34.56.78", "06-12-34-56-78", "01 69 10 35 35", "+33 6 12 34 56 78", "+33 (0)6 12 34 56 78", "+44 20 7946 0958", "+1 212 555 0142", "0044 20 7946 0958", "+352 621 123 456"])(
+    "accepte le numéro « %s »",
+    (tel) => {
+      expect(telephoneValide(tel)).toBe(true);
+      expect(demande({ nom: "Jean", tel }).success).toBe(true);
+    },
+  );
+
+  it.each(["06 12", "0612", "06 12 34 56 7", "06 12 34 56 789", "6 12 34 56 78", "+33 6", "06 12 34 56 78 ou 07…", "appelez-moi", "0".repeat(30), "+" + "1".repeat(16)])(
+    "refuse le numéro « %s », avec un message en français",
+    (tel) => {
+      expect(telephoneValide(tel)).toBe(false);
+      const r = demande({ nom: "Jean", tel });
+      expect(r.success).toBe(false);
+      if (!r.success) expect(r.error.issues.some((i) => i.message === MESSAGE_TELEPHONE)).toBe(true);
+    },
+  );
 
   it("borne le nom de l'espace pro (80) et son code (40)", () => {
     expect(demande({ nom: "Jean" }, { espace: "x".repeat(80), espace_code: "y".repeat(40) }).success).toBe(true);
@@ -238,5 +272,99 @@ describe("adresseSchema, itemSchema, volumeSchema", () => {
   it("refuse NaN et l'infini comme volume", () => {
     expect(volumeSchema.safeParse({ method: "explicit", volume_m3: Number.NaN }).success).toBe(false);
     expect(volumeSchema.safeParse({ method: "explicit", volume_m3: Number.POSITIVE_INFINITY }).success).toBe(false);
+  });
+
+  // Campagne du 18/11/2026 : une demande à 0 m³ était chiffrée 750 €.
+  it("refuse un volume nul ou négatif, et le dit en français ; accepte le moindre volume", () => {
+    for (const v of [0, -12, -0.01]) {
+      const r = volumeSchema.safeParse({ method: "explicit", volume_m3: v });
+      expect(r.success, String(v)).toBe(false);
+      if (!r.success) expect(r.error.issues[0].message).toBe("Le volume à déménager doit être supérieur à 0 m³.");
+    }
+    expect(volumeSchema.safeParse({ method: "explicit", volume_m3: 0.5 }).success).toBe(true);
+  });
+});
+
+describe("createRequestSchema — la date souhaitée, jamais dans le passé (heure de Paris)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("le 18/11/2026 à 23 h 30 UTC, il est déjà le 19 à Paris : le 18 est passé, le 19 ne l'est pas", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-18T23:30:00Z"));
+    expect(aujourdhuiParis()).toBe("2026-11-19");
+    const passee = demande({ nom: "Jean" }, { date_souhaitee: "2026-11-18" });
+    expect(passee.success).toBe(false);
+    if (!passee.success) expect(passee.error.issues[0].message).toBe("La date souhaitée est déjà passée : choisissez une date à venir.");
+    expect(demande({ nom: "Jean" }, { date_souhaitee: "2026-11-19" }).success).toBe(true);
+  });
+
+  it("le 30/06/2025 : refusé (campagne du 18/11/2026) ; une date à venir, ou pas de date : accepté", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-18T09:00:00Z"));
+    expect(demande({ nom: "Jean" }, { date_souhaitee: "2025-06-30" }).success).toBe(false);
+    expect(demande({ nom: "Jean" }, { date_souhaitee: "2027-03-15" }).success).toBe(true);
+    expect(demande({ nom: "Jean" }, { date_souhaitee: "" }).success).toBe(true);
+  });
+
+  it("une date impossible reste « n'est pas valide » (premier message)", () => {
+    const r = demande({ nom: "Jean" }, { date_souhaitee: "2027-02-30" });
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues[0].message).toBe("La date souhaitée n'est pas valide.");
+  });
+});
+
+describe("erreurEnFrancais — chaque refus visible est en français, et nomme le champ", () => {
+  const ANGLAIS = /Too (big|small)|expected|Invalid|Required|undefined|null/;
+  const refus = (corps: Record<string, unknown>) => {
+    const r = createRequestSchema.safeParse({ ...base, client: { nom: "Jean", email: "jean@exemple.fr" }, ...corps }, { error: erreurEnFrancais });
+    expect(r.success).toBe(false);
+    return r.success ? "" : messageDeRefus(r.error);
+  };
+
+  it("un nom de 86 caractères (campagne, n° 99)", () => {
+    const m = refus({ client: { nom: "Marie-Charlotte Élisabeth-Joséphine de Montmorency-Laval de La Rochefoucauld-Liancourt", email: "jean@exemple.fr" } });
+    expect(m).toBe("Texte trop long : le nom ne doit pas dépasser 80 caractères.");
+  });
+
+  it("un message de 6 000 caractères (campagne, n° 98)", () => {
+    expect(refus({ commentaire: "x".repeat(6000) })).toBe(`Texte trop long : votre message ne doit pas dépasser ${(5000).toLocaleString("fr-FR")} caractères.`);
+  });
+
+  it("un volume négatif (campagne, n° 100)", () => {
+    expect(refus({ volume: { method: "explicit", volume_m3: -12 } })).toBe("Le volume à déménager doit être supérieur à 0 m³.");
+  });
+
+  it("une ville de départ trop longue, un étage négatif, une liste de meubles vide", () => {
+    expect(refus({ depart: { ville: "a".repeat(101) } })).toBe("Texte trop long : la ville de départ ne doit pas dépasser 100 caractères.");
+    expect(refus({ arrivee: { etage: -1 } })).toBe("Valeur trop petite pour l'étage d'arrivée : 0 au moins.");
+    expect(refus({ volume: { method: "list", items: [] } })).toBe("Ajoutez au moins un meuble à la liste.");
+  });
+
+  it.each([
+    ["nom vide", { client: { nom: "", email: "jean@exemple.fr" } }],
+    ["client absent", { client: undefined }],
+    ["formule inconnue", { formule: "gratuite" }],
+    ["méthode de volume inconnue", { volume: { method: "magie", volume_m3: 10 } }],
+    ["étage décimal", { depart: { etage: 2.5 } }],
+    ["période trop longue", { flexibilite: "x".repeat(121) }],
+    ["société trop longue", { societe: "x".repeat(121) }],
+    ["trop d'objets lourds", { charges_lourdes: Array.from({ length: 31 }, () => ({ label: "x" })) }],
+    ["distance négative", { distance_km: -1 }],
+  ])("%s : un message français, sans détail technique", (_, corps) => {
+    const m = refus(corps as Record<string, unknown>);
+    expect(m).not.toMatch(ANGLAIS);
+    expect(m.length).toBeGreaterThan(10);
+  });
+
+  it("un corps qui n'est pas un objet : le message général, en français", () => {
+    const r = createRequestSchema.safeParse([], { error: erreurEnFrancais });
+    expect(!r.success && messageDeRefus(r.error)).toBe("Votre demande n'a pas pu être enregistrée : vérifiez les informations saisies, puis réessayez.");
+  });
+
+  it("un message propre au schéma l'emporte (adresse web dans le nom, e-mail)", () => {
+    expect(refus({ client: { nom: "Promo sur bailly-promo.fr", email: "jean@exemple.fr" } })).toBe("Le nom ne peut pas contenir d'adresse web.");
+    expect(refus({ client: { nom: "Jean", email: "pas-un-email" } })).toBe("L'adresse e-mail n'est pas valide.");
   });
 });

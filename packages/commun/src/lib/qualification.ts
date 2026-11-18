@@ -5,7 +5,7 @@ import { getSettings } from "@/lib/settings";
 import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import type { RequestRow } from "@/lib/types";
-import { distanceEntreVilles } from "@/lib/trajet";
+import { distanceUneFois } from "@/lib/trajet";
 import { insererDevisNumerote } from "@/lib/devis-reference";
 
 // ─────────────────────────────────────────────────────────────
@@ -209,7 +209,11 @@ export function analyzeRequest(r: RequestRow, criteria: CriterionConfig[]): Qual
 // Qualification : génère le devis + l'analyse pour une demande complète
 // ─────────────────────────────────────────────────────────────
 
-export async function qualifyRequest(requestId: string): Promise<QualifResult | null> {
+export async function qualifyRequest(
+  requestId: string,
+  /** La distance de la demande, quand l'appelant la partage avec la fiche Créagidem (lib/trajet : distanceUneFois). */
+  o: { distance?: () => Promise<number | null> } = {},
+): Promise<QualifResult | null> {
   const supabase = createServiceClient();
   const { data } = await supabase.from("requests").select("*").eq("id", requestId).maybeSingle();
   if (!data) return null;
@@ -222,11 +226,9 @@ export async function qualifyRequest(requestId: string): Promise<QualifResult | 
   // dans la liste ; une demande venue d'un mail n'en a jamais. On la calcule
   // ici à partir des villes — sans elle, le moteur retenait la tranche
   // « 0 à 50 km » et annonçait un Paris → Lyon au prix d'un déménagement local.
+  // Ni pour l'étranger, ni de l'outre-mer vers un autre territoire (lib/trajet).
   if (req.distance_km == null) {
-    const km = await distanceEntreVilles(
-      { ville: req.depart_ville, code_postal: req.depart_code_postal },
-      { ville: req.arrivee_ville, code_postal: req.arrivee_code_postal },
-    ).catch(() => null);
+    const km = await (o.distance ?? distanceUneFois(req))().catch(() => null);
     if (km != null) {
       await supabase.from("requests").update({ distance_km: km }).eq("id", req.id);
       req.distance_km = km;

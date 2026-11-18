@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { createRequestSchema } from "@/lib/schemas";
+import { createRequestSchema, erreurEnFrancais, messageDeRefus } from "@/lib/schemas";
 import { ModificationRefusee, modifierDemande } from "@/lib/requests";
 import { adresseIp, fenetres, reponseTropDeDemandes, reserver } from "@/lib/limites";
 import { lireJsonBorne } from "@/lib/requete-json";
@@ -15,10 +15,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const jeton = req.headers.get("x-jeton-modification") ?? "";
   const lu = await lireJsonBorne(req);
   if (!lu.ok) return lu.reponse;
-  const parsed = createRequestSchema.safeParse(lu.corps);
+  const parsed = createRequestSchema.safeParse(lu.corps, { error: erreurEnFrancais });
   if (!parsed.success) {
-    const premier = parsed.error.issues.find((i) => i.message && !/^(Invalid|Required|Expected)/.test(i.message))?.message;
-    return NextResponse.json({ error: premier ?? "Validation échouée", details: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json({ error: messageDeRefus(parsed.error), details: parsed.error.flatten() }, { status: 422 });
   }
   const refus = reserver([{ cle: `modification:ip:${adresseIp(req.headers)}`, fenetres: fenetres("MODIFICATIONS", { minute: 5, heure: 20, jour: 40 }) }]);
   if (refus) return reponseTropDeDemandes(refus, "Votre demande vient déjà d'être modifiée plusieurs fois.");

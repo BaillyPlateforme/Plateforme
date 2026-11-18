@@ -2,7 +2,7 @@ import "server-only";
 import { URL_INTERNE } from "@/lib/adresses";
 import { estAdresseFictive } from "@/lib/envois/garde-fous";
 import { createServiceClient } from "@/lib/supabase/server";
-import { distanceEntreVilles } from "@/lib/trajet";
+import { distanceEntreVilles, lieuxDeLaDemande } from "@/lib/trajet";
 import type { RequestRow } from "@/lib/types";
 import { ficheDepuisDemande, manquesFiche, type FicheCreagidem } from "./fiche";
 
@@ -190,7 +190,16 @@ export async function dernierEvenementCreagidem(requestId: string): Promise<(Eve
  */
 export async function transmettreACreagidem(
   requestId: string,
-  o: { origine: "automatique" | "manuel"; par?: string | null } = { origine: "automatique" },
+  o: {
+    origine: "automatique" | "manuel";
+    par?: string | null;
+    /**
+     * La distance que le chiffrage calcule en même temps (lib/trajet :
+     * distanceUneFois) : la fiche reprend la même, au lieu d'en calculer une
+     * seconde qui pouvait différer.
+     */
+    distance?: () => Promise<number | null>;
+  } = { origine: "automatique" },
 ): Promise<EvenementCreagidem | null> {
   try {
     const supabase = createServiceClient();
@@ -205,13 +214,13 @@ export async function transmettreACreagidem(
     }
 
     const reglage = reglageCreagidem();
+    // Sans distance en base : celle que le chiffrage calcule en même temps, sinon un calcul à part
+    // (envoi à la main, complétion). Pas de distance pour l'étranger ni de l'outre-mer vers ailleurs.
+    const lieux = lieuxDeLaDemande(r);
     const distanceKm =
       r.distance_km ??
       (r.depart_ville && r.arrivee_ville
-        ? await distanceEntreVilles(
-            { ville: r.depart_ville, code_postal: r.depart_code_postal, adresse: r.depart_adresse },
-            { ville: r.arrivee_ville, code_postal: r.arrivee_code_postal, adresse: r.arrivee_adresse },
-          ).catch(() => null)
+        ? await (o.distance ? o.distance() : distanceEntreVilles(lieux.depart, lieux.arrivee)).catch(() => null)
         : null);
     const fiche = ficheDepuisDemande(r, {
       emetteur: lire(process.env, "CREAGIDEM_EMETTEUR"),

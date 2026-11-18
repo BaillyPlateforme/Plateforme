@@ -12,7 +12,8 @@ import type { RequestRow } from "@/lib/types";
 
 const m = vi.hoisted(() => ({ client: null as unknown, distance: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceClient: () => m.client }));
-vi.mock("@/lib/trajet", () => ({ distanceEntreVilles: m.distance }));
+// Le calcul de distance est simulé ; le reste du module (lieuxDeLaDemande) est le vrai.
+vi.mock("@/lib/trajet", async (vrai) => ({ ...(await vrai<typeof import("@/lib/trajet")>()), distanceEntreVilles: m.distance }));
 
 import { environnement, reglageCreagidem, transmettreACreagidem } from "@/lib/creagidem";
 
@@ -242,6 +243,32 @@ describe("creagidem — l'envoi, tout étant actif", () => {
     await transmettreACreagidem(laDemande.id);
     expect(m.distance).toHaveBeenCalledWith({ ville: "Paris", code_postal: "75002", adresse: "12 rue de la Paix" }, { ville: "Lyon", code_postal: "69002", adresse: "4 place Bellecour" });
     expect(JSON.parse(imports()[0].init.body).operation.distance).toBe("0.00");
+  });
+
+  it("le pays dit au formulaire accompagne les villes (pas de distance pour l'étranger)", async () => {
+    laDemande = demande({ distance_km: null, raw_payload: { details: { arrivee: { pays: "Suisse" } } } });
+    await transmettreACreagidem(laDemande.id);
+    expect(m.distance).toHaveBeenCalledWith(
+      { ville: "Paris", code_postal: "75002", adresse: "12 rue de la Paix" },
+      { ville: "Lyon", code_postal: "69002", adresse: "4 place Bellecour", pays: "Suisse" },
+    );
+  });
+
+  // Campagne du 18/11/2026 : la demande à 584 km, la fiche à 588 — deux calculs en même temps.
+  it("la distance que le chiffrage calcule en même temps est reprise : pas de second calcul", async () => {
+    laDemande = demande({ distance_km: null });
+    const partagee = vi.fn(async () => 584);
+    await transmettreACreagidem(laDemande.id, { origine: "automatique", distance: partagee });
+    expect(partagee).toHaveBeenCalledTimes(1);
+    expect(m.distance).not.toHaveBeenCalled();
+    expect(JSON.parse(imports()[0].init.body).operation.distance).toBe("584.00");
+  });
+
+  it("une distance déjà en base passe avant la distance partagée", async () => {
+    const partagee = vi.fn(async () => 584);
+    await transmettreACreagidem(laDemande!.id, { origine: "automatique", distance: partagee });
+    expect(partagee).not.toHaveBeenCalled();
+    expect(JSON.parse(imports()[0].init.body).operation.distance).toBe("465.40");
   });
 
   it("une demande déjà envoyée ne repart pas automatiquement (aucun appel, aucune ligne)", async () => {

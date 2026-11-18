@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useId } from "react";
+import { enFrance } from "@/lib/trajet";
 import { Icone } from "./ui";
 
 export type Place = { label: string; ville: string; code_postal: string; context: string; lat: number; lon: number };
@@ -38,12 +39,19 @@ export function AddressInput({
   onSelect,
   placeholder,
   kind = "municipality",
+  pays,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelect: (p: Place) => void;
   placeholder?: string;
   kind?: "municipality" | "address";
+  /**
+   * Le pays choisi pour cette adresse. La Base Adresse Nationale ne connaît
+   * que la France : hors de France, elle proposait une commune française au
+   * nom voisin (Berlin → Berling). Le champ reste alors une saisie libre.
+   */
+  pays?: string;
 }) {
   const [sugg, setSugg] = useState<Place[]>([]);
   const [open, setOpen] = useState(false);
@@ -54,13 +62,14 @@ export function AddressInput({
   // Moins de deux lettres : rien à chercher, et rien à montrer. La frappe vide la liste (plus bas) ; une
   // valeur posée par la page (formulaire remis à zéro) la masque ici. L'effet n'a plus à la vider, ce
   // qui refaisait un rendu à chaque fois.
-  const cherchable = value.trim().length >= 2;
+  const enFr = enFrance(pays);
+  const cherchable = value.trim().length >= 2 && enFr;
   const liste = open && cherchable && sugg.length > 0;
 
   useEffect(() => {
     if (skip.current) { skip.current = false; return; }
     const q = value.trim();
-    if (q.length < 2) return;
+    if (q.length < 2 || !enFr) return;
     const t = setTimeout(async () => {
       try {
         const typeParam = kind === "municipality" ? "&type=municipality" : "";
@@ -96,7 +105,7 @@ export function AddressInput({
       } catch { setSugg([]); }
     }, 250);
     return () => clearTimeout(t);
-  }, [value, kind]);
+  }, [value, kind, enFr]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
@@ -190,25 +199,4 @@ export function AddressInput({
       )}
     </div>
   );
-}
-
-function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
-  const la1 = (a.lat * Math.PI) / 180;
-  const la2 = (b.lat * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.asin(Math.sqrt(h)));
-}
-
-// Distance routière (OSRM public) avec repli à vol d'oiseau.
-export async function roadDistanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): Promise<number> {
-  try {
-    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`);
-    const j = await r.json();
-    const m = j?.routes?.[0]?.distance;
-    if (typeof m === "number" && m > 0) return Math.round(m / 1000);
-  } catch { /* repli */ }
-  return haversineKm(a, b);
 }

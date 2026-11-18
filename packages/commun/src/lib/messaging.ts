@@ -1,5 +1,7 @@
 // Constantes et helpers partagés (client + serveur) pour la messagerie.
 
+import { transportSeul } from "@/lib/pricing/grille";
+
 export type Channel = "email" | "sms";
 
 /** Ce qu'un modèle emporte en plus de son texte. */
@@ -146,6 +148,7 @@ export function contexteDemande(r: {
   flexibilite?: string | null;
   distance_km?: number | null;
   formule?: string | null;
+  raw_payload?: unknown;
 }): MessageContext {
   return {
     ville_depart: r.depart_ville ?? null,
@@ -154,7 +157,8 @@ export function contexteDemande(r: {
     // Une date du calendrier, ou la période dite par le client dans ses mots.
     date: r.date_souhaitee ?? r.flexibilite ?? null,
     distance: r.distance_km ?? null,
-    formule: r.formule ?? null,
+    // Le transport seul se chiffre sur la grille Économique, mais se dit pour ce qu'il est (lib/pricing/grille).
+    formule: r.formule && transportSeul(r.raw_payload) ? "transport" : (r.formule ?? null),
   };
 }
 

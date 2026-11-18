@@ -7,7 +7,7 @@
  * Ce que dit le format (commentaires du script) :
  *   - fiche.emetteur : obligatoire, valeur fixée par Créagiciel ;
  *   - client.nom, chargement.ville, livraison.ville : obligatoires ;
- *   - code_postal : chiffres seulement ; etage : entier positif ;
+ *   - code_postal : chiffres seulement (un code français) ; etage : entier positif ;
  *   - est_rdc, est_ascenseur, est_demande_stationnement : 0 ou 1 ;
  *   - detail_acces : 100 caractères ;
  *   - date_ou_periode : AAAAMMJJ, AAAAMM, ou un texte (« FIN SEPTEMBRE ») ;
@@ -17,7 +17,13 @@
  *   - les décimaux partent sans séparateur de milliers (« 1250.00 ») : le
  *     number_format de PHP écrivait « 1,250.00 » au-delà de 999 ;
  *   - la distance vient de la plateforme (celle du formulaire, sinon le
- *     calcul routier du serveur), et non plus d'OpenRouteService ;
+ *     calcul routier du serveur), et non plus d'OpenRouteService ; sans
+ *     distance (étranger, outre-mer, ville introuvable), « 0.00 », et le
+ *     détail le dit ;
+ *   - un code postal étranger (lettres, tiret : « SW1A 1AA ») part tel quel
+ *     s'il tient en CP_MAX caractères — réduit à ses chiffres, il devenait un
+ *     autre code (« 11 ») ; plus long, il part vide, et le code va en tête du
+ *     détail d'accès ;
  *   - la valeur déclarée est une tranche (« 10 000 – 30 000 € ») : on envoie
  *     sa borne haute, et la tranche telle quelle dans le détail (à valider) ;
  *   - le détail de l'opération reprend ce que le client a dit (volume,
@@ -25,6 +31,7 @@
  *     la demande dans le CRM.
  */
 import type { RequestRow } from "@/lib/types";
+import { TRANSPORT_SEUL, transportSeul } from "@/lib/pricing/grille";
 
 export interface AdresseCreagidem {
   adresse1: string;
@@ -83,6 +90,22 @@ export function valeurDeclaree(v: unknown): number | null {
   return nombres.length ? Math.max(...nombres) : null;
 }
 
+/** La place d'un code postal étranger dans la fiche (les codes connus en tiennent dix : « SW1A 1AA », « 1100-148 »). */
+export const CP_MAX = 10;
+
+/**
+ * Le code postal tel que Créagidem le reçoit. Un code français : ses chiffres
+ * (« 75 002 » → « 75002 »). Un code étranger, jamais réduit à ses chiffres
+ * (« SW1A 1AA » devenait « 11 », un autre code) : tel quel s'il tient dans le
+ * champ ; sinon vide, et `aParte` le garde pour le détail.
+ */
+export function codePostalCreagidem(brut: unknown): { code: string; aParte: string } {
+  const t = txt(brut).replace(/\s+/g, " ");
+  if (!t) return { code: "", aParte: "" };
+  if (/^[\d ]+$/.test(t)) return { code: t.replace(/\D/g, ""), aParte: "" };
+  return t.length <= CP_MAX && /^[\p{L}\p{N} -]+$/u.test(t) ? { code: t, aParte: "" } : { code: "", aParte: t };
+}
+
 /** Prénom et nom : ceux du formulaire quand il les sépare, sinon le nom saisi en entier (jamais coupé au hasard). */
 function identite(r: RequestRow): { nom: string; prenom: string } {
   const contact = obj(obj(r.raw_payload.details).contact);
@@ -97,9 +120,11 @@ function adresse(r: RequestRow, cote: "depart" | "arrivee", periode: string): Ad
   const etage = cote === "depart" ? r.depart_etage : r.arrivee_etage;
   const ascenseur = cote === "depart" ? r.depart_ascenseur : r.arrivee_ascenseur;
   const logement = cote === "depart" ? r.type_logement_depart : r.type_logement_arrivee;
-  const cp = txt(cote === "depart" ? r.depart_code_postal : r.arrivee_code_postal).replace(/\D/g, "");
+  const { code: cp, aParte } = codePostalCreagidem(cote === "depart" ? r.depart_code_postal : r.arrivee_code_postal);
   const portage = typeof saisie.portage_m === "number" && saisie.portage_m > 0 ? `Portage ${saisie.portage_m} m.` : "";
   const acces = [
+    // Un code postal trop long pour le champ : en tête, pour ne pas être coupé.
+    aParte ? `Code postal : ${aParte}.` : "",
     saisie.acces_difficile === undefined ? "" : `Accès difficile poids lourds : ${oui(saisie.acces_difficile) ? "oui" : "non"}.`,
     txt(detail.type_difficulte) ? `${txt(detail.type_difficulte)}.` : "",
     portage,
@@ -126,7 +151,7 @@ const SERVICES: Record<string, string> = { emballage: "emballage", demontage: "d
 const FORMULES: Record<string, string> = { eco: "Économique", standard: "Standard", luxe: "Luxe" };
 
 /** Le détail de l'opération : ce que le client a dit, en clair, et le lien de la demande dans le CRM. */
-function detailOperation(r: RequestRow, lienCrm: string | null): string {
+function detailOperation(r: RequestRow, lienCrm: string | null, distanceConnue: boolean): string {
   const p = r.raw_payload;
   const details = obj(p.details);
   const services = Object.entries(r.services ?? {}).filter(([, v]) => v).map(([k]) => SERVICES[k] ?? k);
@@ -152,7 +177,10 @@ function detailOperation(r: RequestRow, lienCrm: string | null): string {
     nombre(details.surface_locaux) && `Surface des locaux : ${details.surface_locaux} m²`,
     txt(details.creneau || details.rendez_vous) && `Rendez-vous souhaité : ${txt(details.creneau || details.rendez_vous)}`,
     r.volume_m3 != null && `Volume : ${Number(r.volume_m3).toLocaleString("fr-FR")} m³${r.volume_method === "ai" ? " (estimé sur photos)" : r.volume_method === "list" ? " (liste de meubles)" : ""}`,
-    r.formule && `Formule : ${FORMULES[r.formule] ?? r.formule}`,
+    // Le transport seul se chiffre sur la grille Économique, mais ce n'est pas l'Économique (lib/pricing/grille).
+    r.formule && `Formule : ${transportSeul(p) ? TRANSPORT_SEUL : Object.hasOwn(FORMULES, r.formule) ? FORMULES[r.formule] : r.formule}`,
+    // « 0.00 » dans la fiche : une distance inconnue, pas nulle.
+    !distanceConnue && "Distance : non calculée (adresse à l'étranger, outre-mer ou ville introuvable) — à établir",
     txt(p.assurance) && `Garantie : ${txt(p.assurance)}`,
     txt(p.valeur_mobilier) && `Valeur du mobilier déclarée : ${txt(p.valeur_mobilier)}`,
     services.length > 0 && `Services : ${services.join(", ")}`,
@@ -191,7 +219,7 @@ export function ficheDepuisDemande(
       distance: decimal(o.distanceKm),
       valeur: decimal(valeurDeclaree(r.raw_payload.valeur_mobilier)),
       type_assurance: "D",
-      detail: detailOperation(r, o.lienCrm),
+      detail: detailOperation(r, o.lienCrm, typeof o.distanceKm === "number" && Number.isFinite(o.distanceKm) && o.distanceKm >= 0),
     },
   };
 }

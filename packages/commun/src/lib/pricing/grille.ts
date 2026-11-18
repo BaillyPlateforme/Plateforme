@@ -72,6 +72,21 @@ export const FORMULES: {
   },
 ];
 
+/**
+ * « Transport de meubles uniquement », la quatrième voie du formulaire : des
+ * meubles vides, démontés et emballés par le client. Ce n'est pas
+ * l'Économique, qui comprend le chargement, le démontage et le remontage du
+ * mobilier. Faute de tableau à lui, il se chiffre sur la grille Économique
+ * (la colonne `formule` dit « eco ») ; le choix du client se lit dans ses
+ * prestations — « transport : bailly » —, et c'est lui qu'on montre
+ * (Créagidem, CRM, e-mail).
+ */
+export const TRANSPORT_SEUL = "Transport de meubles uniquement";
+export function transportSeul(rawPayload: unknown): boolean {
+  const prestations = rawPayload && typeof rawPayload === "object" ? (rawPayload as Record<string, unknown>).prestations : undefined;
+  return !!prestations && typeof prestations === "object" && (prestations as Record<string, unknown>).transport === "bailly";
+}
+
 /** Tranches de volume. La première se facture au forfait, les autres au m³. */
 export const TRANCHES_VOLUME: { min: number; max: number | null; forfait: boolean; label: string }[] = [
   { min: 1, max: 5, forfait: true, label: "1 à 5 m³ — forfait" },

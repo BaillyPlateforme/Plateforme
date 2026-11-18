@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { createRequestSchema } from "@/lib/schemas";
+import { createRequestSchema, erreurEnFrancais, messageDeRefus } from "@/lib/schemas";
 import { createRequest } from "@/lib/requests";
 import type { RequestSource } from "@/lib/types";
 import { secretPresente } from "@/lib/secret-partage";
@@ -13,11 +13,11 @@ export async function POST(req: Request) {
   const lu = await lireJsonBorne(req);
   if (!lu.ok) return lu.reponse;
 
-  const parsed = createRequestSchema.safeParse(lu.corps);
+  // Le refus s'affiche tel quel au visiteur : en français, et il nomme le champ à corriger (lib/schemas).
+  const parsed = createRequestSchema.safeParse(lu.corps, { error: erreurEnFrancais });
   if (!parsed.success) {
-    const premier = parsed.error.issues.find((i) => i.message && !/^(Invalid|Required|Expected)/.test(i.message))?.message;
     return NextResponse.json(
-      { error: premier ?? "Validation échouée", details: parsed.error.flatten() },
+      { error: messageDeRefus(parsed.error), details: parsed.error.flatten() },
       { status: 422 },
     );
   }

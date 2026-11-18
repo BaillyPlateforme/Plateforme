@@ -6,6 +6,7 @@ import { fireEvent } from "@/lib/alerts";
 import { contexteDemande } from "@/lib/messaging";
 import { qualifyRequest } from "@/lib/qualification";
 import { transmettreACreagidem } from "@/lib/creagidem";
+import { distanceUneFois } from "@/lib/trajet";
 import type { AnalyzedPhotoInput, ItemInput } from "@/lib/schemas";
 import type { RequestRow } from "@/lib/types";
 
@@ -76,17 +77,19 @@ export async function completeRequest(token: string, input: CompletionInput) {
   // message : il part alors avec l'estimation.
   const apres = { ...before, ...update } as typeof before;
   const nowComplete = apres.volume_m3 != null && apres.depart_ville && apres.arrivee_ville;
+  // Une seule distance pour le chiffrage et la fiche Créagidem (lib/trajet).
+  const distance = distanceUneFois(apres);
   let echec: unknown = null;
   if (nowComplete) {
     try {
-      await qualifyRequest(before.id);
+      await qualifyRequest(before.id, { distance });
     } catch (e) {
       echec = e;
     }
   }
 
   // La fiche Créagidem, si elle attendait les champs qui manquaient (une demande déjà envoyée ne repart pas).
-  if (before.source === "form") await transmettreACreagidem(before.id);
+  if (before.source === "form") await transmettreACreagidem(before.id, { origine: "automatique", distance });
 
   // Déclenche les workflows liés à la complétion (mails/SMS configurables).
   const settings = await getSettings();

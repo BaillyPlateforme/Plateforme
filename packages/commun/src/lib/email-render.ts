@@ -13,6 +13,7 @@ import {
   sousTitre,
 } from "@/lib/email-layout";
 import { renderTemplate, type MessageContext } from "@/lib/messaging";
+import { TRANSPORT_SEUL } from "@/lib/pricing/grille";
 
 /** Une ligne du chiffrage, telle que le moteur la produit. */
 export type LigneEstimation = { label: string; amount: number };
@@ -65,7 +66,7 @@ function quand(v: unknown): string {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const FORMULES: Record<string, string> = { eco: "Économique", standard: "Standard", luxe: "Premium" };
+const FORMULES: Record<string, string> = { eco: "Économique", standard: "Standard", luxe: "Premium", transport: TRANSPORT_SEUL };
 
 /**
  * Les variables que le rendu calcule lui-même.
@@ -198,7 +199,7 @@ function rendreBloc(ligne: string, ctx: ContexteRendu): string | null {
       if (v.distance) reperes.push(["Distance", `${v.distance} km`]);
       if (v.volume) reperes.push(["Volume", `${v.volume} m³`]);
       if (v.date) reperes.push(["Période", quand(v.date)]);
-      if (v.formule) reperes.push(["Formule", FORMULES[String(v.formule)] ?? String(v.formule)]);
+      if (v.formule) reperes.push(["Formule", Object.hasOwn(FORMULES, String(v.formule)) ? FORMULES[String(v.formule)] : String(v.formule)]);
       return carteTrajet({
         depart: v.ville_depart ? String(v.ville_depart) : undefined,
         arrivee: v.ville_arrivee ? String(v.ville_arrivee) : undefined,

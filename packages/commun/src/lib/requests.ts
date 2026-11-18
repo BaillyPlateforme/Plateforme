@@ -11,6 +11,7 @@ import { qualifyRequest } from "@/lib/qualification";
 import { transmettreACreagidem } from "@/lib/creagidem";
 import { creerRappel } from "@/lib/rappels";
 import { SANS_PRIX, parcoursDeLaDemande } from "@/lib/parcours";
+import { distanceRecevable, distanceUneFois, paysDeLAdresse } from "@/lib/trajet";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource, RequestStatus } from "@/lib/types";
 
@@ -44,6 +45,22 @@ function resolveVolume(volume: CreateRequestInput["volume"]): ResolvedVolume {
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * La distance que le formulaire a calculée, sauf pour un trajet qui n'en a pas
+ * par la route : une adresse hors de France (la grille ne vaut que pour la
+ * France), ou l'outre-mer vers un autre territoire (le service d'itinéraires
+ * répondait 1 940 km pour Paris → Fort-de-France). Sans elle : pas
+ * d'estimation, l'équipe chiffre.
+ */
+function distanceDuFormulaire(input: CreateRequestInput): number | null {
+  const raw = { details: input.details };
+  return distanceRecevable(
+    input.distance_km,
+    { code_postal: input.depart.code_postal, pays: paysDeLAdresse(raw, "depart") },
+    { code_postal: input.arrivee.code_postal, pays: paysDeLAdresse(raw, "arrivee") },
+  );
 }
 
 /** Les meubles (volume par liste) et les photos analysées (volume par photos) d'une demande. */
@@ -118,7 +135,7 @@ async function preparerDemande(input: CreateRequestInput) {
     date_souhaitee: input.date_souhaitee ?? null,
     flexibilite: input.flexibilite ?? null,
     formule: formule ?? null,
-    distance_km: input.distance_km ?? null,
+    distance_km: distanceDuFormulaire(input),
     services: input.services ?? {},
 
     volume_m3,
@@ -197,15 +214,18 @@ export async function createRequest(
    * la réponse partie.
    */
   const suite = async () => {
+    // Une seule distance, calculée une fois, pour le chiffrage et la fiche Créagidem : chacun la calculait
+    // de son côté, en même temps, et pouvait trouver une autre valeur (584 km d'un côté, 588 de l'autre).
+    const distance = distanceUneFois(created);
     // La fiche Créagidem d'une demande du site, en parallèle du reste (garde-fou : lib/creagidem). Ne lève jamais.
-    const creagidem = created.source === "form" ? transmettreACreagidem(created.id) : null;
+    const creagidem = created.source === "form" ? transmettreACreagidem(created.id, { origine: "automatique", distance }) : null;
     try {
-      await suiteSansCreagidem();
+      await suiteSansCreagidem(distance);
     } finally {
       await creagidem;
     }
   };
-  const suiteSansCreagidem = async () => {
+  const suiteSansCreagidem = async (distance: () => Promise<number | null>) => {
     const settings = await getSettings();
     const base = (settings.base_url || "").replace(/\/$/, "");
     const lien = token ? (base ? `${base}/completer/${token}` : `/completer/${token}`) : "";
@@ -250,7 +270,7 @@ export async function createRequest(
       // son prix. Une qualification qui échoue n'empêche pas le message de partir.
       let echec: unknown = null;
       try {
-        await qualifyRequest(created.id);
+        await qualifyRequest(created.id, { distance });
       } catch (e) {
         echec = e;
       }
@@ -360,11 +380,13 @@ export async function modifierDemande(
   await supabase.from("request_events").insert({ request_id: requestId, type: "modified", payload: { par: "client", changes } });
 
   const suite = async () => {
-    const creagidem = demande.source === "form" ? transmettreACreagidem(demande.id) : null;
+    // Comme à la création : une seule distance pour le chiffrage et la fiche Créagidem.
+    const distance = distanceUneFois(demande);
+    const creagidem = demande.source === "form" ? transmettreACreagidem(demande.id, { origine: "automatique", distance }) : null;
     try {
       let echec: unknown = null;
       try {
-        await qualifyRequest(demande.id);
+        await qualifyRequest(demande.id, { distance });
       } catch (e) {
         echec = e;
       }

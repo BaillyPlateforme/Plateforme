@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { REPERE_LOGEMENT } from "@/lib/catalog";
+import { aujourdhuiParis, telephoneValide } from "@/lib/saisies";
 import { messageFinDe, nomEnseigne, themeEspace, type EspacePublic } from "@/lib/espaces";
 import { AddressInput } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Erreur, Manque, Titre, type Marque } from "./cadre";
@@ -55,6 +56,8 @@ type Etape = {
 };
 
 const emailValide = (e: string) => /.+@.+\..+/.test(e);
+/** Une date du calendrier déjà passée (à l'heure de Paris) : refusée, comme au devis complet. */
+const datePassee = (mode: PeriodeMode, valeur: string) => mode === "date" && !!valeur && valeur < aujourdhuiParis();
 
 /* ─────────────────────────── Le cadre pas à pas ─────────────────────────── */
 
@@ -277,6 +280,7 @@ function AdresseFiche({
             <AddressInput
               kind="address"
               value={a.adresse}
+              pays={a.pays}
               placeholder="12 rue de la République, Paris"
               onChange={(v) => set({ adresse: v })}
               onSelect={(p) => set({ adresse: p.label, ville: p.ville, code_postal: p.code_postal })}
@@ -293,6 +297,7 @@ function AdresseFiche({
               <AddressInput
                 kind="municipality"
                 value={a.ville}
+                pays={a.pays}
                 placeholder="Paris"
                 onChange={(v) => set({ ville: v })}
                 onSelect={(p) => set({ ville: p.ville, code_postal: p.code_postal })}
@@ -473,9 +478,11 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
       case "vous":
         if (!f.nom.trim()) return "Indiquez votre nom";
         if (!f.tel.trim()) return "Indiquez votre téléphone";
+        if (!telephoneValide(f.tel)) return "Indiquez un téléphone valide";
         if (!emailValide(f.email)) return "Indiquez un e-mail valide";
         if (!societe) return "Indiquez l'entreprise qui vous mute";
         if (!periodeOk) return "Indiquez la période souhaitée";
+        if (datePassee(f.periode_mode, f.periode)) return "Choisissez une date à venir";
         return null;
       case "depart":
         return adresseManquante(f.depart, "de départ");
@@ -723,6 +730,7 @@ function contactManquant(c: Contact): string | null {
   if (!c.societe.trim()) return "Indiquez le nom de votre société";
   if (!c.nom.trim()) return "Indiquez votre nom";
   if (!c.tel.trim()) return "Indiquez votre téléphone";
+  if (!telephoneValide(c.tel)) return "Indiquez un téléphone valide";
   if (!emailValide(c.email)) return "Indiquez un e-mail valide";
   return null;
 }
@@ -798,7 +806,7 @@ export function FormulaireTransfert({ onBack }: { onBack: () => void }) {
   const manquant = (() => {
     switch (ETAPES_TRANSFERT[step].cle) {
       case "societe":
-        return contactManquant(contact);
+        return contactManquant(contact) ?? (datePassee(periodeMode, periode) ? "Choisissez une date à venir" : null);
       case "adresses":
         return adresseManquante(depart, "de départ", true) ?? adresseManquante(arrivee, "d'arrivée", true);
       default:
@@ -951,6 +959,7 @@ export function FormulaireProjet({ onBack }: { onBack: () => void }) {
       if (description.trim().length < 10) return "Décrivez votre projet en quelques mots";
       if (!villeDepart.ville.trim()) return "Indiquez la ville de départ";
       if (!villeArrivee.ville.trim()) return "Indiquez la ville d'arrivée";
+      if (datePassee(periodeMode, periode)) return "Choisissez une date à venir";
       return null;
     }
     return contactManquant(contact);

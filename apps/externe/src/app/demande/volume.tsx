@@ -71,7 +71,11 @@ export function repereLisible(r: Repere): string {
     .join(" · ");
 }
 
-/** Le volume retenu selon la méthode choisie, ou rien tant qu'il n'est pas connu. */
+/**
+ * Le volume retenu selon la méthode choisie, ou rien tant qu'il n'est pas
+ * connu. Un volume nul ou négatif n'en est pas un : la barre affichait
+ * « -12 m³ à déménager », et 0 m³ se chiffrait au forfait.
+ */
 export function volumeDe(
   mode: VolumeMode,
   saisi: string,
@@ -79,16 +83,14 @@ export function volumeDe(
   photos: AnalyzedPhoto[],
   repere: Repere = REPERE_VIDE,
 ): number | null {
-  if (mode === "explicit") {
-    const v = parseFloat(saisi);
-    return isNaN(v) ? null : arrondi(v);
-  }
+  const positif = (v: number | null) => (v != null && Number.isFinite(v) && v > 0 ? v : null);
+  if (mode === "explicit") return positif(arrondi(parseFloat(saisi)));
   if (mode === "list") {
     if (items.length === 0) return null;
-    return arrondi(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0));
+    return positif(arrondi(items.reduce((s, it) => s + it.quantite * it.volume_unitaire_m3, 0)));
   }
-  if (mode === "logement") return detailRepere(repere)?.volume ?? null;
-  return photos.length === 0 ? null : volumePhotos(photos);
+  if (mode === "logement") return positif(detailRepere(repere)?.volume ?? null);
+  return photos.length === 0 ? null : positif(volumePhotos(photos));
 }
 
 export const MODES_VOLUME: { key: VolumeMode; icone: NomIcone; titre: string; texte: string }[] = [

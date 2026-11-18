@@ -8,6 +8,7 @@ import type { RequestDetail as Detail } from "@/lib/requests";
 import type { DevisStatus } from "@/lib/types";
 import { DEVIS_ORDER, DEVIS_STATUS, scoreColor, sourceLabel, isIncomplete, missingFields, espaceLabel, parcoursBadge, traceDeLaDemande } from "../status";
 import { espaceDeLaDemande, volumeChiffre } from "@/lib/espaces";
+import { TRANSPORT_SEUL, transportSeul } from "@/lib/pricing/grille";
 import { updateStatus, updateScores } from "@/lib/actions/requests";
 import { envoyerDansCreagidem } from "@/crm/creagidem/actions";
 import type { EvenementCreagidem } from "@/lib/creagidem";
@@ -205,7 +206,8 @@ function InfosTab({ detail, araignee, creagidem }: { detail: Detail; araignee: A
               }
             />
             <Row k="Flexibilité" v={r.flexibilite ?? "—"} />
-            <Row k="Formule" v={r.formule ?? "—"} />
+            {/* Le transport seul se chiffre sur la grille « eco », mais ce n'est pas l'Économique. */}
+            <Row k="Formule" v={r.formule && transportSeul(r.raw_payload) ? `${TRANSPORT_SEUL} (grille eco)` : (r.formule ?? "—")} />
             <Row k="Distance" v={r.distance_km != null ? `${r.distance_km} km` : "—"} />
             <Row
               k="Services"
