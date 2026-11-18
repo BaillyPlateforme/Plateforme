@@ -82,6 +82,8 @@ export type PhotosParPiece = Map<string, Buffer[]>;
 
 export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu, photos: PhotosParPiece = new Map()) {
   const nbPieces = c.pieces.length;
+  // Depuis le 18/11/2026 : le volume transporté, distingué de ce qui ne l'est pas (destinations hors adresse).
+  const distingue = c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null;
   return enBuffer(
     <Document title={`Compte-rendu de visite ${c.dossier.ref}`} author="Bailly Déménagement" subject="Compte-rendu de visite technique">
       <Page size="A4" style={s.page}>
@@ -106,7 +108,7 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
 
           <View style={s.chiffres}>
             <View style={s.chiffreNoir}>
-              <Text style={[s.chiffreEtiquette, { color: C.jaune }]}>VOLUME RELEVÉ</Text>
+              <Text style={[s.chiffreEtiquette, { color: C.jaune }]}>{distingue ? "VOLUME TRANSPORTÉ" : "VOLUME RELEVÉ"}</Text>
               <Text style={[s.chiffreValeur, { color: "#ffffff" }]}>{m3(c.volume)}</Text>
             </View>
             <View style={s.chiffreClair}>
@@ -123,12 +125,47 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
             </View>
           </View>
 
+          {distingue && (
+            <>
+              <Section>Volume transporté et non transporté</Section>
+              <View style={s.tr} wrap={false}>
+                <View style={s.cLib}>
+                  <Text>Volume transporté</Text>
+                  {c.volume_debarras || c.volume_a_confirmer ? (
+                    <Text style={s.marque}>
+                      {[c.volume_debarras ? `DONT DÉBARRAS ${m3(c.volume_debarras)}` : null, c.volume_a_confirmer ? `DONT À CONFIRMER ${m3(c.volume_a_confirmer)}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={s.cQte}> </Text>
+                <Text style={s.cU}> </Text>
+                <Text style={s.cVol}>{m3(c.volume)}</Text>
+              </View>
+              {c.volume_non_transporte != null && (
+                <View style={s.tr} wrap={false}>
+                  <View style={s.cLib}>
+                    <Text>Non transporté</Text>
+                    <Text style={s.marque}>À LAISSER SUR PLACE, PRIS EN CHARGE PAR LE CLIENT</Text>
+                  </View>
+                  <Text style={s.cQte}> </Text>
+                  <Text style={s.cU}> </Text>
+                  <Text style={s.cVol}>{m3(c.volume_non_transporte)}</Text>
+                </View>
+              )}
+            </>
+          )}
+
           {c.destinations && c.destinations.length > 0 && (
             <>
               <Section>Volume par destination</Section>
               {c.destinations.map((d) => (
                 <View key={d.libelle} style={s.tr} wrap={false}>
-                  <Text style={s.cLib}>{d.libelle}</Text>
+                  <Text style={s.cLib}>
+                    {d.libelle}
+                    {d.non_transporte ? <Text style={{ color: C.gris }}> · non transporté</Text> : null}
+                  </Text>
                   <Text style={s.cQte}>{d.objets}</Text>
                   <Text style={s.cU}> </Text>
                   <Text style={s.cVol}>{m3(d.volume)}</Text>
@@ -172,7 +209,10 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
                 {p.objets.map((o, i) => (
                   <View key={i} style={s.tr} wrap={false}>
                     <View style={s.cLib}>
-                      <Text>{o.libelle}</Text>
+                      <Text>
+                        {o.libelle}
+                        {o.libelle_en ? <Text style={{ color: C.gris }}> / {o.libelle_en}</Text> : null}
+                      </Text>
                       {(o.demontage || o.fragile || o.note || o.destination) && (
                         <Text style={s.marque}>
                           {[o.demontage ? "DÉMONTAGE" : null, o.fragile ? "FRAGILE" : null, o.note, o.destination ? `→ ${o.destination}` : null].filter(Boolean).join(" · ")}
@@ -180,8 +220,8 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
                       )}
                     </View>
                     <Text style={s.cQte}>{o.quantite}</Text>
-                    <Text style={s.cU}>{m3Fin(o.volume_unitaire)}</Text>
-                    <Text style={s.cVol}>{m3(o.volume)}</Text>
+                    <Text style={s.cU}>{o.hors_cubage ? "—" : m3Fin(o.volume_unitaire)}</Text>
+                    <Text style={s.cVol}>{o.hors_cubage ? "non compté" : m3(o.volume)}</Text>
                   </View>
                 ))}
                 {p.remarque ? <Text style={s.remarque}>{p.remarque}</Text> : null}

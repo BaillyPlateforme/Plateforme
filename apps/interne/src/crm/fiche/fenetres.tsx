@@ -11,7 +11,8 @@ import ChampAdresse from "@/ui/ChampAdresse";
 import LienStreetView from "@/ui/LienStreetView";
 import ChampsTelephones from "@/crm/clients/ChampsTelephones";
 import { telephonesDuClient } from "@/crm/clients/telephones";
-import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
+import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE, designation } from "@/lib/visite/regles";
+import { DESTINATIONS_SPECIALES, bilanVolumes, estSpeciale } from "@/lib/visite/destinations";
 import { DEPARTEMENTS_OM, GROUPES_OM, SITUATIONS_FAMILLE } from "@/crm/cimob/commun";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
@@ -27,7 +28,9 @@ import s from "./fiche.module.css";
  */
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : "");
-const DESTINATIONS = ["Arrivée", "Garde-meuble", "Don", "Déchetterie", "Autre adresse"];
+// Les destinations hors adresse de la tablette (Dragan, 18/11/2026) s'y ajoutent : « À laisser sur place » et
+// « Pris en charge par le client » sortent du volume transporté, celui du dossier (visites/volume.ts).
+const DESTINATIONS = ["Arrivée", "Garde-meuble", "Don", "Déchetterie", "Autre adresse", ...DESTINATIONS_SPECIALES.map((x) => x.libelle)];
 const LV_ST: Record<string, string> = { a_planifier: "À planifier", planifiee: "Planifiée", en_cours: "En cours", livree: "Livrée" };
 
 /** Un champ de formulaire : son libellé au-dessus, sa largeur sur la grille de 12. */
@@ -370,6 +373,8 @@ export function FenetreInventaire({ d }: { d: Row }) {
   const id = d.id as number;
   const pieces = [...new Set(d.inv.map((i: Row) => i.piece))] as string[];
   const emb = emballages(d.volume);
+  // Le volume du dossier est le volume transporté : ce qui reste sur place (ou que le client emporte) se lit à part.
+  const bilan = bilanVolumes((d.inv as Row[]).map((i) => ({ quantite: i.quantite, volume: i.volume, speciale: estSpeciale(i.destination_speciale) ? i.destination_speciale : null })));
   return (
     <div>
       <div className={s.actionsDetail} style={{ marginTop: 0, marginBottom: 14 }}>
@@ -390,7 +395,10 @@ export function FenetreInventaire({ d }: { d: Row }) {
             Saisir sur la tablette
           </button>
         </form>
-        <b style={{ marginLeft: "auto", fontSize: 15 }}>{m3(d.volume)}</b>
+        <b style={{ marginLeft: "auto", fontSize: 15 }} title="Volume transporté : celui du dossier et du devis">
+          {m3(d.volume)}
+          {bilan.nonTransporte > 0 && <small style={{ fontWeight: 600, color: "#8a7a4a" }}> transportés · {m3(bilan.nonTransporte)} non transportés</small>}
+        </b>
       </div>
       {d.inv.length === 0 && <div className={s.vide}>Aucun objet. Ajoutez les meubles vus pendant la visite.</div>}
       <div className={s.pieces}>
@@ -406,7 +414,7 @@ export function FenetreInventaire({ d }: { d: Row }) {
                 <div className={s.objet} key={i.id}>
                   <span>
                     {i.quantite > 1 ? `${i.quantite} × ` : ""}
-                    {i.libelle}
+                    {designation(i.libelle, i.libelle_en)}
                   </span>
                   <span className={s.dest}>{i.destination}</span>
                   <form action={A.basculerDemontage.bind(null, id, i.id)} data-garder="">
@@ -466,7 +474,7 @@ export function FenetreInventaire({ d }: { d: Row }) {
         <small style={{ flexBasis: "100%", color: "#8a7a4a" }}>Règle appliquée : paquets de 20 · repris sur la fiche imprimée et le devis</small>
       </div>
       <div className={s.pied}>
-        <p>Le volume du dossier suit l’inventaire.</p>
+        <p>Le volume du dossier suit l’inventaire : c’est le volume transporté, sans ce qui est laissé sur place ni pris en charge par le client.</p>
       </div>
     </div>
   );

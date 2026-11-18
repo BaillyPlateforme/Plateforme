@@ -79,27 +79,137 @@ export function resoudreDestination(texte: string | null | undefined, d: Destina
   return genre ? (d.find((x) => x.genre === genre)?.id ?? null) : null;
 }
 
+// --- Les destinations hors adresse (Dragan Plavsic, 18/11/2026) -----------------------------------------
+
+/*
+ * « Un menu déroulant permettant de sélectionner immédiatement l'adresse de
+ * livraison, le garde-meubles, les éléments à laisser sur place, le
+ * débarras, les biens pris en charge par le client ou une destination
+ * restant à confirmer. » Ces quatre-là ne sont pas des étapes du trajet :
+ * l'objet les porte en clé (crm.inventaire.destination_speciale), la colonne
+ * texte inventaire.destination suit leur libellé.
+ *
+ * Le volume transporté, celui du dossier et du devis, en dépend. Règles par
+ * défaut, À VALIDER avec Céline et Dragan :
+ * - « À laisser sur place » et « Pris en charge par le client » ne sont pas
+ *   transportés : hors du volume transporté ;
+ * - « Débarras » : Bailly l'emporte, il est donc transporté (et compté),
+ *   mais montré à part ;
+ * - « À confirmer » : compté dans le transporté, par prudence pour le
+ *   chiffrage, et signalé ;
+ * - toute autre destination (une étape du trajet, ou une destination libre
+ *   de la fiche : « Don », « Déchetterie », « Autre adresse ») est
+ *   transportée, comme avant.
+ */
+export const DESTINATIONS_SPECIALES = [
+  { cle: "sur_place", libelle: "À laisser sur place", transporte: false },
+  { cle: "debarras", libelle: "Débarras", transporte: true },
+  { cle: "client", libelle: "Pris en charge par le client", transporte: false },
+  { cle: "a_confirmer", libelle: "À confirmer", transporte: true },
+] as const;
+
+export type CleSpeciale = (typeof DESTINATIONS_SPECIALES)[number]["cle"];
+export const CLES_SPECIALES = DESTINATIONS_SPECIALES.map((x) => x.cle) as [CleSpeciale, ...CleSpeciale[]];
+/** Les destinations qui sortent du volume transporté. */
+export const CLES_NON_TRANSPORTEES: CleSpeciale[] = DESTINATIONS_SPECIALES.filter((x) => !x.transporte).map((x) => x.cle);
+
+export const estSpeciale = (v: unknown): v is CleSpeciale => typeof v === "string" && (CLES_SPECIALES as string[]).includes(v);
+export const libelleSpeciale = (c: CleSpeciale) => DESTINATIONS_SPECIALES.find((x) => x.cle === c)!.libelle;
+
+/** La destination hors adresse que désigne un texte (« à laisser sur place » → sur_place), ou null. */
+export function specialeDuTexte(texte: string | null | undefined): CleSpeciale | null {
+  const t = String(texte ?? "").trim().toLowerCase();
+  if (!t) return null;
+  return DESTINATIONS_SPECIALES.find((x) => x.libelle.toLowerCase() === t)?.cle ?? null;
+}
+
+/** Un objet compte-t-il dans le volume transporté ? */
+export const estTransporte = (o: { speciale?: string | null; destination_speciale?: string | null }) => {
+  const c = o.speciale ?? o.destination_speciale;
+  return !(estSpeciale(c) && CLES_NON_TRANSPORTEES.includes(c));
+};
+
+type ObjetVolume = { quantite: number; volume: number; speciale?: CleSpeciale | null };
+
+/**
+ * Les volumes de la saisie : tout ce qui est relevé, le transporté (celui du
+ * dossier), ce qui ne l'est pas, et, dans le transporté, le débarras et ce
+ * qui reste à confirmer.
+ */
+export function bilanVolumes(objets: ObjetVolume[]) {
+  const somme = (f: (o: ObjetVolume) => boolean) => Math.round(objets.filter(f).reduce((n, o) => n + o.quantite * o.volume, 0) * 100) / 100;
+  return {
+    releve: somme(() => true),
+    transporte: somme((o) => estTransporte(o)),
+    nonTransporte: somme((o) => !estTransporte(o)),
+    debarras: somme((o) => o.speciale === "debarras"),
+    aConfirmer: somme((o) => o.speciale === "a_confirmer"),
+  };
+}
+
+export type BilanVolumes = ReturnType<typeof bilanVolumes>;
+
+/**
+ * Le choix d'un menu de destination, en une valeur : « e12 » (l'étape 12 du
+ * trajet), « s:debarras » (une destination hors adresse), ou null (sans
+ * destination, ou une destination libre posée depuis la fiche).
+ */
+export type ChoixDestination = string;
+
+export function choixDe(o: { destination?: number | null; speciale?: CleSpeciale | null }, d: Destination[]): ChoixDestination | null {
+  if (o.speciale && estSpeciale(o.speciale)) return `s:${o.speciale}`;
+  if (o.destination != null && d.some((x) => x.id === o.destination)) return `e${o.destination}`;
+  return null;
+}
+
+/** Ce qu'un choix du menu change sur l'objet (ou la pièce). Un choix inconnu ne change rien. */
+export function patchDuChoix(c: ChoixDestination, d: Destination[]): { destination: number | null; speciale: CleSpeciale | null; destinationLibre: null } | null {
+  if (c.startsWith("s:")) {
+    const k = c.slice(2);
+    return estSpeciale(k) ? { destination: null, speciale: k, destinationLibre: null } : null;
+  }
+  const id = Number(c.slice(1));
+  return c.startsWith("e") && d.some((x) => x.id === id) ? { destination: id, speciale: null, destinationLibre: null } : null;
+}
+
+/** Le libellé d'un choix : celui de l'étape, ou de la destination hors adresse. */
+export function libelleDuChoix(c: ChoixDestination | null, d: Destination[]): string | null {
+  if (!c) return null;
+  if (c.startsWith("s:")) return estSpeciale(c.slice(2)) ? libelleSpeciale(c.slice(2) as CleSpeciale) : null;
+  return d.find((x) => `e${x.id}` === c)?.libelle ?? null;
+}
+
+/** Tous les choix du menu, dans l'ordre : les étapes du trajet (adresses, garde-meuble), puis les destinations hors adresse. */
+export const choixDuMenu = (d: Destination[]) => [
+  ...d.map((x) => ({ valeur: `e${x.id}`, libelle: x.libelle, transporte: true })),
+  ...DESTINATIONS_SPECIALES.map((x) => ({ valeur: `s:${x.cle}`, libelle: x.libelle, transporte: x.transporte })),
+];
+
 /**
  * Le volume par destination, dans l'ordre du trajet, puis les destinations
- * hors trajet (« Don »…) et les objets sans destination. Seules figurent les
- * destinations qui ont au moins un objet, sauf `toutes`.
+ * hors adresse (à laisser sur place, débarras…), les destinations libres de
+ * la fiche (« Don »…) et les objets sans destination. Seules figurent les
+ * destinations qui ont au moins un objet, sauf, avec `toutes`, les étapes
+ * du trajet.
  */
 export function volumesParDestination(
-  objets: { quantite: number; volume: number; destination?: number | null; destinationLibre?: string | null }[],
+  objets: { quantite: number; volume: number; destination?: number | null; destinationLibre?: string | null; speciale?: CleSpeciale | null }[],
   d: Destination[],
   toutes = false,
-): { cle: string; id: number | null; libelle: string; volume: number; objets: number }[] {
-  const lignes = new Map<string, { cle: string; id: number | null; libelle: string; volume: number; objets: number }>();
-  for (const x of d) lignes.set(`e${x.id}`, { cle: `e${x.id}`, id: x.id, libelle: x.libelle, volume: 0, objets: 0 });
+): { cle: string; id: number | null; libelle: string; volume: number; objets: number; speciale: CleSpeciale | null; transporte: boolean }[] {
+  type Ligne = { cle: string; id: number | null; libelle: string; volume: number; objets: number; speciale: CleSpeciale | null; transporte: boolean };
+  const lignes = new Map<string, Ligne>();
+  for (const x of d) lignes.set(`e${x.id}`, { cle: `e${x.id}`, id: x.id, libelle: x.libelle, volume: 0, objets: 0, speciale: null, transporte: true });
+  for (const x of DESTINATIONS_SPECIALES) lignes.set(`s:${x.cle}`, { cle: `s:${x.cle}`, id: null, libelle: x.libelle, volume: 0, objets: 0, speciale: x.cle, transporte: x.transporte });
   for (const o of objets) {
-    const connue = o.destination != null && lignes.has(`e${o.destination}`);
-    const cle = connue ? `e${o.destination}` : `l${(o.destinationLibre ?? "").trim().toLowerCase()}`;
-    if (!lignes.has(cle)) lignes.set(cle, { cle, id: null, libelle: o.destinationLibre?.trim() || "Sans destination", volume: 0, objets: 0 });
+    const choix = choixDe(o, d);
+    const cle = choix ?? `l${(o.destinationLibre ?? "").trim().toLowerCase()}`;
+    if (!lignes.has(cle)) lignes.set(cle, { cle, id: null, libelle: o.destinationLibre?.trim() || "Sans destination", volume: 0, objets: 0, speciale: null, transporte: true });
     const l = lignes.get(cle)!;
     l.volume += o.quantite * o.volume;
     l.objets += o.quantite;
   }
   return [...lignes.values()]
     .map((l) => ({ ...l, volume: Math.round(l.volume * 100) / 100 }))
-    .filter((l) => toutes || l.objets > 0);
+    .filter((l) => l.objets > 0 || (toutes && l.id != null));
 }

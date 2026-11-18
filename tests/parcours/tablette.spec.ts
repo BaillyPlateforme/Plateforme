@@ -122,6 +122,9 @@ test.describe("la tablette de visite technique", () => {
    * répartition entre les destinations du dossier, et le travail hors
    * connexion — les gestes faits sans réseau arrivent au serveur au retour
    * du réseau, une seule fois. Écrit en base : un dossier fictif, effacé à la fin.
+   * Depuis la synthèse de Dragan (18/11/2026) : le catalogue de la tablette
+   * est le sien (bilingue), et une destination hors adresse sort l'objet du
+   * volume transporté.
    */
   test("hors connexion : la saisie continue et arrive une seule fois au retour du réseau ; saisie automatique et destinations", async ({ browser }) => {
     const f = await avecBase(async (db) => {
@@ -143,38 +146,53 @@ test.describe("la tablette de visite technique", () => {
       await page.goto(`${INT}/tablette/${f.visite}`);
       await page.getByRole("button", { name: "Salon", exact: true }).tap();
 
-      // « ta » propose les tables ; chaque lettre resserre ; une touche ajoute l'objet.
+      // « ta » propose les tables ; chaque lettre resserre ; une touche ajoute l'objet (catalogue de Dragan, 18/11/2026 :
+      // la table basse a trois tailles).
       const recherche = page.getByPlaceholder(/Tapez un objet/);
       await recherche.pressSequentially("ta");
-      await expect(page.getByRole("option", { name: /Table basse/ })).toBeVisible();
-      await expect(page.getByRole("option", { name: /Tapis/ })).toBeVisible();
+      await expect(page.getByRole("option", { name: /^Tabouret/ })).toBeVisible();
       await recherche.pressSequentially("ble b");
-      await expect(page.getByRole("option")).toHaveCount(1);
-      await page.getByRole("option", { name: /Table basse/ }).tap();
+      // Les trois tables basses d'abord ; l'anglais (« Bedside table ») ajoute les chevets, après.
+      await expect(page.getByRole("option", { name: /^Table basse/ })).toHaveCount(3);
+      await expect(page.getByRole("option").first()).toHaveText(/^Table basse/);
+      await page.getByRole("option", { name: /Table basse moyenne/ }).tap();
       await expect(recherche).toHaveValue("");
+      // « Français / English » sur la ligne.
+      await expect(page.getByText("/ Coffee table medium")).toBeVisible();
 
       // Deux destinations (garde-meuble, arrivée) : la table basse part au garde-meuble.
       await expect(page.getByRole("radiogroup", { name: "Destination de la pièce" }).getByRole("radio", { checked: true })).toHaveText("Arrivée");
-      await page.getByLabel("Destination : Table basse").selectOption({ label: "Garde-meuble" });
+      await page.getByLabel("Destination : Table basse moyenne").selectOption({ label: "Garde-meuble" });
       await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 30_000 });
 
       // Le réseau tombe : la saisie continue, le bandeau dit ce qui attend.
       await ctx.setOffline(true);
       await recherche.pressSequentially("refri");
-      await page.getByRole("option", { name: /Réfrigérateur/ }).tap();
+      await page.getByRole("option", { name: /Réfrigérateur combiné/ }).tap();
       await expect(page.getByText(/^Hors connexion — 1 modification en attente$/)).toBeVisible({ timeout: 15_000 });
-      expect(await lignes("select 1 from crm.inventaire where dossier_id = $1 and libelle = 'Réfrigérateur'", [f.dossier])).toHaveLength(0);
+      expect(await lignes("select 1 from crm.inventaire where dossier_id = $1 and libelle = 'Réfrigérateur combiné'", [f.dossier])).toHaveLength(0);
 
       // Il revient : tout part de soi-même, une seule fois.
       await ctx.setOffline(false);
       await expect(page.getByText(/Réseau revenu : tout est enregistré|Tout est enregistré/)).toBeVisible({ timeout: 60_000 });
-      const inv = await lignes<{ libelle: string; destination: string; n: number }>(
-        "select libelle, destination, count(*) over (partition by cle)::int as n from crm.inventaire where dossier_id = $1 order by libelle",
+      const inv = await lignes<{ libelle: string; libelle_en: string; destination: string; n: number }>(
+        "select libelle, libelle_en, destination, count(*) over (partition by cle)::int as n from crm.inventaire where dossier_id = $1 order by libelle",
         [f.dossier],
       );
       expect(inv).toEqual([
-        { libelle: "Réfrigérateur", destination: "Arrivée", n: 1 },
-        { libelle: "Table basse", destination: "Garde-meuble", n: 1 },
+        { libelle: "Réfrigérateur combiné", libelle_en: "Refrigerator combined", destination: "Arrivée", n: 1 },
+        { libelle: "Table basse moyenne", libelle_en: "Coffee table medium", destination: "Garde-meuble", n: 1 },
+      ]);
+
+      // Synthèse de Dragan (18/11/2026) : « kallax » trouve le meuble à cases, laissé sur place ; il sort du volume transporté.
+      await recherche.pressSequentially("kallax");
+      await page.getByRole("option", { name: /KALLAX/ }).tap();
+      await page.getByLabel(/^Destination : KALLAX/).selectOption({ label: "À laisser sur place" });
+      await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 30_000 });
+      const d = await ligne<{ volume: number }>("select volume::float8 as volume from crm.dossiers where id = $1", [f.dossier]);
+      expect(d!.volume).toBeCloseTo(0.35 + 0.75, 5);
+      expect(await lignes("select destination, destination_speciale from crm.inventaire where dossier_id = $1 and libelle like 'KALLAX%'", [f.dossier])).toEqual([
+        { destination: "À laisser sur place", destination_speciale: "sur_place" },
       ]);
     } finally {
       await ctx.close();

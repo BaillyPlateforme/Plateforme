@@ -2,7 +2,8 @@ import "server-only";
 import { q, q1, transaction, type Db } from "@/crm/lib/db";
 import { nomClient } from "@/crm/lib/format";
 import { PRESTATIONS } from "@/crm/lib/tarif";
-import { destinationsDuTrajet, resoudreDestination, type Destination } from "@/lib/visite/destinations";
+import { destinationsDuTrajet, estSpeciale, resoudreDestination, specialeDuTexte, type Destination } from "@/lib/visite/destinations";
+import { genreDePiece, referenceDuLibelle, type ReferenceFrequente } from "@/lib/visite/catalogue";
 import { instantParis, jourParis, lendemain, type CleFormule, type EtapeAcces, type ObjetSaisi, type OptionSaisie, type PieceSaisie } from "@/lib/visite/regles";
 
 /*
@@ -124,10 +125,13 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
          from etapes_trajet where dossier_id = $1 order by ordre, id`,
       [v.dossier_id],
     ),
-    q<PieceSaisie>("select cle::text as cle, nom, ordre, remarque, etape_id as destination from pieces where dossier_id = $1 order by ordre, id", [v.dossier_id]),
-    q<ObjetSaisi & { etape_id: number | null; texte_destination: string | null }>(
+    q<PieceSaisie>(
+      "select cle::text as cle, nom, ordre, remarque, etape_id as destination, destination_speciale as speciale from pieces where dossier_id = $1 order by ordre, id",
+      [v.dossier_id],
+    ),
+    q<ObjetSaisi & { etape_id: number | null; texte_destination: string | null; destination_speciale: string | null }>(
       `select i.cle::text as cle, p.cle::text as piece, i.libelle, i.quantite, i.volume::float8 as volume, i.demontage, i.fragile, i.note,
-              i.etape_id, i.destination as texte_destination
+              i.etape_id, i.destination as texte_destination, i.destination_speciale, i.libelle_en as "libelleEn", i.hors_cubage as "horsCubage"
          from inventaire i join pieces p on p.id = i.piece_id where i.dossier_id = $1 and i.cle is not null order by i.ordre, i.id`,
       [v.dossier_id],
     ),
@@ -147,11 +151,15 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
     return acces;
   });
   // Un objet rangé avant la tablette (sans étape) : sa destination se lit sur son libellé (« Arrivée » → la première arrivée).
+  // Une destination hors adresse (à laisser sur place, débarras…) l'emporte, posée par la tablette ou écrite dans la fiche.
   const connues = new Set(destinations.map((d) => d.id));
-  const objets: ObjetSaisi[] = lignesObjets.map(({ etape_id, texte_destination, ...o }) => {
+  const objets: ObjetSaisi[] = lignesObjets.map(({ etape_id, texte_destination, destination_speciale, ...o }) => {
+    const speciale = estSpeciale(destination_speciale) ? destination_speciale : specialeDuTexte(texte_destination);
+    if (speciale) return { ...o, destination: null, destinationLibre: null, speciale };
     const destination = etape_id != null && connues.has(etape_id) ? etape_id : resoudreDestination(texte_destination, destinations);
-    return { ...o, destination, destinationLibre: destination == null ? texte_destination?.trim() || null : null };
+    return { ...o, destination, destinationLibre: destination == null ? texte_destination?.trim() || null : null, speciale: null };
   });
+  for (const p of pieces) if (!estSpeciale(p.speciale)) p.speciale = null;
   return {
     visite: {
       id: v.id, dossierId: v.dossier_id, statut: v.statut, remarques: v.remarques, options: v.options ?? [], formule: v.formule,
@@ -185,6 +193,47 @@ export async function objetsDejaSaisis(limite = 300): Promise<{ label: string; v
      ) x where dossiers >= 2 order by dossiers desc, label limit $1`,
     [limite],
   );
+}
+
+/**
+ * Les références les plus utilisées par l'équipe, pièce par pièce (synthèse
+ * de Dragan, 18/11/2026 : « retrouver les références les plus fréquemment
+ * utilisées ») : pour chaque genre de pièce (« Chambre 2 » compte avec
+ * « Chambre »), les libellés relevés dans le plus de dossiers — deux au
+ * moins, comme le vocabulaire de l'équipe —, douze par genre. Le volume
+ * proposé est celui du catalogue de la tablette quand le libellé y figure,
+ * sinon le plus courant dans les inventaires. Gardé sur la tablette avec la
+ * visite : il sert aussi hors connexion.
+ */
+export async function referencesFrequentes(parGenre = 12): Promise<ReferenceFrequente[]> {
+  const lignes = await q<{ piece: string; label: string; volume: number; dossiers: number }>(
+    `select min(btrim(piece)) as piece, min(btrim(libelle)) as label, mode() within group (order by volume)::float8 as volume,
+            count(distinct dossier_id)::int as dossiers
+       from inventaire where btrim(libelle) <> '' and btrim(piece) <> '' and volume >= 0 and volume <= 99
+      group by lower(btrim(piece)), lower(btrim(libelle))
+      order by dossiers desc limit 5000`,
+  );
+  // « Chambre 2 » et « chambre » : un même genre ; un libellé n'y compte qu'une fois (ses dossiers s'additionnent).
+  const genres = new Map<string, Map<string, { label: string; volume: number; dossiers: number }>>();
+  for (const l of lignes) {
+    const g = genreDePiece(l.piece);
+    if (!g) continue;
+    const m = genres.get(g) ?? new Map();
+    genres.set(g, m);
+    const cle = l.label.toLowerCase();
+    const deja = m.get(cle);
+    if (deja) deja.dossiers += l.dossiers;
+    else m.set(cle, { label: l.label, volume: l.volume, dossiers: l.dossiers });
+  }
+  const out: ReferenceFrequente[] = [];
+  for (const [genre, m] of genres) {
+    const tri = [...m.values()].filter((x) => x.dossiers >= 2).sort((a, b) => b.dossiers - a.dossiers || a.label.localeCompare(b.label, "fr"));
+    for (const x of tri.slice(0, parGenre)) {
+      const r = referenceDuLibelle(x.label);
+      out.push({ genre, label: r?.label ?? x.label, volume: r ? r.volume : x.volume, en: r?.en ?? null, dossiers: x.dossiers, ...(r?.horsCubage ? { horsCubage: true } : {}) });
+    }
+  }
+  return out;
 }
 
 // --- La tablette : les visites du jour ---------------------------------------------------------------

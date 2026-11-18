@@ -94,16 +94,20 @@ async function enrichirTrajet(db: Db, source: number, cible: number) {
 
 /** L'inventaire et ses pièces : chaque objet rejoint la copie de sa pièce ; les clés de synchronisation sont neuves. */
 async function copierInventaire(db: Db, source: number, cible: number) {
-  const pieces = await db.query<{ id: number; nom: string; ordre: number; remarque: string | null }>("select id, nom, ordre, remarque from pieces where dossier_id=$1 order by ordre, id", [source]);
+  const pieces = await db.query<{ id: number; nom: string; ordre: number; remarque: string | null; destination_speciale: string | null }>(
+    "select id, nom, ordre, remarque, destination_speciale from pieces where dossier_id=$1 order by ordre, id",
+    [source],
+  );
   const correspondance: Record<string, number> = {};
   for (const p of pieces) {
-    const [n] = await db.query<{ id: number }>("insert into pieces(dossier_id, nom, ordre, remarque) values($1,$2,$3,$4) returning id", [cible, p.nom, p.ordre, p.remarque]);
+    const [n] = await db.query<{ id: number }>("insert into pieces(dossier_id, nom, ordre, remarque, destination_speciale) values($1,$2,$3,$4,$5) returning id", [cible, p.nom, p.ordre, p.remarque, p.destination_speciale]);
     correspondance[String(p.id)] = n.id;
   }
+  // Les destinations hors adresse, la désignation anglaise et le hors-cubage (tablette, 18/11/2026) suivent la ligne.
   const objets = await db.query(
-    `insert into inventaire(dossier_id, piece, libelle, quantite, volume, destination, demontage, cle, piece_id, fragile, note, ordre)
+    `insert into inventaire(dossier_id, piece, libelle, quantite, volume, destination, demontage, cle, piece_id, fragile, note, ordre, destination_speciale, libelle_en, hors_cubage)
      select $2, piece, libelle, quantite, volume, destination, demontage, case when cle is null then null else gen_random_uuid() end,
-            ($3::jsonb ->> piece_id::text)::int, fragile, note, ordre
+            ($3::jsonb ->> piece_id::text)::int, fragile, note, ordre, destination_speciale, libelle_en, hors_cubage
        from inventaire where dossier_id=$1 order by ordre, id returning id`,
     [source, cible, JSON.stringify(correspondance)],
   );

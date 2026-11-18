@@ -21,9 +21,14 @@ export function appliquerOp(e: EtatSaisie, op: Operation): EtatSaisie {
   switch (op.t) {
     case "piece": {
       const avant = e.pieces.find((x) => x.cle === op.cle);
-      // La destination de la pièce : celle de l'opération, sinon celle qu'elle avait (le serveur fait de même).
-      const destination = op.destination !== undefined ? op.destination : avant?.destination;
-      const p: PieceSaisie = { cle: op.cle, nom: op.nom, ordre: op.ordre, remarque: op.remarque, ...(destination !== undefined ? { destination } : {}) };
+      // La destination de la pièce : celle de l'opération, sinon celle qu'elle avait (le serveur fait de même) ; une
+      // destination hors adresse remplace l'étape, une étape remplace la destination hors adresse (operations.ts, trancher).
+      const destination = op.speciale ? null : op.destination !== undefined ? op.destination : avant?.destination;
+      const speciale = op.speciale !== undefined ? op.speciale : op.destination != null ? null : avant?.speciale;
+      const p: PieceSaisie = {
+        cle: op.cle, nom: op.nom, ordre: op.ordre, remarque: op.remarque,
+        ...(destination !== undefined ? { destination } : {}), ...(speciale !== undefined ? { speciale } : {}),
+      };
       const pieces = avant ? e.pieces.map((x) => (x.cle === op.cle ? p : x)) : [...e.pieces, p];
       return { ...e, pieces: pieces.sort((a, b) => a.ordre - b.ordre) };
     }

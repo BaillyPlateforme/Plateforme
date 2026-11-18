@@ -1,4 +1,4 @@
-import { m3, m3Fin, momentVisite, resumeAcces, type ContenuCompteRendu } from "@/lib/visite/regles";
+import { designation, m3, m3Fin, momentVisite, resumeAcces, type ContenuCompteRendu } from "@/lib/visite/regles";
 import { Picto } from "@/terrain/composants/Picto";
 import { urlPhotoVisite } from "./etat";
 import s from "./tablette.module.css";
@@ -9,6 +9,8 @@ import s from "./tablette.module.css";
  * Les vignettes des photos s'y ajoutent, pièce par pièce.
  */
 export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; photos: Map<string, number[]> }) {
+  // Depuis le 18/11/2026 : le volume transporté, distingué de ce qui ne l'est pas (destinations hors adresse).
+  const distingue = c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null;
   return (
     <>
       <section className={s.crTete}>
@@ -22,7 +24,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
         </div>
         <div className={s.crChiffres}>
           <div>
-            <small>Volume</small>
+            <small>{distingue ? "Volume transporté" : "Volume"}</small>
             <b>{m3(c.volume)}</b>
           </div>
           <div>
@@ -40,13 +42,40 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
         </div>
       </section>
 
+      {distingue && (
+        <section className={s.crBloc}>
+          <h2>Volume transporté et non transporté</h2>
+          <ul className={s.crDestinations}>
+            <li>
+              <span>Volume transporté</span>
+              <small>
+                {[c.volume_debarras ? `dont débarras ${m3(c.volume_debarras)}` : null, c.volume_a_confirmer ? `dont à confirmer ${m3(c.volume_a_confirmer)}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </small>
+              <b>{m3(c.volume)}</b>
+            </li>
+            {c.volume_non_transporte != null && (
+              <li>
+                <span>Non transporté</span>
+                <small>à laisser sur place, pris en charge par le client</small>
+                <b>{m3(c.volume_non_transporte)}</b>
+              </li>
+            )}
+          </ul>
+        </section>
+      )}
+
       {c.destinations && c.destinations.length > 0 && (
         <section className={s.crBloc}>
           <h2>Volume par destination</h2>
           <ul className={s.crDestinations}>
             {c.destinations.map((d) => (
               <li key={d.libelle}>
-                <span>{d.libelle}</span>
+                <span>
+                  {d.libelle}
+                  {d.non_transporte && <em className={s.crHors}> · non transporté</em>}
+                </span>
                 <small>
                   {d.objets} objet{d.objets > 1 ? "s" : ""}
                 </small>
@@ -90,12 +119,13 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
                   <li key={i}>
                     <span>
                       {o.quantite > 1 ? `${o.quantite} × ` : ""}
-                      {o.libelle}
+                      {designation(o.libelle, o.libelle_en)}
                       {o.demontage && <em>DÉMONTAGE</em>}
                       {o.fragile && <em>FRAGILE</em>}
                       {o.destination && <small className={s.crDest}>→ {o.destination}</small>}
+                      {o.note && <small className={s.crNote}>{o.note}</small>}
                     </span>
-                    <b>{o.quantite > 1 ? `${m3Fin(o.volume_unitaire)} · ` : ""}{m3(o.volume)}</b>
+                    <b>{o.hors_cubage ? "non compté" : `${o.quantite > 1 ? `${m3Fin(o.volume_unitaire)} · ` : ""}${m3(o.volume)}`}</b>
                   </li>
                 ))}
               </ul>
