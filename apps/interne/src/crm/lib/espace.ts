@@ -46,6 +46,14 @@ export async function projeterEspace(dossierId: number | null | undefined) {
   } catch (e) {
     console.error(`BaillyCRM : projection des visites du dossier ${dossierId} vers l'espace client impossible`, e instanceof Error ? e.message : e);
   }
+  // La situation du dossier (migration 0021) : repli, véhicules, départements d'outre-mer — d'où les pièces
+  // conditionnelles des CIMOB/DICOM. Avant la migration, la fonction manque : l'espace demande ces pièces
+  // « si vous êtes concerné », et rien d'autre ne change.
+  try {
+    await q1("select public.ec_projeter_situation_crm($1)", [dossierId]);
+  } catch (e) {
+    console.error(`BaillyCRM : projection de la situation du dossier ${dossierId} vers l'espace client impossible`, e instanceof Error ? e.message : e);
+  }
 }
 
 export type IssueSignature = "signe" | "deja_signe" | "autre_signe" | "ferme" | "inconnu";

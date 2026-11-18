@@ -219,7 +219,13 @@ describe("factureSchema, pieceSchema, conseillerSchema, serviceSchema", () => {
     expect(piece({ pays: "ca" }).success).toBe(true);
     expect(piece({ pays: "CAN" }).success).toBe(false);
     expect(piece({ ordre: "1000" }).success).toBe(false);
-    expect(piece({ description: "a".repeat(301) }).success).toBe(false);
+    // 600 caractères : la description porte aussi les règles d'assurance du CIMOB (pièces CIMOB/DICOM, 17/11/2026).
+    expect(piece({ description: "a".repeat(600) }).success).toBe(true);
+    expect(piece({ description: "a".repeat(601) }).success).toBe(false);
+    // La condition (migration 0021) : vide ou absente, aucune ; une valeur inconnue est refusée.
+    expect(r.success && r.data.condition).toBeNull();
+    expect(piece({ condition: "vehicule" }).data?.condition).toBe("vehicule");
+    expect(piece({ condition: "constructor" }).success).toBe(false);
   });
 
   it("conseiller : e-mail et téléphone français exigés", () => {

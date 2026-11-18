@@ -155,13 +155,27 @@ async function compteFictif(email) {
   return data.user.id;
 }
 
+/**
+ * La colonne `condition` des pièces (migration 0021) existe-t-elle ? Sans
+ * elle, une pièce conditionnelle serait demandée à tous : elle n'est pas
+ * semée (scripts/pieces-cimob.mjs le fera, une fois la migration appliquée).
+ */
+async function avecConditions() {
+  const { error } = await db.from("ec_document_requirements").select("condition").limit(1);
+  return !error;
+}
+
 async function semerCatalogues(jeu) {
   const d = jeu.amorcer(new Date());
   const avecId = (lignes) => lignes.map((l) => ({ ...l, id: uuidDe(l.id) }));
-  for (const [table, lignes] of [["ec_document_requirements", d.document_requirements], ["ec_tutos", d.tutos], ["ec_services", d.services]]) {
+  const conditions = await avecConditions();
+  // Avant 0021 : pas de colonne `condition`, et pas de pièce qui en a une.
+  const pieces = conditions ? d.document_requirements : d.document_requirements.filter((p) => !p.condition).map(({ condition: _, ...p }) => p);
+  for (const [table, lignes] of [["ec_document_requirements", pieces], ["ec_tutos", d.tutos], ["ec_services", d.services]]) {
     await verifier(db.from(table).upsert(avecId(lignes), { onConflict: "id", ignoreDuplicates: true }), `Listes de départ (${table})`);
   }
-  console.log(`Listes de départ : ${d.document_requirements.length} pièces, ${d.tutos.length} tutos, ${d.services.length} services (ajoutés s'ils manquaient).`);
+  console.log(`Listes de départ : ${pieces.length} pièces, ${d.tutos.length} tutos, ${d.services.length} services (ajoutés s'ils manquaient).`);
+  if (!conditions) console.log(`Migration 0021 absente : ${d.document_requirements.length - pieces.length} pièces conditionnelles (CIMOB/DICOM) non semées.`);
 }
 
 // --- Le jeu dans le CRM ------------------------------------------------------------------------
@@ -312,8 +326,16 @@ async function semer(jeu) {
     comptes[t] = lignes.length;
   }
 
-  // 6. La projection : devis, factures, client et trajet reviennent du CRM.
+  // 6. La projection : devis, factures, client et trajet reviennent du CRM ; puis, depuis la migration 0021, la
+  //    situation (repli, véhicules, outre-mer), qui manque sans rien bloquer tant qu'elle n'est pas appliquée.
   for (const crmId of relies) await crm.query("select public.ec_projeter_dossier_crm($1)", [crmId]);
+  for (const crmId of relies) {
+    try {
+      await crm.query("select public.ec_projeter_situation_crm($1)", [crmId]);
+    } catch {
+      break;
+    }
+  }
   // Le conseiller présenté est désormais le commercial du CRM : les conseillers fictifs
   // du jeu (Nadia, Marc), qui ne servent qu'à la démonstration en mémoire, partent.
   await crm.query("delete from public.ec_conseillers k where k.demo and not exists (select 1 from public.ec_clients c where c.conseiller_id = k.id)");

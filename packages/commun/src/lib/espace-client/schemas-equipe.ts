@@ -119,11 +119,21 @@ export const factureSchema = z.object({
   periode: z.string().trim().transform((v) => v || null).pipe(z.string().regex(/^\d{4}-\d{2}$/, { error: "Mois au format AAAA-MM." }).nullable()),
 });
 
+/**
+ * Une pièce à fournir. La description porte aussi, comme information, les
+ * règles d'assurance du CIMOB (pièces CIMOB/DICOM) : d'où ses 600
+ * caractères. La condition (migration 0021) : vide, la pièce est demandée à
+ * tous les dossiers de son pays et de son segment.
+ */
 export const pieceSchema = z.object({
   pays: z.string().trim().toUpperCase().regex(/^([A-Z]{2})?$/, { error: "Code pays à deux lettres (CA), ou vide pour toutes les destinations." }).transform((v) => v || null),
   segment: z.enum(["", "particulier", "grand_compte", "militaire", "logement_social"]).transform((v) => (v === "" ? null : v)),
+  condition: z
+    .enum(["", "repli", "vehicule", "vehicule_electrique", "destination_outre_mer", "destination_mayotte"])
+    .default("")
+    .transform((v) => (v === "" ? null : v)),
   libelle: texte(3, 120, "Le libellé"),
-  description: z.string().trim().max(300, { error: "300 caractères au plus." }),
+  description: z.string().trim().max(600, { error: "600 caractères au plus." }),
   obligatoire: z.boolean(),
   ordre: z.coerce.number().int().min(0).max(999),
 });

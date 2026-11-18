@@ -61,7 +61,7 @@ export const SEGMENTS: Record<TypeClient, Segment> = {
     paieEnLigne: false,
     masquage: "toujours",
     regles: [
-      "Pièces spécifiques : ordre de mutation, carte militaire.",
+      "Pièces CIMOB/DICOM (liste de Céline, 17/11/2026) : certaines seulement en cas de repli, de véhicule ou d'arrivée outre-mer, d'après le CRM.",
       "Prise en charge par bordereau de l'administration : pas de paiement d'arrhes côté client.",
       "Devis et factures masqués dans l'espace du client.",
     ],

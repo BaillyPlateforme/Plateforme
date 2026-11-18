@@ -84,6 +84,23 @@ export interface Dossier {
   /** Logement social : le bailleur, prévenu de chaque déclaration de SAV. Réglé dans l'espace. */
   bailleur_nom?: string | null;
   bailleur_email?: string | null;
+  /*
+   * Ce que le CRM dit de la situation du dossier, projeté par la migration
+   * 0021 (ec_projeter_situation_crm) pour les pièces conditionnelles des
+   * dossiers CIMOB/DICOM (pieces.ts). Absent ou null : le CRM ne le dit pas
+   * (dossier non relié, migration pas encore appliquée, fenêtre « Repli et
+   * véhicules » jamais enregistrée) — la pièce est alors demandée « si vous
+   * êtes concerné », jamais cachée.
+   */
+  /** Un repli est prévu (crm.replis) ; null : la fenêtre du CRM n'a jamais été enregistrée. */
+  repli?: boolean | null;
+  /** Le nombre de véhicules transportés (crm.dossiers.vehicule et crm.vehicules) ; 0 : aucun. */
+  vehicules?: number | null;
+  /** Au moins un véhicule électrique ou hybride ; null : une motorisation n'est pas renseignée. */
+  vehicule_electrique?: boolean | null;
+  /** Les départements ou collectivités d'outre-mer (971…988) des adresses de départ et d'arrivée. */
+  departements_om_depart?: string[] | null;
+  departements_om_arrivee?: string[] | null;
   ville_depart: string;
   ville_arrivee: string;
   adresse_depart: string;
@@ -172,6 +189,14 @@ export interface Facture {
   paiement_ref: string | null;
 }
 
+/**
+ * Ce qui rend une pièce conditionnelle (migration 0021) : elle n'est demandée
+ * qu'aux dossiers dont le CRM dit qu'ils sont concernés — un repli, un
+ * véhicule, un véhicule électrique ou hybride, une arrivée outre-mer, à
+ * Mayotte. Les règles sont dans pieces.ts.
+ */
+export type ConditionPiece = "repli" | "vehicule" | "vehicule_electrique" | "destination_outre_mer" | "destination_mayotte";
+
 /** Une pièce à fournir. Les listes sont tenues par l'équipe, destination par destination. */
 export interface DocumentRequirement {
   id: string;
@@ -183,6 +208,35 @@ export interface DocumentRequirement {
   description: string;
   obligatoire: boolean;
   ordre: number;
+  /** null ou absent : demandée sans autre condition que le pays et le segment (colonne de la migration 0021). */
+  condition?: ConditionPiece | null;
+  /**
+   * Calculé, jamais enregistré : la pièce a une condition dont le CRM ne dit
+   * rien pour ce dossier. Elle est alors montrée facultative, « si vous êtes
+   * concerné » (requirementsApplicables).
+   */
+  si_concerne?: boolean;
+}
+
+/**
+ * Un modèle à télécharger d'une pièce (table ec_modeles_pieces, migration
+ * 0021) : le formulaire vierge à remplir, un exemple rempli… Une pièce peut
+ * en avoir plusieurs. Le fichier vit dans le seau privé des modèles
+ * (modeles.ts), jamais dans le dépôt Git, et sort par un lien signé.
+ */
+export interface ModelePiece {
+  id: string;
+  requirement_id: string;
+  /** « Modèle », « Exemple rempli » : ce que le client lit sur le lien. */
+  libelle: string;
+  /** Où sont les octets, dans le seau des modèles. */
+  chemin: string;
+  nom_fichier: string;
+  mime: string;
+  taille_octets: number;
+  ordre: number;
+  created_by: string;
+  created_at: string;
 }
 
 export type SourceDocument = "client" | "equipe";
@@ -453,6 +507,8 @@ export interface Donnees {
   devis: Devis[];
   factures: Facture[];
   document_requirements: DocumentRequirement[];
+  /** Les modèles à télécharger des pièces (migration 0021 ; vide tant qu'elle n'est pas appliquée). */
+  modeles_pieces: ModelePiece[];
   documents: DocumentFichier[];
   acceptations: Acceptation[];
   declarations_valeurs: DeclarationValeurs[];

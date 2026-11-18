@@ -5,13 +5,15 @@ import { envoisDesNotifications } from "@/lib/envois/journal";
 import { demoEquipeActive, estDemo, modeDonnees } from "./config";
 import { cleCatalogue, textesEspace } from "./catalogue-textes";
 import { createServiceClient } from "@/lib/supabase/server";
-import { avecDelai, lireDonnees } from "./depot";
+import { avecDelai, lireDonnees, tableManquante } from "./depot";
 import { devisDeLaDemande, lireDemande, listerDemandes } from "./demandes";
 import { rendreEmail, texteSms } from "./emails";
 import { lienArchive, lienFichier } from "./fichiers";
 import { aujourdhui, heure, joursRestants, nomClient, PAYS } from "./format";
 import { conseillerDe, snapshotDe } from "./lectures";
+import { modelesDe } from "./modeles";
 import { PHOTOS } from "./photos";
+import { LISTE_CONDITIONS } from "./pieces";
 import { fichiersDuDossier, GROUPES_FICHIERS } from "./pieces-jointes";
 import { avancement, calculerFrise, estInternationalSuivi, piecesManquantes, prochaineEtape, suiviEquipe } from "./progression";
 import { LISTE_SEGMENTS, segmentDe } from "./segments";
@@ -277,12 +279,26 @@ export function vueSav(d: Donnees, porte: string) {
   };
 }
 
-export function vueDestinations(d: Donnees) {
+/**
+ * L'éditeur des pièces à fournir : les pièces, leur condition et leurs
+ * modèles à télécharger (liens de cinq minutes sur la porte de l'équipe).
+ * `migration0021` : la table des modèles se lit — sinon l'éditeur le dit,
+ * et ne propose ni condition ni modèle.
+ */
+export function vueDestinations(d: Donnees, porte: string) {
   return {
     mode: mode(),
-    pieces: [...d.document_requirements].sort((a, b) => (a.segment ?? "").localeCompare(b.segment ?? "") || (a.pays ?? "").localeCompare(b.pays ?? "") || a.ordre - b.ordre),
+    pieces: [...d.document_requirements]
+      .sort((a, b) => (a.segment ?? "").localeCompare(b.segment ?? "") || (a.pays ?? "").localeCompare(b.pays ?? "") || a.ordre - b.ordre)
+      .map((p) => ({
+        ...p,
+        condition: p.condition ?? null,
+        modeles: modelesDe(d, p.id).map((m) => ({ ...m, chemin: undefined, lien: lienFichier("modele", m.id, { porte, telecharger: true }) })),
+      })),
     pays: PAYS,
     segments: LISTE_SEGMENTS.map((s) => ({ cle: s.cle, libelle: s.libelle })),
+    conditions: LISTE_CONDITIONS,
+    migration0021: estDemo() || !tableManquante("modeles_pieces"),
   };
 }
 
@@ -366,7 +382,7 @@ export async function lireVue(chemin: string[], params: URLSearchParams, base: s
     case "sav":
       return vueSav(d, porteFichiers);
     case "destinations":
-      return vueDestinations(d);
+      return vueDestinations(d, porteFichiers);
     case "journal":
       return await vueJournal(d);
     case "reglages":
