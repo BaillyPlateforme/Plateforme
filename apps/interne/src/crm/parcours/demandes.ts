@@ -38,7 +38,7 @@ export async function archivesTrouves(texte: string): Promise<number> {
   const t = texte.trim();
   if (!t) return 0;
   const p: unknown[] = [`%${t}%`];
-  const cond = ["c.nom ilike $1", "c.prenom ilike $1", "c.societe ilike $1", "d.ref ilike $1", "c.email ilike $1"];
+  const cond = ["c.nom ilike $1", "c.prenom ilike $1", "c.societe ilike $1", "d.ref ilike $1", "c.email ilike $1", "c.matricule ilike $1"];
   const chiffres = t.replace(/[^0-9]/g, "");
   if (chiffres.length >= 4) {
     p.push(`%${chiffres}%`);

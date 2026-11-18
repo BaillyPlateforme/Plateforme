@@ -2,7 +2,7 @@ import "server-only";
 import { espaceDuClientEc, manqueAvantEspace, type EspaceDuClient } from "@/lib/espace-client/crm";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { listerRelances } from "@/crm/relances/moteur";
-import { chiffresTelephone, normaliser, type LigneClient } from "./commun";
+import { chiffresTelephone, texteRecherche, type LigneClient } from "./commun";
 
 /*
  * Les lectures des clients du CRM : la liste (/clients) et la fiche d'un
@@ -35,6 +35,9 @@ with par_dossier as (
     greatest(coalesce(s.reste, 0), 0)::float8 as reste,
     (select string_agg(e.adresse, ' | ' order by e.ordre, e.id) from etapes_trajet e where e.dossier_id = d.id and e.adresse is not null and e.genre <> 'garde_meuble') as adresses,
     greatest(d.maj_le, (select max(a.cree_le) from activite a where a.dossier_id = d.id)) as activite,
+    -- CIMOB/DICOM : les départements d'outre-mer de ses adresses, repli compris (src/crm/cimob).
+    array(select e.departement_om from etapes_trajet e where e.dossier_id = d.id and e.departement_om is not null
+          union select r.departement_om from replis r where r.dossier_id = d.id and r.repli and r.departement_om is not null) as departements_om,
     ec.nb as espaces, ec.connexion, ec.message
   from dossiers d
   left join dossiers_soldes s on s.dossier_id = d.id
@@ -45,7 +48,8 @@ with par_dossier as (
     from public.ec_dossiers x where x.crm_dossier_id = d.id
   ) ec on true
 )
-select c.id, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone, c.telephone2, c.cree_le, c.espace_pro_id,
+select c.id, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone, c.telephone2, c.cree_le, c.espace_pro_id, c.matricule,
+  coalesce((select array_agg(distinct x order by x) from par_dossier p2, unnest(p2.departements_om) x where p2.client_id = c.id), '{}') as departements_om,
   count(p.id)::int as nb_dossiers,
   count(p.id) filter (where p.en_cours)::int as en_cours,
   coalesce(sum(p.engage), 0)::float8 as ca,
@@ -126,7 +130,9 @@ export async function lignesClients(): Promise<LigneClient[]> {
       activite: iso(r.activite) ?? iso(r.cree_le)!,
       aRelancer: dossiers.some((id) => relancer.has(id)),
       entreprise: r.espace_pro_id ?? null,
-      texte: normaliser([r.prenom, r.nom, r.societe, r.email, r.telephone, r.telephone2, r.refs, adresses.join(" "), `n° ${r.id}`].filter(Boolean).join(" ")),
+      matricule: r.matricule ?? null,
+      departements: (r.departements_om as string[] | null) ?? [],
+      texte: texteRecherche({ id: r.id, prenom: r.prenom, nom: r.nom, societe: r.societe, email: r.email, telephone: r.telephone, telephone2: r.telephone2, refs: r.refs, adresses: adresses.join(" "), matricule: r.matricule }),
       telephones: [r.telephone, r.telephone2].map(chiffresTelephone).filter(Boolean).join(" "),
     };
   });

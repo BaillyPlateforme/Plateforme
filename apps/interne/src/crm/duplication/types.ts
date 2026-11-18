@@ -16,6 +16,8 @@ export interface EtapeSource {
   etage: string | null;
   ascenseur: boolean;
   acces: string | null;
+  /** CIMOB/DICOM : le département d'outre-mer de l'adresse. */
+  departement_om?: string | null;
 }
 
 /** Un dossier à dupliquer pour un nouveau client (/dossiers/nouveau?depuis=<id>). */

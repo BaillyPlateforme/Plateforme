@@ -4,6 +4,7 @@ import { emballages } from "@/crm/lib/tarif";
 import { telephoneEtLibelle, telLisible } from "@/crm/clients/telephones";
 import { Cases, Encadre, FeuilleBailly, Section, Signatures, Tableau } from "./FeuilleBailly";
 import { m3Client, volumeClient } from "./volume-client";
+import { dimensionsLisibles, libelleDepartement, libelleSituation, nomVehicule, resumeRepli } from "@/crm/cimob/commun";
 
 /*
  * Les documents imprimés d'un dossier, aux couleurs de Bailly : la fiche de
@@ -39,6 +40,7 @@ function Itineraire({ d }: { d: any }) {
         lignes={(d.stops as any[]).map((e) => [
           <b key="g">{GENRE[e.genre] ?? "Étape"}</b>,
           [e.adresse, [e.code_postal && !String(e.adresse ?? "").includes(e.code_postal) ? e.code_postal : null, e.ville && !String(e.adresse ?? "").toLowerCase().includes(String(e.ville).toLowerCase()) ? e.ville : null].filter(Boolean).join(" ")]
+            .concat(libelleDepartement(e.departement_om) ?? [])
             .filter(Boolean)
             .join(" · ") || "—",
           e.genre === "garde_meuble"
@@ -92,6 +94,7 @@ export function FicheVisiteBailly({ d }: { d: any }) {
         ]}
       />
       <Itineraire d={d} />
+      {d.type === "militaire" && <CimobDicom d={d} />}
       {d.observations && (
         <Section titre="Observations">
           <Encadre>{d.observations}</Encadre>
@@ -123,6 +126,46 @@ export function FicheVisiteBailly({ d }: { d: any }) {
         />
       </Section>
     </FeuilleBailly>
+  );
+}
+
+/**
+ * CIMOB/DICOM (Céline, 17/11/2026), sur la fiche de visite (document de l'équipe) : le matricule et la situation
+ * de famille, les deux volumes (seuls les droits sont communiqués au client), le repli et les véhicules.
+ */
+function CimobDicom({ d }: { d: any }) {
+  const r = d.cimob?.repli;
+  const vehicules: any[] = d.cimob?.vehicules ?? [];
+  return (
+    <Section titre="CIMOB/DICOM">
+      <Cases
+        items={[
+          { label: "Matricule", valeur: d.matricule ?? "—", detail: libelleSituation(d.situation_famille) ?? "Situation de famille à préciser" },
+          { label: "Droits", valeur: d.volume_droits != null ? m3(Number(d.volume_droits)) : "—", detail: "Seul volume communiqué au client" },
+          { label: "Volume réel", valeur: m3(d.volume), detail: "Suite visite commercial" },
+          {
+            label: "Repli",
+            valeur: r?.repli ? (r.volume_droits != null ? `Oui · ${m3(r.volume_droits)}` : "Oui") : "Non",
+            detail: r?.repli
+              ? [resumeRepli(r), r.periode, r.destination === "adresse" ? [r.etage ? `étage ${r.etage}` : null, r.ascenseur ? `ascenseur${r.ascenseur_taille ? ` (${r.ascenseur_taille} pers.)` : ""}` : "sans ascenseur"].filter(Boolean).join(", ") : null]
+                  .filter(Boolean)
+                  .join(" · ")
+              : undefined,
+          },
+        ]}
+      />
+      {d.vehicule && (
+        <Tableau
+          entetes={["Véhicule", "Volume", "Estimation"]}
+          droite={[1]}
+          lignes={
+            vehicules.length
+              ? vehicules.map((v) => [nomVehicule(v), v.volume != null ? m3(v.volume) : "—", v.estimation ? `IA : ${dimensionsLisibles(v.estimation)}` : "—"])
+              : [["Transport de véhicules : oui, véhicules à préciser", "—", "—"]]
+          }
+        />
+      )}
+    </Section>
   );
 }
 

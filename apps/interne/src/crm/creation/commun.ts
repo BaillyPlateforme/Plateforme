@@ -1,3 +1,5 @@
+import { departementOm } from "@/crm/cimob/commun";
+
 /*
  * La création de dossier rapide : ce que partagent l'écran (navigateur) et le
  * serveur. Les libellés, la forme d'une « reprise », et le calcul du dossier
@@ -67,6 +69,8 @@ export interface EtapeReprise {
   code_acces?: string | null;
   surface_m2?: number | null;
   acces_camion?: string | null;
+  /** CIMOB/DICOM : le département d'outre-mer de l'adresse (cimob/commun.ts). */
+  departement_om?: string | null;
 }
 
 /* ---------- les adresses de la fiche du premier appel ---------- */
@@ -103,6 +107,8 @@ export interface AdresseSaisie {
   surface: string;
   acces_camion: string;
   acces: string;
+  /** CIMOB/DICOM (Céline, 17/11/2026) : le département d'outre-mer, par son code (971…988) ; vide par défaut. */
+  departement_om: string;
 }
 
 /** « Accès en camion » : la mention écrite d'office, modifiable (Céline : « automatiquement notée facile aux poids lourds »). */
@@ -111,7 +117,7 @@ export const ACCES_CAMION_DEFAUT = "Facile aux poids lourds";
 export const ADRESSE_VIDE: AdresseSaisie = {
   adresse: "", complement: "", code_postal: "", ville: "", pays: "", lat: null, lon: null,
   etage: "", ascenseur: false, ascenseur_taille: "", monte_meuble: false, transbordement: false, portage: false,
-  code_acces: "", surface: "", acces_camion: ACCES_CAMION_DEFAUT, acces: "",
+  code_acces: "", surface: "", acces_camion: ACCES_CAMION_DEFAUT, acces: "", departement_om: "",
 };
 
 /** Au plus, par genre : un déménagement à dix adresses de chargement se saisit sur la fiche. */
@@ -135,6 +141,7 @@ export function adresseDepuisEtape(e: EtapeReprise, depart: boolean): AdresseSai
     surface: depart && e.surface_m2 != null ? String(e.surface_m2) : "",
     acces_camion: e.acces_camion ?? ACCES_CAMION_DEFAUT,
     acces: e.acces ?? "",
+    departement_om: departementOm(e.departement_om) ?? "",
   };
 }
 
@@ -157,6 +164,7 @@ export interface EtapeSaisie {
   surface_m2: number | null;
   acces_camion: string | null;
   acces: string | null;
+  departement_om: string | null;
 }
 
 const texteBorne = (v: unknown, max: number) => {
@@ -222,11 +230,12 @@ export function lireLieux(brut: unknown): EtapeSaisie[] {
       surface_m2: genre === "depart" && Number.isFinite(surface) && surface > 0 && surface < 100_000 ? Math.round(surface) : null,
       acces_camion: texteBorne(o.acces_camion, 200),
       acces: texteBorne(o.acces, 500),
+      departement_om: departementOm(o.departement_om),
     });
   }
   const vide = (genre: "depart" | "arrivee"): EtapeSaisie => ({
     genre, adresse: null, code_postal: null, ville: null, pays: null, lat: null, lon: null, etage: null, ascenseur: false, ascenseur_taille: null,
-    monte_meuble: "non", transbordement: false, portage: false, code_acces: null, surface_m2: null, acces_camion: null, acces: null,
+    monte_meuble: "non", transbordement: false, portage: false, code_acces: null, surface_m2: null, acces_camion: null, acces: null, departement_om: null,
   });
   if (!parGenre.depart) etapes.unshift(vide("depart"));
   if (!parGenre.arrivee) etapes.push(vide("arrivee"));
@@ -284,9 +293,12 @@ export interface ClientConnu {
   societe: string | null;
   email: string | null;
   telephone: string | null;
-  par: "email" | "telephone";
+  par: "email" | "telephone" | "matricule";
   nbDossiers: number;
   dernier: SourceDossier | null;
+  /** CIMOB/DICOM : son matricule et sa situation de famille (cimob/commun.ts). */
+  matricule?: string | null;
+  situation_famille?: string | null;
 }
 
 /** Un dossier récent qui ressemble à celui qu'on saisit : un doublon possible. */
@@ -318,6 +330,8 @@ export interface Saisie {
   type?: string;
   type_demenagement?: string;
   clientId?: number | null;
+  /** CIMOB/DICOM : le matricule saisi, qui reconnaît un client déjà connu. */
+  matricule?: string;
 }
 
 /* ---------- téléphone, e-mail ---------- */

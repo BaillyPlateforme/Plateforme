@@ -26,6 +26,7 @@ import { estSuperAdmin } from "@/lib/droits";
 import { espaceDuDossier } from "@/crm/lib/espace";
 import { telLisible } from "@/crm/clients/telephones";
 import LienStreetView from "@/ui/LienStreetView";
+import { cimobDuDossier } from "@/crm/cimob/donnees";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +55,8 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     ficheDossier(d),
     // Un espace client ouvert : l'e-mail du client est son identifiant de connexion, il se modifie depuis l'espace.
     q<{ id: string }>("select id from public.ec_dossiers where crm_dossier_id=$1 order by created_at desc limit 1", [id]).catch(() => []),
-    q<{ telephone2: string | null; espace_pro_id: string | null; telephone_libelle: string | null; telephone2_libelle: string | null; telephones_autres: unknown }>(
-      "select telephone2, espace_pro_id, telephone_libelle, telephone2_libelle, telephones_autres from clients where id=$1",
+    q<{ telephone2: string | null; espace_pro_id: string | null; telephone_libelle: string | null; telephone2_libelle: string | null; telephones_autres: unknown; matricule: string | null; situation_famille: string | null }>(
+      "select telephone2, espace_pro_id, telephone_libelle, telephone2_libelle, telephones_autres, matricule, situation_famille from clients where id=$1",
       [d.client_id],
     ),
     // Le parcours n'empêche jamais la fiche de s'ouvrir : sans lui, la fiche reste entière.
@@ -81,6 +82,10 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
   d.telephone_libelle = client[0]?.telephone_libelle ?? null;
   d.telephone2_libelle = client[0]?.telephone2_libelle ?? null;
   d.telephones_autres = client[0]?.telephones_autres ?? [];
+  // CIMOB/DICOM (Céline, 17/11/2026) : matricule, situation de famille, repli et véhicules.
+  d.matricule = client[0]?.matricule ?? null;
+  d.situation_famille = client[0]?.situation_famille ?? null;
+  const cimob = d.type === "militaire" ? await cimobDuDossier(id) : null;
   // Le solde : ce que le client doit encore, calculé par la facturation (vue crm.dossiers_soldes).
   const solde = Math.max(0, (await soldeDossier(id)).reste);
 
@@ -91,7 +96,7 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
     ? `vu par le client le ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" }).format(new Date(parcours.espace.derniereConnexion))}`
     : "jamais consulté par le client";
 
-  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, aAjouter, entreprises, sp, solde, maintenant: instant });
+  const fiche = construireFiche({ d, data, utilisateurs: users, litiges: lit, etatsSms, espaceOuvert: espace.length > 0, aAjouter, entreprises, sp, solde, maintenant: instant, cimob });
 
   return (
     <div className="view dossier">
@@ -103,13 +108,16 @@ export default async function PageDossier({ params, searchParams }: { params: Pr
         // avant le volume réel, que seule l'équipe voit.
         texte={
           <>
+            {/* CIMOB/DICOM (Céline, 17/11/2026 : « deux volumes… visibles facilement ») : les droits et le réel en tête de
+                ligne, avant que le trajet ne la fasse tronquer ; le détail est dans les cases sous la barre de la fiche. */}
+            {d.type === "militaire" ? `Droits ${d.volume_droits != null ? m3(Number(d.volume_droits)) : "à saisir"} · réel ${m3(d.volume)} · ` : null}
             {d.telephone ? `${telLisible(d.telephone)} · ` : null}
             {d.stops[0]?.adresse ?? "—"}
             <LienStreetView adresse={d.stops[0]?.adresse} ton="bandeau" court />
             {" → "}
             {d.stops[d.stops.length - 1]?.adresse ?? "—"}
             {d.stops.length > 1 && <LienStreetView adresse={d.stops[d.stops.length - 1]?.adresse} ton="bandeau" court />}
-            {[periodeDuSousTitre(d), visiteLe, d.volume_droits != null ? `Droits ${m3(Number(d.volume_droits))}` : null, d.volume_droits != null ? `réel ${m3(d.volume)}` : m3(d.volume), d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km` : null]
+            {[periodeDuSousTitre(d), visiteLe, d.type === "militaire" ? null : d.volume_droits != null ? `Droits ${m3(Number(d.volume_droits))}` : null, d.type === "militaire" ? null : d.volume_droits != null ? `réel ${m3(d.volume)}` : m3(d.volume), d.distance_km != null ? `${Number(d.distance_km).toLocaleString("fr-FR")} km` : null]
               .filter(Boolean)
               .map((x) => ` · ${x}`)}
           </>

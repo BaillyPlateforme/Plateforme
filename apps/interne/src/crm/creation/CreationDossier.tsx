@@ -15,6 +15,12 @@ import { TELEPHONE_VIDE, telLisible, type Telephone } from "@/crm/clients/teleph
 import { Picto } from "./Picto";
 import type { SourceDuplication } from "@/crm/duplication/types";
 import PanneauDuplication, { COCHES_DEFAUT, cochesInitiales, type Coches } from "@/crm/duplication/composants/PanneauDuplication";
+import {
+  DESTINATIONS_REPLI, GENRES_VEHICULE, GROUPES_OM, DEPARTEMENTS_OM, MOTORISATIONS, REPLI_VIDE, SITUATIONS_FAMILLE, VEHICULE_VIDE, VEHICULES_MAX,
+  departementDepuisCodePostal, saisieVolume, volumeEnSaisie, type AdresseRepli, type RepliSaisi, type VehiculeSaisi,
+} from "@/crm/cimob/commun";
+import { BoutonEstimer, NoteEstimation } from "@/crm/cimob/Estimation";
+import c from "@/crm/cimob/cimob.module.css";
 import s from "./creation.module.css";
 
 /*
@@ -58,8 +64,13 @@ interface V {
   telephones: Telephone[];
   /** Client compte : l'entreprise sous appel d'offres (« compte BAILLY »), un espace pro. */
   espace_pro_id: string;
-  /** CIMOB/DICOM : le volume accordé par l'administration, en m³. */
+  /** CIMOB/DICOM : le volume accordé par l'administration, en m³ (« 12,5 »). */
   volume_droits: string;
+  /** CIMOB/DICOM (Céline, 17/11/2026) : la situation de famille (un code), le matricule, le repli, les véhicules. */
+  situation_famille: string;
+  matricule: string;
+  repli: RepliSaisi;
+  vehicules: VehiculeSaisi[];
   origine: string;
   periode: string;
   departs: AdresseSaisie[]; arrivees: AdresseSaisie[];
@@ -74,7 +85,8 @@ type Genre = "departs" | "arrivees";
 
 const VIDE: V = {
   type: "particulier", civilite: "", prenom: "", nom: "", societe: "", email: "",
-  telephones: [TELEPHONE_VIDE], espace_pro_id: "", volume_droits: "", origine: "", periode: "",
+  telephones: [TELEPHONE_VIDE], espace_pro_id: "", volume_droits: "", situation_famille: "", matricule: "", repli: REPLI_VIDE, vehicules: [VEHICULE_VIDE],
+  origine: "", periode: "",
   departs: [ADRESSE_VIDE], arrivees: [ADRESSE_VIDE], observations: "",
   type_demenagement: "national", volume: "", commercial_id: "", garde_meuble: false, vehicule: false,
 };
@@ -219,6 +231,8 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
   const aFocaliser = useRef<Champ | "premier" | null>("premier");
 
   const societe = SEGMENTS_SOCIETE.includes(v.type);
+  /** CIMOB/DICOM : la création suit l'ordre de Céline (17/11/2026) — client, départ, livraison, repli, véhicules, observations. */
+  const militaire = v.type === "militaire";
   const defauts = (c: ClientConnu | null = client): V => ({ ...VIDE, commercial_id: comDefaut, type: c?.type ?? "particulier" });
 
   /* ---------- l'essentiel, dans l'ordre où Entrée le parcourt ---------- */
@@ -283,6 +297,31 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
   const retirerLieu = (g: Genre, i: number) => {
     touches.current.add(g);
     setEtat((e) => ({ ...e, v: { ...e.v, [g]: e.v[g].filter((_, j) => j !== i) }, repris: e.repris.filter((x) => x !== g) }));
+  };
+  /**
+   * CIMOB/DICOM : le repli et son adresse, sur l'état du moment (le choix d'une suggestion en fait deux de suite).
+   * Aucune reprise ne les touche : ils ne sont pas notés parmi les champs saisis.
+   */
+  const majRepli = (champs: Partial<RepliSaisi>, adresse?: Partial<AdresseRepli>) => {
+    setEtat((e) => ({ ...e, v: { ...e.v, repli: { ...e.v.repli, ...champs, adresse: { ...e.v.repli.adresse, ...adresse } } } }));
+  };
+  /** Un véhicule : changer de genre, de marque ou de modèle retire une estimation faite pour un autre. */
+  const majVehicule = (i: number, champs: Partial<VehiculeSaisi>) => {
+    const efface = "genre" in champs || "marque" in champs || "modele" in champs;
+    setEtat((e) => ({
+      ...e,
+      v: { ...e.v, vehicules: e.v.vehicules.map((x, j) => (j === i ? { ...x, ...(efface && !("estimation" in champs) ? { estimation: null } : {}), ...champs } : x)) },
+    }));
+  };
+  const ajouterVehicule = () => {
+    setEtat((e) => ({ ...e, v: { ...e.v, vehicules: [...e.v.vehicules, VEHICULE_VIDE] } }));
+    window.requestAnimationFrame(() => {
+      const blocs = formulaire.current?.querySelectorAll<HTMLElement>("[data-vehicule]");
+      blocs?.[blocs.length - 1]?.querySelector<HTMLElement>('[role="radio"]')?.focus();
+    });
+  };
+  const retirerVehicule = (i: number) => {
+    setEtat((e) => ({ ...e, v: { ...e.v, vehicules: e.v.vehicules.filter((_, j) => j !== i) } }));
   };
   /** Le prochain champ essentiel vide après `depuis` ; sinon la création. */
   const suivant = (depuisChamp: string | null, creerSiComplet = true, x: V = v) => {
@@ -383,6 +422,7 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
   const cleSaisie = JSON.stringify({
     email: v.email, telephone: v.telephones[0]?.numero ?? "", nom: v.nom, societe: v.societe, depart: v.departs[0]?.adresse ?? "", arrivee: livraison,
     volume: volumeNum, type: v.type, type_demenagement: v.type_demenagement, clientId: client?.id ?? null,
+    matricule: v.type === "militaire" ? v.matricule : "",
   });
   useEffect(() => {
     const ctrl = new AbortController();
@@ -518,7 +558,7 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
           </legend>
         )}
         <div className={s.champs}>
-          <label className={`${s.champ} ${s.w7}`}>
+          <label className={`${s.champ} ${militaire ? s.w6 : s.w7}`}>
             <span className={s.etiquette}>
               Adresse
               {reprisIci && <em className={s.marqueRepris}>repris</em>}
@@ -528,16 +568,25 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
               id={`adresse-${id}`}
               value={l.adresse}
               onChange={(x) => majLieu(g, i, { adresse: x, code_postal: "", ville: "", pays: "", lat: null, lon: null })}
-              onChoisir={(sg) => majLieu(g, i, { code_postal: sg.codePostal, ville: sg.ville, pays: "France", lat: sg.lat, lon: sg.lon })}
+              onChoisir={(sg) => {
+                // CIMOB/DICOM : une adresse choisie outre-mer remplit sa case département, si elle est encore vide.
+                const om = militaire && !l.departement_om ? departementDepuisCodePostal(sg.codePostal) : null;
+                majLieu(g, i, { code_postal: sg.codePostal, ville: sg.ville, pays: "France", lat: sg.lat, lon: sg.lon, ...(om ? { departement_om: om } : {}) });
+              }}
               placeholder="Numéro et rue, ou ville"
               className={`${s.saisie} ${reprisIci ? s.repris : ""} ${essentiel && erreur?.champ === essentiel ? s.enErreur : ""}`}
               aria-invalid={(essentiel && erreur?.champ === essentiel) || undefined}
             />
           </label>
-          <label className={`${s.champ} ${s.w5}`}>
+          <label className={`${s.champ} ${militaire ? s.w3 : s.w5}`}>
             <span className={s.etiquette}>Complément d&apos;adresse</span>
             <input value={l.complement} onChange={(e) => majLieu(g, i, { complement: e.target.value })} placeholder="Bâtiment, résidence, escalier…" autoComplete="off" className={s.saisie} />
           </label>
+          {militaire && (
+            <div className={s.w3}>
+              <ChoixDepartementOm valeur={l.departement_om} onChoisir={(x) => majLieu(g, i, { departement_om: x })} />
+            </div>
+          )}
           <label className={`${s.champ} ${s.w2}`}>
             <span className={s.etiquette}>Étage</span>
             <input value={l.etage} onChange={(e) => majLieu(g, i, { etage: e.target.value })} placeholder="RDC, 3…" autoComplete="off" className={s.saisie} />
@@ -597,9 +646,32 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
       <header className={s.sectionTete}>
         <span className={s.numero}>{numero}</span>
         <h3>{titre}</h3>
-        {numero === 3 && <p>Une adresse ou une ville suffit.</p>}
+        {g === "departs" && <p>Une adresse ou une ville suffit.</p>}
         {aside}
       </header>
+      {/* CIMOB/DICOM (Céline, 17/11/2026) : au départ, ses droits et la période, juste au-dessus de l'adresse. */}
+      {militaire && g === "departs" && (
+        <div className={s.champs}>
+          <label className={`${s.champ} ${s.w3}`}>
+            <span className={s.etiquette} title="Le volume accordé par l'administration : seul volume communiqué au client">
+              Droits (volume)
+            </span>
+            <span className={s.suffixe}>
+              <input
+                name="volume_droits"
+                inputMode="decimal"
+                autoComplete="off"
+                value={v.volume_droits}
+                onChange={(e) => maj("volume_droits", saisieVolume(e.target.value))}
+                placeholder="12,5"
+                className={s.saisie}
+              />
+              <em>m³</em>
+            </span>
+          </label>
+          {champsPeriode(s.w5, s.w4, 2)}
+        </div>
+      )}
       {v[g].map((l, i) => blocLieu(g, i, l))}
       {v[g].length < ADRESSES_MAX && (
         <button type="button" className={s.ajouterLieu} onClick={() => ajouterLieu(g)}>
@@ -688,13 +760,238 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
     </div>
   );
 
+  /** La période souhaitée et les mois proposés : dans sa section, ou au départ d'un CIMOB/DICOM. */
+  const champsPeriode = (largeur: string, largeurMois: string, nbMois: number) => (
+    <>
+      <div className={largeur}>{champTexte("periode", "Période souhaitée", { autoComplete: "off", placeholder: "Fin janvier 2027, ou « janv »" })}</div>
+      <div className={`${largeurMois} ${s.mois}`}>
+        {moisAVenir(new Date(maintenant)).slice(0, nbMois).map((m) => (
+          <button
+            key={m}
+            type="button"
+            tabIndex={-1}
+            className={s.moisPuce}
+            aria-pressed={v.periode === m}
+            onClick={() => {
+              maj("periode", m);
+              suivant("periode", false, { ...v, periode: m });
+            }}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+
+  /**
+   * CIMOB/DICOM, 4 · le repli (modèle de Céline) : Oui / Non ; si oui, ses droits, la période et la
+   * destination — un garde-meubles (son lieu) ou une adresse de son choix (étage, ascenseur et sa taille,
+   * département d'outre-mer).
+   */
+  const sectionRepli = (numero: number) => {
+    const r = v.repli;
+    const a = r.adresse;
+    return (
+      <section className={s.section} data-cimob="repli">
+        <header className={s.sectionTete}>
+          <span className={s.numero}>{numero}</span>
+          <h3>Repli</h3>
+          <p>Ramener le mobilier du logement de métropole en garde-meubles ou à une adresse de son choix.</p>
+          <span className={s.segment}>
+            <Choix label="Repli" options={OUI_NON} valeur={r.repli ? "oui" : "non"} onChoisir={(x) => majRepli({ repli: x === "oui" })} />
+          </span>
+        </header>
+        {r.repli && (
+          <div className={s.champs}>
+            <label className={`${s.champ} ${s.w3}`}>
+              <span className={s.etiquette}>Volume (droits)</span>
+              <span className={s.suffixe}>
+                <input value={r.volume_droits} onChange={(e) => majRepli({ volume_droits: saisieVolume(e.target.value) })} inputMode="decimal" autoComplete="off" placeholder="30" className={s.saisie} />
+                <em>m³</em>
+              </span>
+            </label>
+            <label className={`${s.champ} ${s.w4}`}>
+              <span className={s.etiquette}>Période</span>
+              <input
+                value={r.periode}
+                onChange={(e) => majRepli({ periode: e.target.value.slice(0, 120) })}
+                onBlur={() => {
+                  const p = developperPeriode(r.periode, maintenant);
+                  if (p !== r.periode) majRepli({ periode: p });
+                }}
+                placeholder="Juin 2027, ou « juin »"
+                autoComplete="off"
+                className={s.saisie}
+              />
+            </label>
+            <span className={`${s.champ} ${s.w5}`}>
+              <span className={s.etiquette}>Destination</span>
+              <Choix label="Destination du repli" options={Object.entries(DESTINATIONS_REPLI)} valeur={r.destination} plein onChoisir={(x) => majRepli({ destination: x as RepliSaisi["destination"] })} />
+            </span>
+            {r.destination === "garde_meuble" && (
+              <label className={`${s.champ} ${s.w12}`}>
+                <span className={s.etiquette}>Lieu</span>
+                <input value={r.lieu} onChange={(e) => majRepli({ lieu: e.target.value.slice(0, 200) })} placeholder="Garde-meubles Bailly, ville…" autoComplete="off" className={s.saisie} />
+              </label>
+            )}
+            {r.destination === "adresse" && (
+              <>
+                <label className={`${s.champ} ${s.w6}`}>
+                  <span className={s.etiquette}>Adresse</span>
+                  <ChampAdresse
+                    id="adresse-repli"
+                    value={a.adresse}
+                    onChange={(x) => majRepli({}, { adresse: x, code_postal: "", ville: "", pays: "" })}
+                    onChoisir={(sg) => {
+                      const om = !a.departement_om ? departementDepuisCodePostal(sg.codePostal) : null;
+                      majRepli({}, { code_postal: sg.codePostal, ville: sg.ville, pays: "France", ...(om ? { departement_om: om } : {}) });
+                    }}
+                    placeholder="Numéro et rue, ou ville"
+                    className={s.saisie}
+                  />
+                </label>
+                <label className={`${s.champ} ${s.w2}`}>
+                  <span className={s.etiquette}>Étage</span>
+                  <input value={a.etage} onChange={(e) => majRepli({}, { etage: e.target.value.slice(0, 40) })} placeholder="RDC, 3…" autoComplete="off" className={s.saisie} />
+                </label>
+                <div className={s.w4}>
+                  <ChoixDepartementOm valeur={a.departement_om} onChoisir={(x) => majRepli({}, { departement_om: x })} />
+                </div>
+                <span className={`${s.champ} ${s.w3}`}>
+                  <span className={s.etiquette}>Ascenseur</span>
+                  <Choix label="Ascenseur (repli)" options={OUI_NON} valeur={a.ascenseur ? "oui" : "non"} plein onChoisir={(x) => majRepli({}, { ascenseur: x === "oui" })} />
+                </span>
+                <label className={`${s.champ} ${s.w3}`}>
+                  <span className={s.etiquette}>Taille de l&apos;ascenseur</span>
+                  <span className={s.suffixe}>
+                    <input
+                      value={a.ascenseur_taille}
+                      onChange={(e) => majRepli({}, { ascenseur_taille: e.target.value.slice(0, 40) })}
+                      disabled={!a.ascenseur}
+                      placeholder={a.ascenseur ? "Nombre" : "—"}
+                      autoComplete="off"
+                      className={s.saisie}
+                    />
+                    <em>pers.</em>
+                  </span>
+                </label>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  /**
+   * CIMOB/DICOM, 5 · le transport des véhicules : Oui / Non ; si oui, chaque véhicule — moto ou voiture
+   * (motorisation, marque, modèle, volume, que l'IA peut estimer), ou « autre » (une description et un
+   * volume) — et « + » pour un de plus.
+   */
+  const sectionVehicules = (numero: number) => (
+    <section className={s.section} data-cimob="vehicules">
+      <header className={s.sectionTete}>
+        <span className={s.numero}>{numero}</span>
+        <h3>Transport de véhicules</h3>
+        <span className={s.segment}>
+          <Choix
+            label="Transport de véhicules"
+            options={OUI_NON}
+            valeur={v.vehicule ? "oui" : "non"}
+            onChoisir={(x) => {
+              maj("vehicule", x === "oui");
+              if (x === "oui" && !v.vehicules.length) maj("vehicules", [VEHICULE_VIDE]);
+            }}
+          />
+        </span>
+      </header>
+      {v.vehicule && (
+        <>
+          {v.vehicules.map((x, i) => (
+            <fieldset key={i} className={s.lieu} data-vehicule={i}>
+              {v.vehicules.length > 1 && (
+                <legend className={s.lieuTete}>
+                  <span>Véhicule {i + 1}</span>
+                  <button type="button" className={s.boutonLien} onClick={() => retirerVehicule(i)}>
+                    Retirer
+                  </button>
+                </legend>
+              )}
+              <div className={s.champs}>
+                <span className={`${s.champ} ${s.w5}`}>
+                  <span className={s.etiquette}>Véhicule</span>
+                  <Choix label={`Véhicule ${i + 1}`} options={Object.entries(GENRES_VEHICULE)} valeur={x.genre} plein onChoisir={(k) => majVehicule(i, { genre: k as VehiculeSaisi["genre"] })} />
+                </span>
+                {x.genre === "autre" && (
+                  <>
+                    <label className={`${s.champ} ${s.w4}`}>
+                      <span className={s.etiquette}>Lequel</span>
+                      <input value={x.description} onChange={(e) => majVehicule(i, { description: e.target.value.slice(0, 300) })} placeholder="Remorque, quad, bateau…" autoComplete="off" className={s.saisie} />
+                    </label>
+                    <label className={`${s.champ} ${s.w3}`}>
+                      <span className={s.etiquette}>Volume</span>
+                      <span className={s.suffixe}>
+                        <input value={x.volume} onChange={(e) => majVehicule(i, { volume: saisieVolume(e.target.value) })} inputMode="decimal" autoComplete="off" className={s.saisie} />
+                        <em>m³</em>
+                      </span>
+                    </label>
+                  </>
+                )}
+                {(x.genre === "moto" || x.genre === "voiture") && (
+                  <>
+                    <span className={`${s.champ} ${s.w7}`}>
+                      <span className={s.etiquette}>Motorisation</span>
+                      <Choix label={`Motorisation (véhicule ${i + 1})`} options={Object.entries(MOTORISATIONS)} valeur={x.motorisation} onChoisir={(k) => majVehicule(i, { motorisation: k })} />
+                    </span>
+                    <label className={`${s.champ} ${s.w3}`}>
+                      <span className={s.etiquette}>Marque</span>
+                      <input value={x.marque} onChange={(e) => majVehicule(i, { marque: e.target.value.slice(0, 40) })} placeholder={x.genre === "moto" ? "Yamaha" : "Peugeot"} autoComplete="off" className={s.saisie} />
+                    </label>
+                    <label className={`${s.champ} ${s.w4}`}>
+                      <span className={s.etiquette}>Modèle</span>
+                      <input value={x.modele} onChange={(e) => majVehicule(i, { modele: e.target.value.slice(0, 60) })} placeholder={x.genre === "moto" ? "MT-07" : "308"} autoComplete="off" className={s.saisie} />
+                    </label>
+                    <div className={`${s.champ} ${s.w5}`}>
+                      <span className={s.etiquette}>Volume du véhicule</span>
+                      <span className={c.ligneVolume}>
+                        <span className={s.suffixe}>
+                          <input
+                            value={x.volume}
+                            onChange={(e) => majVehicule(i, { volume: saisieVolume(e.target.value) })}
+                            inputMode="decimal"
+                            autoComplete="off"
+                            aria-label={`Volume du véhicule ${i + 1}`}
+                            className={s.saisie}
+                          />
+                          <em>m³</em>
+                        </span>
+                        <BoutonEstimer vehicule={x} onEstime={(e) => majVehicule(i, { volume: volumeEnSaisie(e.volume), estimation: e })} />
+                      </span>
+                      <NoteEstimation estimation={x.estimation} volume={x.volume} />
+                    </div>
+                  </>
+                )}
+              </div>
+            </fieldset>
+          ))}
+          {v.vehicules.length < VEHICULES_MAX && (
+            <button type="button" className={s.ajouterLieu} onClick={ajouterVehicule}>
+              <Picto nom="plus" taille={15} />
+              Ajouter un véhicule
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+
   // Ce que l'écran envoie de ses adresses : relu et borné par le serveur (lireLieux, ./commun.ts).
   const lieuxEnvoyes = JSON.stringify([
     ...v.departs.map((l) => ({ genre: "depart", ...l })),
     ...v.arrivees.map((l) => ({ genre: "arrivee", ...l })),
   ]);
   const listeOrigines = [...origines.reglees, ...origines.saisies];
-  const militaire = v.type === "militaire";
   const compte = v.type === "compte" && !client;
 
   return (
@@ -743,7 +1040,7 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
                 <div>
                   <b>{nomClient(client) || client.nom}</b>
                   <span>
-                    {[libelleSegment(client.type), client.email, telLisible(client.telephone), `${client.nbDossiers} dossier${client.nbDossiers > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
+                    {[libelleSegment(client.type), client.matricule ? `matricule ${client.matricule}` : null, client.email, telLisible(client.telephone), `${client.nbDossiers} dossier${client.nbDossiers > 1 ? "s" : ""}`].filter(Boolean).join(" · ")}
                   </span>
                 </div>
                 <em className={s.marqueRattache}><Picto nom="lien" /> Client existant rattaché</em>
@@ -800,7 +1097,7 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
                     <div className={s.alerteTexte}>
                       <b>Rattacher au client existant ?</b>
                       <span>
-                        {nomClient(connu) || connu.nom} · même {connu.par === "email" ? "e-mail" : "téléphone"} · {connu.nbDossiers} dossier{connu.nbDossiers > 1 ? "s" : ""}
+                        {nomClient(connu) || connu.nom} · même {connu.par === "email" ? "e-mail" : connu.par === "matricule" ? "matricule" : "téléphone"} · {connu.nbDossiers} dossier{connu.nbDossiers > 1 ? "s" : ""}
                         {connu.dernier ? ` · dernier : ${connu.dernier.ref}, ${court(connu.dernier.depart?.adresse)} → ${court(connu.dernier.arrivee?.adresse)}` : ""}
                       </span>
                     </div>
@@ -817,25 +1114,34 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
                 )}
               </>
             )}
-            {/* Ce qui suit le segment : les droits d'un CIMOB/DICOM, le compte BAILLY d'un client compte ; l'origine, pour tous. */}
+            {/* Ce qui suit le segment : le matricule et la situation de famille d'un CIMOB/DICOM (Céline, 17/11/2026 ; ses
+                droits sont au départ), le compte BAILLY d'un client compte ; l'origine, pour tous. */}
             <div className={s.champs}>
-              {militaire && (
-                <label className={`${s.champ} ${s.w4}`}>
-                  <span className={s.etiquette}>
-                    Droits <small className={s.aideEtiquette}>volume accordé par l&apos;administration</small>
-                  </span>
-                  <span className={s.suffixe}>
+              {militaire && !client && (
+                <>
+                  <label className={`${s.champ} ${s.w4}`}>
+                    <span className={s.etiquette}>Matricule</span>
                     <input
-                      name="volume_droits"
-                      inputMode="decimal"
+                      name="matricule"
+                      value={v.matricule}
+                      onChange={(e) => maj("matricule", e.target.value.slice(0, 40))}
                       autoComplete="off"
-                      value={v.volume_droits}
-                      onChange={(e) => maj("volume_droits", e.target.value.replace(/[^0-9.,]/g, ""))}
+                      spellCheck={false}
                       className={s.saisie}
                     />
-                    <em>m³</em>
-                  </span>
-                </label>
+                  </label>
+                  <label className={`${s.champ} ${s.w4}`}>
+                    <span className={s.etiquette}>Situation de famille</span>
+                    <select name="situation_famille" value={v.situation_famille} onChange={(e) => maj("situation_famille", e.target.value)} className={s.saisie}>
+                      <option value="">À préciser</option>
+                      {Object.entries(SITUATIONS_FAMILLE).map(([k, l]) => (
+                        <option key={k} value={k}>
+                          {l}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               )}
               {compte && (
                 <label className={`${s.champ} ${s.w4}`}>
@@ -916,45 +1222,28 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
             ))}
           </section>
 
-          {/* 2. Période : une seule, pour tout le déménagement */}
-          <section className={s.section}>
-            <header className={s.sectionTete}>
-              <span className={s.numero}>2</span>
-              <h3>Période</h3>
-              <p>Pour tout le déménagement.</p>
-            </header>
-            <div className={s.champs}>
-              <div className={s.w5}>
-                {champTexte("periode", "Période souhaitée", { autoComplete: "off", placeholder: "Fin janvier 2027, ou « janv »" })}
-              </div>
-              <div className={`${s.w7} ${s.mois}`}>
-                {moisAVenir(new Date(maintenant)).slice(0, 4).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    tabIndex={-1}
-                    className={s.moisPuce}
-                    aria-pressed={v.periode === m}
-                    onClick={() => {
-                      maj("periode", m);
-                      suivant("periode", false, { ...v, periode: m });
-                    }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
+          {/* 2. Période : une seule, pour tout le déménagement. Un CIMOB/DICOM la saisit au départ, juste au-dessus de l'adresse. */}
+          {!militaire && (
+            <section className={s.section}>
+              <header className={s.sectionTete}>
+                <span className={s.numero}>2</span>
+                <h3>Période</h3>
+                <p>Pour tout le déménagement.</p>
+              </header>
+              <div className={s.champs}>{champsPeriode(s.w5, s.w7, 4)}</div>
+            </section>
+          )}
 
-          {/* 3. Adresse de départ */}
-          {sectionLieux("departs", 3, "Adresse de départ", "Ajouter une adresse de chargement")}
+          {/* 3. Adresse de départ — pour un CIMOB/DICOM, 2. Départ : ses droits et la période, puis l'adresse. */}
+          {militaire
+            ? sectionLieux("departs", 2, "Départ", "Ajouter une adresse de chargement")
+            : sectionLieux("departs", 3, "Adresse de départ", "Ajouter une adresse de chargement")}
 
-          {/* 4. Adresse de livraison, et les kilomètres du trajet */}
+          {/* 4. Adresse de livraison (3. Livraison pour un CIMOB/DICOM), et les kilomètres du trajet */}
           {sectionLieux(
             "arrivees",
-            4,
-            "Adresse de livraison",
+            militaire ? 3 : 4,
+            militaire ? "Livraison" : "Adresse de livraison",
             "Ajouter une adresse de livraison",
             <span className={s.km} aria-live="polite" data-etat={km != null ? "ok" : kmEnCours ? "calcul" : "vide"}>
               {km != null ? `${km.toLocaleString("fr-FR")} km` : kmEnCours ? "Calcul des km…" : cleTrajet ? "Km : adresse introuvable" : "Km calculés dès deux adresses"}
@@ -964,10 +1253,14 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
           {/* Sur écran étroit, les plus proches s'affichent ici, sous le trajet (le rail passe alors au-dessus du formulaire). */}
           {blocProches("formulaire")}
 
-          {/* 5. Observations */}
+          {/* CIMOB/DICOM : 4. Repli, 5. Transport de véhicules (Céline, 17/11/2026). */}
+          {militaire && sectionRepli(4)}
+          {militaire && sectionVehicules(5)}
+
+          {/* 5. Observations (6 pour un CIMOB/DICOM) */}
           <section className={s.section}>
             <header className={s.sectionTete}>
-              <span className={s.numero}>5</span>
+              <span className={s.numero}>{militaire ? 6 : 5}</span>
               <h3>Observations</h3>
               {estRepris("observations") && <em className={s.marqueRepris}>repris</em>}
             </header>
@@ -986,6 +1279,14 @@ export default function CreationDossier({ moi, monDernier, dernierAgence, modele
               </label>
             </div>
           </section>
+
+          {/* CIMOB/DICOM : le repli et les véhicules, relus par le serveur (cimob/commun.ts). */}
+          {militaire && (
+            <>
+              <input type="hidden" name="repli" value={JSON.stringify(v.repli)} />
+              <input type="hidden" name="vehicules" value={JSON.stringify(v.vehicule ? v.vehicules : [])} />
+            </>
+          )}
 
           {/* Les valeurs que les contrôles maison ne portent pas eux-mêmes, et ce qu'une reprise apporte hors de l'écran. */}
           <input type="hidden" name="type" value={v.type} />
@@ -1173,5 +1474,30 @@ function Choix({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * CIMOB/DICOM (Céline, 17/11/2026 : « IMPÉRATIF — une case département Outre-Mer dans les adresses ») : le
+ * département ou la collectivité d'outre-mer d'une adresse, par son code officiel ; vide par défaut. Une
+ * adresse choisie dans les suggestions le remplit d'elle-même d'après son code postal.
+ */
+function ChoixDepartementOm({ valeur, onChoisir }: { valeur: string; onChoisir: (code: string) => void }) {
+  return (
+    <label className={s.champ}>
+      <span className={s.etiquette}>Département d&apos;outre-mer</span>
+      <select value={valeur} onChange={(e) => onChoisir(e.target.value)} className={s.saisie}>
+        <option value="">Aucun</option>
+        {GROUPES_OM.map((gr) => (
+          <optgroup key={gr.libelle} label={gr.libelle}>
+            {gr.codes.map((code) => (
+              <option key={code} value={code}>
+                {code} · {DEPARTEMENTS_OM[code]}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
   );
 }

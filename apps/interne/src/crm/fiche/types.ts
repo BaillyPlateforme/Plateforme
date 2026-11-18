@@ -77,5 +77,8 @@ export type FenetreFiche = { titre: string; surtitre?: string; contenu: ReactNod
 /** Un bouton de la barre de la fiche (sous le bandeau). */
 export type BoutonBarre = { cle: string; libelle: string; picto: NomPicto; geste: Geste; titre?: string; accent?: "ok" | "attente" };
 
+/** Un volume d'un dossier CIMOB/DICOM, sous la barre (réel, droits, repli) : un clic ouvre la fenêtre où il se modifie. */
+export type VolumeFiche = { cle: string; libelle: string; valeur: string; aide: string; ton?: "droits" | "depasse" | "vide"; fenetre: string; titre?: string };
+
 /** Les observations du dossier, sous la barre : un clic ouvre la fenêtre de suivi. */
 export type Memo = { texte: string | null; drapeaux: string[]; fenetre: string };

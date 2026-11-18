@@ -9,6 +9,7 @@ import { entrepriseValide } from "@/crm/clients/entreprises";
 import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
 import { majDistanceDossier } from "@/crm/creation/distance";
 import { ACCES_CAMION_DEFAUT } from "@/crm/creation/commun";
+import { departementOm, lireVolume, matriculeValide, situationValide } from "@/crm/cimob/commun";
 import { conflit, occupation } from "@/crm/visites/creneaux";
 import { estVisite } from "@/crm/visites/cycle";
 import { instantParis, momentVisite } from "@/lib/visite/regles";
@@ -93,9 +94,12 @@ export async function majIdentite(id: number, f: FormData) {
     await q(`update clients set civilite=$2, prenom=$3, nom=$4, societe=$5, ${tel}, email=$11 where id=(select client_id from dossiers where id=$1)`, [...valeurs, s(f, "client_email")]);
   }
   // Les droits d'un CIMOB/DICOM : le volume accordé par l'administration (crm.dossiers.volume_droits). Vide : aucun.
-  if (f.has("volume_droits")) {
-    const droits = n(f, "volume_droits");
-    await q("update dossiers set volume_droits=$2 where id=$1", [id, droits != null && droits > 0 && droits < 100_000 ? Math.round(droits * 100) / 100 : null]);
+  if (f.has("volume_droits")) await q("update dossiers set volume_droits=$2 where id=$1", [id, lireVolume(f.get("volume_droits"))]);
+  // CIMOB/DICOM (Céline, 17/11/2026) : le matricule et la situation de famille du client.
+  if (f.has("client_matricule") || f.has("client_situation_famille")) {
+    await q("update clients set matricule=$2, situation_famille=$3 where id=(select client_id from dossiers where id=$1)", [
+      id, matriculeValide(f.get("client_matricule")), situationValide(f.get("client_situation_famille")),
+    ]);
   }
   // Le type de client fixe le parcours de l'espace client (segment, cahier des charges §2).
   const type = s(f, "type_client");
@@ -166,6 +170,8 @@ export async function majItineraire(id: number, f: FormData) {
       await db.query("update etapes_trajet set ascenseur_taille=$3, portage=$4, code_acces=$5, acces_camion=$6 where id=$1 and dossier_id=$2", [
         e, id, s(f, `ascenseur_taille_${e}`), f.get(`portage_oui_${e}`) === "on", s(f, `code_acces_${e}`), s(f, `acces_camion_${e}`),
       ]);
+      // CIMOB/DICOM : le département d'outre-mer de l'adresse, quand la fenêtre le montre.
+      if (f.has(`departement_om_${e}`)) await db.query("update etapes_trajet set departement_om=$3 where id=$1 and dossier_id=$2", [e, id, departementOm(f.get(`departement_om_${e}`))]);
       // La surface habitable n'est demandée qu'au départ : ailleurs, elle reste telle quelle.
       if (f.has(`surface_m2_${e}`)) {
         const surface = n(f, `surface_m2_${e}`);

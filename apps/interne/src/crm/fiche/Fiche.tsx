@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { createPortal, useFormStatus } from "react-dom";
 import { Picto } from "./Picto";
-import type { BoutonBarre, FenetreFiche, Geste, Ligne, Memo, Onglet, Outil, SectionFiche } from "./types";
+import type { BoutonBarre, FenetreFiche, Geste, Ligne, Memo, Onglet, Outil, SectionFiche, VolumeFiche } from "./types";
 import s from "./fiche.module.css";
+import c from "@/crm/cimob/cimob.module.css";
 
 /*
  * La fiche du dossier façon Créagidem, en version moderne : sous le bandeau
@@ -98,6 +99,7 @@ export default function Fiche({
   identite,
   memo,
   depart,
+  volumes,
 }: {
   dossierId: number;
   sections: SectionFiche[];
@@ -109,6 +111,8 @@ export default function Fiche({
   memo?: Memo | null;
   /** L'onglet à montrer d'abord (une page revenue avec un message : visite, espace client…). */
   depart?: { section: string; onglet: string } | null;
+  /** CIMOB/DICOM : le volume réel et les droits côte à côte (et ceux du repli), sous la barre ; un clic ouvre leur fenêtre. */
+  volumes?: VolumeFiche[] | null;
 }) {
   const router = useRouter();
   const [rafraichit, demarrer] = useTransition();
@@ -222,6 +226,18 @@ export default function Fiche({
             </div>
           )}
         </div>
+
+        {volumes && volumes.length > 0 && (
+          <div className={c.volumes} role="group" aria-label="Volumes du dossier">
+            {volumes.map((v) => (
+              <button key={v.cle} type="button" className={c.volume} data-ton={v.ton} onClick={() => setFenetre(v.fenetre)} title={v.titre}>
+                <small>{v.libelle}</small>
+                <b>{v.valeur}</b>
+                <span>{v.aide}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {sections.map((x) => (
           <Section key={x.cle} section={x} ouverte={ouverte(x)} onglet={ongletDe(x)} basculer={(v) => basculer(x.cle, v)} choisir={(o) => choisirOnglet(x.cle, o)} />

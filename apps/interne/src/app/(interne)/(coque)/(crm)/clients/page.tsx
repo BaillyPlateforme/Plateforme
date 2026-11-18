@@ -30,6 +30,7 @@ import {
   type Tri,
   type Vue,
 } from "@/crm/clients/commun";
+import { CODES_OM, DEPARTEMENTS_OM, departementOm } from "@/crm/cimob/commun";
 import s from "@/crm/clients/clients.module.css";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,9 @@ function trier(l: LigneClient[], tri: Tri): LigneClient[] {
   const x = [...l];
   if (tri === "az") return x.sort((a, b) => COLLATOR.compare(nomAffiche(a), nomAffiche(b)) || a.id - b.id);
   if (tri === "ca") return x.sort((a, b) => b.ca - a.ca || b.activite.localeCompare(a.activite));
+  // Par département d'outre-mer (CIMOB/DICOM, Céline 17/11/2026) : le plus petit code de ses adresses, puis le nom ; sans département, à la fin.
+  if (tri === "departement")
+    return x.sort((a, b) => (a.departements[0] ?? "999").localeCompare(b.departements[0] ?? "999") || COLLATOR.compare(nomAffiche(a), nomAffiche(b)) || a.id - b.id);
   return x.sort((a, b) => b.activite.localeCompare(a.activite) || b.id - a.id);
 }
 
@@ -91,6 +95,8 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
   const q = sp.q?.trim().slice(0, 80) ?? "";
   const type = sp.type && Object.hasOwn(TYPES, sp.type) ? sp.type : null;
   const commercial = sp.commercial && /^\d+$/.test(sp.commercial) ? Number(sp.commercial) : null;
+  // ?departement=972 : les CIMOB/DICOM dont une adresse est dans ce département d'outre-mer.
+  const departement = departementOm(sp.departement);
 
   const [toutes, commerciaux, entreprises] = await Promise.all([
     lignesClients(),
@@ -105,7 +111,8 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
   const entreprise = sp.entreprise && parEntreprise.has(sp.entreprise) ? sp.entreprise : null;
   const maintenant = instant();
   const filtrees = toutes.filter(
-    (l) => (!type || l.type === type) && (!commercial || l.dernier?.commercialId === commercial) && (!entreprise || l.entreprise === entreprise) && correspond(q, l.texte, l.telephones),
+    (l) => (!type || l.type === type) && (!commercial || l.dernier?.commercialId === commercial) && (!entreprise || l.entreprise === entreprise) &&
+      (!departement || (l.type === "militaire" && l.departements.includes(departement))) && correspond(q, l.texte, l.telephones),
   );
   const nombres = Object.fromEntries(VUES.map((v) => [v.cle, filtrees.filter((l) => dansVue(l, v.cle)).length])) as Record<Vue, number>;
   const lignes = trier(
@@ -124,6 +131,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
       type,
       commercial: commercial ? String(commercial) : null,
       entreprise,
+      departement,
       tri: tri === "recents" ? null : tri,
       vue: vue === "tous" ? null : vue,
       page: null,
@@ -141,7 +149,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
     />
   );
 
-  const filtre = !!(q || type || commercial || entreprise);
+  const filtre = !!(q || type || commercial || entreprise || departement);
   const total = toutes.length;
   const texte = filtre
     ? `${filtrees.length} client${filtrees.length > 1 ? "s" : ""} sur ${total} répond${filtrees.length > 1 ? "ent" : ""} aux filtres`
@@ -159,6 +167,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
             <FiltresClients
               commerciaux={commerciaux}
               entreprises={entreprises.map((e) => ({ id: e.id, nom: e.nom, n: toutes.filter((l) => l.entreprise === e.id).length }))}
+              departements={CODES_OM.map((code) => ({ code, nom: DEPARTEMENTS_OM[code], n: toutes.filter((l) => l.type === "militaire" && l.departements.includes(code)).length }))}
             />
           </Suspense>
         }
@@ -181,7 +190,7 @@ export default async function Clients({ searchParams }: { searchParams: Promise<
                 <Icone nom="clients" taille={26} />
               </i>
               <b>{filtre ? "Aucun client ne répond à ces filtres." : vue === "sans_dossier" ? "Tous les clients ont au moins un dossier." : "Aucun client dans cette vue."}</b>
-              {filtre && <Link href={lien({ q: null, type: null, commercial: null, entreprise: null })}>Effacer les filtres</Link>}
+              {filtre && <Link href={lien({ q: null, type: null, commercial: null, entreprise: null, departement: null })}>Effacer les filtres</Link>}
             </div>
           ) : (
             <ol className={s.lignes}>
@@ -251,7 +260,12 @@ function Ligne({ l, maintenant, rang, entreprise }: { l: LigneClient; maintenant
           <span className={s.sous}>
             <Pastille label={TYPES[l.type] ?? l.type} teinte={teinte} />
             {entreprise && <PuceEntreprise e={entreprise} mini />}
-            <span className={s.sousTexte}>{contact ?? (l.villes.length ? l.villes.slice(0, 2).join(" → ") : `Client n° ${l.id}`)}</span>
+            {l.type === "militaire" &&
+              l.departements.map((code) => <Pastille key={code} label={code} teinte="vert" titre={`Département d’outre-mer : ${code} · ${DEPARTEMENTS_OM[code] ?? ""}`} />)}
+            <span className={s.sousTexte}>
+              {contact ?? (l.villes.length ? l.villes.slice(0, 2).join(" → ") : `Client n° ${l.id}`)}
+              {l.matricule ? ` · matricule ${l.matricule}` : ""}
+            </span>
           </span>
         </span>
       </div>

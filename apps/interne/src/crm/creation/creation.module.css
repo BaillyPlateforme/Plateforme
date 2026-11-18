@@ -366,6 +366,7 @@
 .w3 { grid-column: span 3; }
 .w4 { grid-column: span 4; }
 .w5 { grid-column: span 5; }
+.w6 { grid-column: span 6; }
 .w7 { grid-column: span 7; }
 .w8 { grid-column: span 8; }
 .w12 { grid-column: span 12; }
@@ -1302,6 +1303,7 @@
   .w3,
   .w4,
   .w5,
+  .w6,
   .w7,
   .w8 {
     grid-column: span 12;
@@ -1313,6 +1315,7 @@
     grid-column: span 6;
   }
   .lieu .w5,
+  .lieu .w6,
   .lieu .w8,
   .lieu .w7 {
     grid-column: span 12;

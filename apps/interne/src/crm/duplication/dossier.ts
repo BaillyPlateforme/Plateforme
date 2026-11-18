@@ -3,6 +3,7 @@ import { q, type Db, type Row } from "@/crm/lib/db";
 import { journaliser } from "@/crm/lib/journal";
 import { copierDevisDans } from "@/crm/devis/copie";
 import { lireParametres } from "@/crm/devis/donnees";
+import { copierCimob } from "@/crm/cimob/donnees";
 
 /*
  * La duplication d'un dossier. Elle passe par la création ordinaire
@@ -21,7 +22,9 @@ import { lireParametres } from "@/crm/devis/donnees";
  *   l'utilisateur a gardé, plus ce qui ne tient pas dans le formulaire — le
  *   détail des accès et les étapes intermédiaires (case « Trajet et accès »),
  *   l'inventaire (case « Inventaire »). Jamais le téléphone d'une étape :
- *   c'est celui de l'autre foyer.
+ *   c'est celui de l'autre foyer. Le repli et les véhicules d'un CIMOB/DICOM
+ *   ne suivent pas non plus : ce sont le logement et les véhicules de
+ *   l'autre militaire (l'écran les fait saisir pour le nouveau).
  *
  * Jamais repris : signature, factures, règlements, visites et rendez-vous,
  * lettres de voiture, dates de chargement et de livraison, pièces jointes et
@@ -33,9 +36,9 @@ import { lireParametres } from "@/crm/devis/donnees";
 
 const COLS_ETAPE =
   "genre, adresse, etage, ascenseur, acces, escalier, portage_m, stationnement, poids_lourd, monte_meuble, code_postal, ville, pays, telephone, monte_charge, transbordement" +
-  // La fiche du premier appel (retours de Céline, 16/11/2026).
-  ", ascenseur_taille, portage, code_acces, surface_m2, acces_camion";
-const DETAIL_ACCES = "escalier, portage_m, stationnement, poids_lourd, monte_meuble, code_postal, ville, pays, monte_charge, transbordement";
+  // La fiche du premier appel (retours de Céline, 16/11/2026) ; le département d'outre-mer (CIMOB/DICOM, 17/11/2026).
+  ", ascenseur_taille, portage, code_acces, surface_m2, acces_camion, departement_om";
+const DETAIL_ACCES = "escalier, portage_m, stationnement, poids_lourd, monte_meuble, code_postal, ville, pays, monte_charge, transbordement, departement_om";
 
 /** Ce qu'une duplication a fait, pour le fil du dossier et le journal. */
 export interface Duplication {
@@ -140,6 +143,8 @@ export async function reprendreDuplication(db: Db, nouveauId: number, clientId: 
     const etapes = await copierTrajet(db, sourceId, nouveauId);
     const inv = await copierInventaire(db, sourceId, nouveauId);
     const services = await copierServices(db, sourceId, nouveauId);
+    // CIMOB/DICOM (src/crm/cimob) : le repli et les véhicules du même client suivent.
+    const cimob = await copierCimob(db, sourceId, nouveauId);
     const devis: string[] = [];
     if (oui(f, "dupliquer_devis")) {
       const p = await lireParametres(db);
@@ -154,13 +159,15 @@ export async function reprendreDuplication(db: Db, nouveauId: number, clientId: 
       pluriel(etapes, "étape"),
       inv.objets ? `inventaire (${pluriel(inv.objets, "objet")})` : null,
       services ? pluriel(services, "service") : null,
+      cimob.repli ? "repli" : null,
+      cimob.vehicules ? pluriel(cimob.vehicules, "véhicule") : null,
       "options, observations, période et commercial",
       devis.length ? `${pluriel(devis.length, "devis", "devis")} en brouillon` : null,
     ].filter(Boolean);
     return {
       sourceId, sourceRef: o.ref, mode,
       activite: `Dossier dupliqué depuis ${o.ref} à l'identique · repris : ${repris.join(", ")}`,
-      details: { source: o.ref, mode, etapes, objets: inv.objets, pieces: inv.pieces, services, devis },
+      details: { source: o.ref, mode, etapes, objets: inv.objets, pieces: inv.pieces, services, devis, repli: cimob.repli, vehicules: cimob.vehicules },
     };
   }
 

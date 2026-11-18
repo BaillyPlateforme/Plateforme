@@ -12,6 +12,7 @@ import LienStreetView from "@/ui/LienStreetView";
 import ChampsTelephones from "@/crm/clients/ChampsTelephones";
 import { telephonesDuClient } from "@/crm/clients/telephones";
 import { ACCES_ESCALIER, ACCES_MONTE_MEUBLE, ACCES_POIDS_LOURD, ACCES_STATIONNEMENT, GENRE_ETAPE } from "@/lib/visite/regles";
+import { DEPARTEMENTS_OM, GROUPES_OM, SITUATIONS_FAMILLE } from "@/crm/cimob/commun";
 import * as F from "./actions";
 import { Valider } from "./Fiche";
 import { Picto } from "./Picto";
@@ -84,6 +85,24 @@ export function FenetreIdentite({ d, espaceOuvert, entreprises = [] }: { d: Row;
           <Champ l={6} titre="Droits (m³)" aide="CIMOB/DICOM : volume accordé par l'administration">
             <input type="text" inputMode="decimal" name="volume_droits" defaultValue={d.volume_droits != null ? String(Number(d.volume_droits)).replace(".", ",") : ""} />
           </Champ>
+        )}
+        {/* CIMOB/DICOM (Céline, 17/11/2026) : le matricule, que la recherche retrouve, et la situation de famille. */}
+        {(d.type === "militaire" || d.matricule || d.situation_famille) && (
+          <>
+            <Champ l={6} titre="Matricule">
+              <input type="text" name="client_matricule" defaultValue={d.matricule ?? ""} maxLength={40} spellCheck={false} />
+            </Champ>
+            <Champ l={6} titre="Situation de famille">
+              <select name="client_situation_famille" defaultValue={d.situation_famille ?? ""}>
+                <option value="">À préciser</option>
+                {Object.entries(SITUATIONS_FAMILLE).map(([k, l]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Champ>
+          </>
         )}
         <Champ l={entreprises.length ? 6 : 12} titre="E-mail" aide={espaceOuvert ? "identifiant de l'espace client : il se modifie depuis l'espace" : undefined}>
           <input type="email" name="client_email" defaultValue={d.email ?? ""} readOnly={espaceOuvert} />
@@ -167,6 +186,8 @@ export function FenetreSuivi({ d, utilisateurs }: { d: Row; utilisateurs: Row[] 
  */
 export function FenetreAdresses({ d }: { d: Row }) {
   const moisCa = d.mois_ca ? new Date(d.mois_ca).toISOString().slice(0, 7) : "";
+  // CIMOB/DICOM (Céline, 17/11/2026 : « IMPÉRATIF ») : le département d'outre-mer de chaque adresse.
+  const outreMer = d.type === "militaire" || d.stops.some((x: Row) => x.departement_om);
   // Un chargement ou une livraison de plus se retire ; le seul départ, la seule arrivée, jamais.
   const nombre = (genre: string) => d.stops.filter((x: Row) => x.genre === genre).length;
   return (
@@ -283,9 +304,25 @@ export function FenetreAdresses({ d }: { d: Row }) {
                 <input type="text" name={`surface_m2_${e.id}`} defaultValue={e.surface_m2 ?? ""} inputMode="numeric" />
               </Champ>
             )}
-            <Champ l={12} titre="Accès en camion">
+            <Champ l={outreMer && e.genre !== "garde_meuble" ? 8 : 12} titre="Accès en camion">
               <input type="text" name={`acces_camion_${e.id}`} defaultValue={e.acces_camion ?? ""} />
             </Champ>
+            {outreMer && e.genre !== "garde_meuble" && (
+              <Champ l={4} titre="Département d’outre-mer">
+                <select name={`departement_om_${e.id}`} defaultValue={e.departement_om ?? ""}>
+                  <option value="">Aucun</option>
+                  {GROUPES_OM.map((g) => (
+                    <optgroup key={g.libelle} label={g.libelle}>
+                      {g.codes.map((code) => (
+                        <option key={code} value={code}>
+                          {code} · {DEPARTEMENTS_OM[code]}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </Champ>
+            )}
             <Champ l={12} titre="Précisions d’accès">
               <input type="text" name={`acces_${e.id}`} defaultValue={e.acces ?? ""} placeholder="Code portail, cour intérieure, horaires de la rue…" />
             </Champ>
@@ -392,7 +429,7 @@ export function FenetreInventaire({ d }: { d: Row }) {
         <input type="text" name="piece" placeholder="Pièce" list="fiche-pieces" required aria-label="Pièce" />
         <input type="text" name="libelle" placeholder="Objet (ex. Canapé 3 places)" required aria-label="Objet" />
         <input type="number" name="quantite" defaultValue={1} min={1} title="Quantité" aria-label="Quantité" />
-        <input type="number" name="volume" step="0.1" placeholder="m³" required title="Volume unitaire" aria-label="Volume unitaire" />
+        <input type="text" inputMode="decimal" name="volume" pattern="[0-9]+([.,][0-9]+)?" placeholder="m³" required title="Volume unitaire, en m³ (0,5 ou 0.5)" aria-label="Volume unitaire" />
         <select name="destination" aria-label="Destination">
           {DESTINATIONS.map((x) => (
             <option key={x}>{x}</option>

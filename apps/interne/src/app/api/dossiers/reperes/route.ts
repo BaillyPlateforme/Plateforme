@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     type: texte("type"),
     type_demenagement: texte("type_demenagement"),
     clientId: nombre("clientId"),
+    matricule: texte("matricule")?.slice(0, 40),
   };
   try {
     return NextResponse.json(await reperes(saisie));

@@ -2,6 +2,7 @@ import "server-only";
 import { q, q1, type Row } from "@/crm/lib/db";
 import { nomClient } from "@/crm/lib/format";
 import { lireParametres } from "@/crm/devis/donnees";
+import { matriculeValide } from "@/crm/cimob/commun";
 import {
   cleEmail, cleTelephone, lieu, memeVille, scorer,
   type ClientConnu, type DoublonPossible, type Lieu, type Proche, type Reperes, type Saisie, type SourceDossier, type SourceModele,
@@ -18,7 +19,7 @@ import {
 export const instant = () => Date.now();
 
 /** Ce qui se reprend d'une étape : l'adresse et la fiche du premier appel (retours de Céline, 16/11/2026). */
-const ETAPE = `adresse, etage, ascenseur, acces, code_postal, ville, pays, ascenseur_taille, monte_meuble, transbordement, portage, code_acces, surface_m2, acces_camion`;
+const ETAPE = `adresse, etage, ascenseur, acces, code_postal, ville, pays, ascenseur_taille, monte_meuble, transbordement, portage, code_acces, surface_m2, acces_camion, departement_om`;
 
 /** Un dossier et ce qui s'en reprend : ses étapes de départ et d'arrivée, ses options. */
 const DOSSIER = `select d.id, d.ref, d.client_id, d.statut, d.cree_le, d.type_demenagement, d.volume::float8 as volume, d.vehicule, d.observations,
@@ -112,6 +113,7 @@ export async function clientARattacher(id: number): Promise<ClientConnu | null> 
   return {
     id: c.id, type: c.type, civilite: c.civilite, prenom: c.prenom, nom: c.nom, societe: c.societe,
     email: c.email, telephone: c.telephone, par: "email", nbDossiers: c.nb, dernier: dernier ? versSource(dernier) : null,
+    matricule: c.matricule ?? null, situation_famille: c.situation_famille ?? null,
   };
 }
 
@@ -146,24 +148,29 @@ const sansAccents = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").to
 
 export async function reperes(s: Saisie): Promise<Reperes> {
   const email = cleEmail(s.email), tel = cleTelephone(s.telephone);
+  // CIMOB/DICOM (Céline, 17/11/2026) : le matricule désigne le client aussi sûrement que son e-mail.
+  const matricule = matriculeValide(s.matricule)?.toLowerCase() ?? null;
 
-  // Un client déjà connu : même e-mail, ou mêmes neuf derniers chiffres de téléphone.
+  // Un client déjà connu : même e-mail, mêmes neuf derniers chiffres de téléphone, ou même matricule.
   let client: ClientConnu | null = null;
-  if (email || tel) {
+  if (email || tel || matricule) {
     const c = await q1(
       `select c.*, (select count(*)::int from dossiers where client_id = c.id) as nb,
-         case when $1::text is not null and lower(trim(c.email)) = $1 then 'email' else 'telephone' end as par
+         case when $3::text is not null and lower(c.matricule) = $3 then 'matricule'
+              when $1::text is not null and lower(trim(c.email)) = $1 then 'email' else 'telephone' end as par
        from clients c
        where ($1::text is not null and lower(trim(c.email)) = $1)
           or ($2::text is not null and right(regexp_replace(coalesce(c.telephone, ''), '[^0-9]', '', 'g'), 9) = $2)
-       order by (select max(cree_le) from dossiers where client_id = c.id) desc nulls last, c.id desc limit 1`,
-      [email, tel],
+          or ($3::text is not null and lower(c.matricule) = $3)
+       order by ($3::text is not null and lower(c.matricule) = $3) desc, (select max(cree_le) from dossiers where client_id = c.id) desc nulls last, c.id desc limit 1`,
+      [email, tel, matricule],
     );
     if (c && c.id !== s.clientId) {
       const dernier = await q1(`${DOSSIER} where d.client_id = $1 order by d.cree_le desc, d.id desc limit 1`, [c.id]);
       client = {
         id: c.id, type: c.type, civilite: c.civilite, prenom: c.prenom, nom: c.nom, societe: c.societe,
         email: c.email, telephone: c.telephone, par: c.par, nbDossiers: c.nb, dernier: dernier ? versSource(dernier) : null,
+        matricule: c.matricule ?? null, situation_famille: c.situation_famille ?? null,
       };
     }
   }

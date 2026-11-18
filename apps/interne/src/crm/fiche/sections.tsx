@@ -37,7 +37,11 @@ import {
 } from "./fenetres";
 import { Picto } from "./Picto";
 import { telephoneEtLibelle, telephonesDuClient } from "@/crm/clients/telephones";
-import type { BoutonBarre, FenetreFiche, Geste, Ligne, Memo, Onglet, Outil, SectionFiche } from "./types";
+import type { BoutonBarre, FenetreFiche, Geste, Ligne, Memo, Onglet, Outil, SectionFiche, VolumeFiche } from "./types";
+import FenetreCimob from "@/crm/cimob/FenetreCimob";
+import { majCimob } from "@/crm/cimob/actions";
+import { repliEnSaisie, resumeRepli, vehiculeEnSaisie } from "@/crm/cimob/commun";
+import type { CimobDossier } from "@/crm/cimob/donnees";
 import s from "./fiche.module.css";
 
 /*
@@ -118,6 +122,8 @@ export type Contexte = {
   solde: number;
   /** L'instant de la page (ms) : une visite passée ne se confirme plus par SMS. */
   maintenant: number;
+  /** CIMOB/DICOM : le repli et les véhicules du dossier (src/crm/cimob). */
+  cimob?: CimobDossier | null;
 };
 
 /** « Visite le … » : la prochaine visite, sinon la dernière (comme le sous-titre de la fiche Créagidem). */
@@ -136,6 +142,23 @@ export function construireFiche(c: Contexte) {
   fenetres.adresses = { surtitre: "Fenêtre de visite", titre: "Adresses et accès", contenu: <FenetreAdresses d={d} />, large: true };
   fenetres.inventaire = { surtitre: `Inventaire · ${m3(d.volume)}`, titre: "Inventaire du logement", contenu: <FenetreInventaire d={d} />, large: true };
   fenetres.suivi = { surtitre: `Dossier ${d.ref}`, titre: "Suivi et observations", contenu: <FenetreSuivi d={d} utilisateurs={c.utilisateurs} /> };
+  // CIMOB/DICOM (Céline, 17/11/2026) : le repli et les véhicules, et les deux volumes lisibles d'un coup d'œil.
+  const cimob = d.type === "militaire";
+  if (cimob) {
+    fenetres.cimob = {
+      surtitre: `CIMOB/DICOM · dossier ${d.ref}`,
+      titre: "Repli et véhicules",
+      large: true,
+      contenu: (
+        <FenetreCimob
+          action={majCimob.bind(null, d.id)}
+          repli={repliEnSaisie(c.cimob?.repli)}
+          vehicule={!!d.vehicule}
+          vehicules={(c.cimob?.vehicules ?? []).map(vehiculeEnSaisie)}
+        />
+      ),
+    };
+  }
 
   const sections = [demenagements(c, fenetres), gardeMeubles(c), services(c, fenetres), commun(c, fenetres)];
   // Vers le client, les cellules voyagent en tableau, et un fragment sans clé devient un tableau lui aussi :
@@ -157,6 +180,7 @@ export function construireFiche(c: Contexte) {
     { cle: "adresses", libelle: "Adresses", picto: "adresses", geste: { fenetre: "adresses" }, titre: "Adresses, accès et période" },
     { cle: "inventaire", libelle: "Inventaire", picto: "inventaire", geste: { fenetre: "inventaire" } },
     { cle: "suivi", libelle: "Suivi", picto: "suivi", geste: { fenetre: "suivi" }, titre: "Commercial, observations, options du dossier" },
+    ...(cimob ? [{ cle: "cimob", libelle: "Repli · véhicules", picto: "camion", geste: { fenetre: "cimob" }, titre: "CIMOB/DICOM : le repli et le transport des véhicules" } as BoutonBarre] : []),
     {
       cle: "espace",
       // L'état se lit à la couleur (vert : ouvert, ambre : inactif) : le libellé reste court pour tenir sur une ligne.
@@ -187,7 +211,34 @@ export function construireFiche(c: Contexte) {
   // Une page revenue avec un message (visite, espace client) : l'onglet concerné d'abord.
   const depart = c.sp.visite || c.sp.vc || c.sp.vd || c.sp.planifie ? { section: "demenagements", onglet: "visites" } : c.sp.espace ? { section: "commun", onglet: "espace" } : null;
 
-  return { sections, fenetres, barre, identite, memo, depart };
+  return { sections, fenetres, barre, identite, memo, depart, volumes: cimob ? volumesCimob(c) : null };
+}
+
+/**
+ * CIMOB/DICOM (Céline, 17/11/2026) : « Chaque client aura deux volumes : 1 réel (suite visite commercial) et 1 selon
+ * les droits. Ces deux informations doivent être visibles facilement mais il ne faudra communiquer que sur les droits. »
+ * Le réel (l'inventaire), les droits, l'écart quand le réel les dépasse, et les droits du repli s'il y en a un.
+ */
+function volumesCimob(c: Contexte): VolumeFiche[] {
+  const { d } = c;
+  const reel = Number(d.volume) || 0;
+  const droits = d.volume_droits != null ? Number(d.volume_droits) : null;
+  const ecart = droits != null && reel > 0 ? Math.round((reel - droits) * 10) / 10 : null;
+  const repli = c.cimob?.repli;
+  const vehicules = c.cimob?.vehicules ?? [];
+  return [
+    { cle: "reel", libelle: "Volume réel", valeur: reel > 0 ? m3(reel) : "—", aide: "Suite visite commercial · équipe seulement", ton: reel > 0 ? undefined : "vide", fenetre: "inventaire", titre: "Le volume de l'inventaire : jamais communiqué au client" },
+    { cle: "droits", libelle: "Droits", valeur: droits != null ? m3(droits) : "À saisir", aide: "Seul volume communiqué au client", ton: droits != null ? "droits" : "vide", fenetre: "fiche", titre: "Le volume accordé par l'administration (fenêtre Fiche)" },
+    ...(ecart != null && ecart > 0
+      ? [{ cle: "ecart", libelle: "Au-delà des droits", valeur: `+ ${m3(ecart)}`, aide: "Réel moins droits", ton: "depasse" as const, fenetre: "inventaire" }]
+      : []),
+    ...(repli?.repli
+      ? [{ cle: "repli", libelle: "Droits du repli", valeur: repli.volume_droits != null ? m3(repli.volume_droits) : "À saisir", aide: resumeRepli(repli), ton: repli.volume_droits != null ? ("droits" as const) : ("vide" as const), fenetre: "cimob", titre: `Repli : ${resumeRepli(repli)}` }]
+      : []),
+    ...(d.vehicule
+      ? [{ cle: "vehicules", libelle: "Véhicules", valeur: vehicules.length ? m3(vehicules.reduce((t, v) => t + (Number(v.volume) || 0), 0)) : "À saisir", aide: vehicules.length ? `${vehicules.length} véhicule${vehicules.length > 1 ? "s" : ""}` : "Transport de véhicules : oui", ton: vehicules.length ? undefined : ("vide" as const), fenetre: "cimob" }]
+      : []),
+  ];
 }
 
 // ─────────────────────────────── Déménagements ───────────────────────────────

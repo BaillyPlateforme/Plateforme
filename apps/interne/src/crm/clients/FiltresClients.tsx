@@ -22,7 +22,16 @@ import s from "./clients.module.css";
 
 const prenom = (nom: string) => nom.split(/\s+/)[0];
 
-export default function FiltresClients({ commerciaux, entreprises = [] }: { commerciaux: Commercial[]; entreprises?: { id: string; nom: string; n: number }[] }) {
+export default function FiltresClients({
+  commerciaux,
+  entreprises = [],
+  departements = [],
+}: {
+  commerciaux: Commercial[];
+  entreprises?: { id: string; nom: string; n: number }[];
+  /** CIMOB/DICOM : les départements d'outre-mer, avec le nombre de clients CIMOB/DICOM qui ont une adresse dans chacun. */
+  departements?: { code: string; nom: string; n: number }[];
+}) {
   const router = useRouter();
   const chemin = usePathname();
   const sp = useSearchParams();
@@ -65,7 +74,8 @@ export default function FiltresClients({ commerciaux, entreprises = [] }: { comm
   const type = sp.get("type") ?? "";
   const tri = sp.get("tri") ?? "recents";
   const entreprise = sp.get("entreprise") ?? "";
-  const actifs = !!(qAdresse || commercial || type || entreprise);
+  const departement = sp.get("departement") ?? "";
+  const actifs = !!(qAdresse || commercial || type || entreprise || departement);
 
   return (
     <div className={`${k.filtres} ${s.filtres}`}>
@@ -83,7 +93,7 @@ export default function FiltresClients({ commerciaux, entreprises = [] }: { comm
             setFrappe(false);
             aller({ q: q.trim() || null });
           }}
-          placeholder="Nom, e-mail, téléphone, ville, dossier…"
+          placeholder="Nom, e-mail, téléphone, ville, dossier, matricule…"
           aria-label="Rechercher un client"
         />
       </label>
@@ -137,6 +147,24 @@ export default function FiltresClients({ commerciaux, entreprises = [] }: { comm
           ))}
         </select>
       )}
+      {/* Les CIMOB/DICOM par département d'outre-mer (Céline, 17/11/2026 : « trier les clients CIMOB/DICOM par département »). */}
+      {departements.length > 0 && (
+        <select
+          className={h.choix}
+          value={departement}
+          data-actif={departement ? "" : undefined}
+          onChange={(e) => aller({ departement: e.target.value || null })}
+          aria-label="Département d'outre-mer (CIMOB/DICOM)"
+          title="Les clients CIMOB/DICOM dont une adresse est dans ce département"
+        >
+          <option value="">Département d’outre-mer</option>
+          {departements.map((d) => (
+            <option key={d.code} value={d.code}>
+              {d.code} · {d.nom} ({d.n})
+            </option>
+          ))}
+        </select>
+      )}
       <select className={`${h.choix} ${s.tri}`} value={tri} onChange={(e) => aller({ tri: e.target.value === "recents" ? null : e.target.value })} aria-label="Trier les clients">
         {TRIS.map((t) => (
           <option key={t.cle} value={t.cle}>
@@ -151,7 +179,7 @@ export default function FiltresClients({ commerciaux, entreprises = [] }: { comm
           onClick={() => {
             setFrappe(false);
             setQ("");
-            aller({ q: null, commercial: null, type: null, entreprise: null });
+            aller({ q: null, commercial: null, type: null, entreprise: null, departement: null });
           }}
         >
           Effacer

@@ -17,6 +17,8 @@ import { instantParis } from "@/lib/visite/regles";
 import { journaliser } from "@/crm/lib/journal";
 import { anneeParis } from "@/crm/lib/format";
 import { apresDuplication, reprendreDuplication } from "@/crm/duplication/dossier";
+import { lireRepli, lireVehicules, matriculeValide, situationValide } from "@/crm/cimob/commun";
+import { ecrireRepli, ecrireVehicules } from "@/crm/cimob/donnees";
 import { aujourdhuiParis, dateValidite } from "@/crm/devis/modele";
 import { lireParametres } from "@/crm/devis/donnees";
 
@@ -74,6 +76,8 @@ export async function creerDossier(f: FormData) {
   const tels = colonnesTelephones(f.has("tel_numero") ? telephonesDuFormulaire(f) : nettoyerTelephones([{ numero: s(f, "telephone") ?? "", libelle: "" }]));
   const entreprise = type === "compte" && f.has("espace_pro_id") ? ((await entrepriseValide(f.get("espace_pro_id"))) ?? null) : null;
   const droits = n(f, "volume_droits");
+  // CIMOB/DICOM (Céline, 17/11/2026) : situation de famille et matricule du client, repli, véhicules (src/crm/cimob).
+  const cimobEcran = type === "militaire";
   const lieux = lireLieux(f.has("lieux") ? String(f.get("lieux")) : [
     { genre: "depart", adresse: s(f, "depart"), etage: s(f, "depart_etage"), ascenseur: f.get("depart_asc") === "on", acces: s(f, "depart_acces") },
     { genre: "arrivee", adresse: s(f, "arrivee"), etage: s(f, "arrivee_etage"), ascenseur: f.get("arrivee_asc") === "on", acces: s(f, "arrivee_acces") },
@@ -84,10 +88,11 @@ export async function creerDossier(f: FormData) {
     let clientId = rattache ? (await db.query<{ id: number }>("select id from clients where id=$1", [rattache]))[0]?.id : undefined;
     if (!clientId) {
       [{ id: clientId }] = await db.query<{ id: number }>(
-        `insert into clients(type,civilite,prenom,nom,societe,email,telephone,telephone_libelle,telephone2,telephone2_libelle,telephones_autres,espace_pro_id)
-         values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+        `insert into clients(type,civilite,prenom,nom,societe,email,telephone,telephone_libelle,telephone2,telephone2_libelle,telephones_autres,espace_pro_id,situation_famille,matricule)
+         values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
         [type, s(f, "civilite"), s(f, "prenom"), s(f, "nom") ?? s(f, "societe") ?? "Sans nom", s(f, "societe"), s(f, "email"),
-          tels.telephone, tels.telephone_libelle, tels.telephone2, tels.telephone2_libelle, tels.telephones_autres, entreprise]);
+          tels.telephone, tels.telephone_libelle, tels.telephone2, tels.telephone2_libelle, tels.telephones_autres, entreprise,
+          cimobEcran ? situationValide(s(f, "situation_famille")) : null, cimobEcran ? matriculeValide(s(f, "matricule")) : null]);
     }
     // Les droits ne valent que pour un client CIMOB/DICOM (le segment du client rattaché, sinon celui de l'écran).
     const segment = rattache ? (await db.query<{ type: string }>("select type from clients where id=$1", [clientId]))[0]?.type : type;
@@ -99,14 +104,19 @@ export async function creerDossier(f: FormData) {
         segment === "militaire" && droits != null && droits > 0 && droits < 100_000 ? Math.round(droits * 100) / 100 : null,
         kmEcran != null && Number.isInteger(kmEcran) && kmEcran >= 0 && kmEcran <= 40_000 ? kmEcran : null]);
     // Les adresses dans l'ordre du trajet : les chargements, le garde-meuble s'il y en a un, les livraisons.
-    const etape = `insert into etapes_trajet(dossier_id,ordre,genre,adresse,code_postal,ville,pays,etage,ascenseur,ascenseur_taille,monte_meuble,transbordement,portage,code_acces,surface_m2,acces_camion,acces)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`;
+    const etape = `insert into etapes_trajet(dossier_id,ordre,genre,adresse,code_postal,ville,pays,etage,ascenseur,ascenseur_taille,monte_meuble,transbordement,portage,code_acces,surface_m2,acces_camion,acces,departement_om)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`;
     let ordre = 0;
     const poser = (e: (typeof lieux)[number]) =>
-      db.query(etape, [d.id, ordre++, e.genre, e.adresse, e.code_postal, e.ville, e.pays, e.etage, e.ascenseur, e.ascenseur_taille, e.monte_meuble, e.transbordement, e.portage, e.code_acces, e.surface_m2, e.acces_camion, e.acces]);
+      db.query(etape, [d.id, ordre++, e.genre, e.adresse, e.code_postal, e.ville, e.pays, e.etage, e.ascenseur, e.ascenseur_taille, e.monte_meuble, e.transbordement, e.portage, e.code_acces, e.surface_m2, e.acces_camion, e.acces, e.departement_om]);
     for (const e of lieux.filter((x) => x.genre === "depart")) await poser(e);
     if (f.get("garde_meuble") === "on") await db.query("insert into etapes_trajet(dossier_id,ordre,genre,adresse) values($1,$2,'garde_meuble','Garde-meuble Bailly')", [d.id, ordre++]);
     for (const e of lieux.filter((x) => x.genre === "arrivee")) await poser(e);
+    // Un CIMOB/DICOM : son repli (« Oui / Non », droits, période, destination) et ses véhicules, quand l'écran les envoie.
+    if (segment === "militaire") {
+      if (f.has("repli")) await ecrireRepli(db, d.id, lireRepli(f.get("repli")));
+      if (f.get("vehicule") === "on" && f.has("vehicules")) await ecrireVehicules(db, d.id, lireVehicules(f.get("vehicules")));
+    }
     // Une duplication (src/crm/duplication/dossier.ts) : ce qu'elle reprend du dossier d'origine, dans la même transaction.
     return { id: d.id, dup: await reprendreDuplication(db, d.id, clientId!, u, f) };
   });

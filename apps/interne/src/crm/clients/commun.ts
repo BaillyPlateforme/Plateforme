@@ -17,11 +17,12 @@ export const VUES = [
 export type Vue = (typeof VUES)[number]["cle"];
 export const estVue = (v: unknown): v is Vue => VUES.some((x) => x.cle === v);
 
-/** Les tris de la liste. */
+/** Les tris de la liste. « Par département » : les CIMOB/DICOM, rangés par département d'outre-mer (Céline, 17/11/2026). */
 export const TRIS = [
   { cle: "recents", label: "Les plus récents" },
   { cle: "az", label: "De A à Z" },
   { cle: "ca", label: "Par CA signé" },
+  { cle: "departement", label: "Par département (CIMOB/DICOM)" },
 ] as const;
 export type Tri = (typeof TRIS)[number]["cle"];
 export const estTri = (v: unknown): v is Tri => TRIS.some((x) => x.cle === v);
@@ -31,6 +32,20 @@ export const PAR_PAGE = 40;
 
 /** Sans accents ni majuscules : « Benoît » se trouve en tapant « benoit ». */
 export const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * Le texte où cherche la recherche des clients : nom, société, e-mail,
+ * téléphones, références et adresses des dossiers, numéro du client, et le
+ * matricule d'un CIMOB/DICOM (Céline, 17/11/2026).
+ */
+export function texteRecherche(r: {
+  id: number; prenom?: string | null; nom?: string | null; societe?: string | null; email?: string | null; telephone?: string | null;
+  telephone2?: string | null; refs?: string | null; adresses?: string | null; matricule?: string | null;
+}): string {
+  return normaliser(
+    [r.prenom, r.nom, r.societe, r.email, r.telephone, r.telephone2, r.refs, r.adresses, `n° ${r.id}`, r.matricule ? `matricule ${r.matricule}` : null].filter(Boolean).join(" "),
+  );
+}
 
 /** Les chiffres d'un numéro, à la française : « +33 6 12… » et « 06 12… » se valent. */
 export function chiffresTelephone(t: string | null | undefined): string {
@@ -104,6 +119,9 @@ export interface LigneClient {
   aRelancer: boolean;
   /** L'entreprise (espace pro) à laquelle le client est rattaché, ou rien. */
   entreprise: string | null;
+  /** CIMOB/DICOM : son matricule, et les départements d'outre-mer de ses adresses (codes, dans l'ordre). */
+  matricule: string | null;
+  departements: string[];
   /** Pour la recherche : le texte normalisé, et les chiffres de ses téléphones. */
   texte: string;
   telephones: string;

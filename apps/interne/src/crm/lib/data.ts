@@ -24,7 +24,7 @@ export async function listDossiers(f: { q?: string; type?: string; statuts?: str
   if (f.q) {
     // Nom, prénom, société, référence, e-mail ; et le téléphone, chiffres seuls (« 06 12… » comme « 0612… »).
     p.push(`%${f.q}%`);
-    const cond = [`c.nom ilike $${p.length}`, `c.prenom ilike $${p.length}`, `c.societe ilike $${p.length}`, `d.ref ilike $${p.length}`, `c.email ilike $${p.length}`];
+    const cond = [`c.nom ilike $${p.length}`, `c.prenom ilike $${p.length}`, `c.societe ilike $${p.length}`, `d.ref ilike $${p.length}`, `c.email ilike $${p.length}`, `c.matricule ilike $${p.length}`];
     const chiffres = f.q.replace(/[^0-9]/g, "");
     if (chiffres.length >= 4) {
       p.push(`%${chiffres}%`);

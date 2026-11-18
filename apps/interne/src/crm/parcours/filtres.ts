@@ -58,7 +58,7 @@ export const avecDemandes = (etape: string | null) => !etape || etape === "deman
 export const normaliser = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const chiffres = (t: string | null | undefined) => (t ?? "").replace(/[^0-9]/g, "");
 
-/** La recherche : nom, société, référence, villes, e-mail ; le téléphone sur ses chiffres (« 06 12… » comme « 0612… »). */
+/** La recherche : nom, société, référence, villes, e-mail, matricule (CIMOB/DICOM) ; le téléphone sur ses chiffres (« 06 12… » comme « 0612… »). */
 function repond(q: string, champs: (string | null | undefined)[], telephone: string | null | undefined) {
   const t = normaliser(q.trim());
   if (!t) return true;
@@ -72,7 +72,7 @@ export function garderDossier(c: Carte, f: Filtres, statuts: Statut[]) {
     statuts.includes(c.statut) &&
     (!f.type || c.segment === f.type) &&
     (!f.commercial || c.commercialId === f.commercial) &&
-    repond(f.q, [c.client, c.ref, c.depart, c.arrivee, c.email], c.telephone)
+    repond(f.q, [c.client, c.ref, c.depart, c.arrivee, c.email, c.matricule], c.telephone)
   );
 }
 

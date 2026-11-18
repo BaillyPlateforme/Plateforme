@@ -30,9 +30,10 @@ export type Carte = EtatDossier & {
   majLe: string;
   site: boolean;
   espace: boolean;
-  /** Pour la recherche seulement : l'e-mail et le téléphone du client. */
+  /** Pour la recherche seulement : l'e-mail et le téléphone du client, et le matricule d'un CIMOB/DICOM. */
   email: string | null;
   telephone: string | null;
+  matricule: string | null;
 };
 
 export type Commercial = { id: number; nom: string; initiales: string };
@@ -40,7 +41,7 @@ export type Commercial = { id: number; nom: string; initiales: string };
 const iso = (d: unknown) => (d == null ? null : d instanceof Date ? d.toISOString() : String(d));
 
 const SQL = `select d.id, d.ref, d.statut, d.volume::float8 as volume, d.periode, d.date_chargement, d.maj_le, d.request_id,
-    c.type, c.nom, c.prenom, c.societe, c.email, c.telephone, d.commercial_id, cm.nom as commercial, cm.initiales,
+    c.type, c.nom, c.prenom, c.societe, c.email, c.telephone, c.matricule, d.commercial_id, cm.nom as commercial, cm.initiales,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='depart' order by ordre limit 1) as depart,
     (select adresse from etapes_trajet where dossier_id=d.id and genre='arrivee' order by ordre desc limit 1) as arrivee,
     (select montant::float8 from devis where dossier_id=d.id and statut in ('signe','envoye')
@@ -78,6 +79,7 @@ function versCarte(r: Row, espaces: Set<number>): Carte {
     site: !!r.request_id,
     espace: espaces.has(r.id),
     email: r.email,
+    matricule: r.matricule ?? null,
     telephone: r.telephone,
   };
 }

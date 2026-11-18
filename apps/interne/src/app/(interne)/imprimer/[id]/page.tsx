@@ -13,6 +13,7 @@ import { devisPourDocument, lireParametres } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 import { q1 } from "@/crm/lib/db";
 import { telephonesDuClient } from "@/crm/clients/telephones";
+import { cimobDuDossier } from "@/crm/cimob/donnees";
 
 export const dynamic = "force-dynamic";
 
@@ -73,12 +74,14 @@ export default async function Imprimer({ params, searchParams }: { params: Promi
     );
   }
   // La fiche de visite : tous les téléphones du client, chacun avec ce qu'il désigne (retours de Céline, 16/11/2026).
-  const tels = doc === "fiche" ? await q1("select telephone, telephone_libelle, telephone2, telephone2_libelle, telephones_autres from clients where id=$1", [d.client_id]) : null;
+  const tels = doc === "fiche" ? await q1("select telephone, telephone_libelle, telephone2, telephone2_libelle, telephones_autres, matricule, situation_famille from clients where id=$1", [d.client_id]) : null;
+  // CIMOB/DICOM (Céline, 17/11/2026) : matricule, situation de famille, repli et véhicules sur la fiche imprimée.
+  const cimob = doc === "fiche" && d.type === "militaire" ? await cimobDuDossier(d.id) : null;
   return (
     <>
       <style>{"body{background:#ececec}"}</style>
       <div className="pdf-bar"><Link href={`/dossiers/${d.id}`}>← Retour au dossier</Link><PrintButton /></div>
-      {doc === "soustraitance" ? <SousTraitanceBailly d={d} lv={lv} /> : <FicheVisiteBailly d={{ ...d, telephones: tels ? telephonesDuClient(tels) : undefined }} />}
+      {doc === "soustraitance" ? <SousTraitanceBailly d={d} lv={lv} /> : <FicheVisiteBailly d={{ ...d, telephones: tels ? telephonesDuClient(tels) : undefined, matricule: tels?.matricule ?? null, situation_famille: tels?.situation_famille ?? null, cimob }} />}
     </>
   );
 }

@@ -14,6 +14,7 @@
  */
 import { SCHEMA_VISITES } from "@/crm/visites/schema";
 import { SCHEMA_FICHE } from "@/crm/fiche/schema";
+import { SCHEMA_CIMOB } from "@/crm/cimob/schema";
 import { SCHEMA_RELANCES } from "@/crm/relances/schema";
 import { SCHEMA_ALERTES } from "@/crm/alertes/schema";
 import { SCHEMA_DEVIS } from "@/crm/devis/schema";
@@ -471,6 +472,7 @@ alter table crm.conteneur_commentaires enable row level security;
 alter table crm.conteneur_historique enable row level security;
 ${SCHEMA_VISITES}
 ${SCHEMA_FICHE}
+${SCHEMA_CIMOB}
 ${SCHEMA_RELANCES}
 ${SCHEMA_ALERTES}
 ${SCHEMA_DEVIS}
