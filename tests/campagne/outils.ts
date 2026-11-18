@@ -87,7 +87,7 @@ function villesDeLaTable(brut: string, communes: boolean) {
  *   - Nominatim et les tuiles de la carte : vides.
  */
 export async function bouchons(context: BrowserContext, journalBan: ReponseBan[]) {
-  await context.route(/^https:\/\/api-adresse\.data\.gouv\.fr\/search\//, async (route) => {
+  await context.route(/^https:\/\/(api-adresse\.data\.gouv\.fr\/search\/|data\.geopf\.fr\/geocodage\/search)/, async (route) => {
     const url = new URL(route.request().url());
     const brut = url.searchParams.get("q") ?? "";
     const type = url.searchParams.get("type");

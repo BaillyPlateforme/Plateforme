@@ -125,14 +125,24 @@ export class RouteOptimizerSimule implements RouteOptimizer {
 
 export const tournees: RouteOptimizer = new RouteOptimizerSimule();
 
-/** Les adresses saisies par les clients, localisées par la Base Adresse Nationale (sans clé). */
+/**
+ * Les adresses saisies par les clients, localisées par la Base Adresse
+ * Nationale (sans clé) : la Géoplateforme de l'IGN d'abord, l'ancienne adresse
+ * (api-adresse.data.gouv.fr, lente ou muette le 18/11/2026) en repli.
+ */
+const BASES_ADRESSES = ["https://data.geopf.fr/geocodage/search", "https://api-adresse.data.gouv.fr/search/"];
+
 export async function geocoder(adresse: string): Promise<Point | null> {
-  try {
-    const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse)}&limit=1`, { signal: AbortSignal.timeout(4000) });
-    const j = (await r.json()) as { features?: { geometry: { coordinates: [number, number] } }[] };
-    const c = j.features?.[0]?.geometry.coordinates;
-    return c ? { lat: c[1], lng: c[0] } : null;
-  } catch {
-    return null;
+  for (const base of BASES_ADRESSES) {
+    try {
+      const r = await fetch(`${base}?q=${encodeURIComponent(adresse)}&limit=1`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) continue;
+      const j = (await r.json()) as { features?: { geometry: { coordinates: [number, number] } }[] };
+      const c = j.features?.[0]?.geometry.coordinates;
+      return c ? { lat: c[1], lng: c[0] } : null;
+    } catch {
+      // Base suivante.
+    }
   }
+  return null;
 }

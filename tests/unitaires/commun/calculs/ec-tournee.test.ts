@@ -152,24 +152,34 @@ describe("geocoder — la Base Adresse Nationale", () => {
   });
 
   it("rend { lat, lng } à partir de [lon, lat]", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ json: async () => ({ features: [{ geometry: { coordinates: [2.27, 48.73] } }] }) })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ features: [{ geometry: { coordinates: [2.27, 48.73] } }] }) })));
     await expect(geocoder("1 rue A, 91300 Massy")).resolves.toEqual({ lat: 48.73, lng: 2.27 });
   });
 
   it("encode l'adresse dans la requête", async () => {
-    const f = vi.fn(async () => ({ json: async () => ({ features: [] }) }));
+    const f = vi.fn(async () => ({ ok: true, json: async () => ({ features: [] }) }));
     vi.stubGlobal("fetch", f);
     await geocoder("12 rue de l'Église & co");
     expect(String((f.mock.calls[0] as unknown[])[0])).toContain(encodeURIComponent("12 rue de l'Église & co"));
   });
 
   it("adresse inconnue, réponse illisible ou réseau coupé : rien", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({ json: async () => ({ features: [] }) })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ features: [] }) })));
     await expect(geocoder("nulle part")).resolves.toBeNull();
-    vi.stubGlobal("fetch", vi.fn(async () => ({ json: async () => { throw new SyntaxError("pas du JSON"); } })));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => { throw new SyntaxError("pas du JSON"); } })));
     await expect(geocoder("x")).resolves.toBeNull();
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("réseau"); }));
     await expect(geocoder("x")).resolves.toBeNull();
+  });
+
+  it("la Géoplateforme d'abord ; muette ou en erreur, l'ancienne adresse prend le relais", async () => {
+    const f = vi.fn(async (url: string) =>
+      url.startsWith("https://data.geopf.fr/") ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => ({ features: [{ geometry: { coordinates: [2.35, 48.85] } }] }) },
+    );
+    vi.stubGlobal("fetch", f);
+    await expect(geocoder("Paris")).resolves.toEqual({ lat: 48.85, lng: 2.35 });
+    expect(String((f.mock.calls[0] as unknown[])[0])).toMatch(/^https:\/\/data\.geopf\.fr\/geocodage\/search\?/);
+    expect(String((f.mock.calls[1] as unknown[])[0])).toMatch(/^https:\/\/api-adresse\.data\.gouv\.fr\/search\/\?/);
   });
 });
 

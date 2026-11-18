@@ -12,7 +12,31 @@ function shortContext(ctx: string): string {
   return parts.slice(0, 2).join(" · ");
 }
 
-// Autocomplétion d'adresses via la Base Adresse Nationale (api-adresse.data.gouv.fr — gratuit, sans clé).
+/*
+ * Autocomplétion d'adresses par la Base Adresse Nationale (gratuite, sans clé).
+ * La Géoplateforme de l'IGN la sert désormais ; l'ancienne adresse
+ * (api-adresse.data.gouv.fr) répondait en six secondes, ou pas du tout, le
+ * 18/11/2026 : elle ne reste qu'en repli, comme pour le CRM (/api/adresses).
+ * Même format de réponse des deux côtés.
+ */
+const BASES_ADRESSES = ["https://data.geopf.fr/geocodage/search", "https://api-adresse.data.gouv.fr/search/"];
+
+type Trouvee = { properties: Record<string, string>; geometry: { coordinates: [number, number] } };
+
+async function chercherAdresses(requete: string): Promise<{ features?: Trouvee[] }> {
+  let derniere: unknown = null;
+  for (const base of BASES_ADRESSES) {
+    try {
+      const r = await fetch(`${base}${requete}`, { signal: AbortSignal.timeout(4000) });
+      if (r.ok) return await r.json();
+      derniere = new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      derniere = e;
+    }
+  }
+  throw derniere ?? new Error("Base Adresse Nationale injoignable");
+}
+
 /** Le texte principal d'une suggestion : l'adresse entière, ou la commune. */
 function intitule(p: Place, kind: "address" | "municipality") {
   return kind === "municipality" ? p.ville || p.label : p.label || p.ville;
@@ -76,8 +100,7 @@ export function AddressInput({
         // On demande large et on dédoublonne ensuite : sur un code postal,
         // l'API renvoie la même commune jusqu'à sept fois (une par voie ou par
         // code INSEE), et la liste devenait illisible.
-        const r = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=12${typeParam}`);
-        const j = await r.json();
+        const j = await chercherAdresses(`?q=${encodeURIComponent(q)}&limit=12${typeParam}`);
         const brut: Place[] = (j.features ?? []).map((f: { properties: Record<string, string>; geometry: { coordinates: [number, number] } }) => ({
           label: f.properties.label,
           ville: f.properties.city ?? f.properties.name ?? "",

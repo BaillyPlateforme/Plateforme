@@ -64,7 +64,7 @@ const PNG_1PX = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0l
 
 /** Les services extérieurs que la page appelle depuis le navigateur, servis par le test. */
 export async function bouchonsExterieurs(context: BrowserContext) {
-  await context.route(/^https:\/\/api-adresse\.data\.gouv\.fr\//, (route) => {
+  await context.route(/^https:\/\/(api-adresse\.data\.gouv\.fr\/|data\.geopf\.fr\/geocodage\/)/, (route) => {
     const url = new URL(route.request().url());
     const q = aplatir(url.searchParams.get("q") ?? "");
     const communes = url.searchParams.get("type") === "municipality";
