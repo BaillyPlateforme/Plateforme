@@ -1,3 +1,4 @@
+import { nomDuFournisseur, type NomFournisseur } from "@/lib/envois/fournisseurs";
 import { GESTES, LIBELLE_AGENT, PAGES, type Agent } from "@/lib/suivi-envois/regles";
 import type { NomIcone } from "@/ui/icones";
 
@@ -11,7 +12,8 @@ import type { NomIcone } from "@/ui/icones";
  * Les mots restent honnêtes : une ouverture relevée par une machine (Apple
  * Mail, proxy d'images, antivirus) se dit « probable », jamais certaine ; une
  * ouverture non relevée n'est pas « non lu » ; « Délivré » ne s'affiche que
- * si Brevo l'a dit (son webhook), jamais déduit.
+ * si le fournisseur l'a dit (son webhook : SendGrid, ou Brevo avant la
+ * bascule), jamais déduit.
  */
 
 export interface SuiviEnvoi {
@@ -20,6 +22,8 @@ export interface SuiviEnvoi {
   motif: string | null;
   /** ISO : l'inscription au journal (l'envoi). */
   envoyeLe: string;
+  /** Le fournisseur qui a transporté l'e-mail (SendGrid, ou Brevo avant la bascule), s'il est connu. */
+  fournisseur?: NomFournisseur | null;
   delivre: string | null;
   rebond: { genre: string; le: string; raison: string | null } | null;
   plainte: string | null;
@@ -52,14 +56,15 @@ export const leJourHeure = (iso: string) => `le ${jourHeure(iso)}`;
 /** « le 8 nov. » */
 export const leJour = (iso: string) => `le ${jourCourt(iso)}`;
 
+/** Le départ, dit avec le fournisseur (« Parti chez SendGrid ») : « {f} » est remplacé par son nom. */
 const DEPART: Record<string, { libelle: string; etat: EtatEtape; dit: string }> = {
-  envoye: { libelle: "Envoyé", etat: "ok", dit: "Parti chez Brevo" },
+  envoye: { libelle: "Envoyé", etat: "ok", dit: "Parti chez {f}" },
   journalise: { libelle: "Journalisé", etat: "neutre", dit: "Journalisé : l'envoi réel n'est pas activé, rien n'est parti" },
   fictif: { libelle: "Journalisé", etat: "neutre", dit: "Journalisé : destinataire fictif, rien ne lui est jamais envoyé" },
   bloque: { libelle: "Retenu (recette)", etat: "neutre", dit: "Retenu : recette, destinataire hors de la liste blanche" },
-  bac_a_sable: { libelle: "Bac à sable", etat: "neutre", dit: "Bac à sable Brevo : accepté, jamais délivré" },
+  bac_a_sable: { libelle: "Bac à sable", etat: "neutre", dit: "Bac à sable de {f} : accepté, jamais délivré" },
   echec: { libelle: "Échec", etat: "alerte", dit: "Échec de l'envoi" },
-  incertain: { libelle: "Incertain", etat: "alerte", dit: "Incertain : à vérifier chez Brevo" },
+  incertain: { libelle: "Incertain", etat: "alerte", dit: "Incertain : à vérifier chez {f}" },
   en_cours: { libelle: "En cours", etat: "attente", dit: "En cours d'envoi" },
 };
 
@@ -74,15 +79,17 @@ export const MESURE_INDICATIVE =
 export function etapesPiste(s: SuiviEnvoi): EtapePiste[] {
   const out: EtapePiste[] = [];
   const d = DEPART[s.statut] ?? { libelle: s.statut, etat: "neutre" as const, dit: s.statut };
-  out.push({ cle: "depart", libelle: d.libelle, etat: d.etat, icone: "envoyer", titre: `${d.dit} · ${leJourHeure(s.envoyeLe)}${s.motif && s.statut !== "envoye" ? ` · ${s.motif}` : ""}` });
+  const f = nomDuFournisseur(s.fournisseur);
+  const selon = `selon ${f}`;
+  out.push({ cle: "depart", libelle: d.libelle, etat: d.etat, icone: "envoyer", titre: `${d.dit.replace("{f}", f)} · ${leJourHeure(s.envoyeLe)}${s.motif && s.statut !== "envoye" ? ` · ${s.motif}` : ""}` });
 
   if (s.rebond) {
-    out.push({ cle: "delivre", libelle: "Non délivré", etat: "alerte", icone: "alerte", titre: `Rebond (${s.rebond.genre.replace(/_/g, " ")}) ${leJourHeure(s.rebond.le)}${s.rebond.raison ? ` · ${s.rebond.raison}` : ""} — selon Brevo` });
+    out.push({ cle: "delivre", libelle: "Non délivré", etat: "alerte", icone: "alerte", titre: `Rebond (${s.rebond.genre.replace(/_/g, " ")}) ${leJourHeure(s.rebond.le)}${s.rebond.raison ? ` · ${s.rebond.raison}` : ""} — ${selon}` });
   } else if (s.delivre) {
-    out.push({ cle: "delivre", libelle: "Délivré", etat: "ok", icone: "coche", titre: `Délivré ${leJourHeure(s.delivre)} — selon Brevo` });
+    out.push({ cle: "delivre", libelle: "Délivré", etat: "ok", icone: "coche", titre: `Délivré ${leJourHeure(s.delivre)} — ${selon}` });
   }
-  if (s.plainte) out.push({ cle: "delivre", libelle: "Signalé comme indésirable", etat: "alerte", icone: "alerte", titre: `Le destinataire l'a signalé comme indésirable ${leJourHeure(s.plainte)} — selon Brevo` });
-  if (s.desinscription) out.push({ cle: "delivre", libelle: "Désinscrit", etat: "alerte", icone: "alerte", titre: `Le destinataire s'est désinscrit ${leJourHeure(s.desinscription)} — selon Brevo` });
+  if (s.plainte) out.push({ cle: "delivre", libelle: "Signalé comme indésirable", etat: "alerte", icone: "alerte", titre: `Le destinataire l'a signalé comme indésirable ${leJourHeure(s.plainte)} — ${selon}` });
+  if (s.desinscription) out.push({ cle: "delivre", libelle: "Désinscrit", etat: "alerte", icone: "alerte", titre: `Le destinataire s'est désinscrit ${leJourHeure(s.desinscription)} — ${selon}` });
 
   const o = s.ouvertures;
   if (o.n > 0) {

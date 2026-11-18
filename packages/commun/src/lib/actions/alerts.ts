@@ -6,8 +6,9 @@ import { exigerEquipe } from "@/lib/supabase/auth";
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
-import { checkBrevo } from "@/lib/brevo";
+import { verifierConnexionEnvois } from "@/lib/connexion-envois";
 import { envoyerEmail, envoyerSms, estParti, libelleStatut } from "@/lib/envois";
+import { NOM_FOURNISSEUR } from "@/lib/envois/fournisseurs";
 import { getSettings } from "@/lib/settings";
 import { TEL_AGENCE, type Channel, type RuleKind } from "@/lib/messaging";
 import { habillerTexte } from "@/lib/email-render";
@@ -56,10 +57,11 @@ export async function deleteAlert(id: string) {
   }
 }
 
-// Vérifie l'état de la connexion Brevo (bouton de test dans Paramètres).
-export async function testBrevo() {
+// Vérifie la connexion au fournisseur des envois en vigueur — SendGrid et Twilio, ou Brevo
+// avant la bascule (bouton de test dans Paramètres). Jamais une clé dans la réponse.
+export async function testConnexionEnvois() {
   await exigerEquipe();
-  return checkBrevo();
+  return verifierConnexionEnvois();
 }
 
 // Envoi de test manuel (email ou SMS) vers une adresse/numéro.
@@ -85,6 +87,6 @@ export async function sendTest(channel: Channel, to: string, message: string, su
           }),
           expediteur: { nom: settings.entreprise_nom, email: settings.entreprise_email },
         });
-  if (estParti(r)) return { ok: true, message: "Envoyé ✓" };
+  if (estParti(r)) return { ok: true, message: r.fournisseur ? `Envoyé par ${NOM_FOURNISSEUR[r.fournisseur]} ✓` : "Envoyé ✓" };
   return { ok: false, message: r.motif ?? `Non envoyé : ${libelleStatut(r)}.` };
 }

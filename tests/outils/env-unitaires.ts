@@ -1,10 +1,11 @@
 /*
  * Les tests unitaires ne parlent à aucun service : aucune clé, aucune base.
- * Un module qui appellerait Brevo, Gemini, Créagidem ou Supabase échouerait
- * aussitôt au lieu d'envoyer quoi que ce soit.
+ * Un module qui appellerait Brevo, SendGrid, Twilio, Gemini, Créagidem ou
+ * Supabase échouerait aussitôt au lieu d'envoyer quoi que ce soit ; et le
+ * choix du fournisseur des envois (ENVOI_FOURNISSEUR) ne vient jamais du poste.
  */
 for (const cle of Object.keys(process.env)) {
-  if (/^(BREVO|GEMINI|CREAGIDEM|SUPABASE|NEXT_PUBLIC_SUPABASE|DATABASE_URL|STRIPE|OPENAI|ELEVENLABS)/.test(cle)) delete process.env[cle];
+  if (/^(BREVO|SENDGRID|TWILIO|ENVOI_|SUIVI_|GEMINI|CREAGIDEM|SUPABASE|NEXT_PUBLIC_SUPABASE|DATABASE_URL|STRIPE|OPENAI|ELEVENLABS)/.test(cle)) delete process.env[cle];
 }
 process.env.ENVOI_MODE = "desactive";
 process.env.CREAGIDEM_MODE = "inactif";

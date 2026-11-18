@@ -30,7 +30,7 @@ vi.mock("@/lib/espace-client/catalogue-textes", () => ({
 import { notifier, type MessageSortant } from "@/lib/espace-client/notifier";
 
 const ID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-const resultat = (champs: Record<string, unknown> = {}) => ({ statut: "envoye", motif: null, brevoId: "<b>", cle: `ec:${ID}`, doublon: false, journalId: "j", bacASable: false, ...champs });
+const resultat = (champs: Record<string, unknown> = {}) => ({ statut: "envoye", motif: null, idFournisseur: "<b@smtp-relay.mailin.fr>", fournisseur: "brevo", cle: `ec:${ID}`, doublon: false, journalId: "j", bacASable: false, ...champs });
 
 const msg = (champs: Partial<MessageSortant> = {}): MessageSortant => ({
   dossier_id: "do-1", canal: "email", modele: "document_depose", destinataire: "claire@gmail.com",

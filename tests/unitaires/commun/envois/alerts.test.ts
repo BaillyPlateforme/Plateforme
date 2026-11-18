@@ -25,7 +25,7 @@ vi.mock("@/lib/espaces-pro", () => ({ urlLogoPublique: () => null }));
 
 import { fireEvent } from "@/lib/alerts";
 
-const resultat = (champs: Record<string, unknown> = {}) => ({ statut: "envoye", motif: null, brevoId: "<b>", cle: "k", doublon: false, journalId: "j", bacASable: false, ...champs });
+const resultat = (champs: Record<string, unknown> = {}) => ({ statut: "envoye", motif: null, idFournisseur: "<b@smtp-relay.mailin.fr>", fournisseur: "brevo", cle: "k", doublon: false, journalId: "j", bacASable: false, ...champs });
 
 const modele = (champs: Record<string, unknown> = {}) => ({
   id: "t1", name: "Accusé", channel: "email", event: "demande_recue", sujet: "Votre demande, {{client_nom}}", contenu: "Bonjour {{client_nom}},\n\nMerci.", options: null, active: true, ...champs,

@@ -15,8 +15,9 @@ import type { CanalNotification, Notification } from "./types";
  * L'envoi lui-même passe par le module d'envoi de la plateforme
  * (lib/envois), et lui seul : garde-fous (envoi désactivé, recette et liste
  * blanche, bac à sable, destinataire fictif), clé d'idempotence, journal des
- * envois et appel à Brevo. Un échec d'envoi ne fait pas échouer l'action du
- * client : il se lit dans le journal.
+ * envois et appel au fournisseur (SendGrid, Twilio ; Brevo avant la
+ * bascule). Un échec d'envoi ne fait pas échouer l'action du client : il se
+ * lit dans le journal.
  *
  * Deux garde-fous propres à l'espace : un message destiné à un client fictif
  * (adresse @example.com, dossier de démonstration) n'est jamais envoyé — les

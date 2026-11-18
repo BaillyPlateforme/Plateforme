@@ -372,6 +372,36 @@ describe("suivi-envois — les événements (pixel, clics, portail, Brevo)", () 
     await expect(noterBrevo([ev])).rejects.toThrow("Suivi indisponible (base).");
   });
 
+  it("noterEvenementsFournisseur (SendGrid) : par la ligne du journal quand elle est rendue, sur le canal des e-mails", async () => {
+    const { noterEvenementsFournisseur } = await import("@/lib/suivi-envois");
+    const ev = { type: "delivre" as const, envoiId: ID, messageIds: ["W86E", "W86E.f"], cle: "sendgrid:ev-1", genre: "delivered", raison: null, quand: "2026-11-18T10:00:00.000Z" };
+    expect(await noterEvenementsFournisseur("sendgrid", [ev])).toBe(1);
+    const [i] = inserts("envois_evenements");
+    expect(i.sql).toContain("where v.id = $1::uuid");
+    expect(i.sql).toContain("and v.canal = $8");
+    // Un même événement reçu deux fois n'est inscrit qu'une fois (sa clé).
+    expect(i.sql).toContain("x.detail->>'cle' = $3::text");
+    expect(i.p).toEqual([ID, "delivre", "sendgrid:ev-1", "delivered", null, "sendgrid", "2026-11-18T10:00:00.000Z", "email"]);
+  });
+
+  it("noterEvenementsFournisseur (Twilio) : sans ligne rendue, par l'identifiant du message, sur le canal des SMS", async () => {
+    const { noterEvenementsFournisseur } = await import("@/lib/suivi-envois");
+    const sid = `SM${"0".repeat(32)}`;
+    const ev = { type: "rebond" as const, envoiId: "pas-un-uuid", messageIds: [` ${sid} `, sid, ""], cle: `twilio:failed:${sid}`, genre: "failed", raison: "Erreur Twilio 30007", quand: null };
+    expect(await noterEvenementsFournisseur("twilio", [ev, { ...ev, envoiId: null, messageIds: ["  "] }])).toBe(1);
+    const liste = inserts("envois_evenements");
+    expect(liste).toHaveLength(1);
+    expect(liste[0].sql).toContain("where v.brevo_id = any($1::text[])");
+    expect(liste[0].p).toEqual([[sid], "rebond", `twilio:failed:${sid}`, "failed", "Erreur Twilio 30007", "twilio", null, "sms"]);
+  });
+
+  it("noterEvenementsFournisseur : sans base, lève (le webhook répond en erreur)", async () => {
+    m.lire = null;
+    (globalThis as { __suiviPret?: unknown }).__suiviPret = undefined;
+    const { noterEvenementsFournisseur } = await import("@/lib/suivi-envois");
+    await expect(noterEvenementsFournisseur("sendgrid", [])).rejects.toThrow("Suivi indisponible (base).");
+  });
+
   it("requeteDe : l'agent et l'adresse transmise", async () => {
     const { requeteDe } = await import("@/lib/suivi-envois");
     expect(requeteDe(new Headers({ "user-agent": "UA", "x-real-ip": "9.9.9.9" }))).toEqual({ ua: "UA", ip: "9.9.9.9" });

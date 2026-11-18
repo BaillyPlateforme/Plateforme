@@ -296,8 +296,9 @@ export async function vueJournal(d: Donnees) {
   return {
     mode: mode(),
     notifications: d.notifications.slice(0, 400).map((n) => {
+      // brevo_id : l'identifiant du message chez son fournisseur, quel qu'il soit (envois/journal.ts).
       const e = envois.get(n.id) as { statut: string; motif: string | null; brevo_id: string | null } | undefined;
-      return { ...n, reference: d.dossiers.find((x) => x.id === n.dossier_id)?.reference ?? null, envoi: e ? { statut: e.statut, motif: e.motif, brevo: e.brevo_id } : null };
+      return { ...n, reference: d.dossiers.find((x) => x.id === n.dossier_id)?.reference ?? null, envoi: e ? { statut: e.statut, motif: e.motif, idFournisseur: e.brevo_id } : null };
     }),
   };
 }

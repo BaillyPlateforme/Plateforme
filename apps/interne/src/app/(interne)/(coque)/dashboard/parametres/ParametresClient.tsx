@@ -3,15 +3,17 @@
 import { useState, useTransition } from "react";
 import type { SettingsRow } from "@/lib/types";
 import { saveSettings } from "@/lib/actions/settings";
-import { testBrevo, sendTest } from "@/lib/actions/alerts";
+import { testConnexionEnvois, sendTest } from "@/lib/actions/alerts";
+import type { ConnexionEnvois } from "@/lib/connexion-envois";
 import ChampAdresse from "@/ui/ChampAdresse";
 
 export default function ParametresClient({
   settings,
-  brevo,
+  connexion,
 }: {
   settings: SettingsRow;
-  brevo: { ok: boolean; message: string };
+  /** La connexion du fournisseur des envois en vigueur : SendGrid et Twilio, ou Brevo avant la bascule. */
+  connexion: ConnexionEnvois;
 }) {
   const [f, setF] = useState({
     entreprise_nom: settings.entreprise_nom ?? "",
@@ -30,12 +32,12 @@ export default function ParametresClient({
   const [saved, setSaved] = useState(false);
   const set = (k: keyof typeof f, v: string | number) => setF((p) => ({ ...p, [k]: v }));
 
-  // Brevo
-  const [brevoState, setBrevoState] = useState(brevo);
+  // Le fournisseur des envois (Twilio : SendGrid pour les e-mails ; Brevo avant la bascule)
+  const [connexionEtat, setConnexionEtat] = useState(connexion);
   const [testChannel, setTestChannel] = useState<"email" | "sms">("email");
   const [testTo, setTestTo] = useState("");
   const [testFlash, setTestFlash] = useState<string | null>(null);
-  const [brevoPending, startBrevo] = useTransition();
+  const [connexionPending, startConnexion] = useTransition();
 
   function save() {
     start(async () => {
@@ -59,23 +61,37 @@ export default function ParametresClient({
 
   return (
     <div className="max-w-4xl space-y-6">
-      {/* Brevo */}
+      {/* Le fournisseur des envois */}
       <section className="rounded-[18px] bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="eyebrow text-ink-soft">Connexion Brevo (email & SMS)</h3>
-          <span className={`flex items-center gap-1.5 text-xs font-medium ${brevoState.ok ? "text-good" : "text-warn"}`}>
-            <span className={`h-2 w-2 rounded-full ${brevoState.ok ? "bg-good" : "bg-warn"}`} />
-            {brevoState.ok ? "Connecté" : "Non connecté"}
+          <h3 className="eyebrow text-ink-soft">{connexionEtat.titre}</h3>
+          <span className={`flex items-center gap-1.5 text-xs font-medium ${connexionEtat.ok ? "text-good" : "text-warn"}`}>
+            <span className={`h-2 w-2 rounded-full ${connexionEtat.ok ? "bg-good" : "bg-warn"}`} />
+            {connexionEtat.ok ? "Connecté" : "Non connecté"}
           </span>
         </div>
-        <p className="mb-4 text-sm text-ink-soft">{brevoState.message}</p>
+        {connexionEtat.canaux.length === 2 && connexionEtat.canaux[0].fournisseur !== connexionEtat.canaux[1].fournisseur ? (
+          // Un fournisseur par canal (SendGrid pour les e-mails, Twilio pour les SMS) : l'état de chacun.
+          <ul className="mb-4 space-y-1 text-sm text-ink-soft">
+            {connexionEtat.canaux.map((c) => (
+              <li key={c.canal} className="flex items-start gap-2">
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${c.ok ? "bg-good" : "bg-warn"}`} />
+                <span>
+                  <b className="font-medium text-ink">{c.canal === "sms" ? "SMS" : "E-mails"}</b> — {c.message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-4 text-sm text-ink-soft">{connexionEtat.message}</p>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => startBrevo(async () => setBrevoState(await testBrevo()))}
-            disabled={brevoPending}
+            onClick={() => startConnexion(async () => setConnexionEtat(await testConnexionEnvois()))}
+            disabled={connexionPending}
             className="rounded-xl border border-line-strong px-4 py-2 text-sm font-medium transition hover:bg-subtle disabled:opacity-50"
           >
-            {brevoPending ? "…" : "Tester la connexion"}
+            {connexionPending ? "…" : "Tester la connexion"}
           </button>
           <div className="flex flex-1 flex-wrap items-center gap-2">
             <select value={testChannel} onChange={(e) => setTestChannel(e.target.value as "email" | "sms")}
@@ -86,12 +102,12 @@ export default function ParametresClient({
             <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder={testChannel === "sms" ? "06 12 34 56 78" : "test@email.fr"}
               className="min-w-[160px] flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent" />
             <button
-              onClick={() => startBrevo(async () => {
+              onClick={() => startConnexion(async () => {
                 const r = await sendTest(testChannel, testTo, "Message de test — Bailly Déménagement.");
                 setTestFlash(r.message);
                 setTimeout(() => setTestFlash(null), 4000);
               })}
-              disabled={brevoPending || !testTo.trim()}
+              disabled={connexionPending || !testTo.trim()}
               className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-dark disabled:opacity-40"
             >
               Envoyer un test

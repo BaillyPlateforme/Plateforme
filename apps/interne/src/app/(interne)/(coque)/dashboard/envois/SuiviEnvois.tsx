@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { LigneEnvoi } from "@/lib/envois/journal";
 import type { EtatEnvois } from "@/lib/envois";
+import { fournisseurDe, NOM_FOURNISSEUR } from "@/lib/envois/fournisseurs";
 import { MODELES_MESSAGE } from "@/lib/espace-client/libelles";
 import type { Execution } from "@/taches/veille";
 import { relancerVeille } from "@/taches/actions";
@@ -184,7 +185,12 @@ export default function SuiviEnvois({ d, recharger }: { d: DonneesSuivi; recharg
                   <td className="max-w-[300px] px-5 py-2.5">
                     <PastilleEnvoi statut={e.statut} />
                     {e.motif && <span className={`mt-1 block text-[11px] ${e.statut === "echec" || e.statut === "incertain" ? "text-danger" : "text-ink-soft"}`}>{e.motif}</span>}
-                    {e.brevo_id && <span className="mt-1 block truncate text-[11px] text-ink-soft" title={e.brevo_id}>Brevo : {e.brevo_id}</span>}
+                    {e.brevo_id && (
+                      // L'identifiant du message chez son fournisseur (colonne brevo_id, quel que soit le fournisseur).
+                      <span className="mt-1 block truncate text-[11px] text-ink-soft" title={e.brevo_id}>
+                        {NOM_FOURNISSEUR[fournisseurDe(e) ?? "brevo"]} : {e.brevo_id}
+                      </span>
+                    )}
                     {e.tentatives > 1 && <span className="mt-1 block text-[11px] text-ink-soft">{e.tentatives} tentatives</span>}
                   </td>
                 </tr>

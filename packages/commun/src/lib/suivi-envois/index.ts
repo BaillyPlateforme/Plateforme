@@ -1,6 +1,6 @@
 import "server-only";
-import { URL_EXTERNE } from "@/lib/adresses";
 import { baseCrm, type Lire } from "@/lib/base-crm";
+import { adresseSuivi } from "./adresse";
 import { estDemo } from "@/lib/espace-client/config";
 import { chiffrer, dechiffrer, empreinteIp, jetonEnvoi, type JetonVisite } from "./jetons";
 import { clicAutomatique, DOUBLON_PORTAIL_MIN, equiperHtml, familleAgent, ouvertureAutomatique } from "./regles";
@@ -9,12 +9,13 @@ import { RETENTION_JOURS, SCHEMA_SUIVI } from "./schema";
 /*
  * Le suivi des e-mails aux clients, côté serveur : l'équipement d'un e-mail
  * au moment de l'envoi (envois/index.ts l'appelle, et lui seul), et
- * l'écriture des événements (les routes /t/… de l'app externe, le webhook de
- * Brevo, la page de signature du devis, la porte des fichiers).
+ * l'écriture des événements (les routes /t/… de l'app externe, les webhooks
+ * des fournisseurs — SendGrid, Twilio, et Brevo jusqu'à la bascule —, la page
+ * de signature du devis, la porte des fichiers).
  *
  * Indépendant du prestataire : le pixel et les liens suivis sont servis par
- * la plateforme elle-même (app externe). Brevo n'ajoute que ce qu'il est
- * seul à savoir : délivré, rebond, plainte, désinscription.
+ * la plateforme elle-même (app externe). Le fournisseur n'ajoute que ce qu'il
+ * est seul à savoir : délivré, rebond, plainte, désinscription.
  *
  * Rien ici ne fait échouer un envoi ni une page : une base injoignable, une
  * table absente, et l'e-mail part tel quel, la page s'affiche, l'événement
@@ -44,11 +45,8 @@ function avecDelai<T>(p: Promise<T>, ms = DELAI_MS): Promise<T> {
 
 export const suiviActif = () => !estDemo() && !/^(desactive|désactivé|off|0)$/i.test(process.env.SUIVI_EMAILS ?? "");
 
-/** L'adresse publique qui sert le pixel et les liens suivis : celle de l'app externe. */
-export function adresseSuivi(): string | null {
-  const b = process.env.SUIVI_URL || process.env.ESPACE_CLIENT_URL || URL_EXTERNE;
-  return b ? b.replace(/\/$/, "") : null;
-}
+/** L'adresse publique qui sert le pixel et les liens suivis : celle de l'app externe (adresse.ts). */
+export { adresseSuivi };
 
 const g = globalThis as typeof globalThis & { __suiviPret?: Promise<Lire | null> };
 
@@ -238,7 +236,69 @@ export async function noterPortail(v: VisitePortail, req: Requete, type: "portai
 export const noterVisite = (v: JetonVisite, page: string, envoiId: string | null, req: Requete) =>
   noterPortail({ page, reference: v.r, ecDossierId: v.d, crmDossierId: v.k, envoiId }, req);
 
-/* ─────────────── Brevo ─────────────── */
+/* ─────────────── SendGrid et Twilio ─────────────── */
+
+/**
+ * Un événement de remise rapporté par un fournisseur (webhook signé) :
+ * délivré, rebond, plainte, désinscription.
+ */
+export interface EvenementFournisseur {
+  type: "delivre" | "rebond" | "plainte" | "desinscription";
+  /**
+   * La ligne du journal, quand le fournisseur la rend : SendGrid dans les
+   * custom_args posés à l'envoi, Twilio dans l'adresse du rappel d'état.
+   * Elle fait foi (la signature est vérifiée) : l'événement est rattaché
+   * même s'il arrive avant que l'identifiant du message soit inscrit.
+   */
+  envoiId: string | null;
+  /** Sinon, les identifiants possibles du message chez le fournisseur (colonne brevo_id). */
+  messageIds: string[];
+  /** La clé de l'événement : un même événement reçu deux fois (le fournisseur réessaie) n'est inscrit qu'une fois. */
+  cle: string;
+  /** Le nom que le fournisseur lui donne (« bounce », « undelivered »…). */
+  genre: string;
+  raison: string | null;
+  quand: string | null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Les événements de SendGrid (e-mails) ou de Twilio (SMS), rattachés à leur
+ * ligne du journal — par son identifiant s'il est rendu, sinon par
+ * l'identifiant du message —, sur le canal du fournisseur. Rend le nombre
+ * inscrit ; sans base, lève (le webhook répond en erreur, le fournisseur
+ * réessaie).
+ */
+export async function noterEvenementsFournisseur(source: "sendgrid" | "twilio", evenements: EvenementFournisseur[]): Promise<number> {
+  const lire = await baseSuivi();
+  if (!lire) throw new Error("Suivi indisponible (base).");
+  const canal = source === "twilio" ? "sms" : "email";
+  let n = 0;
+  for (const ev of evenements) {
+    const envoiId = ev.envoiId && UUID.test(ev.envoiId) ? ev.envoiId : null;
+    const ids = [...new Set(ev.messageIds.map((s) => s.trim()).filter(Boolean))].slice(0, 20);
+    if (!envoiId && !ids.length) continue;
+    const r = await avecDelai(
+      lire<{ id: string }>(
+        `insert into public.envois_evenements (envoi_id, type, reference, detail, cree_le)
+         select v.id, $2, v.reference, jsonb_build_object('cle', $3::text, 'genre', $4::text, 'raison', $5::text, 'source', $6::text),
+                coalesce($7::timestamptz, now())
+           from public.envois v
+          where ${envoiId ? "v.id = $1::uuid" : "v.brevo_id = any($1::text[])"}
+            and v.canal = $8
+            and not exists (select 1 from public.envois_evenements x where x.envoi_id = v.id and x.detail->>'cle' = $3::text)
+          limit 1
+         returning id::text`,
+        [envoiId ?? ids, ev.type, ev.cle.slice(0, 300), ev.genre.slice(0, 60), ev.raison?.slice(0, 300) ?? null, source, ev.quand, canal],
+      ),
+    );
+    n += r.length;
+  }
+  return n;
+}
+
+/* ─────────────── Brevo (à retirer après la bascule vers Twilio) ─────────────── */
 
 export type EvenementBrevo = { type: "delivre" | "rebond" | "plainte" | "desinscription"; messageId: string; cle: string; genre: string; raison: string | null; quand: string | null };
 

@@ -119,6 +119,26 @@ test.describe("routes à secret de l'app publique", () => {
     }
   });
 
+  // Les webhooks de Twilio (bascule du 18/11/2026) : SendGrid (ECDSA) et le rappel d'état des SMS (HMAC du jeton).
+  // Non réglés : 404 ; réglés : 401 sans signature, 403 avec une fausse. Jamais 2xx sans la vraie signature.
+  test("les webhooks signés de Twilio refusent une requête sans signature ou mal signée @lecture", async () => {
+    const req = await requeteEn(null);
+    const sendgrid = [{ event: "delivered", sg_event_id: "batterie", sg_message_id: "batterie.filter.0" }];
+    const sans = await req.post(EXT + "/api/suivi/sendgrid", { data: sendgrid });
+    expect([401, 404], "SendGrid sans signature").toContain(sans.status());
+    const fausse = await req.post(EXT + "/api/suivi/sendgrid", {
+      data: sendgrid,
+      headers: { "X-Twilio-Email-Event-Webhook-Signature": Buffer.from("fausse").toString("base64"), "X-Twilio-Email-Event-Webhook-Timestamp": String(Math.floor(Date.now() / 1000)) },
+    });
+    expect([403, 404], "SendGrid mal signé").toContain(fausse.status());
+
+    const formulaire = { AccountSid: "ACbatterie", MessageSid: "SMbatterie", MessageStatus: "delivered" };
+    const sansT = await req.post(EXT + "/api/suivi/twilio", { form: formulaire });
+    expect([401, 404], "Twilio sans signature").toContain(sansT.status());
+    const fausseT = await req.post(EXT + "/api/suivi/twilio", { form: formulaire, headers: { "X-Twilio-Signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAA=" } });
+    expect([403, 404], "Twilio mal signé").toContain(fausseT.status());
+  });
+
   test("avec le secret, le diagnostic répond et lit l'adresse IP transmise", async () => {
     test.skip(!LOCAL || !SECRETS);
     const ip = ipNeuve();
