@@ -185,7 +185,7 @@ create or replace trigger visite_photos_figees before insert or update or delete
 alter table crm.inventaire add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
 alter table crm.pieces add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
 
--- La synthèse de Dragan Plavsic (18/11/2026), tablette de visite :
+-- La synthèse de Dragan (18/11/2026), tablette de visite :
 -- - les destinations hors adresse, sur chaque ligne et pour une pièce : à
 --   laisser sur place, débarras, pris en charge par le client, à confirmer
 --   (lib/visite/destinations.ts). Une destination hors adresse remplace

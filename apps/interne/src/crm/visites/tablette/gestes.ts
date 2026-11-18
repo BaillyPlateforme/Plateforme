@@ -2,7 +2,7 @@ import { choixDe, destinationParDefaut, patchDuChoix, type ChoixDestination, typ
 import { PLAFONDS, type ObjetSaisi, type Operation, type PieceSaisie } from "@/lib/visite/regles";
 
 /*
- * Les gestes de la synthèse de Dragan Plavsic (18/11/2026) : répartir les
+ * Les gestes de la synthèse de Dragan (18/11/2026) : répartir les
  * exemplaires d'une ligne entre des destinations, dupliquer une ligne,
  * dupliquer une pièce. Chacun n'est qu'une suite d'opérations « pièce » et
  * « objet » ordinaires, avec des clés neuves tirées sur la tablette : elles

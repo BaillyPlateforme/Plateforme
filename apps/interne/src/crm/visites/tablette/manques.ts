@@ -4,7 +4,7 @@ import type { EtatSaisie } from "./etat";
 
 /*
  * Les informations manquantes, montrées avant le compte-rendu (synthèse de
- * Dragan Plavsic, 18/11/2026 : « identifier les informations manquantes avant
+ * Dragan, 18/11/2026 : « identifier les informations manquantes avant
  * la transmission du dossier à l'exploitation »). Une PROPOSITION, à valider
  * avec Céline et Dragan : ce sont des rappels, jamais un blocage — le
  * commercial complète, ou continue.

@@ -18,7 +18,7 @@ import { contenuDe } from "@/crm/visites/compte-rendu";
 import type { Saisie } from "@/crm/visites/donnees";
 
 /*
- * La synthèse de Dragan Plavsic (18/11/2026) sur la tablette : les
+ * La synthèse de Dragan (18/11/2026) sur la tablette : les
  * destinations hors adresse, le volume transporté, répartir, dupliquer une
  * ligne ou une pièce, les informations manquantes, le compte-rendu bilingue
  * — et le travail hors connexion avec ces gestes nouveaux : tout arrive au

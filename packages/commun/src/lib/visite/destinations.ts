@@ -79,7 +79,7 @@ export function resoudreDestination(texte: string | null | undefined, d: Destina
   return genre ? (d.find((x) => x.genre === genre)?.id ?? null) : null;
 }
 
-// --- Les destinations hors adresse (Dragan Plavsic, 18/11/2026) -----------------------------------------
+// --- Les destinations hors adresse (Dragan, 18/11/2026) -----------------------------------------
 
 /*
  * « Un menu déroulant permettant de sélectionner immédiatement l'adresse de

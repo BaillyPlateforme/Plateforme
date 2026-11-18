@@ -25,7 +25,7 @@ import { volumeTransporteSql } from "./volume";
  * plus tard, dans l'ordre où elles ont été faites. Un champ qu'une ancienne
  * version de la tablette n'envoyait pas (absent du corps) ne change pas.
  *
- * Synthèse de Dragan Plavsic (18/11/2026) : un objet ou une pièce peut aller
+ * Synthèse de Dragan (18/11/2026) : un objet ou une pièce peut aller
  * à une destination hors adresse (à laisser sur place, débarras, pris en
  * charge par le client, à confirmer), qui remplace l'étape ; la colonne
  * texte prend son libellé. Une ligne garde sa désignation anglaise ; une

@@ -32,7 +32,7 @@ import s from "./tablette.module.css";
  * au-dessus.
  *
  * Tout se tape au doigt : les meubles s'ajoutent d'une touche depuis le
- * catalogue de la tablette (celui de Dragan Plavsic, volumes indicatifs), ou
+ * catalogue de la tablette (celui de Dragan, volumes indicatifs), ou
  * en tapant le début de leur nom, un synonyme ou leur nom anglais ; la
  * quantité se règle au pas ou au clavier, le volume unitaire reste
  * modifiable. Le volume se recalcule à chaque geste ; le serveur le

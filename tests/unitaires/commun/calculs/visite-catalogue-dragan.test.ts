@@ -6,7 +6,7 @@ import {
 import { normaliser, objetsConnus, rechercherObjets, type ObjetConnu } from "@/lib/visite/objets";
 
 /*
- * Le catalogue de la tablette : celui de Dragan Plavsic (catalogue bilingue
+ * Le catalogue de la tablette : celui de Dragan (catalogue bilingue
  * V7, mail du 18/11/2026), version de travail. 533 références, les volumes
  * du PDF et rien d'autre ; les familles et les synonymes sont déduits, et ne
  * créent ni référence ni volume.

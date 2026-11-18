@@ -5,7 +5,7 @@
  *
  * Les suggestions viennent de trois sources, dans cet ordre de confiance :
  * les objets déjà relevés dans ce dossier, le catalogue de la tablette (celui
- * de Dragan Plavsic depuis le 18/11/2026, lib/visite/catalogue.ts), puis les
+ * de Dragan depuis le 18/11/2026, lib/visite/catalogue.ts), puis les
  * libellés que l'équipe a déjà saisis dans d'autres dossiers (le vocabulaire
  * de Bailly, appris au fil des inventaires). Chaque mot tapé doit commencer
  * un mot du libellé, sans tenir compte des accents ni des majuscules :

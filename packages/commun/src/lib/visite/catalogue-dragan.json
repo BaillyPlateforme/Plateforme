@@ -1,6 +1,6 @@
 {
   "titre": "BAILLY | Inventaire, mobilier et matériel",
-  "source": "Bailly_Catalogue_Mobilier_et_Materiel_Bilingue_V7.pdf (17 pages, 17/11/2026), joint au mail de Dragan Plavsic du 18/11/2026",
+  "source": "Bailly_Catalogue_Mobilier_et_Materiel_Bilingue_V7.pdf (17 pages, 17/11/2026), joint au mail de Dragan du 18/11/2026",
   "avertissement": "Référentiel de travail bilingue français / anglais. Tous les volumes et quantités sont modifiables à la visite. Les volumes sont indicatifs et ne constituent pas un barème validé.",
   "regles_du_pdf": ["Chaque ligne doit permettre de modifier le volume, la quantité et la destination ; les quantités d’une même référence peuvent être réparties entre plusieurs adresses. Les contenants sont comptabilisés une seule fois, selon le volume final emballé.", "Matériel – contenants volumétriques : À saisir dans chaque pièce, avec quantité, volume unitaire modifiable, destination et éventuel objet associé. Les caisses spéciales sont cubées d’après leurs dimensions extérieures emballées.", "Matériel – protections et fournitures : Ces références figurent dans le même onglet Matériel, mais ne sont pas ajoutées au cubage du camion. Quantités et unités libres : rouleaux, feuilles, mètres, housses, pièces, etc.", "Règle anti-doublon : pour un tableau, lustre, miroir ou objet déjà inventorié, le volume de sa caisse doit remplacer le volume de l’objet nu lorsque le colis emballé constitue l’unité de transport ; il ne faut pas additionner les deux."],
   "familles_deduites": [

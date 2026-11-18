@@ -6,7 +6,7 @@ import {
 import { designation } from "@/lib/visite/regles";
 
 /*
- * Les destinations hors adresse de la tablette (Dragan Plavsic, 18/11/2026) :
+ * Les destinations hors adresse de la tablette (Dragan, 18/11/2026) :
  * à laisser sur place, débarras, pris en charge par le client, à confirmer —
  * et le volume transporté, distingué de ce qui ne l'est pas. Règles par
  * défaut, à valider : sur place et client hors du transporté ; débarras et

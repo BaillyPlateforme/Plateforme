@@ -2,7 +2,7 @@ import donnees from "./catalogue-dragan.json";
 import { normaliser } from "./objets";
 
 /*
- * Le catalogue de la tablette de visite : la nomenclature de Dragan Plavsic
+ * Le catalogue de la tablette de visite : la nomenclature de Dragan
  * (catalogue bilingue V7, joint à son mail du 18/11/2026), version de
  * travail. Il ne sert QUE la tablette : le formulaire public garde son
  * catalogue court (lib/catalog.ts), et les objets déjà saisis gardent leur
