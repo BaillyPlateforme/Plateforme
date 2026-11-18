@@ -4,7 +4,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View, renderToBuffer } f
 import { dateLongue, euros, jourLong, nomClient } from "./format";
 import { TYPE_FACTURE } from "./libelles";
 import { PARAMS_TOURNEE } from "./tournee";
-import type { Client, Devis, DocumentFichier, Dossier, Facture, LivraisonCartons } from "./types";
+import type { Client, Devis, DocumentFichier, Dossier, Facture, LivraisonCartons, ModelePiece } from "./types";
 
 /*
  * Les PDF de l'espace client : devis, factures, bons de livraison des
@@ -203,6 +203,29 @@ export function pdfTemoin(dossier: Dossier, doc: Pick<DocumentFichier, "libelle"
           </Text>
           <Text style={s.encadre}>
             Document de démonstration. Dans l&apos;espace client réel, ce lien ouvre le fichier « {doc.nom_fichier} », conservé dans un espace de stockage privé et servi par un lien signé valable cinq minutes.
+          </Text>
+        </View>
+        <Pied texte="Bailly Déménagement · Démonstration, données fictives." />
+      </Page>
+    </Document>,
+  );
+}
+
+/**
+ * La page témoin d'un modèle à télécharger de la démonstration en mémoire :
+ * les vrais modèles (ceux de Céline) ne sont pas dans le dépôt, qui est
+ * public, et la démonstration ne touche jamais au stockage.
+ */
+export function pdfTemoinModele(piece: string, m: Pick<ModelePiece, "libelle" | "nom_fichier">) {
+  return enBuffer(
+    <Document title={`${piece} · ${m.libelle}`} author="Bailly Déménagement">
+      <Page size="A4" style={s.page}>
+        <Entete droite={m.libelle.toUpperCase().slice(0, 42)} sous="Modèle à télécharger" />
+        <View style={s.corps}>
+          <Text style={s.titre}>{piece}</Text>
+          <Text style={s.sousTitre}>{m.libelle}</Text>
+          <Text style={s.encadre}>
+            Modèle de démonstration. Dans l&apos;espace client réel, ce lien télécharge le fichier « {m.nom_fichier} », déposé par l&apos;équipe Bailly dans un espace de stockage privé et servi par un lien signé de courte durée.
           </Text>
         </View>
         <Pied texte="Bailly Déménagement · Démonstration, données fictives." />

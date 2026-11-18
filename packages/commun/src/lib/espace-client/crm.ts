@@ -44,6 +44,8 @@ export const estRelie = (d: Pick<Dossier, "crm_dossier_id">) => typeof d.crm_dos
 export async function projeterDossierCrm(crmDossierId: number): Promise<void> {
   if (estDemo()) return;
   await rpc("ec_projeter_dossier_crm", { p_crm: crmDossierId });
+  // La situation (repli, véhicules, outre-mer : migration 0021), à part : avant la migration, elle manque sans rien bloquer.
+  await rpc("ec_projeter_situation_crm", { p_crm: crmDossierId }).catch(() => undefined);
 }
 
 // --- De l'espace vers le CRM ---------------------------------------------------------------------

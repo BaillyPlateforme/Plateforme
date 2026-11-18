@@ -30,6 +30,8 @@ export const chargerEspace = cache(async (reference: string) => {
     conseiller: conseillerDe(d, client.conseiller_id),
     photo: photoDe(s.dossier.photo),
     autresDossiers: dossiersDuClient(d, client.id).filter((x) => x.id !== s.dossier.id),
+    // Les modèles à télécharger des pièces demandées à ce dossier (migration 0021).
+    modeles: (d.modeles_pieces ?? []).filter((m) => s.requirements.some((r) => r.id === m.requirement_id)).sort((a, b) => a.ordre - b.ordre),
     tutos: d.tutos.filter((t) => t.actif).sort((a, b) => a.ordre - b.ordre),
     services: d.services.filter((x) => x.actif).sort((a, b) => a.ordre - b.ordre),
   };

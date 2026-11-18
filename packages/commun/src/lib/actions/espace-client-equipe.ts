@@ -7,7 +7,9 @@ import { estDemo } from "@/lib/espace-client/config";
 import { devisDeLaDemande } from "@/lib/espace-client/demandes";
 import { depot, lireDonnees, maintenant, nouvelId } from "@/lib/espace-client/depot";
 import { exigerEquipe, type Equipe } from "@/lib/espace-client/equipe";
-import { cheminFichier, deposerFichier, octets, retirerFichier } from "@/lib/espace-client/fichiers";
+import { cheminFichier, deposerFichier, octets, retirerFichier, SEAU_MODELES } from "@/lib/espace-client/fichiers";
+import { cheminModele, modelesDe } from "@/lib/espace-client/modeles";
+import { libelleModele, typeDuModele, verifierModele } from "@/lib/espace-client/modeles-schema";
 import { aujourdhui, salutation } from "@/lib/espace-client/format";
 import { conseillerDe, signatureDe } from "@/lib/espace-client/lectures";
 import { notifier } from "@/lib/espace-client/notifier";
@@ -20,7 +22,7 @@ import {
 } from "@/lib/espace-client/schemas-equipe";
 import { estRelie, facturePayeeCrm, majClientCrm, noterDansLeCrm } from "@/lib/espace-client/crm";
 import { segmentDe } from "@/lib/espace-client/segments";
-import type { Client, Devis, DocumentFichier, StatutDevis, StatutSav } from "@/lib/espace-client/types";
+import type { Client, Devis, DocumentFichier, ModelePiece, StatutDevis, StatutSav } from "@/lib/espace-client/types";
 import { ecrireJournal, type Geste } from "@/lib/journal";
 
 /*
@@ -488,20 +490,111 @@ export async function marquerFacturePayee(factureId: string): Promise<Resultat> 
 
 // --- Pièces par destination --------------------------------------------------------------------
 
+/** Ce que l'équipe lit quand la migration 0021 manque, plutôt qu'une erreur de l'API. */
+const SANS_0021 =
+  "Les pièces conditionnelles et les modèles à télécharger demandent la migration 0021 (supabase/migrations/0021_pieces_cimob.sql) : elle n'est pas encore appliquée sur cette base.";
+/** L'erreur vient-elle d'une colonne, d'une table ou d'un seau de la migration 0021 absents ? */
+const manque0021 = (e: unknown) => e instanceof Error && /'condition' column|ec_modeles_pieces|bucket not found/i.test(e.message);
+
 export async function enregistrerPiece(id: string | null, entree: Record<string, unknown>): Promise<Resultat> {
   return garde(async () => {
     const r = pieceSchema.safeParse(entree);
     if (!r.success) return echec(erreursDe(r.error));
     const existe = id ? await depot().trouver("document_requirements", id) : null;
-    if (existe) await depot().modifier("document_requirements", existe.id, r.data);
-    else await depot().inserer("document_requirements", { id: nouvelId(), ...r.data });
+    // Sans condition, la colonne de la migration 0021 n'est écrite que si la ligne lue la porte déjà : une pièce
+    // sans condition s'enregistre avant comme après la migration.
+    const { condition, ...sansCondition } = r.data;
+    const champs = condition !== null || (existe && "condition" in existe) ? r.data : sansCondition;
+    try {
+      if (existe) await depot().modifier("document_requirements", existe.id, champs);
+      else await depot().inserer("document_requirements", { id: nouvelId(), ...champs });
+    } catch (e) {
+      if (manque0021(e)) return { ok: false, erreur: SANS_0021 };
+      throw e;
+    }
     return { ok: true, message: `« ${r.data.libelle} » enregistrée : les listes des dossiers concernés sont à jour.` };
+  });
+}
+
+/**
+ * Ajoute un modèle à télécharger à une pièce (le formulaire vierge, un
+ * exemple rempli…), ou en remplace le fichier (`remplace` : l'identifiant du
+ * modèle). FormData : `fichier`, `libelle` (« Modèle » par défaut),
+ * `remplace`. Le fichier rejoint le seau privé des modèles ; l'ancien, en cas
+ * de remplacement, en est retiré.
+ */
+export async function ajouterModele(requirementId: string, fd: FormData): Promise<Resultat> {
+  return garde(async (equipe) => {
+    const piece = await depot().trouver("document_requirements", requirementId);
+    if (!piece) throw new Error("Pièce introuvable : la liste a peut-être changé, rechargez la page.");
+    const f = fd.get("fichier");
+    const fichier = f instanceof File ? f : null;
+    const erreur = verifierModele(fichier);
+    if (erreur) return echec({ fichier: erreur });
+    const type = typeDuModele(fichier!)!;
+    const remplace = String(fd.get("remplace") ?? "") || null;
+    const chemin = cheminModele(requirementId, fichier!.name);
+    let ancien: ModelePiece | null = null;
+    let libelle = "";
+    try {
+      ancien = remplace ? await depot().trouver("modeles_pieces", remplace) : null;
+      if (remplace && (!ancien || ancien.requirement_id !== requirementId)) throw new Error("Modèle introuvable : rechargez la page.");
+      libelle = libelleModele(fd.get("libelle") ?? ancien?.libelle);
+      await deposerFichier(chemin, await octets(fichier!), type, SEAU_MODELES);
+      const ligne = { libelle, chemin, nom_fichier: fichier!.name, mime: type, taille_octets: fichier!.size, created_by: equipe.nom, created_at: maintenant() };
+      if (ancien) {
+        await depot().modifier("modeles_pieces", ancien.id, ligne);
+        await retirerFichier(ancien.chemin, SEAU_MODELES);
+      } else {
+        const ordre = Math.max(0, ...modelesDe(await lireDonnees(), requirementId).map((m) => m.ordre)) + 1;
+        await depot().inserer("modeles_pieces", { id: nouvelId(), requirement_id: requirementId, ordre, ...ligne });
+      }
+    } catch (e) {
+      // Le fichier déposé sans sa ligne ne servirait à rien : il repart (sans effet s'il n'est jamais arrivé).
+      await retirerFichier(chemin, SEAU_MODELES);
+      if (manque0021(e)) return { ok: false, erreur: SANS_0021 };
+      throw e;
+    }
+    await tracer(equipe, {
+      action: ancien ? "modele_piece.remplace" : "modele_piece.ajoute",
+      libelle: `${ancien ? "Modèle remplacé" : "Modèle ajouté"} sur la pièce à fournir « ${piece.libelle} » (${libelle} · ${fichier!.name})`,
+      objet: { type: "piece_requise", id: requirementId },
+      details: { piece: piece.libelle, libelle, fichier: fichier!.name, ...(ancien ? { remplace: ancien.nom_fichier } : {}) },
+    });
+    return { ok: true, message: ancien ? `Modèle remplacé : les clients téléchargent désormais « ${fichier!.name} ».` : `« ${libelle} » ajouté à « ${piece.libelle} » : les clients concernés le voient sur la pièce.` };
+  });
+}
+
+/** Retire un modèle d'une pièce : sa ligne, et son fichier du seau. */
+export async function retirerModele(id: string): Promise<Resultat> {
+  return garde(async (equipe) => {
+    let m: ModelePiece | null;
+    try {
+      m = await depot().trouver("modeles_pieces", id);
+    } catch (e) {
+      if (manque0021(e)) return { ok: false, erreur: SANS_0021 };
+      throw e;
+    }
+    if (!m) return { ok: true, message: "Ce modèle était déjà retiré." };
+    const piece = await depot().trouver("document_requirements", m.requirement_id);
+    await depot().supprimer("modeles_pieces", id);
+    await retirerFichier(m.chemin, SEAU_MODELES);
+    await tracer(equipe, {
+      action: "modele_piece.supprime", libelle: `Modèle « ${m.libelle} » (${m.nom_fichier}) retiré de la pièce à fournir « ${piece?.libelle ?? "?"} »`,
+      objet: { type: "piece_requise", id: m.requirement_id }, details: { piece: piece?.libelle ?? null, libelle: m.libelle, fichier: m.nom_fichier },
+    });
+    return { ok: true, message: "Modèle retiré : les clients ne le voient plus." };
   });
 }
 
 export async function supprimerPiece(id: string): Promise<Resultat> {
   return garde(async (equipe) => {
     const p = await depot().trouver("document_requirements", id);
+    // Ses modèles partent avec elle : leurs fichiers d'abord (la base n'efface que les lignes, en cascade).
+    for (const m of modelesDe(await lireDonnees(), id)) {
+      await retirerFichier(m.chemin, SEAU_MODELES);
+      await depot().supprimer("modeles_pieces", m.id);
+    }
     await depot().supprimer("document_requirements", id);
     if (p) {
       await tracer(equipe, {

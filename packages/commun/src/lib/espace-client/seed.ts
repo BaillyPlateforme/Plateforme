@@ -27,14 +27,17 @@
  * fichier ne doit donc importer que des types : le script le charge tel quel.
  */
 
-import type { Donnees, DocumentRequirement, Service, Tuto } from "./types";
+import type { Donnees, DocumentRequirement, ModelePiece, Service, Tuto } from "./types";
 
 /** Le jour qui sert d'« aujourd'hui » aux dates écrites ci-dessous. */
 const REFERENCE = Date.UTC(2026, 8, 11);
 const T = "2026-09-01T09:00:00.000Z";
 
-/** 2 : les segments militaire et logement social (profils E et F), les pièces par segment. */
-export const VERSION_DONNEES = 2;
+/**
+ * 2 : les segments militaire et logement social (profils E et F), les pièces par segment.
+ * 3 : les pièces CIMOB/DICOM de Céline (17/11/2026), conditionnelles, et leurs modèles à télécharger.
+ */
+export const VERSION_DONNEES = 3;
 
 /** Décale toutes les dates d'un objet du même nombre de jours. */
 function decaler<T>(valeur: T, jours: number): T {
@@ -52,7 +55,26 @@ function decaler<T>(valeur: T, jours: number): T {
   return valeur;
 }
 
-/** Les pièces à fournir de départ (v0) : la liste réelle est à fournir par Bailly. */
+/** Le texte des règles d'assurance du CIMOB (mail de Céline, 17/11/2026), repris tel quel dans les pièces concernées. Aucun calcul. */
+const PRISE_EN_CHARGE_CIMOB = "Montant assuré et pris en charge par le CIMOB limité à 500 €/m³ de vos droits.";
+
+/**
+ * Les pièces à fournir de départ. La pièce d'identité vaut pour tous ; les
+ * pièces des pays sont celles de la v0 ; celles des clients CIMOB/DICOM
+ * (segment militaire) sont la liste de Céline (mail du 17/11/2026), dans son
+ * ordre et avec ses mots — sa « copie de votre pièce d'identité recto verso
+ * ou passeport » est la pièce d'identité commune, qui la demande déjà.
+ *
+ * Les pièces conditionnelles (`condition`, pieces.ts) ne sont demandées
+ * qu'aux dossiers concernés, d'après ce que le CRM en dit. Les règles
+ * d'assurance du CIMOB sont dans la description, comme information : rien
+ * n'est calculé.
+ *
+ * Cette liste sert la démonstration en mémoire, le semis des catalogues
+ * (scripts/semer-espace-client.mjs --catalogues) et la mise en place des
+ * pièces CIMOB/DICOM sur une base (scripts/pieces-cimob.mjs) : elle ne
+ * dépend d'aucune migration.
+ */
 export const PIECES_PAR_DEFAUT: DocumentRequirement[] = [
   { id: "rq-id", pays: null, segment: null, libelle: "Pièce d'identité", description: "Carte d'identité ou passeport en cours de validité, recto verso.", obligatoire: true, ordre: 1 },
   { id: "rq-ca-bsf186", pays: "CA", segment: null, libelle: "Liste des marchandises (formulaire BSF186)", description: "Inventaire détaillé et valorisé des biens importés, à présenter à l'Agence des services frontaliers du Canada.", obligatoire: true, ordre: 10 },
@@ -62,10 +84,102 @@ export const PIECES_PAR_DEFAUT: DocumentRequirement[] = [
   { id: "rq-us-cbp", pays: "US", segment: null, libelle: "Formulaire CBP 3299", description: "Déclaration d'entrée en franchise des effets personnels.", obligatoire: true, ordre: 10 },
   { id: "rq-us-visa", pays: "US", segment: null, libelle: "Passeport et visa", description: "Visa en cours de validité pour chaque personne.", obligatoire: true, ordre: 11 },
   { id: "rq-gb-tor", pays: "GB", segment: null, libelle: "Formulaire ToR01 (Transfer of Residence)", description: "Exonération des droits sur les effets personnels.", obligatoire: true, ordre: 10 },
-  // Les pièces propres à un segment, nommées par le cahier des charges (§2). Libellés à faire valider par Bailly.
-  { id: "rq-mil-mutation", pays: null, segment: "militaire", libelle: "Ordre de mutation", description: "L'ordre de mutation délivré par votre administration.", obligatoire: true, ordre: 2 },
-  { id: "rq-mil-carte", pays: null, segment: "militaire", libelle: "Carte militaire", description: "Recto verso.", obligatoire: true, ordre: 3 },
+  // CIMOB/DICOM : la liste de Céline. Les libellés sont raccourcis pour la liste à cocher, le reste de sa phrase passe
+  // dans la description ; « modèle joint » (son mail) devient « modèle à télécharger » (le lien de la pièce).
+  { id: "rq-cimob-residence", pays: null, segment: "militaire", condition: "destination_mayotte", libelle: "Certificat de changement de résidence", description: "À obtenir auprès de la mairie, au départ (Mayotte).", obligatoire: true, ordre: 2 },
+  { id: "rq-cimob-non-cession", pays: null, segment: "militaire", libelle: "Certificat de non cession", description: "Rempli et signé (modèle à télécharger).", obligatoire: true, ordre: 3 },
+  {
+    id: "rq-cimob-articles-prohibes", pays: null, segment: "militaire", libelle: "Attestation articles prohibés", obligatoire: true, ordre: 4,
+    description: "Remplie et signée (modèle à télécharger). Attention : aucun alcool n'est admis sans être taxé à l'arrivée (y compris les bouteilles entamées).",
+  },
+  { id: "rq-cimob-cerfa", pays: null, segment: "militaire", libelle: "Exemplaire CERFA rempli", description: "Modèle et exemple à télécharger.", obligatoire: true, ordre: 5 },
+  { id: "rq-cimob-mutation", pays: null, segment: "militaire", libelle: "Attestation de mutation", description: "", obligatoire: true, ordre: 6 },
+  { id: "rq-cimob-domicile", pays: null, segment: "militaire", libelle: "Justificatif de domicile", description: "De moins de 3 mois à l'adresse de départ, et de plus d'un an pour le retour.", obligatoire: true, ordre: 7 },
+  { id: "rq-cimob-imposition", pays: null, segment: "militaire", libelle: "Dernier avis d'imposition", description: "", obligatoire: true, ordre: 8 },
+  {
+    id: "rq-cimob-valeurs-repli", pays: null, segment: "militaire", condition: "repli", libelle: "Déclaration de valeurs pour votre repli", obligatoire: true, ordre: 9,
+    description: `${PRISE_EN_CHARGE_CIMOB} Au-delà, 0,5 % du montant à votre charge.`,
+  },
+  {
+    id: "rq-cimob-valeurs-om", pays: null, segment: "militaire", condition: "destination_outre_mer", libelle: "Déclaration de valeurs pour votre lot à destination de l'outre-mer", obligatoire: true, ordre: 10,
+    description: `${PRISE_EN_CHARGE_CIMOB} Au-delà, 2,80 % du montant à votre charge.`,
+  },
+  {
+    id: "rq-cimob-hebergement", pays: null, segment: "militaire", condition: "destination_outre_mer", libelle: "Attestation d'hébergement à destination", obligatoire: true, ordre: 11,
+    description: "Avec un justificatif de domicile (quittance EDF) et une copie de la CNI du logeur.",
+  },
+  // Le transport du ou des véhicules.
+  {
+    id: "rq-cimob-vehicule-valeur", pays: null, segment: "militaire", condition: "vehicule", libelle: "Déclaration de valeur de votre véhicule", obligatoire: true, ordre: 20,
+    description:
+      "Signée, sur papier libre (modèle à télécharger). Attention : une déclaration de valeurs par véhicule. Précisez le type de véhicule : moteur thermique, électrique ou hybride (rechargeable ou non). " +
+      "Le CIMOB ne prend en charge le transport que d'un seul véhicule. Montant assuré et pris en charge par le CIMOB limité à 5 000 € pour le 1er véhicule transporté. Au-delà, 2,00 % du montant à votre charge.",
+  },
+  {
+    id: "rq-cimob-carte-grise", pays: null, segment: "militaire", condition: "vehicule", libelle: "Copie de la carte grise de votre véhicule", obligatoire: true, ordre: 21,
+    description: "Si elle est aux deux noms, joignez également la copie de la CNI ou du passeport de la personne ET le livret de famille ou un justificatif de votre union.",
+  },
+  {
+    id: "rq-cimob-non-gage", pays: null, segment: "militaire", condition: "vehicule", libelle: "Certificat de non gage", obligatoire: true, ordre: 22,
+    description: "À obtenir en quelques clics sur https://siv.interieur.gouv.fr/map-usg-ui/do/accueil_certificat",
+  },
+  {
+    id: "rq-cimob-batterie", pays: null, segment: "militaire", condition: "vehicule_electrique", libelle: "Fiche de sécurité de la batterie de votre véhicule", obligatoire: true, ordre: 23,
+    description: "Véhicule électrique ou hybride : la fiche MSDS, à réclamer auprès de votre concessionnaire, pour la conformité de la batterie.",
+  },
   { id: "rq-ls-bailleur", pays: null, segment: "logement_social", libelle: "Documents du bailleur", description: "Les documents remis par votre bailleur pour ce déménagement.", obligatoire: true, ordre: 2 },
+];
+
+/**
+ * Les deux pièces provisoires du segment militaire, écrites avant la liste de
+ * Céline : scripts/pieces-cimob.mjs les retire d'une base où elles seraient
+ * encore (un document déjà déposé pour elles reste au dossier, détaché).
+ */
+export const PIECES_PROVISOIRES_RETIREES = [
+  { id: "rq-mil-mutation", libelle: "Ordre de mutation" },
+  { id: "rq-mil-carte", libelle: "Carte militaire" },
+] as const;
+
+/** Un modèle joint au mail de Céline et la pièce qui le propose. */
+export interface ModeleDeDepart {
+  id: string;
+  piece: string;
+  libelle: string;
+  /** Le nom du fichier joint au mail : scripts/pieces-cimob.mjs le cherche sous ce nom dans le dossier qu'on lui donne. */
+  fichier: string;
+  mime: string;
+  ordre: number;
+}
+
+const DOC = "application/msword";
+const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const PDF = "application/pdf";
+
+/**
+ * Les modèles joints au mail de Céline, rattachés à leur pièce. Les fichiers
+ * ne sont PAS dans le dépôt, qui est public : scripts/pieces-cimob.mjs les
+ * charge depuis un dossier local vers le seau privé des modèles. La
+ * démonstration en mémoire en montre les liens, une page témoin tenant lieu
+ * de fichier.
+ */
+export const MODELES_CIMOB: ModeleDeDepart[] = [
+  { id: "mo-cimob-non-cession", piece: "rq-cimob-non-cession", libelle: "Modèle", fichier: "CERTIFICAT DE NON CESSION.doc", mime: DOC, ordre: 1 },
+  { id: "mo-cimob-articles-prohibes", piece: "rq-cimob-articles-prohibes", libelle: "Modèle", fichier: "ATTESTATION ARTICLES PROHIBES.docx", mime: DOCX, ordre: 1 },
+  { id: "mo-cimob-cerfa", piece: "rq-cimob-cerfa", libelle: "Modèle", fichier: "CERFA.pdf", mime: PDF, ordre: 1 },
+  { id: "mo-cimob-cerfa-exemple", piece: "rq-cimob-cerfa", libelle: "Exemple rempli", fichier: "EXEMPLE CERFA.pdf", mime: PDF, ordre: 2 },
+  { id: "mo-cimob-vehicule-valeur", piece: "rq-cimob-vehicule-valeur", libelle: "Modèle", fichier: "DECLARATION DE VALEUR DE VEHICULE.docx", mime: DOCX, ordre: 1 },
+];
+
+/**
+ * En attente de Céline : le « modèle joint » des deux déclarations de valeurs
+ * (repli, lot outre-mer) n'est pas nommé dans son mail — sans doute
+ * l'inventaire-déclaration, dont elle veut parler d'abord. Rattachés
+ * seulement par `scripts/pieces-cimob.mjs --avec-inventaire`, jamais dans la
+ * démonstration.
+ */
+export const MODELES_CIMOB_A_VALIDER: ModeleDeDepart[] = [
+  { id: "mo-cimob-inventaire-repli", piece: "rq-cimob-valeurs-repli", libelle: "Modèle", fichier: "INVENTAIRE DECLARATION Français.docx", mime: DOCX, ordre: 1 },
+  { id: "mo-cimob-inventaire-om", piece: "rq-cimob-valeurs-om", libelle: "Modèle", fichier: "INVENTAIRE DECLARATION Français.docx", mime: DOCX, ordre: 1 },
 ];
 
 /** Tutos de la v0, vignettes de la micro démo. Contenus provisoires. */
@@ -93,7 +207,7 @@ export const PROFILS_DEMO = [
   { lettre: "B", email: "julien.roussel@example.com", reference: "BD-2026-0152", titre: "International · Marseille → Montréal", detail: "Devis à accepter et arrhes à payer, pièces du Canada, conteneur" },
   { lettre: "C", email: "mobilite.atlantique@example.com", reference: "BD-2026-0139", titre: "Grand compte · Nantes → Bordeaux", detail: "Devis et factures masqués" },
   { lettre: "D", email: "claire.dumont@example.com", reference: "BD-2024-0311", titre: "Ancien dossier · Lille → Paris", detail: "Terminé : SAV, sélecteur de dossiers" },
-  { lettre: "E", email: "thomas.lefort@example.com", reference: "BD-2026-0165", titre: "Militaire · Brest → Toulon", detail: "Prise en charge par l'administration, ordre de mutation et carte militaire" },
+  { lettre: "E", email: "thomas.lefort@example.com", reference: "BD-2026-0165", titre: "Militaire · Brest → Toulon", detail: "Prise en charge par l'administration, pièces CIMOB/DICOM et modèles à télécharger" },
   { lettre: "F", email: "fatou.diallo@example.com", reference: "BD-2026-0166", titre: "Logement social · Créteil → Vitry-sur-Seine", detail: "Pièces du bailleur, SAV ouvert, bailleur prévenu" },
 ] as const;
 
@@ -105,6 +219,15 @@ export const PROFILS_DEMO = [
  */
 export const estProfilDemo = (email: string) => PROFILS_DEMO.some((p) => p.email === email.trim().toLowerCase());
 
+/**
+ * Un modèle de la démonstration en mémoire : la ligne seule, sans fichier
+ * (le dépôt est public) — le lien sert une page témoin (modeles.ts).
+ */
+const modeleDeDemonstration = (m: ModeleDeDepart): ModelePiece => ({
+  id: m.id, requirement_id: m.piece, libelle: m.libelle, chemin: `modeles/${m.piece}/${m.id}`, nom_fichier: m.fichier, mime: m.mime,
+  taille_octets: 0, ordre: m.ordre, created_by: "demo", created_at: T,
+});
+
 /** Le point de départ : aucun client, les listes de la v0 (pièces, tutos, services). */
 function depart(): Donnees {
   return {
@@ -115,6 +238,7 @@ function depart(): Donnees {
     devis: [],
     factures: [],
     document_requirements: PIECES_PAR_DEFAUT.map((p) => ({ ...p })),
+    modeles_pieces: MODELES_CIMOB.map(modeleDeDemonstration),
     documents: [],
     acceptations: [],
     declarations_valeurs: [],
@@ -264,7 +388,7 @@ export function amorcer(now = new Date()): Donnees {
       { id: "doc-d1", dossier_id: "do-d", categorie: "transport", libelle: "Lettre de voiture signée", source: "equipe", chemin: "fichiers/do-d/lettre-de-voiture.pdf", nom_fichier: "lettre-de-voiture.pdf", taille_octets: 156000, mime: "application/pdf", requirement_id: null, created_by: "eq-nadia", created_at: "2024-06-13T18:00:00.000Z" },
       { id: "doc-d2", dossier_id: "do-d", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-d/cni-dumont.pdf", nom_fichier: "cni-dumont.pdf", taille_octets: 402110, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-dumont", created_at: "2024-05-02T10:00:00.000Z" },
       { id: "doc-j1", dossier_id: "do-j", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-j/cni-lefort.pdf", nom_fichier: "cni-lefort.pdf", taille_octets: 312400, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-lefort", created_at: "2026-09-02T19:10:00.000Z" },
-      { id: "doc-j2", dossier_id: "do-j", categorie: "segment", libelle: "Ordre de mutation", source: "client", chemin: "fichiers/do-j/ordre-mutation.pdf", nom_fichier: "ordre-mutation.pdf", taille_octets: 228900, mime: "application/pdf", requirement_id: "rq-mil-mutation", created_by: "cl-lefort", created_at: "2026-09-02T19:12:00.000Z" },
+      { id: "doc-j2", dossier_id: "do-j", categorie: "segment", libelle: "Attestation de mutation", source: "client", chemin: "fichiers/do-j/attestation-mutation.pdf", nom_fichier: "attestation-mutation.pdf", taille_octets: 228900, mime: "application/pdf", requirement_id: "rq-cimob-mutation", created_by: "cl-lefort", created_at: "2026-09-02T19:12:00.000Z" },
       { id: "doc-k1", dossier_id: "do-k", categorie: "identite", libelle: "Pièce d'identité", source: "client", chemin: "fichiers/do-k/cni-diallo.pdf", nom_fichier: "cni-diallo.pdf", taille_octets: 287300, mime: "application/pdf", requirement_id: "rq-id", created_by: "cl-diallo", created_at: "2026-08-21T18:30:00.000Z" },
     ],
 

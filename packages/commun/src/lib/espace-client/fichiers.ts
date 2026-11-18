@@ -18,6 +18,11 @@ import type { Client, Donnees, Dossier, PieceJointe } from "./types";
  * voir le document que l'équipe vient de déposer s'ouvrir chez le client,
  * sans rien écrire nulle part.
  *
+ * Les modèles à télécharger des pièces (formulaires vierges, exemples
+ * remplis) ont leur propre seau privé, « espace-client-modeles » (migration
+ * 0021) : ils ne sont à aucun dossier, et leurs formats (Word…) ne sont pas
+ * ceux qu'un client peut déposer. Voir modeles.ts.
+ *
  * Un fichier ne sort que par deux portes : /espace-client/fichier (le client,
  * app externe) et /api/data/espace-client/fichier (l'équipe, app interne).
  * Chacune exige un lien signé de cinq minutes ET une session qui a droit au
@@ -26,6 +31,8 @@ import type { Client, Donnees, Dossier, PieceJointe } from "./types";
  */
 
 export const SEAU = "espace-client";
+/** Le seau privé des modèles à télécharger (migration 0021). */
+export const SEAU_MODELES = "espace-client-modeles";
 /** Le temps d'ouvrir le fichier : au-delà, l'URL du seau ne vaut plus rien. */
 const DUREE_URL_SEAU_S = 60;
 
@@ -34,7 +41,8 @@ const coffre = globalThis as Coffre;
 const memoire = () => (coffre.__ecFichiers ??= new Map());
 const PLAFOND_MEMOIRE = 150 * 1024 * 1024;
 
-const nomPropre = (nom: string) =>
+/** Un nom de fichier sans accents ni caractères spéciaux, 80 caractères au plus : ce qui se range dans le seau. */
+export const nomPropre = (nom: string) =>
   nom
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -46,7 +54,7 @@ export function cheminFichier(dossierId: string, nom: string, rubrique = "") {
   return `fichiers/${dossierId}/${rubrique ? `${rubrique}/` : ""}${randomUUID().slice(0, 8)}-${nomPropre(nom)}`;
 }
 
-export async function deposerFichier(chemin: string, donnees: Buffer, type: string) {
+export async function deposerFichier(chemin: string, donnees: Buffer, type: string, seau = SEAU) {
   if (estDemo()) {
     const m = memoire();
     m.set(chemin, { donnees, type, a: Date.now() });
@@ -59,16 +67,16 @@ export async function deposerFichier(chemin: string, donnees: Buffer, type: stri
     }
     return;
   }
-  const { error } = await avecDelai(createServiceClient().storage.from(SEAU).upload(chemin, donnees, { contentType: type, upsert: false }), 30_000, "Le stockage ne répond pas.");
+  const { error } = await avecDelai(createServiceClient().storage.from(seau).upload(chemin, donnees, { contentType: type, upsert: false }), 30_000, "Le stockage ne répond pas.");
   if (error) throw new Error(`Dépôt du fichier impossible : ${error.message}`);
 }
 
-export async function retirerFichier(chemin: string) {
+export async function retirerFichier(chemin: string, seau = SEAU) {
   if (estDemo()) {
     memoire().delete(chemin);
     return;
   }
-  await avecDelai(createServiceClient().storage.from(SEAU).remove([chemin])).catch(() => undefined);
+  await avecDelai(createServiceClient().storage.from(seau).remove([chemin])).catch(() => undefined);
 }
 
 /** Lit un `File` reçu par une action, prêt à déposer. */
@@ -78,8 +86,12 @@ export async function octets(f: File) {
 
 // --- Les liens ------------------------------------------------------------------------------------------
 
-/** Ce qu'un lien de fichier peut désigner ; « msg » : la pièce jointe d'un message de la discussion (discussion.ts). */
-export type TypeFichier = "doc" | "devis" | "facture" | "photo" | "msg";
+/**
+ * Ce qu'un lien de fichier peut désigner ; « msg » : la pièce jointe d'un
+ * message de la discussion (discussion.ts) ; « modele » : le modèle à
+ * télécharger d'une pièce (modeles.ts).
+ */
+export type TypeFichier = "doc" | "devis" | "facture" | "photo" | "msg" | "modele";
 const DUREE_S = 5 * 60;
 
 /** La porte du client (app externe). Celle de l'équipe est sous /api/data/espace-client. */
@@ -188,10 +200,10 @@ export async function servirFichier(
  * redirection vers une URL signée du seau, valable 60 secondes ; en
  * démonstration, le fichier gardé en mémoire. Null s'il n'existe plus.
  */
-export async function reponseDuSeau(chemin: string, nom: string, telecharger: boolean): Promise<Response | null> {
+export async function reponseDuSeau(chemin: string, nom: string, telecharger: boolean, seau = SEAU): Promise<Response | null> {
   if (!estDemo()) {
     const { data, error } = await avecDelai(
-      createServiceClient().storage.from(SEAU).createSignedUrl(chemin, DUREE_URL_SEAU_S, telecharger ? { download: nom } : undefined),
+      createServiceClient().storage.from(seau).createSignedUrl(chemin, DUREE_URL_SEAU_S, telecharger ? { download: nom } : undefined),
     ).catch(() => ({ data: null, error: new Error("Le stockage ne répond pas.") }));
     if (error || !data?.signedUrl) return null;
     return new Response(null, {

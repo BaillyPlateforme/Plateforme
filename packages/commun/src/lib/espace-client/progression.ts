@@ -10,6 +10,7 @@ import type {
   DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration, TypeClient, VisiteTechnique,
 } from "./types";
 import { euros, jourMois, nomPays, parseDate, pluriel } from "./format";
+import { conditionRemplie } from "./pieces";
 import { segmentDe } from "./segments";
 import { heureParis } from "../visite/regles";
 
@@ -55,13 +56,24 @@ export const estInternationalSuivi = (d: Pick<Dossier, "portee" | "mode_transpor
 /**
  * Les pièces qu'un dossier doit fournir : celles de toutes les destinations
  * et de celle du dossier (à l'international), pour tous les segments et pour
- * celui du client — l'ordre de mutation d'un militaire, les pièces du
+ * celui du client — les pièces CIMOB/DICOM d'un militaire, celles du
  * bailleur d'un logement social.
+ *
+ * Une pièce conditionnelle (pieces.ts) n'est demandée qu'au dossier
+ * concerné. Quand le CRM ne dit pas s'il l'est, elle reste dans la liste,
+ * facultative et marquée `si_concerne` : mieux vaut une pièce de trop, que le
+ * client écarte, qu'une pièce manquante découverte au départ.
  */
-export function requirementsApplicables(dossier: Dossier, segment: TypeClient, tous: DocumentRequirement[]) {
+export function requirementsApplicables(dossier: Dossier, segment: TypeClient, tous: DocumentRequirement[]): DocumentRequirement[] {
   return tous
     .filter((r) => r.pays === null || (dossier.portee === "international" && r.pays === dossier.pays_destination))
     .filter((r) => !r.segment || r.segment === segment)
+    .flatMap((r) => {
+      if (!r.condition) return [r];
+      const concerne = conditionRemplie(r.condition, dossier, segment);
+      if (concerne === false) return [];
+      return concerne === null ? [{ ...r, obligatoire: false, si_concerne: true }] : [r];
+    })
     .sort((a, b) => a.ordre - b.ordre);
 }
 

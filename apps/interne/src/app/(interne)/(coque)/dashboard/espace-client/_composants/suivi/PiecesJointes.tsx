@@ -123,8 +123,12 @@ export function PiecesJointes({ d, recharger, compact = false, lienFiche }: { d:
                     </a>
                   </span>
                 ) : (
-                  <span className={s.etat} data-etat={p.obligatoire ? "manquante" : "facultative"}>
-                    {p.obligatoire ? "Manquante" : "Facultative"}
+                  <span
+                    className={s.etat}
+                    data-etat={p.obligatoire ? "manquante" : "facultative"}
+                    title={p.si_concerne ? "Pièce conditionnelle : le CRM ne dit pas encore si ce dossier est concerné. Elle est demandée au client « si vous êtes concerné »." : undefined}
+                  >
+                    {p.obligatoire ? "Manquante" : p.si_concerne ? "Si concerné" : "Facultative"}
                   </span>
                 )}
               </li>

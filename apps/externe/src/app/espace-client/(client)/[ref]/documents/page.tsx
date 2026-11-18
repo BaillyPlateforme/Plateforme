@@ -4,6 +4,7 @@ import { chargerEspace } from "@/lib/espace-client/espace";
 import { lienFichier } from "@/lib/espace-client/fichiers";
 import { dateCourte, dateHeure, dateLongue, estRecent, euros, nomPays, taille } from "@/lib/espace-client/format";
 import { ESCALIER, MONTE_MEUBLE, POIDS_LOURD, STATIONNEMENT, libelleEtage } from "@/lib/espace-client/libelles";
+import { formatDuModele, texteLienModele } from "@/lib/espace-client/modeles-schema";
 import { aAccepte } from "@/lib/espace-client/progression";
 import { CGV, RGPD } from "@/lib/espace-client/textes";
 import { PageHero } from "../../../_ui/PageHero";
@@ -21,6 +22,23 @@ const d = (n: number) => ({ "--d": n }) as CSSProperties;
 const extension = (nom: string) => (nom.split(".").pop() ?? "PDF").slice(0, 4).toUpperCase();
 
 /**
+ * Une description de pièce, ses adresses https devenues des liens (le site
+ * du certificat de non gage, par exemple). Le texte vient de l'équipe : rien
+ * n'est interprété comme du HTML.
+ */
+function avecLiens(texte: string) {
+  return texte.split(/(https:\/\/[^\s)]+)/).map((morceau, i) =>
+    i % 2 ? (
+      <a key={i} href={morceau} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline", overflowWrap: "anywhere" }}>
+        {morceau.replace(/^https:\/\//, "")}
+      </a>
+    ) : (
+      morceau
+    ),
+  );
+}
+
+/**
  * « Mes documents » — la page documents.html de la micro démo : pièces à
  * fournir (adaptées à la destination), conditions de livraison, déclaration
  * de valeurs, CGV et RGPD, et les documents déposés par l'équipe.
@@ -28,7 +46,7 @@ const extension = (nom: string) => (nom.split(".").pop() ?? "PDF").slice(0, 4).t
 export default async function MesDocuments({ params }: { params: Promise<{ ref: string }> }) {
   const { ref } = await params;
   const e = await chargerEspace(ref);
-  const { dossier, client, requirements, documents, conditions, declaration, acceptations } = e;
+  const { dossier, client, requirements, documents, conditions, declaration, acceptations, modeles } = e;
   const inter = dossier.portee === "international";
 
   const certifConditions = aAccepte(acceptations, "conditions_livraison");
@@ -39,14 +57,20 @@ export default async function MesDocuments({ params }: { params: Promise<{ ref: 
   const valeursOk = declaration?.statut === "soumise";
   const cgvOk = !!cgv && !!rgpd;
 
-  const pieces = requirements.map((r) => ({ r, depot: documents.find((x) => x.requirement_id === r.id) ?? null }));
+  const pieces = requirements.map((r) => ({
+    r,
+    depot: documents.find((x) => x.requirement_id === r.id) ?? null,
+    modeles: modeles.filter((m) => m.requirement_id === r.id),
+  }));
   const formulaires = [
     { id: "conditions", t: "Conditions de livraison", s: "Questionnaire d'accès à la livraison · obligatoire", ok: conditionsOk },
     { id: "valeurs", t: "Déclaration de valeurs", s: "Document d'assurance, rempli en ligne", ok: valeursOk },
     { id: "cgv", t: "CGV et politique RGPD", s: "Acceptation en ligne horodatée", ok: cgvOk },
   ];
   const restant = pieces.filter((p) => p.r.obligatoire && !p.depot).length + formulaires.filter((f) => !f.ok).length;
-  const libres = documents.filter((x) => x.source === "client" && !x.requirement_id);
+  // Les autres documents du client — y compris celui déposé pour une pièce qui ne lui est plus demandée
+  // (le CRM a dit depuis qu'il n'a pas de repli, par exemple) : il reste visible ici plutôt que de disparaître.
+  const libres = documents.filter((x) => x.source === "client" && (!x.requirement_id || !requirements.some((r) => r.id === x.requirement_id)));
   const equipe = documents.filter((x) => x.source === "equipe");
 
   return (
@@ -84,7 +108,7 @@ export default async function MesDocuments({ params }: { params: Promise<{ ref: 
                 )}
               </p>
               <div className="checklist">
-                {pieces.map(({ r, depot }, i) => (
+                {pieces.map(({ r, depot, modeles: aTelecharger }, i) => (
                   <div key={r.id} className={`ck ${depot ? "ok" : r.obligatoire ? "todo" : ""} apparait`} style={d(i)}>
                     <span className="s">
                       <Icone nom={depot ? "check" : "upload"} />
@@ -93,7 +117,11 @@ export default async function MesDocuments({ params }: { params: Promise<{ ref: 
                       <strong>
                         {r.libelle}
                         {r.pays && <span className="flag">{nomPays(r.pays)}</span>}
-                        {!r.obligatoire && <span className="flag" style={{ color: "var(--muted)" }}>Facultatif</span>}
+                        {!r.obligatoire && (
+                          <span className="flag" style={{ color: "var(--muted)" }}>
+                            {r.si_concerne ? "Si vous êtes concerné" : "Facultatif"}
+                          </span>
+                        )}
                       </strong>
                       <small>
                         {depot ? (
@@ -101,10 +129,21 @@ export default async function MesDocuments({ params }: { params: Promise<{ ref: 
                             {depot.nom_fichier}
                           </a>
                         ) : (
-                          r.description
+                          avecLiens(r.description)
                         )}
                         {depot && ` · déposé le ${dateCourte(depot.created_at)}`}
                       </small>
+                      {/* Les modèles à remplir (migration 0021) : tant que la pièce n'est pas reçue. */}
+                      {!depot && aTelecharger.length > 0 && (
+                        <span className="modeles">
+                          {aTelecharger.map((m) => (
+                            // Le serveur répond en pièce jointe (Content-Disposition) : le fichier se télécharge sans quitter la page.
+                            <a key={m.id} href={lienFichier("modele", m.id, { telecharger: true })}>
+                              <Icone nom="download" /> {texteLienModele(m.libelle)} <span className="fmt">{formatDuModele(m.nom_fichier)}</span>
+                            </a>
+                          ))}
+                        </span>
+                      )}
                     </div>
                     {depot ? <span className="badge ok">Reçu</span> : <DepotPiece reference={ref} requirementId={r.id} />}
                   </div>

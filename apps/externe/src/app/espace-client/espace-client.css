@@ -1032,6 +1032,13 @@ html.ec-anim .ec .apparait.vu { opacity: 1; transform: none; }
 .ec .mini-docs { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14.5px; color: var(--muted); }
 .ec .mini-docs a { text-decoration: underline; }
 
+/* Les modèles à télécharger d'une pièce (« Télécharger le modèle », « Exemple rempli »), sous sa description. */
+.ec .ck .modeles { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; }
+.ec .ck .modeles a { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--accent-deep); text-decoration: none; }
+.ec .ck .modeles a:hover { text-decoration: underline; }
+.ec .ck .modeles svg { width: 16px; height: 16px; flex: none; }
+.ec .ck .modeles .fmt { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; color: var(--muted); }
+
 @media (max-width: 640px) {
   .ec .depot-piece { justify-items: start; }
 }

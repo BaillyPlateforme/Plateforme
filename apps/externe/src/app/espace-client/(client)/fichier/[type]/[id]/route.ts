@@ -1,6 +1,8 @@
 import { after } from "next/server";
 import { servirPiece } from "@/lib/espace-client/discussion";
 import { servirFichier } from "@/lib/espace-client/fichiers";
+import { servirModele } from "@/lib/espace-client/modeles";
+import { requirementsApplicables } from "@/lib/espace-client/progression";
 import { apercuEquipe, clientConnecte, lireDonneesClient } from "@/lib/espace-client/session";
 import { noterPortail, requeteDe } from "@/lib/suivi-envois";
 
@@ -15,6 +17,10 @@ export const dynamic = "force-dynamic";
  * qui n'existe pas. Le fichier lui-même sort par une URL signée du seau
  * privé, valable 60 secondes.
  *
+ * Les modèles à télécharger des pièces (migration 0021) passent par la même
+ * porte : un modèle ne sort que si l'un des dossiers du client demande sa
+ * pièce (modeles.ts).
+ *
  * Le PDF d'un devis ou d'une facture servi au client (jamais pendant un
  * aperçu de l'équipe) est noté au suivi : « a téléchargé le PDF du devis »
  * (lib/suivi-envois).
@@ -28,6 +34,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
   const d = await lireDonneesClient();
   // La pièce jointe d'un message de la discussion : celle d'un dossier du client, et de lui seul.
   if (type === "msg") return servirPiece(id, new URL(req.url), (dossierId) => d.dossiers.some((x) => x.id === dossierId && x.client_id === client.id));
+  // Le modèle à télécharger d'une pièce : seulement si l'un des dossiers du client demande cette pièce.
+  if (type === "modele") {
+    return servirModele(d, id, new URL(req.url), (piece) =>
+      d.dossiers.some((x) => x.client_id === client.id && requirementsApplicables(x, client.type, [piece]).length > 0),
+    );
+  }
   const reponse = await servirFichier(d, type, id, new URL(req.url), (dossier, titulaire) => {
     if (dossier.client_id !== client.id || titulaire.id !== client.id) return false;
     if (type === "devis" && titulaire.masquer_devis) return false;

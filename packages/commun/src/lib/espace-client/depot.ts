@@ -33,7 +33,7 @@ export type Table = Exclude<keyof Donnees, "version">;
 export type Ligne<K extends Table> = Donnees[K][number];
 
 export const TABLES: Table[] = [
-  "conseillers", "clients", "dossiers", "devis", "factures", "document_requirements", "documents", "acceptations",
+  "conseillers", "clients", "dossiers", "devis", "factures", "document_requirements", "modeles_pieces", "documents", "acceptations",
   "declarations_valeurs", "conditions_livraison", "livraisons_cartons", "sav_declarations", "tutos", "services",
   "notifications", "sessions_paiement", "creneaux", "visites",
 ];
@@ -106,9 +106,9 @@ export function avecDelai<T>(promesse: PromiseLike<T>, ms = DELAI, message = "La
 export function donneesVides(): Donnees {
   return {
     version: VERSION_DONNEES,
-    conseillers: [], clients: [], dossiers: [], devis: [], factures: [], document_requirements: [], documents: [], acceptations: [],
-    declarations_valeurs: [], conditions_livraison: [], livraisons_cartons: [], sav_declarations: [], tutos: [], services: [],
-    notifications: [], sessions_paiement: [], creneaux: [], visites: [],
+    conseillers: [], clients: [], dossiers: [], devis: [], factures: [], document_requirements: [], modeles_pieces: [], documents: [],
+    acceptations: [], declarations_valeurs: [], conditions_livraison: [], livraisons_cartons: [], sav_declarations: [], tutos: [],
+    services: [], notifications: [], sessions_paiement: [], creneaux: [], visites: [],
   };
 }
 
@@ -122,6 +122,8 @@ export function restreindre(d: Donnees, clientId: string): Donnees {
   if (!client) return { ...donneesVides(), version: d.version };
   const dossiers = new Set(d.dossiers.filter((x) => x.client_id === clientId).map((x) => x.id));
   const du = <T extends { dossier_id: string }>(l: T[]) => l.filter((x) => dossiers.has(x.dossier_id));
+  // Les modèles des pièces de tous les segments et de celui du client (la politique de la migration 0021).
+  const pieces = new Set(d.document_requirements.filter((r) => !r.segment || r.segment === client.type).map((r) => r.id));
   return {
     version: d.version,
     conseillers: d.conseillers.filter((c) => c.id === client.conseiller_id),
@@ -130,6 +132,7 @@ export function restreindre(d: Donnees, clientId: string): Donnees {
     devis: client.masquer_devis ? [] : du(d.devis),
     factures: client.masquer_factures ? [] : du(d.factures),
     document_requirements: d.document_requirements,
+    modeles_pieces: (d.modeles_pieces ?? []).filter((m) => pieces.has(m.requirement_id)),
     documents: du(d.documents),
     acceptations: du(d.acceptations),
     declarations_valeurs: du(d.declarations_valeurs),
@@ -242,13 +245,22 @@ const JOURNAL_MAX = 1000;
 type Requeteur = ReturnType<typeof createServiceClient>;
 
 /**
- * Les tables de la visite technique (migration 0015). Tant que la migration
- * n'est pas appliquée, elles manquent : l'espace se lit sans elles plutôt que
- * de tomber en entier.
+ * Les tables venues après coup : la visite technique (migration 0015), les
+ * modèles des pièces (migration 0021). Tant que leur migration n'est pas
+ * appliquée, elles manquent : l'espace se lit sans elles plutôt que de tomber
+ * en entier.
  */
-const TABLES_0015 = new Set<Table>(["creneaux", "visites"]);
+const TABLES_FACULTATIVES = new Set<Table>(["creneaux", "visites", "modeles_pieces"]);
 const tableAbsente = (table: Table, e: { code?: string; message?: string }) =>
-  TABLES_0015.has(table) && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|does not exist/i.test(e.message ?? ""));
+  TABLES_FACULTATIVES.has(table) && (e.code === "PGRST205" || e.code === "42P01" || /could not find the table|does not exist/i.test(e.message ?? ""));
+
+/**
+ * Les tables facultatives trouvées absentes à la dernière lecture : l'éditeur
+ * des pièces dit ainsi que les modèles attendent la migration 0021, plutôt
+ * que d'échouer au premier envoi. Une lecture réussie efface la marque.
+ */
+const absentes = new Set<Table>();
+export const tableManquante = (table: Table) => absentes.has(table);
 
 async function lireTable<K extends Table>(db: Requeteur, table: K): Promise<Ligne<K>[]> {
   const tout: Ligne<K>[] = [];
@@ -257,8 +269,12 @@ async function lireTable<K extends Table>(db: Requeteur, table: K): Promise<Lign
     let q = db.from(nomTable(table)).select("*");
     q = table === "notifications" ? q.order("sent_at", { ascending: false }) : q.order("id");
     const { data, error } = await avecDelai(q.range(debut, Math.min(debut + LOT, max) - 1));
-    if (error && tableAbsente(table, error)) return [];
+    if (error && tableAbsente(table, error)) {
+      absentes.add(table);
+      return [];
+    }
     if (error) throw new Error(`Lecture de ${nomTable(table)} impossible : ${error.message}`);
+    absentes.delete(table);
     tout.push(...(data ?? []).map((l) => normaliser<Ligne<K>>(l)));
     if ((data ?? []).length < LOT) break;
   }
@@ -320,7 +336,7 @@ class DepotBase implements DepotDonnees {
     [
       d.conseillers, d.devis, d.factures, d.documents, d.acceptations, d.declarations_valeurs, d.conditions_livraison,
       d.livraisons_cartons, d.sav_declarations, d.sessions_paiement, d.document_requirements, d.tutos, d.services,
-      d.creneaux, d.visites,
+      d.creneaux, d.visites, d.modeles_pieces,
     ] = await Promise.all([
       filtre("conseillers", "id", clients.map((c) => c.conseiller_id)),
       filtre("devis", "dossier_id", ids),
@@ -337,6 +353,7 @@ class DepotBase implements DepotDonnees {
       lireTable(db, "services"),
       filtre("creneaux", "dossier_id", ids),
       filtre("visites", "dossier_id", ids),
+      lireTable(db, "modeles_pieces"),
     ]);
     return restreindre(d, clientId);
   }
