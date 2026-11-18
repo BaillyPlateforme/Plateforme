@@ -14,6 +14,7 @@
  */
 
 import { ESCALIER, MONTE_MEUBLE } from "../espace-client/libelles";
+import type { CleSpeciale } from "./destinations";
 
 const PARIS = "Europe/Paris";
 
@@ -205,6 +206,12 @@ export interface ObjetSaisi {
   destination?: number | null;
   /** Une destination hors trajet posée depuis la fiche (« Don »…), affichée telle quelle. */
   destinationLibre?: string | null;
+  /** Une destination hors adresse (Dragan, 18/11/2026) : à laisser sur place, débarras, pris en charge par le client, à confirmer. */
+  speciale?: CleSpeciale | null;
+  /** La désignation anglaise du catalogue, gardée sur la ligne : les documents restent bilingues si le catalogue change. */
+  libelleEn?: string | null;
+  /** Une protection du catalogue (« Non compté ») : quantifiée, hors cubage, son volume reste nul. */
+  horsCubage?: boolean;
 }
 
 export interface PieceSaisie {
@@ -214,6 +221,8 @@ export interface PieceSaisie {
   remarque: string | null;
   /** La destination proposée pour les objets de la pièce. */
   destination?: number | null;
+  /** Ou une destination hors adresse (toute la cave au débarras…). */
+  speciale?: CleSpeciale | null;
 }
 
 export interface OptionSaisie {
@@ -222,7 +231,7 @@ export interface OptionSaisie {
 }
 
 /** Les plafonds de la saisie : le serveur les revérifie. */
-export const PLAFONDS = { nom: 60, libelle: 90, note: 200, remarque: 1500, remarques: 4000, quantite: 999, volume: 99, acces: 300, signataire: 80 } as const;
+export const PLAFONDS = { nom: 60, libelle: 90, libelleEn: 90, note: 200, remarque: 1500, remarques: 4000, quantite: 999, volume: 99, acces: 300, signataire: 80 } as const;
 
 /**
  * Une opération de la saisie. La tablette les garde en file (dans le
@@ -232,7 +241,7 @@ export const PLAFONDS = { nom: 60, libelle: 90, note: 200, remarque: 1500, remar
  * plus que la première fois.
  */
 export type Operation =
-  | { t: "piece"; cle: string; nom: string; ordre: number; remarque: string | null; destination?: number | null }
+  | { t: "piece"; cle: string; nom: string; ordre: number; remarque: string | null; destination?: number | null; speciale?: CleSpeciale | null }
   | { t: "piece-"; cle: string }
   | ({ t: "objet" } & ObjetSaisi)
   | { t: "objet-"; cle: string }
@@ -241,6 +250,9 @@ export type Operation =
 
 export const volumeObjets = (objets: Pick<ObjetSaisi, "quantite" | "volume">[]) =>
   Math.round(objets.reduce((n, o) => n + o.quantite * o.volume, 0) * 100) / 100;
+
+/** La désignation bilingue, comme Dragan la demande : « Désignation française / English » (le français seul sans anglais). */
+export const designation = (libelle: string, en?: string | null) => (en?.trim() ? `${libelle} / ${en.trim()}` : libelle);
 
 // --- Le compte-rendu -----------------------------------------------------------------------------------
 
@@ -260,12 +272,35 @@ export interface ContenuCompteRendu {
     nom: string;
     remarque: string | null;
     volume: number;
-    objets: { libelle: string; quantite: number; volume_unitaire: number; volume: number; demontage: boolean; fragile: boolean; note: string | null; destination?: string }[];
+    objets: {
+      libelle: string;
+      /** La désignation anglaise du catalogue (18/11/2026), quand la ligne en a une : « Français / English ». */
+      libelle_en?: string;
+      quantite: number;
+      volume_unitaire: number;
+      volume: number;
+      demontage: boolean;
+      fragile: boolean;
+      note: string | null;
+      destination?: string;
+      /** Une protection, hors cubage. */
+      hors_cubage?: true;
+    }[];
     photos: number;
   }[];
-  /** Le volume par destination, quand le dossier en a plusieurs. */
-  destinations?: { libelle: string; volume: number; objets: number }[];
+  /** Le volume par destination, quand le dossier en a plusieurs, ou qu'un objet a une destination hors adresse. */
+  destinations?: { libelle: string; volume: number; objets: number; non_transporte?: true }[];
+  /**
+   * Le volume transporté (18/11/2026) : sans ce qui est laissé sur place ou
+   * pris en charge par le client. Sans destination hors adresse, c'est tout
+   * l'inventaire, comme avant.
+   */
   volume: number;
+  /** Ce qui n'est pas transporté (à laisser sur place, pris en charge par le client), quand il y en a. */
+  volume_non_transporte?: number;
+  /** Dans le transporté : le débarras et ce qui reste à confirmer, quand il y en a. */
+  volume_debarras?: number;
+  volume_a_confirmer?: number;
   nb_objets: number;
   nb_photos: number;
   options: string[];

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { SEAU as SEAU_ESPACE } from "@/lib/espace-client/fichiers";
 import { pdfCompteRendu, type PhotosParPiece } from "@/lib/visite/pdf";
-import { volumesParDestination } from "@/lib/visite/destinations";
+import { bilanVolumes, choixDe, estSpeciale, libelleDuChoix, volumesParDestination } from "@/lib/visite/destinations";
 import { FORMULES, GENRE_ETAPE, jsonCanonique, volumeObjets, type ContenuCompteRendu } from "@/lib/visite/regles";
 import { q, q1 } from "@/crm/lib/db";
 import { SEAU as SEAU_PHOTOS } from "@/terrain/lib/photos";
@@ -23,6 +23,13 @@ import type { Saisie } from "./donnees";
  * chaque objet porte la sienne et le compte-rendu donne le volume par
  * destination ; avec une seule, le contenu reste celui d'avant.
  *
+ * Synthèse de Dragan (18/11/2026) : un objet à laisser sur place, au
+ * débarras, pris en charge par le client ou à confirmer porte aussi sa
+ * destination ; le volume du compte-rendu est le volume transporté, et ce qui
+ * ne l'est pas se lit à part. Une ligne du catalogue garde sa désignation
+ * anglaise (« Français / English »). Sans rien de cela, le contenu — et donc
+ * son empreinte — reste celui d'avant.
+ *
  * Le PDF est produit une fois, après la signature, et rangé dans le seau
  * privé de l'espace client (sous crm/<dossier>/visites/) : la projection le
  * range parmi les documents du client, et le CRM le sert par une URL signée
@@ -33,16 +40,20 @@ const arrondi = (n: number) => Math.round(n * 100) / 100;
 
 export function contenuDe(s: Saisie): ContenuCompteRendu {
   const destinations = s.destinations ?? [];
-  const reparti = destinations.length > 1;
-  const libelleDe = new Map(destinations.map((d) => [d.id, d.libelle]));
+  // Une destination hors adresse (à laisser sur place, débarras…) se lit sur chaque objet, même avec une seule adresse.
+  const reparti = destinations.length > 1 || s.objets.some((o) => estSpeciale(o.speciale));
   const pieces = s.pieces
     .map((p) => {
       const objets = s.objets
         .filter((o) => o.piece === p.cle)
         .map((o) => ({
-          libelle: o.libelle, quantite: o.quantite, volume_unitaire: arrondi(o.volume), volume: arrondi(o.quantite * o.volume),
+          libelle: o.libelle,
+          // La désignation anglaise du catalogue (Dragan, 18/11/2026) : « Français / English » au compte-rendu.
+          ...(o.libelleEn?.trim() ? { libelle_en: o.libelleEn.trim() } : {}),
+          quantite: o.quantite, volume_unitaire: arrondi(o.volume), volume: arrondi(o.quantite * o.volume),
           demontage: o.demontage, fragile: o.fragile, note: o.note,
-          ...(reparti ? { destination: (o.destination != null ? libelleDe.get(o.destination) : null) ?? o.destinationLibre ?? "Sans destination" } : {}),
+          ...(reparti ? { destination: libelleDuChoix(choixDe(o, destinations), destinations) ?? o.destinationLibre ?? "Sans destination" } : {}),
+          ...(o.horsCubage ? { hors_cubage: true as const } : {}),
         }));
       return {
         cle: p.cle, nom: p.nom, remarque: p.remarque?.trim() || null, volume: volumeObjets(objets.map((o) => ({ quantite: o.quantite, volume: o.volume_unitaire }))),
@@ -52,6 +63,7 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
     // Une pièce créée puis laissée vide ne figure pas au compte-rendu.
     .filter((p) => p.objets.length > 0 || p.remarque || p.photos > 0);
   const formule = FORMULES.find((f) => f.cle === s.visite.formule);
+  const bilan = bilanVolumes(s.objets);
   return {
     version: 1,
     dossier: { ref: s.dossier.ref, client: s.dossier.client, contact: s.dossier.contact, telephone: s.dossier.telephone?.trim() || null, email: s.dossier.email?.trim() || null },
@@ -69,9 +81,17 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
       })),
     pieces,
     ...(reparti
-      ? { destinations: volumesParDestination(s.objets, destinations).map((d) => ({ libelle: d.libelle, volume: d.volume, objets: d.objets })) }
+      ? {
+          destinations: volumesParDestination(s.objets, destinations).map((d) => ({
+            libelle: d.libelle, volume: d.volume, objets: d.objets, ...(d.transporte ? {} : { non_transporte: true as const }),
+          })),
+        }
       : {}),
-    volume: volumeObjets(s.objets),
+    // Le volume transporté ; ce qui ne l'est pas, le débarras et ce qui reste à confirmer, seulement s'il y en a.
+    volume: bilan.transporte,
+    ...(bilan.nonTransporte > 0 ? { volume_non_transporte: bilan.nonTransporte } : {}),
+    ...(bilan.debarras > 0 ? { volume_debarras: bilan.debarras } : {}),
+    ...(bilan.aConfirmer > 0 ? { volume_a_confirmer: bilan.aConfirmer } : {}),
     nb_objets: s.objets.reduce((n, o) => n + o.quantite, 0),
     nb_photos: pieces.reduce((n, p) => n + p.photos, 0),
     options: s.visite.options.filter((o) => o.proposee).map((o) => o.libelle),

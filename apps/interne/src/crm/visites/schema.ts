@@ -185,6 +185,31 @@ create or replace trigger visite_photos_figees before insert or update or delete
 alter table crm.inventaire add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
 alter table crm.pieces add column if not exists etape_id int references crm.etapes_trajet(id) on delete set null;
 
+-- La synthèse de Dragan Plavsic (18/11/2026), tablette de visite :
+-- - les destinations hors adresse, sur chaque ligne et pour une pièce : à
+--   laisser sur place, débarras, pris en charge par le client, à confirmer
+--   (lib/visite/destinations.ts). Une destination hors adresse remplace
+--   l'étape ; la colonne texte inventaire.destination suit son libellé. Le
+--   volume du dossier est le volume transporté : sans « sur_place » ni
+--   « client » (visites/volume.ts) ;
+-- - la désignation anglaise du catalogue, gardée sur la ligne (documents
+--   bilingues) ;
+-- - les protections du catalogue (« Non compté ») : hors cubage, volume nul.
+alter table crm.inventaire add column if not exists destination_speciale text;
+alter table crm.inventaire add column if not exists libelle_en text;
+alter table crm.inventaire add column if not exists hors_cubage boolean not null default false;
+alter table crm.pieces add column if not exists destination_speciale text;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'crm.inventaire'::regclass and conname = 'inventaire_destination_speciale_check') then
+    alter table crm.inventaire add constraint inventaire_destination_speciale_check
+      check (destination_speciale is null or destination_speciale in ('sur_place','debarras','client','a_confirmer'));
+  end if;
+  if not exists (select 1 from pg_constraint where conrelid = 'crm.pieces'::regclass and conname = 'pieces_destination_speciale_check') then
+    alter table crm.pieces add constraint pieces_destination_speciale_check
+      check (destination_speciale is null or destination_speciale in ('sur_place','debarras','client','a_confirmer'));
+  end if;
+end $$;
+
 insert into crm.modeles_messages(canal, nom, objet, corps)
 select 'email', 'Rappel de visite (veille)', 'Votre visite technique de demain · {ref}',
   'Bonjour {client},

@@ -2029,3 +2029,429 @@
 .objetReparti .objetRetirer {
   grid-area: retirer;
 }
+
+/* ── Synthèse de Dragan Plavsic (18/11/2026) ───────────────────────── */
+
+/* La ligne du métré : la désignation « Français / English », la quantité au clavier, le volume à saisir. */
+.objetReparti .objetDesignation {
+  grid-area: nom;
+}
+.objetDesignation {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.objetDesignation .objetNom {
+  width: 100%;
+}
+.objetEn {
+  padding: 0 11px 2px;
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: var(--gris);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.objetEn em {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--ambre);
+}
+.quantite {
+  width: 50px;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--encre);
+}
+.quantite:focus {
+  outline: none;
+  border-radius: 9px;
+  background: var(--indigo-doux);
+}
+.horsCubage {
+  grid-area: unitaire;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 11px;
+  background: var(--fond);
+  color: var(--gris);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.aSaisir input {
+  border-color: #f5b82e;
+  background: var(--ambre-doux);
+}
+.aSaisir input::placeholder {
+  color: var(--ambre);
+  font-size: 13px;
+  font-weight: 650;
+}
+.objetNonTransporte {
+  background: #f3f2f7;
+  border-style: dashed;
+}
+.objetNonTransporte .objetTotal {
+  color: var(--gris-clair);
+}
+.objetAConfirmer {
+  border-color: #f2cf73;
+}
+.objetNote,
+.repartir {
+  grid-column: 1 / -1;
+}
+.objetNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 0 10px;
+  color: var(--gris);
+}
+.objetNote input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 12px;
+  border-radius: 11px;
+  border: 1.5px solid var(--filet);
+  background: #fff;
+  font-size: 15px;
+}
+.objetNote input:focus {
+  outline: none;
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px var(--indigo-doux);
+}
+
+/* Répartir les exemplaires d'une ligne entre des destinations */
+.repartir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 2px 6px;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: var(--indigo-doux);
+  color: var(--indigo-fonce);
+  font-size: 14.5px;
+  font-weight: 650;
+}
+.repartir .boutonPlein,
+.repartir .boutonDoux {
+  min-height: 46px;
+}
+.repartir .boutonPlein:disabled {
+  opacity: 0.5;
+}
+
+/* La destination : hors adresse, elle se distingue */
+.destHors {
+  border-color: #d7d4e2;
+  background: var(--fond);
+  color: var(--gris);
+}
+.destAConfirmer {
+  border-color: #f5b82e;
+  background: var(--ambre-doux);
+  color: var(--ambre);
+}
+.choix .choixHors:not(.choixOn) {
+  border-style: dashed;
+}
+.volumePiece em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--gris);
+}
+
+/* Le catalogue de la tablette : les plus utilisés, les familles */
+.frequents {
+  margin: 2px 0 4px;
+}
+.frequentsTitre {
+  display: block;
+  margin: 0 0 8px 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--gris);
+}
+.frequentsListe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.frequent {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 99px;
+  border: 1.5px solid var(--indigo-trait);
+  background: #f8f7fe;
+  transition: transform 0.08s, background 0.15s;
+}
+.frequent:active {
+  transform: scale(0.97);
+  background: var(--indigo-doux);
+}
+.frequent span {
+  font-size: 15px;
+  font-weight: 700;
+}
+.frequent small {
+  font-size: 12.5px;
+  color: var(--gris);
+}
+.frequent em {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--indigo);
+  color: #fff;
+  font-style: normal;
+  font-size: 12.5px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 3px #fff;
+}
+.familles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 12px;
+}
+.familles button {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 99px;
+  border: 1px solid var(--filet);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--gris);
+  white-space: nowrap;
+}
+.familles .familleActive {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: #fff;
+}
+.article small {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.article small b {
+  font-weight: 700;
+  color: var(--encre);
+}
+.noteCatalogue {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--gris-clair);
+}
+.suggestionEn {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--indigo-fonce);
+  opacity: 0.75;
+}
+
+/* Les destinations : transporté, non transporté */
+.bilan {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1.3fr;
+  gap: 10px;
+}
+.bilan > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fond);
+}
+.bilan small {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gris-clair);
+}
+.bilan b {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--indigo);
+  font-variant-numeric: tabular-nums;
+}
+.bilan span {
+  font-size: 12.5px;
+  color: var(--gris);
+}
+.bilan > .bilanFort {
+  background: var(--indigo);
+}
+.bilanFort small,
+.bilanFort span {
+  color: rgba(255, 255, 255, 0.78);
+}
+.bilan .bilanFort b {
+  color: #fff;
+}
+.bilan .bilanHors b {
+  color: var(--gris);
+}
+.regles {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--ambre-doux);
+  color: #5a3a00;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.repartition .ligneHors {
+  background: #f3f2f7;
+  border-style: dashed;
+}
+.repartition .ligneHors b {
+  color: var(--gris);
+}
+.repartition span em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--gris);
+}
+
+/* Avant le compte-rendu : les informations manquantes */
+.voile {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(23, 21, 43, 0.45);
+}
+.feuille {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 40px);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 30px 80px -30px rgba(23, 21, 43, 0.6);
+  overflow: hidden;
+}
+.feuilleTete {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid var(--filet);
+}
+.feuilleTete i {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 13px;
+  background: #ffe8b0;
+  color: #4a2c00;
+}
+.feuilleTete h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.feuilleTete p {
+  margin-top: 2px;
+  color: var(--gris);
+}
+.feuilleCorps {
+  overflow: auto;
+  padding: 4px 22px 14px;
+}
+.manques h3 {
+  margin: 14px 0 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gris-clair);
+}
+.manques ul {
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.manques button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 12px 8px 14px;
+  border-radius: 12px;
+  background: var(--fond);
+  text-align: left;
+  font-size: 15px;
+  font-weight: 600;
+}
+.manques button svg {
+  flex: none;
+  color: var(--indigo);
+}
+.feuilleBas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--filet);
+}
+
+/* Le compte-rendu : non transporté, note d'un objet */
+.crHors {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--gris);
+}
+.crObjets li span small.crNote {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--gris);
+}
+
+@media (max-width: 1000px) {
+  .bilan {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATALOG } from "@/lib/catalog";
+import { bilanVolumes } from "@/lib/visite/destinations";
 import { m3 } from "@/lib/visite/regles";
 import { Picto } from "@/terrain/composants/Picto";
 import { utilisateurNote, visitesGardees, type VisiteGardee } from "./hors-ligne";
@@ -48,8 +48,8 @@ export default function HorsLigne() {
         rdv={e.rdv}
         commercial={e.commercial}
         photos={e.photos}
-        catalogue={CATALOG}
         historique={e.historique}
+        frequents={e.frequents ?? []}
         destinations={e.destinations}
       />
     );
@@ -95,7 +95,7 @@ export default function HorsLigne() {
                     <h3>{e.dossier.client}</h3>
                     <p>{e.dossier.adresse ?? "Adresse à préciser"}</p>
                     <p>
-                      {e.dossier.ref} · {m3(x.inst.etat.objets.reduce((n, o) => n + o.quantite * o.volume, 0))}
+                      {e.dossier.ref} · {m3(bilanVolumes(x.inst.etat.objets).transporte)}
                       {x.enAttente ? ` · ${x.enAttente} modification${x.enAttente > 1 ? "s" : ""} en attente` : ""}
                     </p>
                     <div className={s.carteBas}>

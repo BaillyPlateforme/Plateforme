@@ -14,6 +14,8 @@ import { majDistanceDossier } from "@/crm/creation/distance";
 import { colonnesTelephones, nettoyerTelephones, telephonesDuFormulaire } from "@/crm/clients/telephones";
 import { entrepriseValide } from "@/crm/clients/entreprises";
 import { instantParis } from "@/lib/visite/regles";
+import { specialeDuTexte } from "@/lib/visite/destinations";
+import { volumeTransporteSql } from "@/crm/visites/volume";
 import { journaliser } from "@/crm/lib/journal";
 import { anneeParis } from "@/crm/lib/format";
 import { apresDuplication, reprendreDuplication } from "@/crm/duplication/dossier";
@@ -184,14 +186,17 @@ export async function marquerPerdu(id: number) { await exiger(); await q("update
 export async function rouvrir(id: number) { await exiger(); await q("update dossiers set statut='visite' where id=$1", [id]); await log(id, "Dossier rouvert"); refresh(id); }
 
 /* ---------- inventaire ---------- */
+/** Le volume du dossier suit l'inventaire : le volume transporté, le même calcul que la tablette (visites/volume.ts). */
 async function recalcVolume(id: number) {
-  await q("update dossiers set volume=coalesce((select sum(quantite*volume) from inventaire where dossier_id=$1),0) where id=$1", [id]);
+  await q(`update dossiers set volume=${volumeTransporteSql("$1")} where id=$1`, [id]);
   await projeterEspace(id);
 }
 export async function ajouterObjet(id: number, f: FormData) {
   await exiger();
-  await q("insert into inventaire(dossier_id,piece,libelle,quantite,volume,destination,demontage) values($1,$2,$3,$4,$5,$6,$7)",
-    [id, s(f, "piece") ?? "Divers", s(f, "libelle") ?? "Objet", n(f, "quantite") ?? 1, n(f, "volume") ?? 0, s(f, "destination") ?? "Arrivée", f.get("demontage") === "on"]);
+  // « À laisser sur place », « Débarras »… : la destination hors adresse de la tablette, reconnue à son libellé.
+  const destination = s(f, "destination") ?? "Arrivée";
+  await q("insert into inventaire(dossier_id,piece,libelle,quantite,volume,destination,demontage,destination_speciale) values($1,$2,$3,$4,$5,$6,$7,$8)",
+    [id, s(f, "piece") ?? "Divers", s(f, "libelle") ?? "Objet", n(f, "quantite") ?? 1, n(f, "volume") ?? 0, destination, f.get("demontage") === "on", specialeDuTexte(destination)]);
   await recalcVolume(id); refresh(id);
 }
 export async function supprimerObjet(id: number, objet: number) {

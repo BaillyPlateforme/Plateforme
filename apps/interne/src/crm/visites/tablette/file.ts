@@ -1,3 +1,4 @@
+import { estSpeciale, libelleSpeciale } from "@/lib/visite/destinations";
 import { m3, type Operation } from "@/lib/visite/regles";
 import { appliquerOp, enfiler, type EtatSaisie } from "./etat";
 
@@ -78,7 +79,7 @@ export function decrireOperation(op: Operation, etat: Pick<EtatSaisie, "pieces" 
     case "piece-":
       return `Pièce retirée : ${piece(op.cle)}`;
     case "objet":
-      return `${piece(op.piece)} : ${op.quantite > 1 ? `${op.quantite} × ` : ""}${op.libelle} (${m3(op.quantite * op.volume)})`;
+      return `${piece(op.piece)} : ${op.quantite > 1 ? `${op.quantite} × ` : ""}${op.libelle} (${m3(op.quantite * op.volume)})${estSpeciale(op.speciale) ? ` → ${libelleSpeciale(op.speciale)}` : ""}`;
     case "objet-": {
       const o = etat.objets.find((x) => x.cle === op.cle);
       return `Objet retiré${o ? ` : ${o.libelle}` : ""}`;

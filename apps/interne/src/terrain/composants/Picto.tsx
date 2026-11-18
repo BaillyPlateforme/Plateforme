@@ -38,6 +38,9 @@ const P = {
   escalier: '<path d="M3 20h5v-4h4v-4h4V8h5"/>',
   fragile: '<path d="M8 3h8l-.6 6a3.4 3.4 0 0 1-6.8 0z"/><path d="M12 12.5V21M8.5 21h7"/>',
   outil: '<path d="M14.5 6.5a4 4 0 0 0 5 5l-9 9a2.1 2.1 0 0 1-3-3z"/><path d="m14.5 6.5 3-3 3 3-3 3"/>',
+  // Synthèse de Dragan (18/11/2026) : dupliquer, répartir entre destinations.
+  copier: '<rect x="8" y="8" width="13" height="13" rx="2.5"/><path d="M16 8V5.5A2.5 2.5 0 0 0 13.5 3h-8A2.5 2.5 0 0 0 3 5.5v8A2.5 2.5 0 0 0 5.5 16H8"/>',
+  repartir: '<path d="M4 12h6l4-6h6M14 18h6M10 12l4 6"/><path d="m17 3 3 3-3 3M17 15l3 3-3 3"/>',
 } as const;
 
 export type NomPicto = keyof typeof P;

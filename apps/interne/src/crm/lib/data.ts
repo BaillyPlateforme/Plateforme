@@ -50,7 +50,7 @@ export async function getDossier(id: number) {
   if (!d) return null;
   const [stops, inv, devis, lettres, factures, paiements, activite, rdvs] = await Promise.all([
     q("select * from etapes_trajet where dossier_id=$1 order by ordre,id", [id]),
-    q("select id,piece,libelle,quantite,volume::float8 as volume,destination,demontage from inventaire where dossier_id=$1 order by piece,id", [id]),
+    q("select id,piece,libelle,quantite,volume::float8 as volume,destination,demontage,destination_speciale,libelle_en from inventaire where dossier_id=$1 order by piece,id", [id]),
     q("select id,numero,formule,lignes,token,prestations,montant::float8 as montant,statut,envoye_le,signe_le,validite,conditions,deplacement,groupage,distance_km from devis where dossier_id=$1 order by montant desc", [id]),
     q("select id,numero,trajet,date_chargement,date_livraison,prestataire,equipe,immatriculation,instructions,prix_sous_traitance::float8 as prix_sous_traitance,montant::float8 as montant,statut from lettres_voiture where dossier_id=$1 order by id", [id]),
     q("select id,numero,objet,montant::float8 as montant,statut,emise_le,payee_le from factures where dossier_id=$1 order by id", [id]),

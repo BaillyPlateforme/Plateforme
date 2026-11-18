@@ -61,4 +61,31 @@ describe("pdfCompteRendu — destinations et accès du 16/11/2026", () => {
     const sans = await pdfCompteRendu(contenu({ destinations: undefined }), signature);
     expect(sans.subarray(0, 5).toString()).toBe("%PDF-");
   }, 30_000);
+
+  it("synthèse de Dragan (18/11/2026) : désignations bilingues, volume transporté et non transporté, protection non comptée", async () => {
+    const c = contenu({
+      pieces: [
+        {
+          cle: "p1", nom: "Salon", remarque: null, volume: 3.8, photos: 0,
+          objets: [
+            { libelle: "Canapé 3 places", libelle_en: "Sofa 3-seater", quantite: 1, volume_unitaire: 2.1, volume: 2.1, demontage: false, fragile: false, note: null, destination: "Arrivée · Paris" },
+            { libelle: "Fauteuil classique", libelle_en: "Armchair standard", quantite: 1, volume_unitaire: 0.7, volume: 0.7, demontage: false, fragile: false, note: null, destination: "À laisser sur place" },
+            { libelle: "Vieux buffet", quantite: 1, volume_unitaire: 1, volume: 1, demontage: false, fragile: false, note: "Pied cassé", destination: "Débarras" },
+            { libelle: "Bullpack", libelle_en: "Bubble wrap", quantite: 3, volume_unitaire: 0, volume: 0, demontage: false, fragile: false, note: null, destination: "Arrivée · Paris", hors_cubage: true },
+          ],
+        },
+      ],
+      destinations: [
+        { libelle: "Arrivée · Paris", volume: 2.1, objets: 4 },
+        { libelle: "À laisser sur place", volume: 0.7, objets: 1, non_transporte: true },
+        { libelle: "Débarras", volume: 1, objets: 1 },
+      ],
+      volume: 3.1,
+      volume_non_transporte: 0.7,
+      volume_debarras: 1,
+      nb_objets: 6,
+    });
+    const pdf = await pdfCompteRendu(c, signature);
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  }, 30_000);
 });

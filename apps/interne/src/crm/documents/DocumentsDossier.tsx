@@ -5,6 +5,11 @@ import { telephoneEtLibelle, telLisible } from "@/crm/clients/telephones";
 import { Cases, Encadre, FeuilleBailly, Section, Signatures, Tableau } from "./FeuilleBailly";
 import { m3Client, volumeClient } from "./volume-client";
 import { dimensionsLisibles, libelleDepartement, libelleSituation, nomVehicule, resumeRepli } from "@/crm/cimob/commun";
+import { designation } from "@/lib/visite/regles";
+import { estTransporte } from "@/lib/visite/destinations";
+
+/** Ce que Bailly transporte (Dragan, 18/11/2026) : sans ce qui est laissé sur place ni pris en charge par le client. */
+const transportes = (inv: any[]) => inv.filter((i) => estTransporte(i));
 
 /*
  * Les documents imprimés d'un dossier, aux couleurs de Bailly : la fiche de
@@ -100,7 +105,13 @@ export function FicheVisiteBailly({ d }: { d: any }) {
           <Encadre>{d.observations}</Encadre>
         </Section>
       )}
-      <Section titre={`Inventaire · ${m3(d.volume)}`}>
+      <Section
+        titre={`Inventaire · ${m3(d.volume)}${
+          (d.inv as any[]).some((i) => !estTransporte(i))
+            ? ` transportés · ${m3((d.inv as any[]).filter((i) => !estTransporte(i)).reduce((n, i) => n + i.volume * i.quantite, 0))} non transportés`
+            : ""
+        }`}
+      >
         {d.inv.length === 0 ? (
           <Encadre>Aucun objet saisi.</Encadre>
         ) : (
@@ -110,7 +121,7 @@ export function FicheVisiteBailly({ d }: { d: any }) {
             lignes={pieces.flatMap((p) =>
               (d.inv as any[])
                 .filter((i) => i.piece === p)
-                .map((i) => [p, i.libelle, i.quantite, i.destination ?? "—", i.demontage ? "Oui" : "—", m3(i.volume * i.quantite)]),
+                .map((i) => [p, designation(i.libelle, i.libelle_en), i.quantite, i.destination ?? "—", i.demontage ? "Oui" : "—", m3(i.volume * i.quantite)]),
             )}
           />
         )}
@@ -176,7 +187,9 @@ function CimobDicom({ d }: { d: any }) {
  */
 export function LettreVoitureBailly({ d, lv }: { d: any; lv: any }) {
   const emb = emballages(d.volume);
-  const demont = (d.inv as any[]).filter((i) => i.demontage);
+  // La lettre de voiture ne porte que ce que Bailly transporte.
+  const inv = transportes(d.inv as any[]);
+  const demont = inv.filter((i) => i.demontage);
   const droits = volumeClient(d).droits;
   const feuilles: { titre: string; sous: string; genre: "mission" | "charg" | "livr" }[] = [
     { titre: "Ordre de mission", sous: "Document interne : ne pas remettre au client", genre: "mission" },
@@ -234,11 +247,11 @@ export function LettreVoitureBailly({ d, lv }: { d: any; lv: any }) {
             <>
               {droits ? (
                 <Section titre="Objets">
-                  <Tableau entetes={["Pièce", "Objet", "Qté"]} droite={[2]} lignes={(d.inv as any[]).map((x) => [x.piece, x.libelle, x.quantite])} />
+                  <Tableau entetes={["Pièce", "Objet", "Qté"]} droite={[2]} lignes={inv.map((x) => [x.piece, designation(x.libelle, x.libelle_en), x.quantite])} />
                 </Section>
               ) : (
                 <Section titre={`Objets · ${m3(d.volume)}`}>
-                  <Tableau entetes={["Pièce", "Objet", "Qté", "Volume"]} droite={[2, 3]} lignes={(d.inv as any[]).map((x) => [x.piece, x.libelle, x.quantite, m3(x.volume * x.quantite)])} />
+                  <Tableau entetes={["Pièce", "Objet", "Qté", "Volume"]} droite={[2, 3]} lignes={inv.map((x) => [x.piece, designation(x.libelle, x.libelle_en), x.quantite, m3(x.volume * x.quantite)])} />
                 </Section>
               )}
               <Section titre={f.genre === "charg" ? "Réserves à l’enlèvement" : "Réserves à la livraison"}>

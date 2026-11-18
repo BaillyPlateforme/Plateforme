@@ -1,8 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { transaction, type Db } from "@/crm/lib/db";
-import { destinationsDuTrajet, type EtapeDestination } from "@/lib/visite/destinations";
+import { CLES_SPECIALES, destinationsDuTrajet, libelleSpeciale, type CleSpeciale, type EtapeDestination } from "@/lib/visite/destinations";
 import { PLAFONDS, PLAFONDS_ACCES, type Operation } from "@/lib/visite/regles";
+import { volumeTransporteSql } from "./volume";
 
 /*
  * L'enregistrement continu de la saisie : la tablette envoie ses opérations
@@ -23,6 +24,15 @@ import { PLAFONDS, PLAFONDS_ACCES, type Operation } from "@/lib/visite/regles";
  * Les opérations restées en file sur une tablette hors connexion arrivent
  * plus tard, dans l'ordre où elles ont été faites. Un champ qu'une ancienne
  * version de la tablette n'envoyait pas (absent du corps) ne change pas.
+ *
+ * Synthèse de Dragan Plavsic (18/11/2026) : un objet ou une pièce peut aller
+ * à une destination hors adresse (à laisser sur place, débarras, pris en
+ * charge par le client, à confirmer), qui remplace l'étape ; la colonne
+ * texte prend son libellé. Une ligne garde sa désignation anglaise ; une
+ * protection est hors cubage, son volume reste nul. Répartir, dupliquer une
+ * ligne ou une pièce ne sont que des opérations « pièce » et « objet » de
+ * plus, avec des clés neuves tirées sur la tablette. Le volume du dossier
+ * recalculé est le volume transporté (volume.ts).
  */
 
 const cle = z.uuid();
@@ -37,9 +47,11 @@ const facultatif = (max: number) =>
 
 /** Une étape du trajet choisie comme destination : son identifiant, ou rien. */
 const destination = z.number().int().positive().nullable().optional();
+/** Une destination hors adresse : sa clé, ou rien. */
+const speciale = z.enum(CLES_SPECIALES).nullable().optional();
 
 const schema = z.discriminatedUnion("t", [
-  z.object({ t: z.literal("piece"), cle, nom: texte(PLAFONDS.nom).min(1), ordre: z.number(), remarque: facultatif(PLAFONDS.remarque), destination }),
+  z.object({ t: z.literal("piece"), cle, nom: texte(PLAFONDS.nom).min(1), ordre: z.number(), remarque: facultatif(PLAFONDS.remarque), destination, speciale }),
   z.object({ t: z.literal("piece-"), cle }),
   z.object({
     t: z.literal("objet"),
@@ -52,6 +64,9 @@ const schema = z.discriminatedUnion("t", [
     fragile: z.boolean(),
     note: facultatif(PLAFONDS.note),
     destination,
+    speciale,
+    libelleEn: facultatif(PLAFONDS.libelleEn).optional(),
+    horsCubage: z.boolean().optional(),
   }),
   z.object({ t: z.literal("objet-"), cle }),
   z.object({
@@ -109,18 +124,34 @@ function lecteurDestinations(db: Db, dossierId: number): Destinations {
       .then((etapes) => new Map(destinationsDuTrajet(etapes).map((d) => [d.id, d.libelle]))));
 }
 
+/**
+ * La destination hors adresse et l'étape d'une opération : l'une remplace
+ * l'autre. `undefined` : absente du corps (ancienne tablette), donc
+ * inchangée — sauf la destination hors adresse, que l'arrivée d'une étape
+ * efface.
+ */
+export function trancher<E extends number | null | undefined>(speciale: CleSpeciale | null | undefined, etape: E) {
+  if (speciale) return { speciale, etape: null };
+  if (etape != null && speciale === undefined) return { speciale: null, etape };
+  return { speciale, etape };
+}
+
 async function appliquer(db: Db, dossierId: number, visiteId: number, op: Operation, photosRetirees: string[], destinations: Destinations) {
   switch (op.t) {
     case "piece": {
       // La destination de la pièce : une étape de CE dossier, sinon rien ; absente du corps, elle ne change pas.
-      const etape = op.destination === undefined ? undefined : op.destination !== null && (await destinations()).has(op.destination) ? op.destination : null;
+      let etape = op.destination === undefined ? undefined : op.destination !== null && (await destinations()).has(op.destination) ? op.destination : null;
+      // Une destination hors adresse remplace l'étape ; une étape remplace la destination hors adresse.
+      const { speciale, etape: e } = trancher(op.speciale, etape);
+      etape = e;
       const [p] = await db.query<{ id: number }>(
-        `insert into pieces (cle, dossier_id, nom, ordre, remarque, etape_id) values ($1, $2, $3, $4, $5, $7)
+        `insert into pieces (cle, dossier_id, nom, ordre, remarque, etape_id, destination_speciale) values ($1, $2, $3, $4, $5, $7, $9)
          on conflict (cle) do update set nom = excluded.nom, ordre = excluded.ordre, remarque = excluded.remarque,
-           etape_id = case when $6::boolean then excluded.etape_id else pieces.etape_id end
+           etape_id = case when $6::boolean then excluded.etape_id else pieces.etape_id end,
+           destination_speciale = case when $8::boolean then excluded.destination_speciale else pieces.destination_speciale end
            where pieces.dossier_id = excluded.dossier_id
          returning id`,
-        [op.cle, dossierId, op.nom, op.ordre, op.remarque, etape !== undefined, etape ?? null],
+        [op.cle, dossierId, op.nom, op.ordre, op.remarque, etape !== undefined, etape ?? null, speciale !== undefined, speciale ?? null],
       );
       if (p) await db.query("update inventaire set piece = $2 where piece_id = $1 and piece is distinct from $2", [p.id, op.nom]);
       return;
@@ -140,15 +171,28 @@ async function appliquer(db: Db, dossierId: number, visiteId: number, op: Operat
       const [p] = await db.query<{ id: number; nom: string }>("select id, nom from pieces where cle = $1 and dossier_id = $2", [op.piece, dossierId]);
       if (!p) return;
       // La destination : une étape de CE dossier, avec son libellé ; sans étape, l'objet garde la sienne.
-      const libelle = op.destination != null ? (await destinations()).get(op.destination) : undefined;
+      const libelleEtape = op.destination != null ? (await destinations()).get(op.destination) : undefined;
+      // Une destination hors adresse remplace l'étape (et son libellé devient celui de la ligne) ; une étape la remplace.
+      const { speciale, etape } = trancher(op.speciale, libelleEtape ? op.destination! : null);
+      const libelle = speciale ? libelleSpeciale(speciale) : (libelleEtape ?? null);
+      // Une protection est hors cubage : son volume reste nul, quoi qu'envoie la tablette.
+      const volume = op.horsCubage ? 0 : op.volume;
       await db.query(
-        `insert into inventaire (cle, dossier_id, piece_id, piece, libelle, quantite, volume, destination, demontage, fragile, note, ordre, etape_id)
-         values ($1, $2, $3, $4, $5, $6, $7, coalesce($12, 'Arrivée'), $8, $9, $10, extract(epoch from clock_timestamp()), $11)
+        `insert into inventaire (cle, dossier_id, piece_id, piece, libelle, quantite, volume, destination, demontage, fragile, note, ordre, etape_id,
+                                 destination_speciale, libelle_en, hors_cubage)
+         values ($1, $2, $3, $4, $5, $6, $7, coalesce($12, 'Arrivée'), $8, $9, $10, extract(epoch from clock_timestamp()), $11, $14, $16, coalesce($17, false))
          on conflict (cle) do update set piece_id = excluded.piece_id, piece = excluded.piece, libelle = excluded.libelle,
            quantite = excluded.quantite, volume = excluded.volume, demontage = excluded.demontage, fragile = excluded.fragile, note = excluded.note,
-           etape_id = coalesce($11, inventaire.etape_id), destination = coalesce($12, inventaire.destination)
+           etape_id = case when $14::text is not null then null else coalesce($11, inventaire.etape_id) end,
+           destination_speciale = case when $13::boolean then $14 else inventaire.destination_speciale end,
+           destination = coalesce($12, inventaire.destination),
+           libelle_en = case when $15::boolean then $16 else inventaire.libelle_en end,
+           hors_cubage = coalesce($17, inventaire.hors_cubage)
            where inventaire.dossier_id = excluded.dossier_id`,
-        [op.cle, dossierId, p.id, p.nom, op.libelle, op.quantite, op.volume, op.demontage, op.fragile, op.note, libelle ? op.destination : null, libelle ?? null],
+        [
+          op.cle, dossierId, p.id, p.nom, op.libelle, op.quantite, volume, op.demontage, op.fragile, op.note, etape ?? null, libelle,
+          speciale !== undefined, speciale ?? null, op.libelleEn !== undefined, op.libelleEn ?? null, op.horsCubage ?? null,
+        ],
       );
       return;
     }
@@ -197,9 +241,9 @@ export async function appliquerOperations(visiteId: number, ops: Operation[]): P
     const photosRetirees: string[] = [];
     const destinations = lecteurDestinations(db, v.dossier_id);
     for (const op of ops) await appliquer(db, v.dossier_id, visiteId, op, photosRetirees, destinations);
+    // Le volume du dossier (devis, fiche, espace client) : le volume transporté.
     const [d] = await db.query<{ volume: number }>(
-      `update dossiers set volume = coalesce((select sum(quantite * volume) from inventaire where dossier_id = $1), 0), maj_le = now()
-        where id = $1 returning volume::float8 as volume`,
+      `update dossiers set volume = ${volumeTransporteSql("$1")}, maj_le = now() where id = $1 returning volume::float8 as volume`,
       [v.dossier_id],
     );
     const [m] = await db.query<{ maj_le: Date }>("update visites set maj_le = now() where id = $1 returning maj_le", [visiteId]);
