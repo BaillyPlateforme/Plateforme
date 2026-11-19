@@ -54,7 +54,7 @@ describe("le menu sans les pages masquées", () => {
 
   it("une page masquée quitte sa rubrique ; les autres restent dans l'ordre", () => {
     const g = groupesVisibles(["/devis"]);
-    expect(pages(g, "Dossiers")).toEqual(["/demandes", "/parcours", "/planning", "/factures", "/relances"]);
+    expect(pages(g, "Dossiers")).toEqual(["/parcours", "/planning", "/factures", "/relances"]);
     expect(titres(g)).toEqual(titres(GROUPES));
   });
 
@@ -99,9 +99,10 @@ describe("le formulaire : les cases cochées sont les pages visibles", () => {
 });
 
 describe("la barre du haut simplifiée (David, 19/11/2026)", () => {
-  it("quatre rubriques : Accueil (avec le Feed), Dossiers, Clients (avec l'espace client), Exploitation ; Réglages hors barre", async () => {
+  it("cinq rubriques : Accueil (avec le Feed), Demandes, Dossiers, Clients (avec l'espace client), Exploitation ; Réglages hors barre", async () => {
     const { enBarre } = await import("@/ui/navigation");
-    expect(titres(enBarre(GROUPES))).toEqual(["Accueil", "Dossiers", "Clients", "Exploitation"]);
+    expect(titres(enBarre(GROUPES))).toEqual(["Accueil", "Demandes", "Dossiers", "Clients", "Exploitation"]);
+    expect(pages(GROUPES, "Demandes")).toEqual(["/demandes"]);
     expect(pages(GROUPES, "Accueil")).toContain("/feed");
     expect(pages(GROUPES, "Clients")).toEqual(["/clients", "/dashboard/espace-client"]);
     expect(GROUPES.find((g) => g.titre === "Réglages")?.horsBarre).toBe(true);
@@ -111,6 +112,8 @@ describe("la barre du haut simplifiée (David, 19/11/2026)", () => {
     const { groupeDe } = await import("@/ui/navigation");
     expect(groupeDe("/dashboard/espace-client/dossiers/abc").titre).toBe("Clients");
     expect(groupeDe("/feed").titre).toBe("Accueil");
+    expect(groupeDe("/demandes").titre).toBe("Demandes");
+    expect(groupeDe("/dashboard/abc-123").titre).toBe("Demandes");
     expect(groupeDe("/dashboard/espace-client/reglages").titre).toBe("Réglages");
     expect(groupeDe("/reglages/onglets").titre).toBe("Réglages");
   });

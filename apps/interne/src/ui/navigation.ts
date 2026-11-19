@@ -78,11 +78,15 @@ export const GROUPES: Groupe[] = [
     ],
   },
   {
+    // Les demandes du site, de près (demande de David, 08/11/2026) : le Kanban de leurs étapes détaillées jusqu'au
+    // dossier, leur Feed, Top demandes, et leur analyse ; chaque demande (sa page, sous /dashboard). Une rubrique de
+    // la barre du haut depuis le 19/11/2026 (David : « mets demandes en haut »).
+    titre: "Demandes",
+    entrees: [{ href: "/demandes", label: "Demandes", icone: "questionnaires", actif: demandes, compteur: "nouvelles" }],
+  },
+  {
     titre: "Dossiers",
     entrees: [
-      // Les demandes du site, de près (demande de David, 08/11/2026) : le Kanban de leurs étapes détaillées jusqu'au
-      // dossier, leur Feed, Top demandes, et leur analyse ; chaque demande (sa page, sous /dashboard).
-      { href: "/demandes", label: "Demandes", icone: "questionnaires", actif: demandes, compteur: "nouvelles" },
       // Le Parcours : de la demande du site à la facture (Tableau et Liste), et chaque dossier.
       {
         href: "/parcours",
