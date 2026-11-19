@@ -102,7 +102,7 @@ describe("la barre du haut simplifiée (David, 19/11/2026)", () => {
   it("cinq rubriques : Accueil (avec le Feed), Demandes, Dossiers, Clients (avec l'espace client), Exploitation ; Réglages hors barre", async () => {
     const { enBarre } = await import("@/ui/navigation");
     expect(titres(enBarre(GROUPES))).toEqual(["Accueil", "Demandes", "Dossiers", "Clients", "Exploitation"]);
-    expect(pages(GROUPES, "Demandes")).toEqual(["/demandes"]);
+    expect(GROUPES.find((g) => g.titre === "Demandes")!.entrees.map((e) => e.label)).toEqual(["Kanban", "Feed", "Top demandes", "Liste", "À rappeler", "Statistiques", "Suivi des leads"]);
     expect(pages(GROUPES, "Accueil")).toContain("/feed");
     expect(pages(GROUPES, "Clients")).toEqual(["/clients", "/dashboard/espace-client"]);
     expect(GROUPES.find((g) => g.titre === "Réglages")?.horsBarre).toBe(true);
@@ -118,3 +118,19 @@ describe("la barre du haut simplifiée (David, 19/11/2026)", () => {
     expect(groupeDe("/reglages/onglets").titre).toBe("Réglages");
   });
 });
+
+describe("les vues de Demandes dans la sous-barre (David, 19/11/2026)", () => {
+  it("la vue de l'adresse allume la bonne entrée, une seule", async () => {
+    const { estActif } = await import("@/ui/navigation");
+    const entrees = GROUPES.find((g) => g.titre === "Demandes")!.entrees;
+    const allumees = (chemin: string, vue: string | null) => entrees.filter((e) => estActif(e, chemin, vue)).map((e) => e.label);
+    expect(allumees("/demandes", null)).toEqual(["Kanban"]);
+    expect(allumees("/demandes", "kanban")).toEqual(["Kanban"]);
+    expect(allumees("/demandes", "feed")).toEqual(["Feed"]);
+    expect(allumees("/demandes", "statistiques")).toEqual(["Statistiques"]);
+    expect(allumees("/demandes", "leads")).toEqual(["Suivi des leads"]);
+    // La page d'une demande, sous /dashboard : la rubrique Demandes, sur le Kanban.
+    expect(allumees("/dashboard/3f2a-uuid", null)).toEqual(["Kanban"]);
+  });
+});
+

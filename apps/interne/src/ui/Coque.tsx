@@ -118,7 +118,10 @@ function Entete({
   const rubrique = groupeDe(chemin).titre;
   const courant = groupes.find((g) => g.titre === rubrique) ?? groupes[0];
   // Le dossier ouvert : les pages de la rubrique restent sur lui.
-  const dossier = dossierDe(chemin, useSearchParams().get("dossier"));
+  const parametres = useSearchParams();
+  const dossier = dossierDe(chemin, parametres.get("dossier"));
+  // Les vues d'une même page (Demandes) : la vue de l'adresse allume la bonne entrée.
+  const vue = parametres.get("vue");
   const [apercu, setApercu] = useState<string | null>(null);
   const montre = groupes.find((g) => g.titre === apercu) ?? courant;
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -207,7 +210,7 @@ function Entete({
               key={e.href}
               href={hrefPour(e, dossier, chemin)}
               className={s.page}
-              aria-current={(vise ? vise === e.href : estActif(e, chemin)) ? "page" : undefined}
+              aria-current={(vise ? vise === e.href : estActif(e, chemin, vue)) ? "page" : undefined}
               onClick={viser(e.href)}
             >
               <Icone nom={e.icone} taille={17} />
@@ -241,13 +244,14 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
 
 /** Le menu complet, pour les écrans étroits. */
 function Tiroir({ chemin, groupes, compteur, fermer }: { chemin: string; groupes: Groupe[]; compteur: (e: Entree) => number; fermer: () => void }) {
+  const vue = useSearchParams().get("vue");
   useEffect(() => {
     const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
     document.addEventListener("keydown", echap);
     return () => document.removeEventListener("keydown", echap);
   }, [fermer]);
   const lien = (e: Entree) => (
-    <Link key={e.href} href={e.href} className={s.page} aria-current={estActif(e, chemin) ? "page" : undefined} onClick={fermer}>
+    <Link key={e.href} href={e.href} className={s.page} aria-current={estActif(e, chemin, vue) ? "page" : undefined} onClick={fermer}>
       <span className={s.pictogramme}>
         <Icone nom={e.icone} taille={18} />
       </span>

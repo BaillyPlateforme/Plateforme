@@ -10,8 +10,12 @@ export type Entree = {
   href: string;
   label: string;
   icone: NomIcone;
-  /** Quand l'entrée est-elle la page courante ? Par défaut : l'adresse ou ses sous-pages. */
-  actif?: (chemin: string) => boolean;
+  /**
+   * Quand l'entrée est-elle la page courante ? Par défaut : l'adresse ou ses
+   * sous-pages. `vue` : le paramètre ?vue= de l'adresse, pour les entrées qui
+   * sont des vues d'une même page (Demandes).
+   */
+  actif?: (chemin: string, vue?: string | null) => boolean;
   /** Une pastille de compte (demandes nouvelles…), remplie par la coque. */
   compteur?: "nouvelles";
 };
@@ -63,6 +67,9 @@ const reglage = (c: string) => ADRESSES_REGLAGES.some((p) => sous(p)(c));
 const demandes = (c: string) =>
   sous("/demandes")(c) || sous("/statistiques/demandes")(c) || (sous("/dashboard")(c) && !sous("/dashboard/espace-client")(c) && !sous("/dashboard/tableau-de-bord")(c) && !reglage(c));
 
+/** Une vue de la page Demandes (?vue=…). */
+const vueDemandes = (v: string) => (c: string, vue?: string | null) => c === "/demandes" && vue === v;
+
 export const GROUPES: Groupe[] = [
   {
     titre: "Accueil",
@@ -82,7 +89,17 @@ export const GROUPES: Groupe[] = [
     // dossier, leur Feed, Top demandes, et leur analyse ; chaque demande (sa page, sous /dashboard). Une rubrique de
     // la barre du haut depuis le 19/11/2026 (David : « mets demandes en haut »).
     titre: "Demandes",
-    entrees: [{ href: "/demandes", label: "Demandes", icone: "questionnaires", actif: demandes, compteur: "nouvelles" }],
+    // Ses vues dans la sous-barre, comme les pages des autres rubriques (David, 19/11/2026 : « mets les sous-onglets de
+    // demande ») ; elles étaient au menu de gauche. Le Kanban s'allume aussi sur la page d'une demande et les anciennes adresses.
+    entrees: [
+      { href: "/demandes", label: "Kanban", icone: "kanban", compteur: "nouvelles", actif: (c, vue) => demandes(c) && !(c === "/demandes" && !!vue && vue !== "kanban") },
+      { href: "/demandes?vue=feed", label: "Feed", icone: "fil", actif: vueDemandes("feed") },
+      { href: "/demandes?vue=top", label: "Top demandes", icone: "etoile", actif: vueDemandes("top") },
+      { href: "/demandes?vue=liste", label: "Liste", icone: "menu", actif: vueDemandes("liste") },
+      { href: "/demandes?vue=rappels", label: "À rappeler", icone: "horloge", actif: vueDemandes("rappels") },
+      { href: "/demandes?vue=statistiques", label: "Statistiques", icone: "stats", actif: vueDemandes("statistiques") },
+      { href: "/demandes?vue=leads", label: "Suivi des leads", icone: "tendance", actif: vueDemandes("leads") },
+    ],
   },
   {
     titre: "Dossiers",
@@ -148,8 +165,8 @@ export function groupeDe(chemin: string): Groupe {
   return GROUPES.find((g) => g.entrees.some((e) => estActif(e, chemin))) ?? GROUPES[0];
 }
 
-export function estActif(e: Entree, chemin: string) {
-  return e.actif ? e.actif(chemin) : sous(e.href)(chemin);
+export function estActif(e: Entree, chemin: string, vue?: string | null) {
+  return e.actif ? e.actif(chemin, vue) : sous(e.href)(chemin);
 }
 
 /**

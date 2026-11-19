@@ -2,7 +2,7 @@ import MenuVertical, { type ItemMenu } from "@/ui/MenuVertical";
 import { VUES_DU_SITE, type VueDuSite } from "@/crm/statistiques/demandes/vues";
 
 /*
- * Le menu de gauche de Demandes (demande de David, 08/11/2026 : « un onglet
+ * Les vues de Demandes (demande de David, 08/11/2026 : « un onglet
  * demande, qui reprend le kanban avec des étapes plus détaillées […] une
  * véritable vue feed, et une vue par potentiel »). Les vues à gauche, les
  * filtres dans la bande.
@@ -23,33 +23,23 @@ export const estVueDemandes = (v: unknown): v is VueDemandes => VUES_DEMANDES.in
 /** L'adresse d'une vue de Demandes (le Kanban est l'adresse nue). */
 export const adresseDemandes = (v: VueDemandes) => (v === "kanban" ? "/demandes" : `/demandes?vue=${v}`);
 
-export default function MenuDemandes({ vue, analyse, nombres }: { vue: VueDemandes; analyse?: VueDuSite; nombres?: { rappels?: number } }) {
-  const statistiques: ItemMenu[] =
-    vue === "statistiques"
-      ? VUES_DU_SITE.map((v) => ({ href: `/demandes?vue=statistiques&analyse=${v.cle}`, label: v.label, actif: (analyse ?? "ensemble") === v.cle, sous: true }))
-      : [];
-  return (
-    <MenuVertical
-      titre="Demandes"
-      groupes={[
-        {
-          items: [
-            { href: adresseDemandes("kanban"), label: "Kanban", icone: "kanban", actif: vue === "kanban" },
-            { href: adresseDemandes("feed"), label: "Feed", icone: "fil", actif: vue === "feed" },
-            { href: adresseDemandes("top"), label: "Top demandes", icone: "etoile", actif: vue === "top" },
-          ],
-        },
-        {
-          titre: "Analyse",
-          items: [
-            { href: adresseDemandes("liste"), label: "Liste", icone: "menu", actif: vue === "liste" },
-            { href: adresseDemandes("rappels"), label: "À rappeler", icone: "horloge", actif: vue === "rappels", nombre: nombres?.rappels },
-            { href: adresseDemandes("statistiques"), label: "Statistiques", icone: "stats", actif: vue === "statistiques" },
-            ...statistiques,
-            { href: adresseDemandes("leads"), label: "Suivi des leads", icone: "tendance", actif: vue === "leads" },
-          ],
-        },
-      ]}
-    />
-  );
+/** Le titre de chaque vue, au bandeau de la page. */
+export const TITRES_DEMANDES: Record<VueDemandes, string> = {
+  kanban: "Demandes",
+  feed: "Feed des demandes",
+  top: "Top demandes",
+  liste: "Liste des demandes",
+  rappels: "À rappeler",
+  statistiques: "Statistiques des demandes",
+  leads: "Suivi des leads",
+};
+
+/**
+ * Depuis le 19/11/2026, les vues de Demandes sont dans la sous-barre du haut
+ * (ui/navigation.ts). Ne reste à gauche que le choix des huit analyses des
+ * Statistiques.
+ */
+export default function MenuDemandes({ analyse }: { analyse?: VueDuSite }) {
+  const items: ItemMenu[] = VUES_DU_SITE.map((v) => ({ href: `/demandes?vue=statistiques&analyse=${v.cle}`, label: v.label, actif: (analyse ?? "ensemble") === v.cle }));
+  return <MenuVertical titre="Statistiques" groupes={[{ items }]} />;
 }

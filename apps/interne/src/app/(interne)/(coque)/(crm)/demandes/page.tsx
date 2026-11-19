@@ -13,7 +13,7 @@ import KanbanDemandes from "@/crm/demandes/KanbanDemandes";
 import ListeDemandes from "@/crm/demandes/ListeDemandes";
 import ListeDetail from "@/crm/demandes/ListeDetail";
 import type { LigneDemande } from "@/crm/demandes/liste-commun";
-import MenuDemandes, { estVueDemandes, type VueDemandes } from "@/crm/demandes/MenuDemandes";
+import MenuDemandes, { estVueDemandes, TITRES_DEMANDES, type VueDemandes } from "@/crm/demandes/MenuDemandes";
 import RappelsBoard from "@/crm/demandes/RappelsBoard";
 import SuiviLeads from "@/crm/demandes/SuiviLeads";
 import { jourParis, libelleJour } from "@/crm/feed/donnees";
@@ -32,9 +32,10 @@ export const metadata: Metadata = { title: "Demandes" };
 /*
  * Demandes (demande de David, 08/11/2026) : les demandes du site, de près —
  * un zoom sur le début du parcours, dont le Tableau du Parcours ne garde que
- * le résumé (sa colonne « Demandes »). Un seul bandeau, le même titre pour
- * toutes les vues ; les vues au menu de gauche (MenuDemandes), les filtres
- * dans la rangée du bas.
+ * le résumé (sa colonne « Demandes »). Les vues sont dans la sous-barre du
+ * haut depuis le 19/11/2026 (ui/navigation.ts), chacune avec son titre ; les
+ * filtres dans la rangée du bas ; les huit analyses des Statistiques au menu
+ * de gauche (MenuDemandes).
  *
  *  - Kanban (/demandes) : les étapes détaillées, jusqu'à « Dossier » ;
  *  - Feed (?vue=feed) et Top demandes (?vue=top) : la même liste et le même
@@ -74,9 +75,8 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
   };
   const vue: VueDemandes = estVueDemandes(un("vue")) ? (un("vue") as VueDemandes) : "kanban";
   const analyse = vueDuSite(un("analyse"));
-  // Les rappels ouverts : la pastille du menu, sur toutes les vues ; jamais bloquant.
-  const rappels = await listRappels().catch(() => null);
-  const ouverts = rappels?.filter((r) => r.statut === "a_rappeler" || r.statut === "en_cours").length;
+  // Les rappels : lus pour la vue « À rappeler » seulement ; jamais bloquant.
+  const rappels = vue === "rappels" ? await listRappels().catch(() => null) : null;
 
   let contenu: React.ReactNode;
   let bas: React.ReactNode = undefined;
@@ -187,9 +187,9 @@ export default async function Demandes({ searchParams }: { searchParams: Promise
 
   return (
     <div className="view">
-      {/* Un seul titre pour toutes les vues (David : changer de vue ne change pas de page). */}
-      <Bandeau surtitre="Dossiers" titre="Demandes" texte={texte} bas={bas} />
-      <AvecMenu menu={<MenuDemandes vue={vue} analyse={analyse} nombres={{ rappels: ouverts }} />}>{contenu}</AvecMenu>
+      {/* Les vues sont dans la sous-barre du haut depuis le 19/11/2026 ; seules les analyses des Statistiques gardent un menu à gauche. */}
+      <Bandeau surtitre="Demandes" titre={TITRES_DEMANDES[vue]} texte={texte} bas={bas} />
+      {vue === "statistiques" ? <AvecMenu menu={<MenuDemandes analyse={analyse} />}>{contenu}</AvecMenu> : contenu}
     </div>
   );
 }
