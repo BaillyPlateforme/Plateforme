@@ -52,7 +52,7 @@ test("/rappel d'une vraie demande : le rappel est inscrit au tableau, une seule 
   const id = await creerDemande(api, {
     client: { nom: "Testeur Rappel", email },
     depart: { ville: "Lyon", code_postal: "69001" },
-    arrivee: { ville: "Paris" },
+    arrivee: { ville: "Paris", code_postal: "75011" },
     volume: { method: "explicit", volume_m3: 20 },
     distance_km: 465,
     type_client: "particulier",
@@ -95,7 +95,7 @@ test("/completer avec le vrai jeton : le client donne son volume, la demande est
   const id = await creerDemande(api, {
     client: { nom: "Testeur Complétion", email },
     depart: { ville: "Lyon", code_postal: "69001" },
-    arrivee: { ville: "Paris" },
+    arrivee: { ville: "Paris", code_postal: "75011" },
     distance_km: 465,
     type_client: "particulier",
     details: { express: true },

@@ -1,4 +1,5 @@
 import "server-only";
+import { libelleZone } from "@/lib/zone";
 import { q } from "@/crm/lib/db";
 import { libelleParcours, parcoursDeLaDemande, SANS_PRIX } from "@/lib/parcours";
 import type { RequestStatus } from "@/lib/types";
@@ -21,6 +22,7 @@ const REQUETE = `select r.id, r.created_at, r.source::text as source, r.status::
     r.volume_m3::float8 as volume, r.estimation_prix::float8 as estimation, r.date_souhaitee, r.flexibilite, r.score_potentiel, r.score_difficulte,
     r.raw_payload->'details'->>'express' as express, r.raw_payload->'espace'->>'nom' as espace_nom,
     r.raw_payload->'details'->>'parcours' as parcours, r.raw_payload->'details'->>'transfert' as transfert,
+    r.raw_payload->'details'->>'zone' as zone, r.raw_payload->'details'->>'contact_rapide' as contact_rapide,
     r.raw_payload->>'mutation_pro' as mutation, r.raw_payload->>'societe' as societe,
     (select coalesce(e.payload->>'statut', 'a_rappeler') from public.request_events e
        where e.request_id = r.id and e.type = 'rappel' order by e.created_at desc limit 1) as rappel,
@@ -71,7 +73,13 @@ function versDemande(r: Record<string, unknown>): DemandeVue {
     potentiel: (r.score_potentiel as number | null) ?? null,
     difficulte: (r.score_difficulte as number | null) ?? null,
     parcours,
-    parcoursLabel: libelleParcours(r as Parameters<typeof libelleParcours>[0]),
+    // La bulle, puis — depuis le 19/11/2026 — « rappel demandé » ou la destination hors Île-de-France (lib/zone),
+    // pour transmettre la demande au bon service (Céline).
+    parcoursLabel: [
+      r.contact_rapide === "true" ? libelleParcours(r as Parameters<typeof libelleParcours>[0]).split(" · ")[0] : libelleParcours(r as Parameters<typeof libelleParcours>[0]),
+      r.contact_rapide === "true" ? "rappel demandé" : null,
+      r.zone && r.zone !== "idf" ? libelleZone(r.zone) : null,
+    ].filter(Boolean).join(" · "),
     societe: (r.societe as string | null) || (r.espace_nom as string | null) || null,
     jeton: !!r.jeton,
     // Comme la liste des demandes (dashboard/status.ts, isIncomplete).

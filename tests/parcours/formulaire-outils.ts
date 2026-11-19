@@ -289,12 +289,12 @@ const echapper = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  */
 export const champ = (portee: Page | Locator, libelle: string) => portee.getByLabel(new RegExp(`^${echapper(libelle)}\\s*\\*?$`));
 
-/** Le devis express rempli de bout en bout, prêt à partir (Lyon → Toulouse, 30 m³ par défaut). */
+/** Le devis express rempli de bout en bout, prêt à partir (Paris → Toulouse, 30 m³ par défaut : départ en Île-de-France, l'estimation s'affiche). */
 export async function remplirExpress(page: Page, nom: string, email: string, volume = "30") {
   await champ(page, "Nom").fill(nom);
   await champ(page, "E-mail").fill(email);
   await champ(page, "Téléphone").fill(TEL_FICTIF);
-  await choisirVille(page.getByLabel("Ville de départ"), "lyon");
+  await choisirVille(page.getByLabel("Ville de départ"), "paris");
   await choisirVille(page.getByLabel("Ville d'arrivée"), "toulouse");
   await page.getByLabel("Volume estimé").fill(volume);
   await expect(barre(page)).toContainText(`${volume} m³ à déménager`);

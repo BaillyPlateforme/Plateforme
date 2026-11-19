@@ -45,7 +45,7 @@ test("devis express : le bouton reste fermé et la barre dit ce qui manque, cham
   await champ(page, "E-mail").fill(email);
   await expect(barre(page)).toContainText("Indiquez la ville de départ");
 
-  await choisirVille(page.getByLabel("Ville de départ"), "lyon");
+  await choisirVille(page.getByLabel("Ville de départ"), "paris");
   await expect(barre(page)).toContainText("Indiquez la ville d'arrivée");
   // Une ville tapée sans être choisie dans la liste suffit : la page la situe elle-même.
   const arrivee = page.getByLabel("Ville d'arrivée");

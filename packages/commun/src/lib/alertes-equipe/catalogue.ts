@@ -82,8 +82,13 @@ export const ALERTES: DefAlerte[] = [
     cle: "demande_recue", titre: "Nouvelle demande du site", groupe: "Commercial",
     quand: "Une demande arrive par le formulaire du site (ou par e-mail).",
     branchee: true, ou: "Enregistrement d'une demande des questionnaires.",
-    depart: { objet: "Nouvelle demande — {client}", corps: "Nouvelle demande reçue : {client}.\nTrajet : {trajet}." },
-    variables: ["client", "trajet"],
+    // Céline, 19/11/2026 : la bulle et la destination, pour transmettre au bon service, et de quoi rappeler le client.
+    depart: {
+      objet: "Nouvelle demande — {profil} · {destination} — {client}",
+      corps:
+        "Nouvelle demande reçue : {client}.\nBulle : {profil}\nDestination : {destination}\nTéléphone : {telephone}\nE-mail : {email}\nDépart : {depart}\nArrivée : {arrivee}\nPériode : {periode}\nVolume : {volume}",
+    },
+    variables: ["client", "trajet", "profil", "destination", "telephone", "email", "depart", "arrivee", "periode", "volume"],
   },
   {
     cle: "devis_signe", titre: "Devis signé", groupe: "Commercial",

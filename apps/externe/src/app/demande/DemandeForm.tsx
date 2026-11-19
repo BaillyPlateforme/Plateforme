@@ -26,6 +26,7 @@ import ChoixFormule, {
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
+import { HORAIRES_BUREAUX, REPONSE_48H, estimationEnLigne, zoneAdresse } from "@/lib/zone";
 import { AddressInput, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { useEtapesDansLHistorique } from "./historique";
@@ -427,7 +428,7 @@ function ExpressForm({
   const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
   const montreVolume = espace?.afficher_volume ?? true;
   // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
-  const affichePrix = espace ? espace.afficher_estimation : instant;
+  const prixDuParcoursExpress = espace ? espace.afficher_estimation : instant;
   const [compare, setCompare] = useState(false);
   const [doneCount, setDoneCount] = useState(1);
   const [f, setF] = useState(EXPRESS_VIDE);
@@ -463,6 +464,14 @@ function ExpressForm({
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
   const sansRoute = !!trajet && trajet.cle === cleTrajet && trajet.km == null;
 
+  // La règle de Céline (19/11/2026, lib/zone) : l'estimation ne s'affiche que pour un départ ou une
+  // arrivée en Île-de-France. Le code postal : celui saisi, sinon celui de la commune trouvée.
+  const cpDepart = f.departCP || departCoord?.code_postal || "";
+  const cpArrivee = f.arriveeCP || arriveeCoord?.code_postal || "";
+  const horsZone = !espace && instant && !estimationEnLigne({ code_postal: cpDepart }, { code_postal: cpArrivee });
+  const affichePrix = prixDuParcoursExpress && !horsZone;
+  const horsZoneConnu = horsZone && zoneAdresse({ code_postal: cpDepart }) != null && zoneAdresse({ code_postal: cpArrivee }) != null;
+
   // Une ville tapée sans être choisie dans la liste n'a pas de coordonnées :
   // pas de distance, donc un prix faux. On la situe nous-mêmes, une fois la
   // frappe terminée — la liste reste là pour qui veut préciser. Seulement si
@@ -490,7 +499,7 @@ function ExpressForm({
   const remarques = [
     remarqueVille(recherches.depart, f.departVille, departCoord != null),
     remarqueVille(recherches.arrivee, f.arriveeVille, arriveeCoord != null),
-    sansRoute && departCoord && arriveeCoord ? remarqueOutreMer(departCoord, arriveeCoord) : null,
+    horsZoneConnu ? TEXTE_HORS_ZONE : sansRoute && departCoord && arriveeCoord ? remarqueOutreMer(departCoord, arriveeCoord) : null,
   ].filter((x): x is string => !!x);
 
   /** Le raccourci de démonstration : tout le formulaire, rempli d'un exemple. */
@@ -547,8 +556,8 @@ function ExpressForm({
       const data = await envoyerOuModifier({
           client: { nom: f.nom, email: f.email, tel: f.tel.trim() || undefined },
           // Code postal et pays : ceux de la ville choisie dans la liste, qui ne propose que des communes françaises.
-          depart: { ville: f.departVille || undefined, code_postal: f.departCP || undefined },
-          arrivee: { ville: f.arriveeVille || undefined, code_postal: f.arriveeCP || undefined },
+          depart: { ville: f.departVille || undefined, code_postal: cpDepart || undefined },
+          arrivee: { ville: f.arriveeVille || undefined, code_postal: cpArrivee || undefined },
           date_souhaitee: f.dateMode === "date" ? (f.date || undefined) : undefined,
           flexibilite: dateOk ? (f.dateMode === "date" ? undefined : f.periode) : PERIODE_PAR_DEFAUT,
           distance_km: distanceKm ?? undefined,
@@ -556,8 +565,8 @@ function ExpressForm({
           type_client: "particulier",
           details: {
             express: true,
-            ...(f.departCP ? { depart: { pays: "France" } } : {}),
-            ...(f.arriveeCP ? { arrivee: { pays: "France" } } : {}),
+            ...(cpDepart ? { depart: { pays: "France" } } : {}),
+            ...(cpArrivee ? { arrivee: { pays: "France" } } : {}),
             ...(volMode === "logement" ? { repere_logement: { type: f.repere.type, resume: f.repere.type } } : {}),
           } as unknown as Record<string, unknown>,
           espace: espace?.slug, espace_code: espace?.code,
@@ -589,7 +598,7 @@ function ExpressForm({
         count={doneCount}
         marque={marque}
         theme={theme}
-        message={espace ? messageFinDe(espace) : undefined}
+        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_48H : undefined}
       />
     );
   }
@@ -644,7 +653,7 @@ function ExpressForm({
               )}
             </div>
             <Bouton onClick={submit} disabled={manque !== null || submitting}>
-              {submitting ? "Envoi…" : modif ? "Mettre à jour mon estimation" : espace && !espace.afficher_estimation ? "Envoyer ma demande" : "Obtenir mon estimation"}
+              {submitting ? "Envoi…" : modif ? "Mettre à jour mon estimation" : (espace && !espace.afficher_estimation) || horsZoneConnu ? "Envoyer ma demande" : "Obtenir mon estimation"}
             </Bouton>
           </>
         }
@@ -783,7 +792,8 @@ function CompleteForm({
   const marque: Marque | null = espace ? { nom: nomEnseigne(espace), logo: espace.logo } : null;
   const montreVolume = espace?.afficher_volume ?? true;
   // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
-  const affichePrix = espace ? espace.afficher_estimation : instant;
+  // Dans un espace pro, c'est lui qui décide si le prix s'affiche.
+  const prixDuParcours = espace ? espace.afficher_estimation : instant;
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initial);
@@ -824,6 +834,13 @@ function CompleteForm({
   const distanceKm = trajet && trajet.cle === cleTrajet ? trajet.km : null;
   const sansRoute = !!trajet && trajet.cle === cleTrajet && trajet.km == null;
 
+  // La règle de Céline (19/11/2026, lib/zone) : l'estimation ne s'affiche que pour un départ ou une
+  // arrivée en Île-de-France, en France continentale. Hors zone, le serveur la tait aussi.
+  const horsZone = !espace && instant && !estimationEnLigne(d, a);
+  const affichePrix = prixDuParcours && !horsZone;
+  // On le dit dès que les deux adresses se situent, pas au dernier écran.
+  const horsZoneConnu = horsZone && zoneAdresse(d) != null && zoneAdresse(a) != null;
+
   // À chaque changement d'étape, on remonte en haut de la page — pas au
   // premier affichage : intégré au site officiel, le devis ne doit pas tirer
   // cette page vers lui dès qu'elle se charge.
@@ -852,7 +869,9 @@ function CompleteForm({
         // Entre-temps, la ville a pu changer ou être choisie dans la liste. Le code postal saisi reste celui du visiteur.
         if ("commune" in r) {
           const { lat: la, lon: lo } = r.commune;
-          setForm((f) => (f[cle].ville === ville && f[cle].lat == null ? { ...f, [cle]: { ...f[cle], lat: la, lon: lo } } : f));
+          // Le code postal de la commune, s'il manque : il dit la zone (lib/zone) ; celui du visiteur reste.
+          const cpTrouve = (r.commune as { code_postal?: string }).code_postal ?? "";
+          setForm((f) => (f[cle].ville === ville && f[cle].lat == null ? { ...f, [cle]: { ...f[cle], lat: la, lon: lo, code_postal: f[cle].code_postal || cpTrouve } } : f));
         }
         setRecherches((x) => ({ ...x, [cle]: { ville, r } }));
       }, 700);
@@ -867,6 +886,8 @@ function CompleteForm({
     if (!enFrance(adr.pays)) return TEXTE_ETRANGER;
     const ville = remarqueVille(recherches[cote], adr.ville, adr.lat != null);
     if (ville) return ville;
+    // Hors zone, une fois les deux adresses situées : à l'arrivée (règle de Céline, lib/zone).
+    if (cote === "arrivee" && horsZoneConnu) return TEXTE_HORS_ZONE;
     // L'outre-mer, une fois les deux adresses connues : à l'arrivée.
     return cote === "arrivee" && sansRoute ? remarqueOutreMer(d, a) : null;
   };
@@ -958,7 +979,7 @@ function CompleteForm({
         count={doneCount}
         marque={marque}
         theme={theme}
-        message={espace ? messageFinDe(espace) : undefined}
+        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_48H : undefined}
       />
     );
   }
@@ -1905,6 +1926,10 @@ export function SuccessScreen({
               ? `Merci ! Nos experts étudient vos ${count} scénarios et vous adressent un devis pour chacun par e-mail.`
               : `Merci ! Nos experts analysent votre projet${volume != null ? ` (~${volume} m³)` : ""} et reviennent vers vous très vite.`)}
         </p>
+        {/* Céline, 19/11/2026 : partout où l'on annonce un rappel, les horaires des bureaux. */}
+        <p className="reveal mx-auto mt-2 max-w-[44ch] text-[14px] leading-relaxed text-ink-soft" style={delai(200)}>
+          {HORAIRES_BUREAUX}
+        </p>
         <div className="reveal mt-7 inline-flex items-center gap-2 rounded-full border border-line-strong bg-card px-4 py-2 text-[13px] text-ink-soft" style={delai(240)}>
           Référence <span className="font-mono text-ink">{id.slice(0, 8)}</span>
         </div>
@@ -1959,7 +1984,11 @@ type Cote = "depart" | "arrivee";
 type RechercheVille = { ville: string; r: Recherche };
 
 const TEXTE_ETRANGER =
-  "Hors de France, la distance ne se calcule pas automatiquement : un conseiller établit votre devis et vous l'adresse par e-mail.";
+  "Hors de France, la distance ne se calcule pas automatiquement : notre service commercial traite votre demande et vous répond sous 48h ouvrées.";
+
+/** Hors zone (lib/zone) : dit dès l'adresse d'arrivée, pour ne pas découvrir l'absence de prix au dernier écran. À valider par Céline. */
+const TEXTE_HORS_ZONE =
+  "Pour ce trajet, l'estimation n'est pas calculée en ligne : notre service commercial traite votre demande et vous répond sous 48h ouvrées.";
 
 /**
  * Une ville tapée sans être choisie dans la liste, que la base n'a pas su
@@ -1971,9 +2000,9 @@ function remarqueVille(recherche: RechercheVille | undefined, ville: string, sit
   if (situee || !recherche || recherche.ville !== ville || !ville.trim()) return null;
   const nom = ville.trim();
   if ("introuvable" in recherche.r)
-    return `Ville introuvable dans la liste des communes : « ${nom} ». Choisissez-la parmi les suggestions pour calculer la distance ; sinon, un conseiller établit votre devis et vous l'adresse par e-mail.`;
+    return `Ville introuvable dans la liste des communes : « ${nom} ». Choisissez-la parmi les suggestions pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 48h ouvrées.`;
   if ("homonymes" in recherche.r)
-    return `Plusieurs communes s'appellent « ${nom} » : choisissez la vôtre dans la liste pour calculer la distance ; sinon, un conseiller établit votre devis et vous l'adresse par e-mail.`;
+    return `Plusieurs communes s'appellent « ${nom} » : choisissez la vôtre dans la liste pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 48h ouvrées.`;
   return null;
 }
 
@@ -1982,7 +2011,7 @@ function remarqueOutreMer(a: { code_postal?: string; lat?: number; lon?: number 
   const ta = territoire(a), tb = territoire(b);
   const outreMer = estOutreMer(a.code_postal) || estOutreMer(b.code_postal) || ta === "hors-metropole" || tb === "hors-metropole";
   return outreMer && ta !== tb
-    ? "Outre-mer : la distance ne se calcule pas par la route. Un conseiller établit votre devis et vous l'adresse par e-mail."
+    ? "Outre-mer : la distance ne se calcule pas par la route. Notre service commercial traite votre demande et vous répond sous 48h ouvrées."
     : null;
 }
 

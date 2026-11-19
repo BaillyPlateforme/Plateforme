@@ -48,7 +48,7 @@ test("devis express : « Modifier ma demande » met à jour la même demande, sa
   await page.getByRole("button", { name: "Modifier ma demande" }).first().click();
   await expect(champ(page, "Nom")).toHaveValue("Testeur Modification");
   await expect(champ(page, "E-mail")).toHaveValue(email);
-  await expect(page.getByLabel("Ville de départ")).toHaveValue("Lyon");
+  await expect(page.getByLabel("Ville de départ")).toHaveValue("Paris");
   await expect(page.getByLabel("Volume estimé")).toHaveValue("30");
   await expect(action(page, "Mettre à jour mon estimation")).toBeEnabled();
 
@@ -60,7 +60,7 @@ test("devis express : « Modifier ma demande » met à jour la même demande, sa
   const apres = await montantAffiche(page);
   if (apres != null) {
     await expect(page.getByText("~45 m³")).toBeVisible();
-    await expect(page.getByText("Lyon → Bordeaux", { exact: true })).toBeVisible();
+    await expect(page.getByText("Paris → Bordeaux", { exact: true })).toBeVisible();
   }
 
   // En base : toujours une seule demande, mise à jour.
@@ -68,8 +68,8 @@ test("devis express : « Modifier ma demande » met à jour la même demande, sa
   const lignes = await db.demandes(email);
   expect(lignes, "la modification ne crée pas de seconde demande").toHaveLength(1);
   expect(lignes[0].id).toBe(r.id);
-  expect(lignes[0]).toMatchObject({ arrivee_ville: "Bordeaux", depart_ville: "Lyon", client_email: email });
-  expect(Number(lignes[0].distance_km)).toBe(distanceRouteKm(VILLES.lyon, VILLES.bordeaux));
+  expect(lignes[0]).toMatchObject({ arrivee_ville: "Bordeaux", depart_ville: "Paris", client_email: email });
+  expect(Number(lignes[0].distance_km)).toBe(distanceRouteKm(VILLES.paris, VILLES.bordeaux));
 
   // L'historique dit ce qui a changé, et que c'est le client.
   const modif = await db.attendreEvenement(r.id, "modified");
@@ -166,7 +166,7 @@ test("chaque demande chiffrée a son devis, même après la modification d'une d
   const corps = (email: string, volume: number) => ({
     client: { nom: "Testeur Numérotation", email },
     depart: { ville: "Lyon", code_postal: "69001" },
-    arrivee: { ville: "Paris" },
+    arrivee: { ville: "Paris", code_postal: "75011" },
     volume: { method: "explicit", volume_m3: volume },
     distance_km: 465,
     flexibilite: "Je ne sais pas encore",

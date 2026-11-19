@@ -24,7 +24,7 @@ test.describe.configure({ mode: "parallel", timeout: DUREE_PARCOURS });
 const demande = (email: string) => ({
   client: { nom: "Testeur Limite", email },
   depart: { ville: "Lyon", code_postal: "69001" },
-  arrivee: { ville: "Paris" },
+  arrivee: { ville: "Paris", code_postal: "75011" },
   volume: { method: "explicit", volume_m3: 10 },
   distance_km: 465,
   flexibilite: "Je ne sais pas encore",

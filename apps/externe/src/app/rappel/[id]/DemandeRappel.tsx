@@ -56,7 +56,7 @@ export default function DemandeRappel({ requestId }: { requestId: string }) {
 
   const texte =
     etat === "fait"
-      ? "Un conseiller vous rappelle au plus vite pour finaliser votre estimation avec vous."
+      ? "Un conseiller vous rappelle au plus vite pour finaliser votre estimation avec vous, du lundi au vendredi de 8h à 18h."
       : etat === "echec"
         ? "Nous n'avons pas pu enregistrer votre demande de rappel. Réessayez, ou appelez-nous directement."
         : "Nous enregistrons votre demande de rappel.";

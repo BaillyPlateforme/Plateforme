@@ -33,7 +33,7 @@ import {
   verifierChiffrage,
   verifierPagePropre,
 } from "./formulaire-outils";
-import { emailUnique } from "../outils/banc";
+import { EXT, emailUnique } from "../outils/banc";
 import type { Page } from "@playwright/test";
 
 test.describe.configure({ mode: "parallel", timeout: DUREE_PARCOURS });
@@ -78,9 +78,9 @@ test("particulier, devis express : de l'accueil à l'estimation, puis la demande
   await champ(page, "Nom").fill("Batterie Express");
   await champ(page, "E-mail").fill(email);
   await champ(page, "Téléphone").fill(TEL_FICTIF);
-  await choisirVille(page.getByLabel("Ville de départ"), "lyon");
+  await choisirVille(page.getByLabel("Ville de départ"), "paris");
   await choisirVille(page.getByLabel("Ville d'arrivée"), "toulouse");
-  const km = distanceRouteKm(VILLES.lyon, VILLES.toulouse);
+  const km = distanceRouteKm(VILLES.paris, VILLES.toulouse);
   await expect(page.getByText(`${km} km`).filter({ visible: true }).first()).toBeVisible();
 
   await page.getByRole("radio", { name: "Une période" }).click();
@@ -92,7 +92,7 @@ test("particulier, devis express : de l'accueil à l'estimation, puis la demande
   await expect(page.getByRole("heading", { name: /Votre estimation est prête/ })).toBeVisible({ timeout: 60_000 });
   const total = await montantAffiche(page);
   if (total != null) {
-    await expect(page.getByText("Lyon → Toulouse", { exact: true })).toBeVisible();
+    await expect(page.getByText("Paris → Toulouse", { exact: true })).toBeVisible();
     await expect(page.getByText("~30 m³")).toBeVisible();
   }
   await expect(page.getByRole("button", { name: "Je souhaite être rappelé" })).toBeVisible();
@@ -103,8 +103,8 @@ test("particulier, devis express : de l'accueil à l'estimation, puis la demande
     source: "form",
     client_nom: "Batterie Express",
     client_tel: TEL_FICTIF,
-    depart_ville: "Lyon",
-    depart_code_postal: "69001",
+    depart_ville: "Paris",
+    depart_code_postal: "75011",
     arrivee_ville: "Toulouse",
     volume_method: "explicit",
     flexibilite: "Dès que possible",
@@ -157,8 +157,8 @@ test("particulier, devis complet : sept étapes, volume par liste de meubles", a
   // 2. Départ : l'adresse saisie telle quelle, la ville choisie dans la liste.
   await expect(page.getByRole("heading", { name: /D'où partez-vous/ })).toBeVisible();
   await page.getByLabel("Adresse de départ").fill("12 rue des Essais");
-  await choisirVille(page.getByLabel(/^Ville/), "lyon");
-  await expect(page.getByLabel("Code postal")).toHaveValue("69001");
+  await choisirVille(page.getByLabel(/^Ville/), "paris");
+  await expect(page.getByLabel("Code postal")).toHaveValue("75011");
   await expect(barre(page)).toContainText("Indiquez la surface habitable");
   await page.getByLabel(/^Étage/).fill("3");
   await page.getByLabel(/^Surface habitable/).fill("65");
@@ -204,7 +204,7 @@ test("particulier, devis complet : sept étapes, volume par liste de meubles", a
   await expect(page.getByText("4.6 m³ (liste de meubles)")).toBeVisible();
   await expect(page.getByText(/Garantie dommages Luxe/).filter({ visible: true }).first()).toBeVisible();
   await page.getByLabel(/^Message/).fill("Essai de la batterie : merci de ne pas traiter.");
-  if (grandEcran(page)) await expect(page.getByRole("complementary")).toContainText("Lyon → Toulouse");
+  if (grandEcran(page)) await expect(page.getByRole("complementary")).toContainText("Paris → Toulouse");
   // Un double clic sur « Envoyer » : une seule demande doit naître.
   await action(page, "Envoyer ma demande").dblclick();
   await expect(page.getByRole("heading", { name: /Votre estimation est prête/ })).toBeVisible({ timeout: 60_000 });
@@ -214,8 +214,8 @@ test("particulier, devis complet : sept étapes, volume par liste de meubles", a
   expect(r).toMatchObject({
     client_nom: "Testeur Batterie",
     depart_adresse: "12 rue des Essais",
-    depart_ville: "Lyon",
-    depart_code_postal: "69001",
+    depart_ville: "Paris",
+    depart_code_postal: "75011",
     depart_etage: 3,
     depart_ascenseur: false,
     arrivee_ville: "Toulouse",
@@ -228,7 +228,7 @@ test("particulier, devis complet : sept étapes, volume par liste de meubles", a
   });
   expect((await db.q("select date_souhaitee::text as d from public.requests where id = $1", [r.id]))[0].d).toBe("2027-03-15");
   expect(Number(r.volume_m3)).toBe(4.6);
-  expect(Number(r.distance_km)).toBe(distanceRouteKm(VILLES.lyon, VILLES.toulouse));
+  expect(Number(r.distance_km)).toBe(distanceRouteKm(VILLES.paris, VILLES.toulouse));
   expect(r.raw_payload).toMatchObject({
     assurance: "luxe",
     piano: true,
@@ -433,3 +433,65 @@ test("entreprise, projet important : description, villes, contact et créneau de
 function grandEcran(page: Page) {
   return (page.viewportSize()?.width ?? 0) >= 1024;
 }
+
+/*
+ * Règles du simulateur (mail de Céline du 19/11/2026) : l'estimation en ligne
+ * seulement pour un départ ou une arrivée en Île-de-France ; ailleurs, la
+ * réponse du service commercial sous 48h ouvrées, annoncée dès les adresses ;
+ * et, en haut de chaque bulle, « Je souhaite être contacté(e) par un
+ * commercial ».
+ */
+test("particulier hors Île-de-France : pas de prix, la réponse sous 48h ouvrées, rappel inscrit", async ({ page, visiteur, db }) => {
+  exigerEcritures();
+  const email = emailUnique("horszone");
+  await ouvrirPorte(page, "express");
+  await champ(page, "Nom").fill("Batterie Hors Zone");
+  await champ(page, "E-mail").fill(email);
+  await champ(page, "Téléphone").fill(TEL_FICTIF);
+  await choisirVille(page.getByLabel("Ville de départ"), "lyon");
+  await choisirVille(page.getByLabel("Ville d'arrivée"), "toulouse");
+  // Dit dès les adresses, pas au dernier écran.
+  await expect(page.getByText(/l'estimation n'est pas calculée en ligne/).filter({ visible: true }).first()).toBeVisible();
+  await page.getByLabel("Volume estimé").fill("25");
+  await action(page, "Envoyer ma demande").click();
+
+  await expect(page.getByRole("heading", { name: /Demande envoyée/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Notre service commercial traite votre demande et vous répond sous 48h ouvrées.")).toBeVisible();
+  await expect(page.getByText(/nos bureaux sont ouverts du lundi au vendredi, de 8h à 18h/)).toBeVisible();
+  await expect(page.getByText("Total estimé")).toHaveCount(0);
+
+  const r = await db.demande(email);
+  expect(r.raw_payload.details).toMatchObject({ zone: "france", estimation_en_ligne: false });
+  // Ni chiffrage ni devis : l'équipe chiffre et rappelle.
+  await db.attendreEvenement(r.id, "rappel");
+  expect(await db.devis(r.id)).toEqual([]);
+  expect(r.estimation_prix).toBeNull();
+  await verifierPagePropre(page, visiteur);
+});
+
+test("« Je souhaite être contacté(e) par un commercial » : un numéro suffit, la demande va aux rappels", async ({ page, visiteur, db }) => {
+  exigerEcritures();
+  const nom = `Batterie Contact ${Date.now().toString(36)}`;
+  await page.goto(EXT + "/");
+  await page.getByRole("button", { name: /Je suis un particulier/ }).click();
+  const ligne = page.getByRole("form", { name: "Être contacté(e) par un commercial" });
+  await expect(ligne).toContainText("Je souhaite être contacté(e) par un commercial");
+  await ligne.getByLabel("Votre nom (facultatif)").fill(nom);
+  await ligne.getByLabel("Votre numéro de téléphone").fill(TEL_FICTIF);
+  await ligne.getByRole("button", { name: "Être rappelé(e)" }).click();
+  await expect(page.getByRole("status")).toContainText("Demande envoyée !");
+  await expect(page.getByRole("status")).toContainText("du lundi au vendredi, de 8h à 18h");
+
+  const lire = async () => (await db.q("select * from public.requests where client_nom = $1", [nom])) as Record<string, any>[];
+  await expect.poll(async () => (await lire()).length, { message: "la demande de rappel", timeout: 30_000 }).toBe(1);
+  const [r] = await lire();
+  try {
+    expect(r).toMatchObject({ source: "form", client_tel: TEL_FICTIF, client_email: null });
+    expect(r.raw_payload.details).toMatchObject({ parcours: "particulier", contact_rapide: true });
+    await db.attendreEvenement(r.id, "rappel");
+    await verifierPagePropre(page, visiteur);
+  } finally {
+    // Sans e-mail, la demande échappe au ménage de la batterie (qui cherche les adresses @example.com).
+    await db.q("delete from public.requests where id = $1", [r.id]);
+  }
+});

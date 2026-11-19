@@ -1,5 +1,6 @@
 "use client";
 
+import ContactRapide from "../ContactRapide";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { REPERE_LOGEMENT } from "@/lib/catalog";
 import { aujourdhuiParis, telephoneValide } from "@/lib/saisies";
@@ -410,7 +411,7 @@ function Recapitulatif({ groupes }: { groupes: { icone: NomIcone; titre: string;
 /* ═══════════════════════════ La mutation ═══════════════════════════ */
 
 const ETAPES_MUTATION: Etape[] = [
-  { cle: "vous", label: "Vous", sous: "Coordonnées et mutation", eyebrow: "Votre mutation", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "Vos coordonnées, l'entreprise qui vous mute et votre projet." },
+  { cle: "vous", label: "Vous", sous: "Mutation et coordonnées", eyebrow: "Votre mutation", avant: "Parlez-nous de ", accent: "vous", apres: "", sub: "L'entreprise qui vous mute, vos coordonnées et votre projet." },
   { cle: "depart", label: "Départ", sous: "Adresse et logement", eyebrow: "Adresse de départ", avant: "D'où ", accent: "partez-vous", apres: " ?", sub: "L'adresse et le logement que vous quittez." },
   { cle: "arrivee", label: "Arrivée", sous: "Adresse et logement", eyebrow: "Adresse d'arrivée", avant: "Où ", accent: "allez-vous", apres: " ?", sub: "L'adresse et le logement qui vous attendent." },
   { cle: "fin", label: "Envoi", sous: "Commentaires et relecture", eyebrow: "Relecture", avant: "Un dernier ", accent: "mot", apres: " ?", sub: "Ce qu'il faut savoir d'autre, puis l'envoi de votre demande." },
@@ -589,16 +590,9 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
     >
       {ETAPES_MUTATION[step].cle === "vous" && (
         <div className="space-y-5">
-          <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous recontacter et organiser la visite.">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Prénom"><TextInput icone="user" value={f.prenom} onChange={(e) => set({ prenom: e.target.value })} placeholder="Camille" autoComplete="given-name" /></Field>
-              <Field label="Nom *"><TextInput value={f.nom} onChange={(e) => set({ nom: e.target.value })} placeholder="Durand" autoComplete="family-name" /></Field>
-              <Field label="Téléphone *"><TextInput icone="tel" type="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" autoComplete="tel" /></Field>
-              <Field label="E-mail *"><TextInput icone="mail" type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille.durand@email.fr" autoComplete="email" /></Field>
-            </div>
-          </Bloc>
-
-          <Bloc icone="immeuble" titre="Votre mutation" sous="L'entreprise qui vous mute, et ce que vous emportez." delai={70}>
+          {/* Céline, 19/11/2026 : la ligne « être contacté(e) » en haut de chaque bulle ; l'entreprise avant le nom du client. */}
+          {!espace && <ContactRapide parcours="mutation" />}
+          <Bloc icone="immeuble" titre="Votre mutation" sous="L'entreprise qui vous mute, et ce que vous emportez.">
             <div className="space-y-5">
               <Field label="Par quelle entreprise êtes-vous muté(e) ? *">
                 <TextInput icone="immeuble" value={f.societe} onChange={(e) => set({ societe: e.target.value })} placeholder="Nom de votre employeur" autoComplete="organization" />
@@ -615,6 +609,15 @@ export function FormulaireMutation({ onBack }: { onBack: () => void }) {
                 onChange={(periode_mode, periode) => set({ periode_mode, periode })}
                 exemple="Avant ma prise de poste, le 1er mars…"
               />
+            </div>
+          </Bloc>
+
+          <Bloc icone="user" titre="Vos coordonnées" sous="Pour vous recontacter et organiser la visite." delai={70}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Prénom"><TextInput icone="user" value={f.prenom} onChange={(e) => set({ prenom: e.target.value })} placeholder="Camille" autoComplete="given-name" /></Field>
+              <Field label="Nom *"><TextInput value={f.nom} onChange={(e) => set({ nom: e.target.value })} placeholder="Durand" autoComplete="family-name" /></Field>
+              <Field label="Téléphone *"><TextInput icone="tel" type="tel" value={f.tel} onChange={(e) => set({ tel: e.target.value })} placeholder="06 12 34 56 78" autoComplete="tel" /></Field>
+              <Field label="E-mail *"><TextInput icone="mail" type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} placeholder="camille.durand@email.fr" autoComplete="email" /></Field>
             </div>
           </Bloc>
 

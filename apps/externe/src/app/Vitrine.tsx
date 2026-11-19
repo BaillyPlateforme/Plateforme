@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import SiteHeader from "./SiteHeader";
+import ContactRapide from "./ContactRapide";
 import { Icone, type NomIcone } from "./demande/ui";
 import { TRANCHES_DISTANCE } from "@/lib/pricing/grille";
 import { TEL_AGENCE, TEL_AGENCE_LIEN } from "@/lib/messaging";
@@ -98,7 +99,7 @@ function PortesParticulier({ onChoisir, d = 0 }: { onChoisir: (c: Choix) => void
         icone="liste"
         duree="Sur mesure"
         titre="Devis complet"
-        desc="Le dossier détaillé, pour un devis au plus juste : vos accès, vos prestations, vos garanties."
+        desc="Le dossier détaillé, pour une estimation au plus juste : vos accès, vos prestations, vos garanties."
         points={["Conditions d'accès", "Prestations et formule", "Garantie et inventaire"]}
         cta="Commencer le devis complet"
       />
@@ -127,7 +128,7 @@ function PortesEntreprise({ onChoisir, d = 0 }: { onChoisir: (c: Choix) => void;
         icone="immeuble"
         duree="Rappel rapide"
         titre="Un projet important"
-        desc="Un siège, un entrepôt, des machines ou des archives : expliquez votre projet, un conseiller vous rappelle."
+        desc="Un siège, un entrepôt, des machines ou des archives : expliquez votre projet, un conseiller vous rappelle du lundi au vendredi, de 8h à 18h."
         points={["Votre projet en quelques lignes", "Le trajet", "Le moment pour vous joindre"]}
         cta="Présenter mon projet"
       />
@@ -142,7 +143,11 @@ type Portes = {
   impose: boolean;
 };
 
-/** Les trois portes, une par public : un seul bouton chacune. */
+/**
+ * Les trois portes, une par public : un seul bouton chacune. Dans l'ordre
+ * demandé par Céline le 19/11/2026 — particulier, muté, entreprise —, une
+ * jaune sur deux.
+ */
 function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Portes, "filtre" | "impose"> & { d?: number; clair?: boolean }) {
   return (
     <>
@@ -153,22 +158,12 @@ function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Port
         icone="user"
         badge="Estimation en ligne"
         qui="Vous êtes un particulier"
-        desc="Votre estimation, calculée sur notre grille tarifaire et affichée à l'écran : en express ou en détail."
+        desc="Votre estimation, calculée sur notre grille tarifaire et affichée à l'écran pour un départ ou une arrivée en Île-de-France : en express ou en détail."
         cta="Je suis un particulier"
         onClick={() => onOuvrir("particulier")}
       />
       <PorteParcours
         d={d + 100}
-        clair={clair}
-        icone="immeuble"
-        badge="Rappel rapide"
-        qui="Vous déménagez votre entreprise"
-        desc="Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures."
-        cta="Je déménage mon entreprise"
-        onClick={() => onOuvrir("entreprise")}
-      />
-      <PorteParcours
-        d={d + 200}
         clair={clair}
         icone="route"
         badge="Visite ou visio"
@@ -176,6 +171,17 @@ function PortesParcours({ onChoisir, onOuvrir, d = 0, clair = false }: Omit<Port
         desc="Votre conseiller organise la visite (en visio ou en physique), selon les accords avec votre entreprise."
         cta="Je suis muté(e)"
         onClick={() => onChoisir({ parcours: "mutation" })}
+      />
+      <PorteParcours
+        d={d + 200}
+        accent
+        clair={clair}
+        icone="immeuble"
+        badge="Rappel rapide"
+        qui="Vous déménagez votre entreprise"
+        desc="Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures, du lundi au vendredi de 8h à 18h."
+        cta="Je déménage mon entreprise"
+        onClick={() => onOuvrir("entreprise")}
       />
     </>
   );
@@ -209,8 +215,10 @@ function BlocPortes({ onChoisir, filtre, onOuvrir, impose, d, clair = false }: P
           </span>
         </div>
       )}
-      <div className="grid items-stretch gap-4 md:grid-cols-2">
-        {filtre === "particulier" ? <PortesParticulier onChoisir={onChoisir} d={impose ? d : 0} /> : <PortesEntreprise onChoisir={onChoisir} d={impose ? d : 0} />}
+      {/* Céline, 19/11/2026 : une ligne jaune au-dessus des bulles, de leur largeur, pour qui veut juste être rappelé. */}
+      <ContactRapide parcours={filtre} d={impose ? d : 0} />
+      <div className="mt-4 grid items-stretch gap-4 md:grid-cols-2">
+        {filtre === "particulier" ? <PortesParticulier onChoisir={onChoisir} d={impose ? d + 60 : 60} /> : <PortesEntreprise onChoisir={onChoisir} d={impose ? d + 60 : 60} />}
       </div>
     </div>
   );
@@ -234,7 +242,7 @@ function ChoixIntegre(portes: Portes) {
               Déménagez votre <span className="gradient-text">entreprise</span>
             </>
           ),
-          texte: "Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures.",
+          texte: "Quelques bureaux ou un site complet : décrivez-nous votre projet, un conseiller vous recontacte sous 24 heures, du lundi au vendredi de 8h à 18h.",
         }
       : {
           eyebrow: "Votre devis en ligne",
@@ -244,7 +252,7 @@ function ChoixIntegre(portes: Portes) {
             </>
           ),
           texte:
-            "Décrivez votre logement en quelques minutes : volume, accès, dates. L'estimation tombe aussitôt, calculée à partir de notre grille tarifaire et confirmée par la suite par notre conseiller commercial.",
+            "Décrivez votre logement en quelques minutes : volume, accès, dates. Pour un départ ou une arrivée en Île-de-France, l'estimation tombe aussitôt, calculée à partir de notre grille tarifaire et confirmée par la suite par notre conseiller commercial.",
         };
 
   return (
@@ -325,9 +333,9 @@ function Hero(portes: Portes) {
           </h1>
 
           <p className="reveal mt-6 max-w-[52ch] text-[17px] leading-relaxed text-white/85 sm:text-[18px]" style={delay(260)}>
-            Décrivez votre logement en quelques minutes : volume, accès, dates. L&apos;estimation
-            tombe aussitôt, calculée à partir de notre grille tarifaire et confirmée par la suite
-            par notre conseiller commercial.
+            Décrivez votre logement en quelques minutes : volume, accès, dates. Pour un départ ou une
+            arrivée en Île-de-France, l&apos;estimation tombe aussitôt, calculée à partir de notre grille
+            tarifaire et confirmée par la suite par notre conseiller commercial.
           </p>
 
           <ul className="reveal mt-8 flex flex-wrap gap-x-7 gap-y-3" style={delay(360)}>

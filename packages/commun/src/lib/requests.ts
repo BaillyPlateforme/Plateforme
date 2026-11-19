@@ -11,6 +11,8 @@ import { qualifyRequest } from "@/lib/qualification";
 import { transmettreACreagidem } from "@/lib/creagidem";
 import { creerRappel } from "@/lib/rappels";
 import { SANS_PRIX, parcoursDeLaDemande } from "@/lib/parcours";
+import { estimationEnLigne, zoneDuTrajet } from "@/lib/zone";
+import { varsAlerteDemande } from "@/lib/alerte-demande";
 import { distanceRecevable, distanceUneFois, paysDeLAdresse } from "@/lib/trajet";
 import type { CreateRequestInput, ItemInput, AnalyzedPhotoInput } from "@/lib/schemas";
 import type { RequestRow, RequestSource, RequestStatus } from "@/lib/types";
@@ -63,6 +65,31 @@ function distanceDuFormulaire(input: CreateRequestInput): number | null {
   );
 }
 
+/**
+ * La zone du trajet saisi (lib/zone, règle de Céline du 19/11/2026) : son
+ * étiquette, et si l'estimation se donne en ligne — départ ou arrivée en
+ * Île-de-France, les deux en France continentale.
+ */
+function zoneDeLaSaisie(input: CreateRequestInput) {
+  const raw = { details: input.details };
+  const depart = { code_postal: input.depart.code_postal, pays: paysDeLAdresse(raw, "depart") };
+  const arrivee = { code_postal: input.arrivee.code_postal, pays: paysDeLAdresse(raw, "arrivee") };
+  return { zone: zoneDuTrajet(depart, arrivee), enLigne: estimationEnLigne(depart, arrivee) };
+}
+
+/**
+ * Le prix se tait-il pour cette demande ? Les parcours sans prix (mutation,
+ * entreprise) ; et, depuis le 19/11/2026, le particulier du formulaire public
+ * hors zone (lib/zone) : pas d'estimation, ni à l'écran ni dans les messages,
+ * l'équipe chiffre et rappelle. Un espace pro garde ses propres réglages, une
+ * demande venue par e-mail suit son chemin d'avant.
+ */
+export function sansPrixPour(input: CreateRequestInput, source: RequestSource): boolean {
+  const parcours = parcoursDeLaDemande({ parcours: (input.details as { parcours?: string } | undefined)?.parcours });
+  if (SANS_PRIX.has(parcours)) return true;
+  return source === "form" && parcours === "particulier" && !input.espace && !zoneDeLaSaisie(input).enLigne;
+}
+
 /** Les meubles (volume par liste) et les photos analysées (volume par photos) d'une demande. */
 async function ecrireMeublesEtPhotos(requestId: string, items: ItemInput[], photos: AnalyzedPhotoInput[]) {
   const supabase = createServiceClient();
@@ -104,6 +131,9 @@ async function preparerDemande(input: CreateRequestInput) {
   const espace = parCode && parCode.slug === input.espace ? parCode : null;
   const contexteEspace = espace?.actif ? instantane(espace) : undefined;
   const charge: Record<string, unknown> = { ...input, espace: contexteEspace };
+  // La zone du trajet, gardée avec la demande : l'étiquette du mail à l'équipe et du CRM (lib/zone).
+  const { zone, enLigne } = zoneDeLaSaisie(input);
+  charge.details = { ...(input.details ?? {}), zone, estimation_en_ligne: enLigne };
   // Le code a servi à reconnaître l'espace : il n'a rien à faire dans la demande.
   delete charge.espace_code;
   if (contexteEspace) {
@@ -183,8 +213,8 @@ export async function createRequest(
   // Les parcours sans prix — la mutation, l'entreprise — ne demandent pas de
   // volume : une visite ou une visio suit toujours. Leur en réclamer un par
   // mail (« complétez votre demande ») n'aurait aucun sens.
-  const details = (input.details ?? {}) as { parcours?: string; creneau?: string };
-  const sansPrix = SANS_PRIX.has(parcoursDeLaDemande({ parcours: details.parcours }));
+  const details = (input.details ?? {}) as { parcours?: string; creneau?: string; transfert?: string; express?: boolean };
+  const sansPrix = sansPrixPour(input, source);
 
   // Complétude : mêmes règles que pour les mails entrants.
   const manque_volume = !sansPrix && created.volume_m3 == null;
@@ -243,10 +273,11 @@ export async function createRequest(
       manque_arrivee,
     };
 
-    // L'alerte de l'équipe « Nouvelle demande du site », à ses abonnés (Relances › Alertes de l'équipe).
+    // L'alerte de l'équipe « Nouvelle demande du site », à ses abonnés (Relances › Alertes de l'équipe) :
+    // de quelle bulle elle vient et sa destination, pour la transmettre au bon service (Céline, 19/11/2026).
     await alerterEquipe("demande_recue", {
       evenement: created.id, reference: created.id, origine: "questionnaires",
-      vars: { client: created.client_nom || "Sans nom", trajet: `${created.depart_ville ?? "?"} → ${created.arrivee_ville ?? "?"}` },
+      vars: varsAlerteDemande(created, details, zoneDeLaSaisie(input).zone),
       lien: { chemin: `/dashboard/${created.id}`, libelle: "Ouvrir la demande" },
     });
 
@@ -379,10 +410,22 @@ export async function modifierDemande(
   const changes = LIBELLES.filter(([k]) => texte(demandeAvant[k]) !== texte(demande[k])).map(([k, l]) => ({ champ: l, avant: texte(demandeAvant[k]), apres: texte(demande[k]) }));
   await supabase.from("request_events").insert({ request_id: requestId, type: "modified", payload: { par: "client", changes } });
 
+  // Modifiée hors zone (lib/zone) : plus de prix — l'équipe chiffre et rappelle, comme à la création.
+  const horsZone = sansPrixPour(input, demande.source);
   const suite = async () => {
     // Comme à la création : une seule distance pour le chiffrage et la fiche Créagidem.
     const distance = distanceUneFois(demande);
     const creagidem = demande.source === "form" ? transmettreACreagidem(demande.id, { origine: "automatique", distance }) : null;
+    if (horsZone) {
+      try {
+        await creerRappel(demande.id);
+      } catch (e) {
+        console.error(`[demande ${demande.id}] rappel non créé :`, e instanceof Error ? e.message : e);
+      } finally {
+        await creagidem;
+      }
+      return;
+    }
     try {
       let echec: unknown = null;
       try {

@@ -389,7 +389,7 @@ function ActionsFin({ requestId, onNewQuote, onModifier }: { requestId: string; 
           <span>
             <span className="block text-[15.5px] font-semibold leading-tight">C&apos;est bien noté</span>
             <span className="mt-1 block text-[14px] leading-snug text-ink-mid">
-              Nos équipes vous recontacteront au plus vite.
+              Nos équipes vous recontacteront au plus vite, du lundi au vendredi de 8h à 18h.
             </span>
           </span>
         </div>
