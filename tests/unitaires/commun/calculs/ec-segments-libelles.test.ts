@@ -22,7 +22,7 @@ describe("segments — les règles du cahier des charges", () => {
   });
 
   it("étape de pièces propre : militaire et logement social", () => {
-    expect(SEGMENTS.militaire.etapePieces).toBe("Documents militaires");
+    expect(SEGMENTS.militaire.etapePieces).toBe("Documents CIMOB/DICOM");
     expect(SEGMENTS.logement_social.etapePieces).toBe("Documents du bailleur");
     expect(SEGMENTS.particulier.etapePieces).toBeNull();
     expect(SEGMENTS.grand_compte.etapePieces).toBeNull();

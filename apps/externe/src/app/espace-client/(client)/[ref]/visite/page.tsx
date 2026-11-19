@@ -31,6 +31,8 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
   const choix = creneauxAChoisir(e);
   const prevue = visiteAVenir(e);
   const cr = dernierCompteRendu(e);
+  // Client CIMOB/DICOM : ses droits (le volume de son dossier), jamais le volume relevé (Céline, 17/11/2026).
+  const cimob = e.client.type === "militaire";
   const demandeLe = e.creneaux.find((c) => c.autres_demandes_le)?.autres_demandes_le ?? null;
   const doc = cr?.document_id ? e.documents.find((x) => x.id === cr.document_id) : null;
   const passees = e.visites.filter((v) => v !== prevue && v !== cr && (v.statut === "realisee" || v.statut === "signee"));
@@ -170,8 +172,8 @@ export default async function MaVisite({ params, searchParams }: { params: Promi
                 </div>
                 <div className="ticket">
                   <div>
-                    <small>Volume relevé</small>
-                    <b>{m3(cr.volume_m3)}</b>
+                    <small>{cimob ? "Vos droits" : "Volume relevé"}</small>
+                    <b>{m3(cimob ? e.dossier.volume_m3 : cr.volume_m3)}</b>
                   </div>
                   <div>
                     <small>Pièces</small>

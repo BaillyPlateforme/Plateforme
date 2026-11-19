@@ -9,7 +9,7 @@ import type {
   Acceptation, Client, ConditionsLivraison, CreneauVisite, DeclarationValeurs, Devis, DocumentFichier,
   DocumentRequirement, Dossier, Facture, LivraisonCartons, SavDeclaration, TypeClient, VisiteTechnique,
 } from "./types";
-import { euros, jourMois, nomPays, parseDate, pluriel } from "./format";
+import { enMinuscules, euros, jourMois, nomPays, parseDate, pluriel } from "./format";
 import { conditionRemplie } from "./pieces";
 import { segmentDe } from "./segments";
 import { heureParis } from "../visite/regles";
@@ -252,7 +252,7 @@ export function calculerFrise(s: DossierSnapshot, now = new Date()): Etape[] {
   const bloque = etapes.find((e) => e.bloquante && e.statut !== "fait");
   etapes.push({
     cle: "realise", titre: "Déménagement réalisé", statut: termine ? "fait" : "en_attente",
-    detail: termine ? fait(dossier.termine_le ?? dossier.periode_fin) : bloque ? `Après vos ${bloque.titre.toLowerCase()}` : `Le ${jourMois(dossier.periode_debut)}`,
+    detail: termine ? fait(dossier.termine_le ?? dossier.periode_fin) : bloque ? `Après vos ${enMinuscules(bloque.titre)}` : `Le ${jourMois(dossier.periode_debut)}`,
     cible: null,
   });
 
@@ -290,7 +290,7 @@ export function texteProchaineEtape(e: Etape, s: DossierSnapshot): [string, stri
       return ["Acceptez les CGV et la politique RGPD", "Une case à cocher, horodatée : pas besoin d'imprimer ni de signer."];
     case "segment": {
       const reste = piecesManquantes(s, (r) => r.segment === s.client.type).map((r) => r.libelle);
-      return [`Déposez vos ${e.titre.toLowerCase()}`, reste.length ? `Il reste : ${reste.join(", ")}. En PDF ou en photo, depuis « Mes documents ».` : e.detail];
+      return [`Déposez vos ${enMinuscules(e.titre)}`, reste.length ? `Il reste : ${reste.join(", ")}. En PDF ou en photo, depuis « Mes documents ».` : e.detail];
     }
     case "pays":
       return [`Déposez vos documents pour : ${nomPays(s.dossier.pays_destination)}`, "La douane exige ces pièces avant le départ de vos biens."];

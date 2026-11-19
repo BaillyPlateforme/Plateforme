@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import { q1 } from "@/crm/lib/db";
 import { eur } from "@/crm/lib/format";
 import { regleSesArrhesEnLigne } from "@/crm/devis/parametres";
+import { estDossierCimob } from "@/crm/devis/cimob";
 import { adressePublique } from "@/lib/espace-client/config";
 import { modeleDe, raisonDeNePasEnvoyer, remplir } from "@/crm/messages/catalogue";
 import { composerEmailCrm, type BlocEmail, type ContexteEmail } from "@/crm/messages/rendu";
@@ -128,6 +129,8 @@ export async function contexteEmail(): Promise<ContexteEmail> {
  *   - Sinon : la page de signature (/signature/<jeton>), sans compte.
  */
 export async function envoyerDevisParEmail(dossierId: number, devis: { id: number; numero: string; formule: string; montant: number | string; token: string }): Promise<{ resultat: ResultatEnvoi | null; libelle: string }> {
+  // Client CIMOB/DICOM : jamais de devis (devis/cimob.ts) — dernier garde, quel que soit le chemin.
+  if (await estDossierCimob(dossierId)) return { resultat: null, libelle: "dossier CIMOB/DICOM, pas de devis : rien n'est parti" };
   const c = await destinataire(dossierId);
   if (!c?.email) return { resultat: null, libelle: "pas d'adresse e-mail sur la fiche client : rien n'est parti" };
   const modele = await modeleDe("devis_pret");

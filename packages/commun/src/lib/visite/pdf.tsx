@@ -83,7 +83,10 @@ export type PhotosParPiece = Map<string, Buffer[]>;
 export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu, photos: PhotosParPiece = new Map()) {
   const nbPieces = c.pieces.length;
   // Depuis le 18/11/2026 : le volume transporté, distingué de ce qui ne l'est pas (destinations hors adresse).
-  const distingue = c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null;
+  // Client CIMOB/DICOM : ses droits seulement, aucun volume relevé (regles.ts, droits_cimob).
+  const cimob = c.droits_cimob;
+  const distingue = !cimob && (c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null);
+  const vol = (v: number) => (cimob ? " " : m3(v));
   return enBuffer(
     <Document title={`Compte-rendu de visite ${c.dossier.ref}`} author="Bailly Déménagement" subject="Compte-rendu de visite technique">
       <Page size="A4" style={s.page}>
@@ -108,8 +111,8 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
 
           <View style={s.chiffres}>
             <View style={s.chiffreNoir}>
-              <Text style={[s.chiffreEtiquette, { color: C.jaune }]}>{distingue ? "VOLUME TRANSPORTÉ" : "VOLUME RELEVÉ"}</Text>
-              <Text style={[s.chiffreValeur, { color: "#ffffff" }]}>{m3(c.volume)}</Text>
+              <Text style={[s.chiffreEtiquette, { color: C.jaune }]}>{cimob ? "VOS DROITS" : distingue ? "VOLUME TRANSPORTÉ" : "VOLUME RELEVÉ"}</Text>
+              <Text style={[s.chiffreValeur, { color: "#ffffff" }]}>{cimob ? (cimob.volume ? m3(cimob.volume) : "—") : m3(c.volume)}</Text>
             </View>
             <View style={s.chiffreClair}>
               <Text style={s.chiffreEtiquette}>PIÈCES</Text>
@@ -159,7 +162,7 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
 
           {c.destinations && c.destinations.length > 0 && (
             <>
-              <Section>Volume par destination</Section>
+              <Section>{cimob ? "Objets par destination" : "Volume par destination"}</Section>
               {c.destinations.map((d) => (
                 <View key={d.libelle} style={s.tr} wrap={false}>
                   <Text style={s.cLib}>
@@ -168,7 +171,7 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
                   </Text>
                   <Text style={s.cQte}>{d.objets}</Text>
                   <Text style={s.cU}> </Text>
-                  <Text style={s.cVol}>{m3(d.volume)}</Text>
+                  <Text style={s.cVol}>{vol(d.volume)}</Text>
                 </View>
               ))}
             </>
@@ -194,8 +197,8 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
           <View style={s.th}>
             <Text style={[s.thTexte, s.cLib]}>OBJET</Text>
             <Text style={[s.thTexte, s.cQte]}>QTÉ</Text>
-            <Text style={[s.thTexte, s.cU]}>UNITAIRE</Text>
-            <Text style={[s.thTexte, s.cVol]}>VOLUME</Text>
+            <Text style={[s.thTexte, s.cU]}>{cimob ? " " : "UNITAIRE"}</Text>
+            <Text style={[s.thTexte, s.cVol]}>{cimob ? " " : "VOLUME"}</Text>
           </View>
           {c.pieces.length === 0 && <Text style={[s.doux, { paddingHorizontal: 10, paddingTop: 8 }]}>Aucun objet relevé.</Text>}
           {c.pieces.map((p) => {
@@ -204,7 +207,7 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
               <View key={p.cle}>
                 <View style={s.piece} wrap={false}>
                   <Text style={s.pieceNom}>{p.nom}</Text>
-                  <Text style={s.pieceVol}>{m3(p.volume)}</Text>
+                  <Text style={s.pieceVol}>{vol(p.volume)}</Text>
                 </View>
                 {p.objets.map((o, i) => (
                   <View key={i} style={s.tr} wrap={false}>
@@ -220,8 +223,8 @@ export function pdfCompteRendu(c: ContenuCompteRendu, sig: SignatureCompteRendu,
                       )}
                     </View>
                     <Text style={s.cQte}>{o.quantite}</Text>
-                    <Text style={s.cU}>{o.hors_cubage ? "—" : m3Fin(o.volume_unitaire)}</Text>
-                    <Text style={s.cVol}>{o.hors_cubage ? "non compté" : m3(o.volume)}</Text>
+                    <Text style={s.cU}>{cimob ? " " : o.hors_cubage ? "—" : m3Fin(o.volume_unitaire)}</Text>
+                    <Text style={s.cVol}>{cimob ? " " : o.hors_cubage ? "non compté" : m3(o.volume)}</Text>
                   </View>
                 ))}
                 {p.remarque ? <Text style={s.remarque}>{p.remarque}</Text> : null}

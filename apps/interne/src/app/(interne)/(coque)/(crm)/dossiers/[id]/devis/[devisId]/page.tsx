@@ -14,6 +14,7 @@ import { chargerDevis } from "@/crm/devis/donnees";
 import { effectifs } from "@/crm/devis/parametres";
 import { nomDevis } from "@/crm/devis/modele";
 import EditeurDevis from "@/crm/devis/composants/EditeurDevis";
+import { estDossierCimob } from "@/crm/devis/cimob";
 import { CLES_ONGLETS, type Onglet } from "@/crm/devis/onglets";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
     sp.duplique && /^\d+$/.test(sp.duplique) ? avisDevisDuplique(Number(devisId), Number(sp.duplique)) : Promise.resolve(null),
   ]);
   if (!c || String(c.dossier.id) !== id) notFound();
+  const cimob = await estDossierCimob(c.dossier.id);
   const onglet: Onglet = CLES_ONGLETS.includes(sp.onglet as Onglet) ? (sp.onglet as Onglet) : "chiffrage";
   const eff = effectifs(c.parametres);
   const client = nomClient(c.dossier.client);
@@ -62,6 +64,7 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
         <FenetreDupliquerDevis devis={{ id: c.v.id, numero: c.v.numero, dossierId: c.dossier.id, ref: c.dossier.ref, client, volume: Number(c.dossier.volume) || 0 }} />
       </Bandeau>
       {sp.erreur === "cible" && <div className="alert">Le dossier choisi n&apos;existe plus : rien n&apos;a été dupliqué.</div>}
+      {sp.erreur === "cimob" && onglet !== "commande" && <div className="alert">Le dossier choisi est celui d&apos;un client CIMOB/DICOM : pas de devis, rien n&apos;a été dupliqué.</div>}
       {duplique && (
         <div style={{ padding: "0 4px" }}>
           <AvisDuplication
@@ -90,6 +93,7 @@ export default async function DevisPage({ params, searchParams }: { params: Prom
         lienSignature={c.v.token ? versInterne(`/signature/${c.v.token}`) : null}
         postesTarif={formules(20)[0].lignes.map((l) => l.libelle)}
         retour={{ ok: sp.ok, erreur: sp.erreur }}
+        cimob={cimob}
       />
     </div>
   );

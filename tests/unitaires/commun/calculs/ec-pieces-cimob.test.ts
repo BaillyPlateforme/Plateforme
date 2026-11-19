@@ -232,9 +232,9 @@ describe("la frise et le suivi de l'équipe, avec des pièces « si vous êtes c
     taille_octets: 1, mime: "application/pdf", requirement_id, created_by: "cl-1", created_at: "2026-11-10T10:00:00Z",
   });
 
-  it("non relié : l'étape « Documents militaires » ne compte que les 6 pièces obligatoires du segment", () => {
+  it("non relié : l'étape « Documents CIMOB/DICOM » ne compte que les 6 pièces obligatoires du segment", () => {
     const f = calculerFrise(snap(dossier()), NOW);
-    expect(f.find((e) => e.cle === "segment")).toMatchObject({ titre: "Documents militaires", statut: "a_faire", detail: "6 pièces à déposer" });
+    expect(f.find((e) => e.cle === "segment")).toMatchObject({ titre: "Documents CIMOB/DICOM", statut: "a_faire", detail: "6 pièces à déposer" });
   });
 
   it("les 6 pièces déposées : l'étape est faite, même si les pièces « si concerné » ne le sont pas", () => {

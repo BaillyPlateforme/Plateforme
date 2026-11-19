@@ -63,7 +63,7 @@ export function Tuiles({ e, services, tutos }: { e: Espace; services: number; tu
                 <p>à {heureParis(prevue.debut)}{prevue.conseiller ? `, avec ${prevue.conseiller}` : ""}</p>
               </>
             ) : cr ? (
-              <p>Compte-rendu signé le {jourMois(cr.signe_le!)}{cr.volume_m3 ? ` · ${cr.volume_m3} m³ relevés` : ""}.</p>
+              <p>Compte-rendu signé le {jourMois(cr.signe_le!)}{cr.volume_m3 && e.client.type !== "militaire" ? ` · ${cr.volume_m3} m³ relevés` : ""}.</p>
             ) : null}
           </div>
           <div className="foot">

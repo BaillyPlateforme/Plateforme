@@ -53,7 +53,9 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
     const t = u.toString();
     return `/devis${t ? `?${t}` : ""}`;
   };
-  const nouveau = ["libre", "formules", "copie"].includes(sp.nouveau ?? "") ? (sp.nouveau as "libre" | "formules" | "copie") : null;
+  // Client CIMOB/DICOM : jamais de devis (Céline, 17/11/2026 ; devis/cimob.ts) — ni bouton ni formulaire de création.
+  const cimob = d?.type === "militaire";
+  const nouveau = !cimob && ["libre", "formules", "copie"].includes(sp.nouveau ?? "") ? (sp.nouveau as "libre" | "formules" | "copie") : null;
   // Le suivi de l'e-mail de chaque devis envoyé : « Envoyé le … · ouvert 3× · consulté sur le portail le … » (src/crm/suivi).
   const suivis = await suiviDesDevis(rows.filter((r) => r.statut !== "brouillon").map((r) => ({ id: Number(r.id), dossier_id: Number(r.did) })));
 
@@ -65,7 +67,7 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
         texte={d ? `${rows.length} devis · ${m3(d.volume)}` : signatures ? "Toutes signatures · chaque lien de signature envoyé, et où il en est." : "Toutes les propositions, de l'établissement à la signature."}
         secondaire={d ? { label: "Fiche du dossier", href: `/dossiers/${d.id}` } : undefined}
       >
-        {d && <Link href={nouveau ? base({}) : base({ nouveau: "libre" })} data-ton={nouveau ? "contour" : "plein"}>{nouveau ? "Fermer" : "Nouveau devis"}</Link>}
+        {d && !cimob && <Link href={nouveau ? base({}) : base({ nouveau: "libre" })} data-ton={nouveau ? "contour" : "plein"}>{nouveau ? "Fermer" : "Nouveau devis"}</Link>}
         {d && <Link href="/devis" data-ton="contour">Tous les devis</Link>}
       </Bandeau>
       <AvecMenu
@@ -83,12 +85,20 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
         }
       >
         <div className={s.page}>
+          {cimob && (
+            <section className={s.carte}>
+              <header className={s.carteTete}>
+                <p>CIMOB/DICOM</p>
+                <h2>Pas de devis pour ce dossier</h2>
+                <span className={s.alerte}>Le dossier passe en commande sans devis, depuis sa fiche (« Commande sans devis »).</span>
+              </header>
+            </section>
+          )}
           {d && nouveau && (
             <section className={s.carte}>
               <header className={s.carteTete}>
                 <p>Nouveau</p>
                 <h2>Créer un devis pour {nomClient(d)}</h2>
-                {d.type === "militaire" && <span className={s.alerte}>Dossier militaire : en règle générale, pas de devis (commande sans devis depuis la fiche).</span>}
               </header>
               <NouveauDevis dossierId={d.id} volume={d.volume} initial={nouveau} erreur={sp.erreur} />
             </section>
@@ -98,7 +108,7 @@ export default async function Devis({ searchParams }: { searchParams: Promise<{ 
             {rows.length === 0 ? (
               <div className={s.vide}>
                 <b>Aucun devis{statut ? " dans cet état" : ""}.</b>
-                {d && !nouveau && <Link href={base({ nouveau: "libre" })} className={s.lienPlein}>Créer le premier devis</Link>}
+                {d && !nouveau && !cimob && <Link href={base({ nouveau: "libre" })} className={s.lienPlein}>Créer le premier devis</Link>}
               </div>
             ) : (
               <div className={s.defile}>

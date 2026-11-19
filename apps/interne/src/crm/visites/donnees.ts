@@ -36,7 +36,11 @@ export interface Saisie {
     empreinte: string | null;
     document: boolean;
   };
-  dossier: { id: number; ref: string; client: string; contact: string | null; telephone: string | null; email: string | null; volume: number; type: string };
+  dossier: {
+    id: number; ref: string; client: string; contact: string | null; telephone: string | null; email: string | null; volume: number; type: string;
+    /** Les droits d'un client CIMOB/DICOM (dossiers.volume_droits), null sinon ou pas encore saisis. */
+    droits?: number | null;
+  };
   rdv: { debut: string; duree_min: number; type: string } | null;
   etapes: EtapeAcces[];
   /** Les destinations du dossier (étapes hors départ), pour répartir l'inventaire. */
@@ -110,7 +114,7 @@ const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOStrin
 export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
   if (!Number.isSafeInteger(visiteId) || visiteId <= 0) return null;
   const v = await q1(
-    `select v.*, u.nom as commercial, d.ref, d.volume::float8 as volume, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone,
+    `select v.*, u.nom as commercial, d.ref, d.volume::float8 as volume, d.volume_droits::float8 as volume_droits, c.type, c.civilite, c.prenom, c.nom, c.societe, c.email, c.telephone,
             r.debut as rdv_debut, r.duree_min as rdv_duree, r.type as rdv_type
        from visites v join dossiers d on d.id = v.dossier_id join clients c on c.id = d.client_id
        left join utilisateurs u on u.id = v.commercial_id left join rendez_vous r on r.id = v.rendez_vous_id
@@ -168,7 +172,7 @@ export async function chargerSaisie(visiteId: number): Promise<Saisie | null> {
     },
     dossier: {
       id: v.dossier_id, ref: v.ref, client: nomClient(v), contact: contact && contact !== nomClient(v) ? contact : null,
-      telephone: v.telephone, email: v.email, volume: v.volume, type: v.type,
+      telephone: v.telephone, email: v.email, volume: v.volume, type: v.type, droits: v.volume_droits ?? null,
     },
     rdv: v.rdv_debut ? { debut: iso(v.rdv_debut)!, duree_min: v.rdv_duree, type: v.rdv_type } : null,
     etapes,

@@ -182,4 +182,28 @@ do $$ begin
     create trigger ec_dossier_volume_droits before insert or update on public.ec_dossiers for each row execute function crm.ec_dossier_volume_droits();
   end if;
 end $$;
+
+-- Le compte-rendu signé d'un client CIMOB/DICOM : son volume relevé n'est
+-- pas recopié dans l'espace client, où le client lit ses droits (le volume de
+-- son dossier, ci-dessus) ; le CRM garde le volume réel. Les lignes déjà
+-- recopiées sont effacées au passage.
+create or replace function crm.ec_visite_sans_volume_cimob() returns trigger language plpgsql security definer set search_path = '' as $f$
+begin
+  if new.volume_m3 is not null and exists (
+    select 1 from public.ec_dossiers x join crm.dossiers d on d.id = x.crm_dossier_id join crm.clients c on c.id = d.client_id
+     where x.id = new.dossier_id and c.type = 'militaire'
+  ) then
+    new.volume_m3 := null;
+  end if;
+  return new;
+end $f$;
+do $$ begin
+  if to_regclass('public.ec_visites') is not null then
+    drop trigger if exists ec_visite_sans_volume_cimob on public.ec_visites;
+    create trigger ec_visite_sans_volume_cimob before insert or update on public.ec_visites for each row execute function crm.ec_visite_sans_volume_cimob();
+    update public.ec_visites e set volume_m3 = null
+      from public.ec_dossiers x join crm.dossiers d on d.id = x.crm_dossier_id join crm.clients c on c.id = d.client_id
+     where x.id = e.dossier_id and c.type = 'militaire' and e.volume_m3 is not null;
+  end if;
+end $$;
 `;

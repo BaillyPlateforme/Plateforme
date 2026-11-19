@@ -6,6 +6,7 @@ import { dateFr, m3, nomClient, TYPES } from "@/crm/lib/format";
 import { emballages } from "@/crm/lib/tarif";
 import { PrintButton } from "@/crm/components/PrintButton";
 import { etapesDossier } from "@/crm/planning/donnees";
+import { telLisible } from "@/crm/clients/telephones";
 import { GENRE_ETAPE, instantParis, jourParis, jourVisite, lendemain, plageVisite, resumeAcces } from "@/lib/visite/regles";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +85,7 @@ export default async function FichesDeVisite({ searchParams }: { searchParams: P
                   <th>Contact</th>
                   <td>{[d.civilite, d.prenom, d.nom].filter(Boolean).join(" ")}</td>
                   <th>Téléphone</th>
-                  <td>{d.telephone ?? "—"}</td>
+                  <td>{telLisible(d.telephone) || "—"}</td>
                 </tr>
                 <tr>
                   <th>E-mail</th>
@@ -103,7 +104,7 @@ export default async function FichesDeVisite({ searchParams }: { searchParams: P
                     <td>
                       {e.adresse ?? "—"}
                       {[e.code_postal, e.ville, e.pays].some(Boolean) ? <><br />{[e.code_postal, e.ville, e.pays].filter(Boolean).join(" ")}</> : null}
-                      {e.telephone ? <><br />Tél. {e.telephone}</> : null}
+                      {e.telephone ? <><br />Tél. {telLisible(e.telephone)}</> : null}
                     </td>
                     <td>{resumeAcces(e as Parameters<typeof resumeAcces>[0]) || "Accès à préciser"}</td>
                   </tr>

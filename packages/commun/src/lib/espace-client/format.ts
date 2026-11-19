@@ -162,3 +162,13 @@ export function salutation(c: { civilite: string | null; prenom: string; nom: st
 export function pluriel(n: number, mot: string, motPluriel = `${mot}s`) {
   return `${n} ${n > 1 ? motPluriel : mot}`;
 }
+
+/**
+ * Un titre en minuscules dans une phrase (« Déposez vos documents… »), sauf
+ * ses sigles : « Documents CIMOB/DICOM » → « documents CIMOB/DICOM ».
+ */
+export const enMinuscules = (titre: string) =>
+  titre
+    .split(" ")
+    .map((mot) => (/^[A-Z0-9][A-Z0-9/'’-]+$/.test(mot) ? mot : mot.toLowerCase()))
+    .join(" ");

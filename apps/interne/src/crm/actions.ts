@@ -24,6 +24,7 @@ import { lireRepli, lireVehicules, matriculeValide, situationValide } from "@/cr
 import { ecrireRepli, ecrireVehicules } from "@/crm/cimob/donnees";
 import { aujourdhuiParis, dateValidite } from "@/crm/devis/modele";
 import { lireParametres } from "@/crm/devis/donnees";
+import { estDossierCimob } from "@/crm/devis/cimob";
 
 /*
  * Les actions du CRM. Toutes écrivent dans le schéma `crm` (voir lib/db.ts).
@@ -219,6 +220,8 @@ export async function basculerDemontage(id: number, objet: number) { await exige
 /* ---------- devis ---------- */
 export async function genererDevis(id: number) {
   await exiger();
+  // Client CIMOB/DICOM : jamais de devis (devis/cimob.ts).
+  if (await estDossierCimob(id)) return;
   const d = await q1<Row>("select volume::float8 as volume, statut from dossiers where id=$1", [id]);
   if (!d) return;
   // Seuls les brouillons du générateur jamais enregistrés dans la fenêtre Devis sont remplacés : un devis
@@ -242,6 +245,8 @@ export async function genererDevis(id: number) {
  */
 export async function envoyerDevis(id: number, devisId: number) {
   await exiger();
+  // Client CIMOB/DICOM : le devis ne part pas (devis/cimob.ts).
+  if (await estDossierCimob(id)) return;
   const v = await q1<{ id: number; numero: string; formule: string; montant: number; token: string }>(
     "update devis set statut='envoye', envoye_le=now(), token=coalesce(token, $3) where id=$1 and dossier_id=$2 and statut in ('brouillon','envoye') returning id, numero, formule, montant::float8 as montant, token",
     [devisId, id, randomBytes(12).toString("hex")],

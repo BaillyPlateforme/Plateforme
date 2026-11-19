@@ -301,6 +301,15 @@ export interface ContenuCompteRendu {
   /** Dans le transporté : le débarras et ce qui reste à confirmer, quand il y en a. */
   volume_debarras?: number;
   volume_a_confirmer?: number;
+  /**
+   * Client CIMOB/DICOM (Céline, 17/11/2026 : « il ne faudra communiquer que
+   * sur les droits ») : ses droits, le volume accordé par son administration
+   * (null s'ils ne sont pas encore saisis). Le compte-rendu qu'il relit, signe
+   * et reçoit montre ce volume-là, et aucun volume relevé — ni total, ni par
+   * destination, ni par pièce, ni par objet ; le CRM garde le volume réel.
+   * Absent pour les autres clients : leur compte-rendu reste celui d'avant.
+   */
+  droits_cimob?: { volume: number | null };
   nb_objets: number;
   nb_photos: number;
   options: string[];

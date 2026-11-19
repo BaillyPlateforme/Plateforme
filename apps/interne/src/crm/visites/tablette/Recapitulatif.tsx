@@ -10,7 +10,9 @@ import s from "./tablette.module.css";
  */
 export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; photos: Map<string, number[]> }) {
   // Depuis le 18/11/2026 : le volume transporté, distingué de ce qui ne l'est pas (destinations hors adresse).
-  const distingue = c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null;
+  // Client CIMOB/DICOM : ses droits seulement, aucun volume relevé (regles.ts, droits_cimob).
+  const cimob = c.droits_cimob;
+  const distingue = !cimob && (c.volume_non_transporte != null || c.volume_debarras != null || c.volume_a_confirmer != null);
   return (
     <>
       <section className={s.crTete}>
@@ -24,8 +26,8 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
         </div>
         <div className={s.crChiffres}>
           <div>
-            <small>{distingue ? "Volume transporté" : "Volume"}</small>
-            <b>{m3(c.volume)}</b>
+            <small>{cimob ? "Vos droits" : distingue ? "Volume transporté" : "Volume"}</small>
+            <b>{cimob ? (cimob.volume ? m3(cimob.volume) : "—") : m3(c.volume)}</b>
           </div>
           <div>
             <small>Pièces</small>
@@ -68,7 +70,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
 
       {c.destinations && c.destinations.length > 0 && (
         <section className={s.crBloc}>
-          <h2>Volume par destination</h2>
+          <h2>{cimob ? "Objets par destination" : "Volume par destination"}</h2>
           <ul className={s.crDestinations}>
             {c.destinations.map((d) => (
               <li key={d.libelle}>
@@ -79,7 +81,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
                 <small>
                   {d.objets} objet{d.objets > 1 ? "s" : ""}
                 </small>
-                <b>{m3(d.volume)}</b>
+                {!cimob && <b>{m3(d.volume)}</b>}
               </li>
             ))}
           </ul>
@@ -111,7 +113,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
           <div key={p.cle} className={s.crPiece}>
             <div className={s.crPieceTete}>
               <h3>{p.nom}</h3>
-              <b>{m3(p.volume)}</b>
+              {!cimob && <b>{m3(p.volume)}</b>}
             </div>
             {p.objets.length > 0 && (
               <ul className={s.crObjets}>
@@ -125,7 +127,7 @@ export default function Recapitulatif({ c, photos }: { c: ContenuCompteRendu; ph
                       {o.destination && <small className={s.crDest}>→ {o.destination}</small>}
                       {o.note && <small className={s.crNote}>{o.note}</small>}
                     </span>
-                    <b>{o.hors_cubage ? "non compté" : `${o.quantite > 1 ? `${m3Fin(o.volume_unitaire)} · ` : ""}${m3(o.volume)}`}</b>
+                    {!cimob && <b>{o.hors_cubage ? "non compté" : `${o.quantite > 1 ? `${m3Fin(o.volume_unitaire)} · ` : ""}${m3(o.volume)}`}</b>}
                   </li>
                 ))}
               </ul>

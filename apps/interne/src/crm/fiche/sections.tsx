@@ -501,7 +501,9 @@ function demenagements(c: Contexte, fenetres: Record<string, FenetreFiche>): Sec
         modifier: { lien: `/dossiers/${id}/devis/${v.id}` },
         copier: { fenetre: `dupliquer-devis-${v.id}` },
         confirmer:
-          v.statut === "brouillon" && !signe
+          d.type === "militaire"
+            ? off("Dossier CIMOB/DICOM : pas de devis.")
+            : v.statut === "brouillon" && !signe
             ? { action: A.envoyerDevis.bind(null, id, v.id), confirmer: "Envoyer au client ?" }
             : off(v.statut === "envoye" ? `Déjà envoyé le ${jj(v.envoye_le)}.` : v.statut === "signe" ? "Ce devis est signé." : "Ce devis ne s'envoie plus."),
         transfert: perdu

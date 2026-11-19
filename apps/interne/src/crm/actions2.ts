@@ -13,6 +13,7 @@ import { envoyerDevisParEmail } from "@/crm/envois";
 import { enregistrerReponseRdv, envoyerConfirmationRdv, marquerVu } from "@/crm/rdv/sms";
 import { facturerPeriodeGardeMeuble } from "@/crm/facturation/actions";
 import { journaliser } from "@/crm/lib/journal";
+import { estDossierCimob } from "@/crm/devis/cimob";
 
 /*
  * Les actions des modules ajoutés après le face-à-face avec Créagidem. Comme
@@ -143,6 +144,8 @@ export async function majPrestations(devisId: number, f: FormData) {
  */
 export async function envoyerPourSignature(dossierId: number, devisId: number) {
   await exiger();
+  // Client CIMOB/DICOM : le devis ne part pas (devis/cimob.ts).
+  if (await estDossierCimob(dossierId)) return;
   const v = await q1<{ id: number; numero: string; formule: string; montant: number; token: string }>(
     "update devis set token=coalesce(token, $3), statut='envoye', envoye_le=coalesce(envoye_le, now()) where id=$1 and dossier_id=$2 and statut in ('brouillon','envoye') returning id, numero, formule, montant::float8 as montant, token",
     [devisId, dossierId, randomBytes(12).toString("hex")],

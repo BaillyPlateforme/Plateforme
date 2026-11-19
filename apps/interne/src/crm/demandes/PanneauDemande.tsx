@@ -7,6 +7,7 @@ import { Icone } from "@/ui/icones";
 import { Picto } from "@/crm/dispatch/composants/Picto";
 import { Toast, type Message } from "@/crm/dispatch/composants/elements";
 import { eur, m3, STATUTS } from "@/crm/lib/format";
+import { telLisible } from "@/crm/clients/telephones";
 import { ETAPE_DEMANDE, etapeDossier, TEINTES } from "@/crm/kanban/etapes";
 import { FenetreAccepter, FenetreRefuser } from "@/crm/parcours/DecisionDemande";
 import { mettreARappeler } from "./actions";
@@ -128,7 +129,7 @@ export default function PanneauDemande({ ligne, activites, erreur }: { ligne: Li
             {d.telephone ? (
               <a href={`tel:${d.telephone.replace(/\s/g, "")}`} className={s.contact}>
                 <Picto nom="telephone" taille={15} />
-                {d.telephone}
+                {telLisible(d.telephone)}
               </a>
             ) : (
               <span className={s.contactVide}>Pas de téléphone</span>

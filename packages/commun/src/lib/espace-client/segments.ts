@@ -56,8 +56,9 @@ export const SEGMENTS: Record<TypeClient, Segment> = {
   },
   militaire: {
     cle: "militaire",
-    libelle: "Militaire",
-    pluriel: "Militaires",
+    // Céline, 16/11/2026 : « Changer le mot militaire par CIMOB/DICOM ». La clé interne reste « militaire ».
+    libelle: "CIMOB/DICOM",
+    pluriel: "CIMOB/DICOM",
     paieEnLigne: false,
     masquage: "toujours",
     regles: [
@@ -65,7 +66,7 @@ export const SEGMENTS: Record<TypeClient, Segment> = {
       "Prise en charge par bordereau de l'administration : pas de paiement d'arrhes côté client.",
       "Devis et factures masqués dans l'espace du client.",
     ],
-    etapePieces: "Documents militaires",
+    etapePieces: "Documents CIMOB/DICOM",
   },
   logement_social: {
     cle: "logement_social",

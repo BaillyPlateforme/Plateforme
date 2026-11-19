@@ -271,7 +271,7 @@ describe("calculerFrise — formulaires, pièces, cartons, solde", () => {
     const mil = client({ type: "militaire" });
     const req = [exigence({ id: "om", segment: "militaire", libelle: "Ordre de mutation" }), exigence({ id: "cm", segment: "militaire", libelle: "Carte militaire" })];
     const f = calculerFrise(snap({ client: mil, requirements: req, documents: [document("om")] }), NOW);
-    expect(etape(f, "segment")).toMatchObject({ titre: "Documents militaires", statut: "a_faire", detail: "1 pièce à déposer" });
+    expect(etape(f, "segment")).toMatchObject({ titre: "Documents CIMOB/DICOM", statut: "a_faire", detail: "1 pièce à déposer" });
     const ok = calculerFrise(snap({ client: mil, requirements: req, documents: [document("om"), document("cm")] }), NOW);
     expect(etape(ok, "segment")).toMatchObject({ statut: "fait", detail: "Pièces reçues" });
   });
@@ -406,7 +406,7 @@ describe("texteProchaineEtape", () => {
   it("pièces du segment : la liste de ce qui manque", () => {
     const s = snap({ client: client({ type: "militaire" }), requirements: [exigence({ id: "om", segment: "militaire", libelle: "Ordre de mutation" }), exigence({ id: "cm", segment: "militaire", libelle: "Carte militaire" })] });
     const e = etape(calculerFrise(s), "segment")!;
-    expect(texteProchaineEtape(e, s)).toEqual(["Déposez vos documents militaires", "Il reste : Ordre de mutation, Carte militaire. En PDF ou en photo, depuis « Mes documents »."]);
+    expect(texteProchaineEtape(e, s)).toEqual(["Déposez vos documents CIMOB/DICOM", "Il reste : Ordre de mutation, Carte militaire. En PDF ou en photo, depuis « Mes documents »."]);
   });
 
   it("pays : le nom du pays", () => {

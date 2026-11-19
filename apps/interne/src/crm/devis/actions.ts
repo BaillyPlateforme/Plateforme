@@ -16,6 +16,7 @@ import {
 } from "./modele";
 import { calculer, lignesPourBase, r2 } from "./calcul";
 import { copierDevisDans } from "./copie";
+import { dossierCimobDuDevis, estDossierCimob } from "./cimob";
 import { chercherModeles, lireParametres } from "./donnees";
 import { CLES_PARAMETRES, PARAMETRES_VIDES, effectifs, type ParametresDevis } from "./parametres";
 
@@ -217,6 +218,8 @@ export async function creerDevis(dossierId: number, f: FormData) {
   await exiger();
   const d = await contexteDossier(dossierId);
   if (!d) redirect("/devis");
+  // Client CIMOB/DICOM : jamais de devis (devis/cimob.ts).
+  if (await estDossierCimob(dossierId)) redirect(`/devis?dossier=${dossierId}&erreur=cimob`);
   const p = await lireParametres();
   const eff = effectifs(p);
   const genre = s(f, "genre");
@@ -292,6 +295,8 @@ export async function dupliquerDevis(devisId: number, f: FormData) {
   const d = await contexteDossier(cible);
   // Le dossier de destination a pu disparaître entre la recherche et l'envoi.
   if (!d) redirect(`/dossiers/${v.dossier_id}/devis/${devisId}?erreur=cible`);
+  // Vers le dossier d'un client CIMOB/DICOM : jamais de devis (devis/cimob.ts).
+  if (await estDossierCimob(cible)) redirect(`/dossiers/${v.dossier_id}/devis/${devisId}?erreur=cimob`);
   const c = await copier(devisId, d, await lireParametres());
   if (!c) redirect(`/dossiers/${v.dossier_id}/devis/${devisId}?erreur=cible`);
   redirect(`/dossiers/${cible}/devis/${c.id}?onglet=chiffrage&duplique=${devisId}`);
@@ -347,6 +352,9 @@ export async function remettreDevis(devisId: number) {
 /** « Envoyer pour signature » : le lien part au client par e-mail (garde-fous de la plateforme). */
 export async function envoyerPourSignatureDevis(devisId: number) {
   await exiger();
+  // Client CIMOB/DICOM : le devis ne part pas (devis/cimob.ts).
+  const cimob = await dossierCimobDuDevis(devisId);
+  if (cimob) redirect(`/dossiers/${cimob}/devis/${devisId}?onglet=commande&erreur=cimob`);
   const v = await q1<Row>(
     `update devis set token=coalesce(token, $2), statut='envoye', envoye_le=coalesce(envoye_le, now()), maj_le=now()
       where id=$1 and statut in ('brouillon','envoye') and retire_le is null

@@ -51,6 +51,8 @@ type Props = {
   lienSignature: string | null;
   postesTarif: string[];
   retour: { ok?: string; erreur?: string };
+  /** Client CIMOB/DICOM : jamais de devis, rien ne part au client (devis/cimob.ts). */
+  cimob?: boolean;
 };
 
 export default function EditeurDevis(p: Props) {
@@ -196,7 +198,7 @@ export default function EditeurDevis(p: Props) {
         {onglet === "commande" && (
           <OngletCommande
             devis={p.devis} lienSignature={p.lienSignature} ttc={calcul.ttc} arrhesPct={etat.contrat.arrhesPct} titulaire={p.dossier.client} emailClient={p.dossier.email}
-            autreSigne={autreSigne} modifie={modifie} modes={p.suggestions.modesReglement} comptes={p.suggestions.comptes} historique={p.historique} retour={p.retour}
+            autreSigne={autreSigne} modifie={modifie} modes={p.suggestions.modesReglement} comptes={p.suggestions.comptes} historique={p.historique} retour={p.retour} cimob={p.cimob}
           />
         )}
 

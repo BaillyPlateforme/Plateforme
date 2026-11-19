@@ -207,7 +207,7 @@ export const PROFILS_DEMO = [
   { lettre: "B", email: "julien.roussel@example.com", reference: "BD-2026-0152", titre: "International · Marseille → Montréal", detail: "Devis à accepter et arrhes à payer, pièces du Canada, conteneur" },
   { lettre: "C", email: "mobilite.atlantique@example.com", reference: "BD-2026-0139", titre: "Grand compte · Nantes → Bordeaux", detail: "Devis et factures masqués" },
   { lettre: "D", email: "claire.dumont@example.com", reference: "BD-2024-0311", titre: "Ancien dossier · Lille → Paris", detail: "Terminé : SAV, sélecteur de dossiers" },
-  { lettre: "E", email: "thomas.lefort@example.com", reference: "BD-2026-0165", titre: "Militaire · Brest → Toulon", detail: "Prise en charge par l'administration, pièces CIMOB/DICOM et modèles à télécharger" },
+  { lettre: "E", email: "thomas.lefort@example.com", reference: "BD-2026-0165", titre: "CIMOB/DICOM · Brest → Toulon", detail: "Prise en charge par l'administration, pièces CIMOB/DICOM et modèles à télécharger" },
   { lettre: "F", email: "fatou.diallo@example.com", reference: "BD-2026-0166", titre: "Logement social · Créteil → Vitry-sur-Seine", detail: "Pièces du bailleur, SAV ouvert, bailleur prévenu" },
 ] as const;
 

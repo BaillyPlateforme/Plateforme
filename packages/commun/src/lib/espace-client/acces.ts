@@ -7,7 +7,7 @@ import { conseillerDe, dossiersDuClient, signatureDe, snapshotDe } from "./lectu
 import { notifier } from "./notifier";
 import { calculerFrise } from "./progression";
 import { empreinte, jetonAleatoire } from "./signature";
-import { periode, salutation } from "./format";
+import { enMinuscules, periode, salutation } from "./format";
 import { suiteValide } from "./suite";
 import type { Client, LienAcces, Notification } from "./types";
 
@@ -143,7 +143,7 @@ export async function envoyerLienAuClient(client: Client, options: { reference?:
     ? calculerFrise(snap)
         .filter((e) => e.statut === "a_faire")
         .slice(0, 2)
-        .map((e) => e.titre.toLowerCase())
+        .map((e) => enMinuscules(e.titre))
     : [];
 
   const base = await adressePublique();

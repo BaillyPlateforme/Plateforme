@@ -25,18 +25,21 @@ type Props = {
   comptes: string[];
   historique: { libelle: string; le: string; nom: string | null }[];
   retour: { ok?: string; erreur?: string };
+  /** Client CIMOB/DICOM : jamais de devis, rien ne part au client (devis/cimob.ts). */
+  cimob?: boolean;
 };
 
 const ERREURS: Record<string, string> = {
   autre_signe: "Un autre devis du dossier est déjà signé : celui-ci ne peut plus l'être.",
   ferme: "Ce devis n'est plus ouvert à la signature (retiré ou non retenu).",
   inconnu: "Le devis est introuvable.",
+  cimob: "Dossier CIMOB/DICOM : pas de devis. Rien n'est parti au client.",
   encaissement: "Le devis est validé, mais les arrhes n'ont pas été enregistrées (date future ou montant refusé) : saisissez-les depuis la carte « Facturation » du dossier.",
 };
 const jourFr = (d: unknown) => (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : d);
 const dateHeure = (d: string) => new Date(d).toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
-export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, titulaire, emailClient, autreSigne, modifie, comptes, historique, retour }: Props) {
+export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, titulaire, emailClient, autreSigne, modifie, comptes, historique, retour, cimob }: Props) {
   const [copie, setCopie] = useState(false);
   const signe = devis.statut === "signe";
   const ouvert = ["brouillon", "envoye"].includes(devis.statut) && !devis.retire_le && !autreSigne;
@@ -66,7 +69,9 @@ export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, t
         <div className={s.signature}>
           <div>
             <p className={s.signatureTexte}>
-              {signe
+              {cimob && !signe
+                ? "Dossier CIMOB/DICOM : pas de devis. Rien ne part au client ; le dossier passe en commande sans devis depuis sa fiche."
+                : signe
                 ? "Le client a signé : le dossier est passé en commande, et l'espace client le montre aussitôt."
                 : autreSigne
                   ? "Un autre devis du dossier est signé : celui-ci n'est plus à signer."
@@ -84,7 +89,7 @@ export default function OngletCommande({ devis, lienSignature, ttc, arrhesPct, t
               </div>
             )}
           </div>
-          {ouvert && (
+          {ouvert && !cimob && (
             <form action={envoyerPourSignatureDevis.bind(null, devis.id)}>
               <button className={s.boutonPlein} disabled={modifie}>{devis.token ? "Renvoyer le lien" : "Envoyer pour signature"}</button>
             </form>

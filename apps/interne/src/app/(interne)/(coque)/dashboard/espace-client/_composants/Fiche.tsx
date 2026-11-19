@@ -267,7 +267,7 @@ function DevisFactures({ d, recharger }: { d: DonneesFiche; recharger: () => voi
 
   return (
     <div className={s.devis}>
-      {masques && <p className={s.note}>Pour ce client, {masques} ne s&apos;affichent pas dans son espace ({d.segment.libelle.toLowerCase()}). L&apos;équipe les voit ici.</p>}
+      {masques && <p className={s.note}>Pour ce client, {masques} ne s&apos;affichent pas dans son espace ({d.segment.cle === "militaire" ? d.segment.libelle : d.segment.libelle.toLowerCase()}). L&apos;équipe les voit ici.</p>}
       <div className={s.colonnesDocs}>
         <div>
           <h3 className={s.sousTitre}>Devis</h3>
@@ -799,7 +799,7 @@ function ReglagesClient({ d, recharger }: { d: DonneesFiche; recharger: () => vo
             ))}
           </div>
         </Champ>
-        {v.type === "militaire" && <p className="text-[11.5px] text-ink-soft sm:col-span-2">Militaire : devis et factures toujours masqués, pas d&apos;arrhes en ligne (prise en charge par l&apos;administration).</p>}
+        {v.type === "militaire" && <p className="text-[11.5px] text-ink-soft sm:col-span-2">CIMOB/DICOM : devis et factures toujours masqués, pas d&apos;arrhes en ligne (prise en charge par l&apos;administration).</p>}
         {d.crm != null && <p className="text-[11.5px] text-ink-soft sm:col-span-2">Relié au CRM : coordonnées et segment s&apos;y enregistrent aussi.</p>}
         {v.type === "grand_compte" && (
           <>

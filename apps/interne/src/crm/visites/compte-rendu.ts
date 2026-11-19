@@ -92,6 +92,8 @@ export function contenuDe(s: Saisie): ContenuCompteRendu {
     ...(bilan.nonTransporte > 0 ? { volume_non_transporte: bilan.nonTransporte } : {}),
     ...(bilan.debarras > 0 ? { volume_debarras: bilan.debarras } : {}),
     ...(bilan.aConfirmer > 0 ? { volume_a_confirmer: bilan.aConfirmer } : {}),
+    // Client CIMOB/DICOM : le compte-rendu ne montre que ses droits (regles.ts, droits_cimob).
+    ...(s.dossier.type === "militaire" ? { droits_cimob: { volume: s.dossier.droits && s.dossier.droits > 0 ? s.dossier.droits : null } } : {}),
     nb_objets: s.objets.reduce((n, o) => n + o.quantite, 0),
     nb_photos: pieces.reduce((n, p) => n + p.photos, 0),
     options: s.visite.options.filter((o) => o.proposee).map((o) => o.libelle),
