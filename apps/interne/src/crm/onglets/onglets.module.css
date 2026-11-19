@@ -1,0 +1,251 @@
+/* Réglages › Onglets : une carte par rubrique, ses pages dessous, deux colonnes de rôles. */
+.page {
+  display: grid;
+  gap: 12px;
+}
+.formulaire {
+  --colonnes: minmax(0, 1fr) 168px 168px;
+  display: grid;
+  gap: 12px;
+}
+.note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #f1eeff;
+  color: #2b2170;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.note b {
+  color: #14121f;
+}
+.noteIcone {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #4b2fe0;
+}
+.ok {
+  background: #e7f8ef;
+  color: #0c6b43;
+}
+.ok .noteIcone {
+  color: #14c27d;
+}
+.erreur {
+  background: #fdecec;
+  color: #8a1c1c;
+}
+.tete {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: var(--colonnes);
+  align-items: end;
+  padding: 10px 20px 8px;
+  border-radius: 14px;
+  background: rgba(244, 244, 247, 0.92);
+  backdrop-filter: blur(6px);
+}
+.teteTitre {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7a52ff;
+}
+.teteRole {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #14121f;
+}
+.teteRole small {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #6b6880;
+}
+.rubrique {
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.04), 0 20px 46px -34px rgba(46, 31, 158, 0.45);
+}
+.ligneRubrique,
+.lignePage {
+  display: grid;
+  grid-template-columns: var(--colonnes);
+  align-items: center;
+  padding: 0 20px;
+}
+.ligneRubrique {
+  min-height: 62px;
+}
+.lignePage {
+  min-height: 46px;
+  border-top: 1px solid #efedf5;
+}
+.lignePage .nom {
+  padding-left: 52px;
+  gap: 10px;
+  font-size: 14px;
+  color: #3a3650;
+}
+.lignePage .nom svg {
+  color: #8a86a3;
+}
+.nom {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  color: #14121f;
+}
+.nom b {
+  font-size: 15px;
+}
+.nom small {
+  font-size: 12px;
+  color: #8a86a3;
+}
+.picto {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 10px 20px -12px rgba(75, 47, 224, 0.9);
+}
+.cellule {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.case {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.interrupteur {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d9d6e6;
+  transition: background 0.18s;
+}
+.interrupteur::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 18, 31, 0.25);
+  transition: transform 0.18s;
+}
+.case:checked + .interrupteur {
+  background: #14c27d;
+}
+.case:checked + .interrupteur::after {
+  transform: translateX(16px);
+}
+.case:checked + .interrupteur[data-partiel] {
+  background: linear-gradient(90deg, #14c27d 50%, #9fe3c3 50%);
+}
+.case:focus-visible + .interrupteur {
+  outline: 2px solid #4b2fe0;
+  outline-offset: 2px;
+}
+.case:disabled + .interrupteur {
+  opacity: 0.45;
+}
+.cellule:has(.case:disabled) {
+  cursor: default;
+}
+.etat {
+  font-size: 12.5px;
+  color: #6b6880;
+}
+.case:not(:checked) ~ .etat {
+  color: #b03a3a;
+  font-weight: 600;
+}
+.pied {
+  position: sticky;
+  bottom: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 12px 14px 12px 20px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 1px 0 rgba(20, 18, 31, 0.04), 0 24px 46px -26px rgba(46, 31, 158, 0.55);
+}
+.pied p {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  color: #6b6880;
+}
+.boutonPlein,
+.boutonContour {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.boutonPlein {
+  border: 0;
+  background: linear-gradient(135deg, #4b2fe0, #7a52ff);
+  color: #fff;
+  box-shadow: 0 12px 24px -14px rgba(75, 47, 224, 0.9);
+}
+.boutonContour {
+  border: 1px solid #d9d6e6;
+  background: #fff;
+  color: #14121f;
+}
+.boutonPlein:disabled,
+.boutonContour:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+@media (max-width: 720px) {
+  .formulaire {
+    --colonnes: minmax(0, 1fr) 64px 64px;
+  }
+  .etat,
+  .teteRole small {
+    display: none;
+  }
+  .lignePage .nom {
+    padding-left: 12px;
+  }
+  .pied p {
+    display: none;
+  }
+}

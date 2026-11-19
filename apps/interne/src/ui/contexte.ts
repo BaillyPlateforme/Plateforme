@@ -6,6 +6,9 @@ import { ilYa, nomClient } from "@/crm/lib/format";
 import { compterNouvelles } from "@/lib/requests";
 import { alertesRdv } from "@/crm/rdv/sms";
 import { enAttenteDeReponse } from "@/crm/discussion/donnees";
+import { membreConnecte } from "@/lib/droits";
+import { lireMasques } from "@/crm/onglets/donnees";
+import { masquesPour, roleMenu } from "@/crm/onglets/regles";
 import type { Alerte, Utilisateur } from "./Coque";
 
 /*
@@ -21,9 +24,9 @@ const ROLES: Record<string, string> = {
   compta: "Comptabilité",
 };
 
-export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alertes: Alerte[]; nouvelles: number }> {
+export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alertes: Alerte[]; nouvelles: number; masques: string[] }> {
   const user = await currentUser();
-  const [activite, relances, aPlanifierListe, gardeMeuble, nouvelles, rdvSms, messagesClients] = await Promise.all([
+  const [activite, relances, aPlanifierListe, gardeMeuble, nouvelles, rdvSms, messagesClients, membre, lignesMasquees] = await Promise.all([
     activiteRecente(8),
     relancesDevis(),
     aPlanifier(),
@@ -33,6 +36,9 @@ export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alert
     alertesRdv(),
     // Les messages des clients sans réponse, écrits depuis leur espace (src/crm/discussion).
     enAttenteDeReponse(),
+    // Les onglets du menu masqués pour le rôle du membre (src/crm/onglets) ; le super admin voit tout.
+    membreConnecte().catch(() => null),
+    lireMasques(),
   ]);
   const alertes: Alerte[] = [
     ...rdvSms.map((a) => ({ ...a, aFaire: true })),
@@ -81,5 +87,6 @@ export async function contexteCoque(): Promise<{ utilisateur: Utilisateur; alert
     utilisateur: { nom: user.nom, initiales: user.initiales, role: ROLES[user.role] ?? "Équipe" },
     alertes,
     nouvelles,
+    masques: masquesPour(lignesMasquees, roleMenu(membre?.role)),
   };
 }

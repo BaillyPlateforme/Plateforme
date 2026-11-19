@@ -30,6 +30,8 @@ export const GROUPES_REGLAGES: GroupeReglages[] = [
     pages: [
       { href: "/dashboard/parametres", label: "Paramètres", texte: "Entreprise, devis, envois", icone: "reglages" },
       { href: "/dashboard/equipe", label: "Équipe", texte: "Profils et accès", icone: "equipe" },
+      // Demande de David, 19/11/2026 : masquer ou afficher les onglets du menu, par rôle (src/crm/onglets).
+      { href: "/reglages/onglets", label: "Onglets du menu", texte: "Les rubriques et les pages du menu, visibles ou masquées pour les agents et pour les admins.", icone: "oeil" },
       { href: "/dashboard/espaces-pro", label: "Espaces pro", texte: "Un lien et un parcours par entreprise", icone: "badge" },
     ],
   },

@@ -3,12 +3,13 @@
 import { PastilleEnvironnement } from "@/components/PastilleEnvironnement";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Applications from "@/composants/Applications";
 import BoutonAppels from "@/crm/appels/BoutonAppels";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
-import { GROUPES, dossierDe, estActif, groupeDe, hrefPour, type Entree } from "./navigation";
+import { dossierDe, estActif, groupeDe, hrefPour, type Entree, type Groupe } from "./navigation";
+import { groupesVisibles } from "@/crm/onglets/regles";
 import OngletsTravail from "./OngletsTravail";
 import s from "./coque.module.css";
 
@@ -35,12 +36,15 @@ export default function Coque({
   utilisateur,
   alertes,
   nouvelles,
+  masques = [],
   children,
 }: {
   utilisateur: Utilisateur;
   alertes: Alerte[];
   /** Les demandes du site pas encore ouvertes. */
   nouvelles: number;
+  /** Les pages du menu masquées pour le rôle du membre (Réglages › Onglets, src/crm/onglets). */
+  masques?: string[];
   children: React.ReactNode;
 }) {
   const chemin = usePathname();
@@ -60,10 +64,13 @@ export default function Coque({
   }, []);
 
   const compteur = (e: Entree) => (e.compteur === "nouvelles" && nouvelles > 0 ? nouvelles : 0);
+  // Le menu de ce membre : sans les rubriques et les pages masquées pour son rôle.
+  const cleMasques = masques.join("\n");
+  const groupes = useMemo(() => groupesVisibles(cleMasques ? cleMasques.split("\n") : []), [cleMasques]);
 
   return (
     <div className={s.coque}>
-      <Entete chemin={chemin} compteur={compteur} ouvrirTiroir={() => setTiroir(true)}>
+      <Entete chemin={chemin} groupes={groupes} compteur={compteur} ouvrirTiroir={() => setTiroir(true)}>
         {/* La recherche ouvre la liste du Parcours : dossiers et demandes du site (l'ancienne liste /dossiers y mène aussi). */}
         <form action="/parcours" className={s.recherche} role="search">
           <input type="hidden" name="vue" value="liste" />
@@ -82,7 +89,7 @@ export default function Coque({
         <Compte utilisateur={utilisateur} />
       </Entete>
 
-      {tiroir && <Tiroir chemin={chemin} compteur={compteur} fermer={() => setTiroir(false)} />}
+      {tiroir && <Tiroir chemin={chemin} groupes={groupes} compteur={compteur} fermer={() => setTiroir(false)} />}
 
       <main className={s.contenu}>{children}</main>
     </div>
@@ -96,20 +103,24 @@ export default function Coque({
  */
 function Entete({
   chemin,
+  groupes,
   compteur,
   ouvrirTiroir,
   children,
 }: {
   chemin: string;
+  groupes: Groupe[];
   compteur: (e: Entree) => number;
   ouvrirTiroir: () => void;
   children: React.ReactNode;
 }) {
-  const courant = groupeDe(chemin);
+  // La rubrique de la page courante ; masquée (page ouverte par un lien), la première du menu.
+  const rubrique = groupeDe(chemin).titre;
+  const courant = groupes.find((g) => g.titre === rubrique) ?? groupes[0];
   // Le dossier ouvert : les pages de la rubrique restent sur lui.
   const dossier = dossierDe(chemin, useSearchParams().get("dossier"));
   const [apercu, setApercu] = useState<string | null>(null);
-  const montre = GROUPES.find((g) => g.titre === apercu) ?? courant;
+  const montre = groupes.find((g) => g.titre === apercu) ?? courant;
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onglets = useRef<Record<string, HTMLAnchorElement | null>>({});
   const [repere, setRepere] = useState<{ x: number; l: number } | null>(null);
@@ -160,7 +171,7 @@ function Entete({
         </Link>
 
         <nav className={s.rubriques} aria-label="Rubriques">
-          {GROUPES.map((g) => {
+          {groupes.map((g) => {
             const total = g.entrees.reduce((n, e) => n + compteur(e), 0);
             return (
               <Link
@@ -228,7 +239,7 @@ function useFermeture(ouvert: boolean, fermer: () => void) {
 }
 
 /** Le menu complet, pour les écrans étroits. */
-function Tiroir({ chemin, compteur, fermer }: { chemin: string; compteur: (e: Entree) => number; fermer: () => void }) {
+function Tiroir({ chemin, groupes, compteur, fermer }: { chemin: string; groupes: Groupe[]; compteur: (e: Entree) => number; fermer: () => void }) {
   useEffect(() => {
     const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
     document.addEventListener("keydown", echap);
@@ -256,7 +267,7 @@ function Tiroir({ chemin, compteur, fermer }: { chemin: string; compteur: (e: En
             <Icone nom="plus" taille={18} />
           </button>
         </div>
-        {GROUPES.map((g) => (
+        {groupes.map((g) => (
           <div key={g.titre}>
             <p className={s.titreGroupe}>{g.titre}</p>
             {g.entrees.map(lien)}

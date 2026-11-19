@@ -22,6 +22,7 @@ import { SCHEMA_FACTURATION } from "@/crm/facturation/schema";
 import { SCHEMA_JOURNAL } from "@/crm/feed/schema";
 import { SCHEMA_PRESTIGE } from "@/crm/demandes/schema";
 import { SCHEMA_APPELS } from "@/crm/appels/schema";
+import { SCHEMA_ONGLETS } from "@/crm/onglets/schema";
 // La discussion du client et de l'équipe (public.ec_messages) : posée ici au démarrage, et par l'app externe à la première discussion.
 import { SCHEMA_DISCUSSION } from "@/lib/espace-client/discussion-schema";
 // Les tutoriels vus par chaque client (public.ec_tutos_vus) : même principe, posée aussi par l'app externe au premier « vu ».
@@ -480,6 +481,7 @@ ${SCHEMA_FACTURATION}
 ${SCHEMA_JOURNAL}
 ${SCHEMA_PRESTIGE}
 ${SCHEMA_APPELS}
+${SCHEMA_ONGLETS}
 ${SCHEMA_DISCUSSION}
 ${SCHEMA_TUTOS_VUS}
 ${SCHEMA_SUIVI}`;
