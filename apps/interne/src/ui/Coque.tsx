@@ -8,7 +8,7 @@ import Applications from "@/composants/Applications";
 import BoutonAppels from "@/crm/appels/BoutonAppels";
 import { signOut } from "@/lib/actions/auth";
 import { Icone } from "./icones";
-import { dossierDe, estActif, groupeDe, hrefPour, type Entree, type Groupe } from "./navigation";
+import { dossierDe, enBarre, estActif, groupeDe, hrefPour, type Entree, type Groupe } from "./navigation";
 import { groupesVisibles } from "@/crm/onglets/regles";
 import OngletsTravail from "./OngletsTravail";
 import s from "./coque.module.css";
@@ -148,8 +148,9 @@ function Entete({
   // Le repère glisse sous la rubrique montrée.
   useLayoutEffect(() => {
     const placer = () => {
+      // Une rubrique hors de la barre (Réglages) : pas de repère.
       const el = onglets.current[montre.titre];
-      if (el) setRepere({ x: el.offsetLeft, l: el.offsetWidth });
+      setRepere(el ? { x: el.offsetLeft, l: el.offsetWidth } : null);
     };
     placer();
     window.addEventListener("resize", placer);
@@ -171,7 +172,7 @@ function Entete({
         </Link>
 
         <nav className={s.rubriques} aria-label="Rubriques">
-          {groupes.map((g) => {
+          {enBarre(groupes).map((g) => {
             const total = g.entrees.reduce((n, e) => n + compteur(e), 0);
             return (
               <Link
@@ -267,7 +268,7 @@ function Tiroir({ chemin, groupes, compteur, fermer }: { chemin: string; groupes
             <Icone nom="plus" taille={18} />
           </button>
         </div>
-        {groupes.map((g) => (
+        {enBarre(groupes).map((g) => (
           <div key={g.titre}>
             <p className={s.titreGroupe}>{g.titre}</p>
             {g.entrees.map(lien)}
@@ -334,7 +335,8 @@ function Compte({ utilisateur }: { utilisateur: Utilisateur }) {
             <small>{utilisateur.role}</small>
           </div>
           <div className={s.filetMenu} />
-          <Link href="/dashboard/parametres" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>
+          {/* Les Réglages ne sont plus dans la barre du haut (19/11/2026) : on les ouvre d'ici. */}
+          <Link href="/reglages" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>
             <Icone nom="reglages" taille={17} /> Réglages
           </Link>
           <Link href="/dashboard/equipe" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>

@@ -27,13 +27,12 @@ describe("les pages masquées d'un rôle", () => {
     { href: "/feed", role: "agent" },
     { href: "/copilote", role: "admin" },
     { href: "/", role: "agent" }, // verrouillée : ignorée
-    { href: "/reglages", role: "admin" }, // verrouillée pour les admins : ignorée
-    { href: "/reglages", role: "agent" }, // les agents peuvent perdre les Réglages
+    { href: "/reglages", role: "agent" }, // hors de la barre (menu du compte) : ignorée
     { href: "/page-disparue", role: "agent" }, // plus au menu : ignorée
   ];
 
   it("chaque rôle a les siennes, sans les verrouillées ni les adresses disparues", () => {
-    expect(masquesPour(lignes, "agent").sort()).toEqual(["/devis", "/feed", "/reglages"]);
+    expect(masquesPour(lignes, "agent").sort()).toEqual(["/devis", "/feed"]);
     expect(masquesPour(lignes, "admin")).toEqual(["/copilote"]);
   });
 
@@ -41,11 +40,9 @@ describe("les pages masquées d'un rôle", () => {
     expect(masquesPour(lignes, null)).toEqual([]);
   });
 
-  it("verrouillées : l'accueil pour tous, les Réglages pour les admins", () => {
+  it("verrouillée : l'accueil, pour tous", () => {
     expect(verrouillee("/", "agent")).toBe(true);
     expect(verrouillee("/", "admin")).toBe(true);
-    expect(verrouillee("/reglages", "admin")).toBe(true);
-    expect(verrouillee("/reglages", "agent")).toBe(false);
     expect(verrouillee("/devis", "admin")).toBe(false);
   });
 });
@@ -65,7 +62,7 @@ describe("le menu sans les pages masquées", () => {
     const exploitation = GROUPES.find((x) => x.titre === "Exploitation")!.entrees.map((e) => e.href);
     const g = groupesVisibles([...exploitation, "/feed"]);
     expect(titres(g)).not.toContain("Exploitation");
-    expect(titres(g)).not.toContain("Feed");
+    expect(pages(g, "Accueil")).not.toContain("/feed");
     expect(titres(g)).toContain("Dossiers");
   });
 
@@ -92,12 +89,29 @@ describe("le formulaire : les cases cochées sont les pages visibles", () => {
     const m = masquesDuFormulaire([]);
     expect(m).not.toContainEqual({ role: "agent", href: "/" });
     expect(m).not.toContainEqual({ role: "admin", href: "/" });
-    expect(m).not.toContainEqual({ role: "admin", href: "/reglages" });
-    expect(m).toContainEqual({ role: "agent", href: "/reglages" });
-    expect(m).toHaveLength(PAGES_MENU.length * 2 - 3);
+    expect(m.some((x) => x.href === "/reglages")).toBe(false);
+    expect(m).toHaveLength(PAGES_MENU.length * 2 - 2);
   });
 
   it("une case inventée (adresse ou rôle hors menu) ne compte pas", () => {
     expect(masquesDuFormulaire([...toutCoche(), "agent|/inventee", "super_admin|/devis"])).toEqual([]);
+  });
+});
+
+describe("la barre du haut simplifiée (David, 19/11/2026)", () => {
+  it("quatre rubriques : Accueil (avec le Feed), Dossiers, Clients (avec l'espace client), Exploitation ; Réglages hors barre", async () => {
+    const { enBarre } = await import("@/ui/navigation");
+    expect(titres(enBarre(GROUPES))).toEqual(["Accueil", "Dossiers", "Clients", "Exploitation"]);
+    expect(pages(GROUPES, "Accueil")).toContain("/feed");
+    expect(pages(GROUPES, "Clients")).toEqual(["/clients", "/dashboard/espace-client"]);
+    expect(GROUPES.find((g) => g.titre === "Réglages")?.horsBarre).toBe(true);
+  });
+
+  it("une page de l'espace client allume la rubrique Clients ; une page de réglage, les Réglages", async () => {
+    const { groupeDe } = await import("@/ui/navigation");
+    expect(groupeDe("/dashboard/espace-client/dossiers/abc").titre).toBe("Clients");
+    expect(groupeDe("/feed").titre).toBe("Accueil");
+    expect(groupeDe("/dashboard/espace-client/reglages").titre).toBe("Réglages");
+    expect(groupeDe("/reglages/onglets").titre).toBe("Réglages");
   });
 });

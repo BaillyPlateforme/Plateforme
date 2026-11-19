@@ -1,4 +1,4 @@
-import { GROUPES, type Groupe } from "@/ui/navigation";
+import { enBarre, GROUPES, type Groupe } from "@/ui/navigation";
 
 /*
  * Les onglets du menu qu'un admin masque ou affiche, rôle par rôle (demande
@@ -11,7 +11,8 @@ import { GROUPES, type Groupe } from "@/ui/navigation";
  *   toujours tout : il ne peut pas se fermer le menu.
  * - Une rubrique se masque en masquant toutes ses pages ; elle disparaît de
  *   la barre quand il ne lui en reste aucune.
- * - L'accueil reste visible pour tous, les Réglages pour les admins.
+ * - L'accueil reste visible pour tous. Les Réglages, hors de la barre depuis
+ *   le 19/11/2026, s'ouvrent depuis le menu du compte : ils ne se règlent pas ici.
  * - Masquer retire du menu, sans fermer l'adresse : une page masquée s'ouvre
  *   encore depuis un lien (un devis depuis la fiche de son dossier…).
  */
@@ -25,11 +26,15 @@ export const ROLES_MENU: { cle: RoleMenu; label: string }[] = [
 
 export const estRoleMenu = (r: unknown): r is RoleMenu => r === "agent" || r === "admin";
 
-/** Toutes les pages du menu, dans son ordre. */
-export const PAGES_MENU = GROUPES.flatMap((g) => g.entrees.map((e) => e.href));
+/** Les rubriques qui se règlent : celles de la barre du haut (les Réglages, hors barre, s'ouvrent depuis le menu du compte). */
+export const RUBRIQUES_MENU = enBarre(GROUPES);
 
-/** Une page qui ne se masque pas pour ce rôle : l'accueil, et les Réglages pour un admin. */
-export const verrouillee = (href: string, role: RoleMenu) => href === "/" || (href === "/reglages" && role === "admin");
+/** Toutes les pages du menu, dans son ordre. */
+export const PAGES_MENU = RUBRIQUES_MENU.flatMap((g) => g.entrees.map((e) => e.href));
+
+/** Une page qui ne se masque pas : l'accueil, pour tous les rôles. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- le rôle reste dans la signature : une règle propre à un rôle s'y ajouterait.
+export const verrouillee = (href: string, role: RoleMenu) => href === "/";
 
 /**
  * Le rôle du menu d'un membre de l'équipe (team_members.role) : null pour le

@@ -16,7 +16,12 @@ export type Entree = {
   compteur?: "nouvelles";
 };
 
-export type Groupe = { titre: string; entrees: Entree[] };
+export type Groupe = {
+  titre: string;
+  entrees: Entree[];
+  /** Une rubrique hors de la barre du haut (Réglages, ouverts depuis le menu du compte) : elle n'allume que la sous-barre de ses pages. */
+  horsBarre?: boolean;
+};
 
 const sous = (href: string) => (c: string) => c === href || c.startsWith(`${href}/`);
 
@@ -68,6 +73,8 @@ export const GROUPES: Groupe[] = [
       // Commerciales et exploitation ; celles des demandes du site sont dans Demandes › Statistiques.
       { href: "/statistiques", label: "Statistiques", icone: "stats", actif: (c) => sous("/statistiques")(c) && !sous("/statistiques/demandes")(c) },
       { href: "/copilote", label: "Copilote", icone: "copilote" },
+      // Tout ce qui se fait, au fil du temps : les clients, l'équipe, les envois (demande de David, 08/11/2026) ; dans l'Accueil depuis le 19/11.
+      { href: "/feed", label: "Feed", icone: "fil" },
     ],
   },
   {
@@ -91,9 +98,13 @@ export const GROUPES: Groupe[] = [
     ],
   },
   {
-    // Les clients, pour eux-mêmes : la liste et la fiche de chacun, tous ses dossiers (demande de David, 08/11/2026).
+    // Les clients, pour eux-mêmes : la liste et la fiche de chacun, tous ses dossiers (demande de David, 08/11/2026),
+    // et leur espace client, réunis dans une rubrique le 19/11/2026 (David : « regroupe client et espace client »).
     titre: "Clients",
-    entrees: [{ href: "/clients", label: "Clients", icone: "clients" }],
+    entrees: [
+      { href: "/clients", label: "Clients", icone: "clients" },
+      { href: "/dashboard/espace-client", label: "Espace client", icone: "dossierClient", actif: (c) => sous("/dashboard/espace-client")(c) && !reglage(c) },
+    ],
   },
   {
     titre: "Exploitation",
@@ -114,24 +125,19 @@ export const GROUPES: Groupe[] = [
     ],
   },
   {
-    titre: "Espace client",
-    entrees: [
-      { href: "/dashboard/espace-client", label: "Espace client", icone: "dossierClient", actif: (c) => sous("/dashboard/espace-client")(c) && !reglage(c) },
-    ],
-  },
-  {
-    // Tout ce qui se fait, au fil du temps : les clients, l'équipe, les envois (demande de David, 08/11/2026).
-    titre: "Feed",
-    entrees: [{ href: "/feed", label: "Feed", icone: "fil" }],
-  },
-  {
+    // Hors de la barre depuis le 19/11/2026 (David : « réglage ne sert à rien » en haut) : on les ouvre depuis le menu
+    // du compte ; sur une page de réglage, la sous-barre les rappelle.
     titre: "Réglages",
+    horsBarre: true,
     entrees: [{ href: "/reglages", label: "Réglages", icone: "reglages", actif: reglage }],
   },
 ];
 
+/** Les rubriques de la barre du haut. */
+export const enBarre = (groupes: Groupe[]) => groupes.filter((g) => !g.horsBarre);
+
 /** Les réglages : l'entrée unique de la rubrique « Réglages ». */
-export const REGLAGES: Entree = GROUPES[GROUPES.length - 1].entrees[0];
+export const REGLAGES: Entree = GROUPES.find((g) => g.titre === "Réglages")!.entrees[0];
 
 /** La rubrique de la page courante (celle dont une page est active), « Accueil » à défaut. */
 export function groupeDe(chemin: string): Groupe {
