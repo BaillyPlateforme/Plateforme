@@ -266,7 +266,8 @@ const DEMO = (): FormState => ({
   prenom: "Camille", nom: "Durand", tel: "06 12 34 56 78", email: "camille.durand@email.fr",
   valeur_mobilier: "10 000 – 30 000 €", assurance: "standard", mutation_pro: "non", demenagement: "complet",
   articles_lourds: "non", charges_lourdes: [], piano: "non", periode: dateExemple(), periode_mode: "date",
-  depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "69003", ville: "Lyon", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
+  // Un départ en Île-de-France : la démonstration montre l'estimation (règle de Céline du 19/11/2026, lib/zone).
+  depart: { ...emptyAddress, adresse: "24 rue des Lilas", code_postal: "75019", ville: "Paris", etage: "3", surface: "65", ascenseur: "non", stationnement: "oui", portage_m: "15" },
   arrivee: { ...emptyAddress, adresse: "8 avenue Jean Jaurès", code_postal: "31000", ville: "Toulouse", etage: "1", surface: "70", ascenseur: "oui" },
   prestations: { fragile: "bailly", embNonFragile: "moi", debNonFragile: "moi", demontage: "bailly", transport: "moi" },
   volumeMode: "explicit", explicitVolume: "30",
@@ -504,7 +505,7 @@ function ExpressForm({
 
   /** Le raccourci de démonstration : tout le formulaire, rempli d'un exemple. */
   const remplir = () =>
-    setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Lyon", departCP: "69003", arriveeVille: "Toulouse", arriveeCP: "31000", dateMode: "date", date: dateExemple(), periode: "", volMode: "explicit", explicitVolume: "30" }));
+    setF((x) => ({ ...x, nom: "Camille Durand", email: "camille.durand@email.fr", tel: "06 12 34 56 78", departVille: "Paris", departCP: "75011", arriveeVille: "Toulouse", arriveeCP: "31000", dateMode: "date", date: dateExemple(), periode: "", volMode: "explicit", explicitVolume: "30" }));
 
   // Le même raccourci, déclenché par ?demo=1. Différé d'un tour : le premier
   // rendu doit être le même côté serveur et côté navigateur.

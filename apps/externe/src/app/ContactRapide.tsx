@@ -52,9 +52,9 @@ export default function ContactRapide({ parcours, d = 0 }: { parcours: Parcours;
   }
 
   return (
-    <form onSubmit={envoyer} className="reveal rounded-[22px] bg-brand px-5 py-4 text-sur-brand" style={style} aria-label="Être contacté(e) par un commercial">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-center gap-3 lg:flex-1">
+    <form onSubmit={envoyer} className="reveal @container rounded-[22px] bg-brand px-5 py-4 text-sur-brand" style={style} aria-label="Être contacté(e) par un commercial">
+      <div className="flex flex-col gap-3 @4xl:flex-row @4xl:items-center">
+        <div className="flex min-w-0 items-center gap-3 @4xl:flex-1">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1b1a18] text-brand-clair">
             <Icone nom="tel" taille={18} />
           </span>
@@ -63,14 +63,14 @@ export default function ContactRapide({ parcours, d = 0 }: { parcours: Parcours;
             <span className="mt-0.5 block text-[13px] leading-snug opacity-75">Nos bureaux sont ouverts du lundi au vendredi, de 8h à 18h.</span>
           </span>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 @xl:flex-row">
           <input
             value={nom}
             onChange={(e) => setNom(e.target.value)}
             placeholder="Votre nom (facultatif)"
             autoComplete="name"
             aria-label="Votre nom (facultatif)"
-            className="h-11 rounded-full border-0 bg-white px-4 text-[14.5px] text-ink outline-none ring-[#1b1a18] placeholder:text-ink-mid focus:ring-2 sm:w-48"
+            className="h-11 rounded-full border-0 bg-white px-4 text-[14.5px] text-ink outline-none ring-[#1b1a18] placeholder:text-ink-mid focus:ring-2 @xl:min-w-0 @xl:flex-1 @4xl:w-48 @4xl:flex-none"
           />
           <input
             value={telephone}
@@ -80,7 +80,7 @@ export default function ContactRapide({ parcours, d = 0 }: { parcours: Parcours;
             placeholder="Votre numéro de téléphone"
             autoComplete="tel"
             aria-label="Votre numéro de téléphone"
-            className="h-11 rounded-full border-0 bg-white px-4 text-[14.5px] text-ink outline-none ring-[#1b1a18] placeholder:text-ink-mid focus:ring-2 sm:w-56"
+            className="h-11 rounded-full border-0 bg-white px-4 text-[14.5px] text-ink outline-none ring-[#1b1a18] placeholder:text-ink-mid focus:ring-2 @xl:min-w-0 @xl:flex-1 @4xl:w-56 @4xl:flex-none"
           />
           <button
             type="submit"
