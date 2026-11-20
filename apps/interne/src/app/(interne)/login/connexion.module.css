@@ -422,3 +422,58 @@
     animation: none;
   }
 }
+
+/* ───────────── Mot de passe oublié : le lien à usage unique ───────────── */
+
+.oubli {
+  display: block;
+  width: fit-content;
+  margin: -6px 0 18px auto;
+  font-size: 13px;
+  font-weight: 650;
+  color: #3a22c4;
+  text-decoration: none;
+}
+.oubli:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.succes {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 13.5px;
+  line-height: 1.45;
+  animation: apparition 0.25s ease-out;
+}
+.succes svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+.note {
+  margin: 0 0 18px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #f5f3ff;
+  color: #4c4970;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.regle {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6b6886;
+}
+/* Le même bouton, quand c'est un lien (« Recevoir un nouveau lien »). */
+a.envoyer {
+  box-sizing: border-box;
+  text-decoration: none;
+}

@@ -113,6 +113,9 @@ export default function FormulaireConnexion({ cible, refus }: { cible: string; r
           </span>
         )}
       </label>
+      <a className={s.oubli} href="/login/mot-de-passe">
+        Mot de passe oublié ?
+      </a>
 
       <button type="submit" className={s.envoyer} disabled={envoi}>
         {envoi ? (

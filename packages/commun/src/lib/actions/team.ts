@@ -5,8 +5,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import { journaliserEquipe } from "@/lib/journal";
 import {
-  estRoleEquipe, membreConnecte, nombreSuperAdmins, peutGererSuperAdmin, porteSuperAdmin, type MembreEquipe,
+  estRoleAdmin, estRoleEquipe, membreConnecte, nombreSuperAdmins, peutGererSuperAdmin, porteSuperAdmin, type MembreEquipe,
 } from "@/lib/droits";
+import { emettreLienMotDePasse } from "@/lib/equipe/lien-mot-de-passe";
 
 // Chaque action revérifie la session : une action serveur peut être appelée
 // depuis n'importe quelle adresse de l'app, y compris celles que le proxy
@@ -97,6 +98,34 @@ export async function addMember(input: { email: string; nom: string; role: strin
     details: { nom: input.nom, email: input.email, role: input.role, compte_existant: !!error },
   });
   return { tempPassword: error ? null : tempPassword };
+}
+
+/**
+ * Le lien à usage unique pour qu'un membre choisisse son mot de passe
+ * (lib/equipe/lien-mot-de-passe.ts), rendu à l'admin qui le demande, sans
+ * rien envoyer : à transmettre de la main à la main (SMS, messagerie). Il sert
+ * en recette, où aucun e-mail ne part, et pour un nouveau venu. Réservé aux
+ * admins ; celui d'un super admin, aux super admins — le lien ouvre le compte.
+ */
+export async function lienMotDePasse(id: string): Promise<IssueEquipe & { lien?: string; pour?: string }> {
+  const moi = await exigerMembre();
+  if (!moi.actif || !estRoleAdmin(moi.role)) return { erreur: "Seul un admin peut fabriquer le lien d'un membre." };
+  const cible = await fiche(id);
+  if (!cible?.actif) return { erreur: "Ce membre n'est pas actif : réactivez-le d'abord." };
+  if (porteSuperAdmin(cible) && !porteSuperAdmin(moi)) return { erreur: "Seul un super admin peut fabriquer le lien d'un super admin." };
+  let lien: string;
+  try {
+    lien = await emettreLienMotDePasse(cible);
+  } catch (e) {
+    return { erreur: e instanceof Error ? e.message : "Le lien n'a pas pu être fabriqué." };
+  }
+  await journaliserEquipe({
+    action: "membre_equipe.lien_mot_de_passe",
+    libelle: `Lien pour choisir le mot de passe fabriqué pour ${cible.nom || cible.email}`,
+    objet: { type: "membre_equipe", id: cible.id },
+    details: { email: cible.email, demande: "écran L'équipe" },
+  });
+  return { lien, pour: cible.nom || cible.email };
 }
 
 export async function updateMember(id: string, fields: { nom?: string; role?: string; actif?: boolean }): Promise<IssueEquipe> {

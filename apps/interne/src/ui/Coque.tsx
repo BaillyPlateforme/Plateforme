@@ -346,6 +346,10 @@ function Compte({ utilisateur }: { utilisateur: Utilisateur }) {
           <Link href="/dashboard/equipe" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>
             <Icone nom="equipe" taille={17} /> L&apos;équipe
           </Link>
+          {/* Le mot de passe se change par un lien à usage unique, envoyé à l'adresse du compte (20/11/2026). */}
+          <Link href="/login/mot-de-passe" className={s.ligneMenu} role="menuitem" onClick={() => setOuvert(false)}>
+            <Icone nom="cadenas" taille={17} /> Changer mon mot de passe
+          </Link>
           <div className={s.filetMenu} />
           <form action={signOut}>
             <button type="submit" className={`${s.ligneMenu} ${s.danger}`} role="menuitem">

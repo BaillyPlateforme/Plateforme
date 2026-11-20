@@ -10,7 +10,11 @@
  *   rh         RH d'un grand compte (espace « carrefour ») ;
  *   client     rôle client, avec mot de passe — seulement pour vérifier les
  *              cloisons (le vrai client entre par un lien, voir parcours/) ;
- *   terrain    déménageur (crm.agents_terrain), identifiant « batterie.terrain ».
+ *   terrain    déménageur (crm.agents_terrain), identifiant « batterie.terrain » ;
+ *   motdepasse membre de l'équipe (agent) jetable, pour le lien « choisir son
+ *              mot de passe » : son mot de passe change et toutes ses sessions
+ *              se ferment pendant le test, ce que les autres comptes ne
+ *              supportent pas. Aucune session n'est préparée pour lui.
  *
  * Le nettoyage efface tout ce qui porte ces adresses — comptes, demandes,
  * envois journalisés, fiches du CRM, clients de l'espace client — et ne
@@ -38,6 +42,7 @@ export const SORTES = {
   rh: { email: emailDeTest("rh"), app_metadata: { role: "rh", espace_id: "carrefour" } },
   client: { email: emailDeTest("client"), app_metadata: { role: "client" } },
   terrain: { email: `${IDENTIFIANT_TERRAIN}@${DOMAINE_TERRAIN}`, app_metadata: { role: "terrain" } },
+  motdepasse: { email: emailDeTest("mot-de-passe"), app_metadata: {}, nom: "Batterie mot de passe" },
 };
 
 const FICHIER = path.join(ETAT, "comptes.json");
@@ -93,6 +98,11 @@ export async function preparerComptes() {
       `insert into public.team_members(id, email, nom, role, actif) values ($1, $2, $3, 'admin', true)
        on conflict (email) do update set id = excluded.id, nom = excluded.nom, role = 'admin', actif = true`,
       [resultat.equipe.id, SORTES.equipe.email, SORTES.equipe.nom],
+    );
+    await db.query(
+      `insert into public.team_members(id, email, nom, role, actif) values ($1, $2, $3, 'agent', true)
+       on conflict (email) do update set id = excluded.id, nom = excluded.nom, role = 'agent', actif = true`,
+      [resultat.motdepasse.id, SORTES.motdepasse.email, SORTES.motdepasse.nom],
     );
     await db.query(
       `insert into crm.agents_terrain(auth_id, identifiant, email, prenom, nom, equipe, actif, mdp_provisoire, demo, cree_par)

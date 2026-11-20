@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { TeamMemberRow } from "@/lib/types";
-import { addMember, updateMember, removeMember, type IssueEquipe } from "@/lib/actions/team";
-import { LIBELLES_ROLES, peutGererSuperAdmin, porteSuperAdmin, ROLES_EQUIPE } from "@/lib/roles-equipe";
+import { addMember, lienMotDePasse, updateMember, removeMember, type IssueEquipe } from "@/lib/actions/team";
+import { estRoleAdmin, LIBELLES_ROLES, peutGererSuperAdmin, porteSuperAdmin, ROLES_EQUIPE } from "@/lib/roles-equipe";
 
 type Etat = { role: string; actif: boolean } | null;
 
@@ -31,10 +31,40 @@ export default function EquipeClient({
   const [nom, setNom] = useState("");
   const [role, setRole] = useState("agent");
   const [flash, setFlash] = useState<{ ton: "ok" | "ko"; texte: string } | null>(null);
+  // Le lien à usage unique fabriqué pour un membre : montré une fois, à transmettre de la main à la main.
+  const [lienMdp, setLienMdp] = useState<{ pour: string; lien: string; copie: boolean } | null>(null);
 
   const moiEtat = moi ? { role: moi.role, actif: true } : null;
   const peutGerer = peutGererSuperAdmin(moiEtat, superAdminsActifs);
   const jeSuisSuperAdmin = porteSuperAdmin(moiEtat);
+  const jeSuisAdmin = estRoleAdmin(moi?.role);
+
+  /** Le même contrôle que le serveur pour le lien du mot de passe : le refus, ou null. */
+  function refusLien(m: TeamMemberRow): string | null {
+    if (!m.actif) return "Membre inactif : réactivez-le d'abord.";
+    if (porteSuperAdmin(m) && !jeSuisSuperAdmin) return "Seul un super admin peut fabriquer le lien d'un super admin.";
+    return null;
+  }
+
+  function fabriquerLien(m: TeamMemberRow) {
+    setFlash(null);
+    setLienMdp(null);
+    start(async () => {
+      const r = await lienMotDePasse(m.id);
+      if (r.erreur || !r.lien) setFlash({ ton: "ko", texte: r.erreur ?? "Le lien n'a pas pu être fabriqué." });
+      else setLienMdp({ pour: r.pour ?? m.email, lien: r.lien, copie: false });
+    });
+  }
+
+  async function copierLien() {
+    if (!lienMdp) return;
+    try {
+      await navigator.clipboard.writeText(lienMdp.lien);
+      setLienMdp({ ...lienMdp, copie: true });
+    } catch {
+      // Presse-papiers refusé : le lien reste sélectionnable dans le champ.
+    }
+  }
 
   /** Le même contrôle que le serveur : le refus, ou null. */
   function refus(avant: Etat, apres: Etat): string | null {
@@ -95,6 +125,31 @@ export default function EquipeClient({
         {flash && (
           <div role={flash.ton === "ko" ? "alert" : "status"} className={`rounded-xl px-4 py-2 text-sm ${flash.ton === "ko" ? "bg-red-50 text-red-700" : "bg-accent-soft/60 text-accent-dark"}`}>
             {flash.texte}
+          </div>
+        )}
+
+        {lienMdp && (
+          <div className="rounded-[18px] bg-card px-5 py-4 text-sm" data-lien-mot-de-passe>
+            <p className="font-medium">Lien pour que {lienMdp.pour} choisisse son mot de passe</p>
+            <p className="mt-1 text-ink-soft">
+              Valable une heure, il ne sert qu&apos;une fois et ouvre le compte : transmettez-le directement à la personne (SMS, messagerie). Il n&apos;est
+              gardé nulle part.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                readOnly
+                value={lienMdp.lien}
+                onFocus={(e) => e.currentTarget.select()}
+                aria-label="Lien à usage unique"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-paper px-3 py-2 font-mono text-xs outline-none focus:border-accent"
+              />
+              <button onClick={copierLien} className="rounded-xl bg-accent px-3 py-2 text-xs font-medium text-white transition hover:bg-accent-dark">
+                {lienMdp.copie ? "Copié" : "Copier"}
+              </button>
+              <button onClick={() => setLienMdp(null)} className="rounded-xl px-3 py-2 text-xs text-ink-soft transition hover:text-accent">
+                Fermer
+              </button>
+            </div>
           </div>
         )}
 
@@ -159,7 +214,17 @@ export default function EquipeClient({
                         {m.actif ? "Actif" : "Inactif"}
                       </button>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="space-x-3 whitespace-nowrap px-4 py-3 text-right">
+                      {jeSuisAdmin && (
+                        <button
+                          onClick={() => fabriquerLien(m)}
+                          disabled={pending || !!refusLien(m)}
+                          title={refusLien(m) ?? "Fabriquer un lien à usage unique pour que ce membre choisisse son mot de passe"}
+                          className="text-xs text-ink-soft transition hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Lien mot de passe
+                        </button>
+                      )}
                       <button
                         onClick={() => lancer(() => removeMember(m.id, m.email))}
                         disabled={pending || !!refusRetrait}
