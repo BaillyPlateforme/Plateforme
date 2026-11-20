@@ -200,6 +200,22 @@ test.describe("la tablette de visite technique", () => {
     }
   });
 
+  // David, 20/11/2026 : la tablette dans le menu des applications (les 9 points), en haut à droite du CRM.
+  test("depuis le CRM, le menu des applications mène à la tablette @lecture", async ({ browser }) => {
+    const ctx = await contexteEn(browser, "equipe");
+    const page = await ctx.newPage();
+    const s = surveiller(page);
+    await page.goto(INT + "/");
+    await page.getByRole("button", { name: "Applications Bailly" }).click();
+    const lien = page.getByRole("dialog", { name: "Applications Bailly" }).getByRole("link", { name: /Tablette/ });
+    await expect(lien).toHaveAttribute("href", "/tablette");
+    await lien.click();
+    await page.waitForURL((u) => u.pathname === "/tablette", { timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: /^Bonjour/ })).toBeVisible();
+    expect(s.bilan()).toEqual([]);
+    await ctx.close();
+  });
+
   test("sans session, la tablette mène à la connexion de l'équipe @lecture", async () => {
     const r = await requeteEn(null);
     for (const chemin of ["/tablette", "/tablette/1", "/tablette/1/signature"]) {

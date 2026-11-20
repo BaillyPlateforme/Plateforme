@@ -19,7 +19,7 @@ type App = {
   nom: string;
   sous: string;
   href: string;
-  ton: "crm" | "questionnaires" | "dossiers" | "client";
+  ton: "crm" | "questionnaires" | "dossiers" | "tablette" | "client";
   icone: ReactNode;
   externe?: boolean;
 };
@@ -65,6 +65,20 @@ const EQUIPE: App[] = [
         <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5z" />
         <circle cx="12" cy="13" r="2" />
         <path d="M8.5 18a3.5 3.5 0 0 1 7 0" />
+      </svg>
+    ),
+  },
+  // La visite technique chez le client (David, 20/11/2026 : « mets-la dans les 9 points »).
+  {
+    cle: "tablette",
+    nom: "Tablette",
+    sous: "Visite technique chez le client",
+    href: "/tablette",
+    ton: "tablette",
+    icone: (
+      <svg viewBox="0 0 24 24" {...trait}>
+        <rect x="4.5" y="2.5" width="15" height="19" rx="2.5" />
+        <path d="M11 18h2" />
       </svg>
     ),
   },
@@ -118,6 +132,7 @@ const CLIENTS: App[] = [
 
 /** L'app où l'on se trouve : le CRM partout, sauf dans l'espace équipe. */
 function appCourante(chemin: string) {
+  if (chemin.startsWith("/tablette")) return "tablette";
   if (chemin.startsWith("/dashboard/espace-client")) return "espace-client";
   if (chemin.startsWith("/dashboard")) return "questionnaires";
   return "crm";

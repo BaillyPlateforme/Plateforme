@@ -150,6 +150,10 @@
   color: #f5d033;
   box-shadow: 0 8px 18px -10px rgba(27, 26, 24, 0.9);
 }
+.tablette {
+  background: linear-gradient(140deg, #5eead4, #0f766e);
+  box-shadow: 0 8px 18px -10px rgba(15, 118, 110, 0.9);
+}
 .client {
   background: #f3f1f7;
   color: #3a3650;
