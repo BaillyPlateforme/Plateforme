@@ -11,7 +11,7 @@ import { AVEC_COMPTES, INT, comptes, contexteEn, expect, ipNeuve, requeteEn, sur
 test.describe("compte marketing : le suivi des leads, et rien d'autre", () => {
   test.skip(!AVEC_COMPTES, "comptes de test seulement en recette");
 
-  test("arrive sur /leads, en lecture seule, sans aucune coordonnée de client, export compris", async ({ browser }) => {
+  test("arrive sur /leads, en lecture seule, sans aucune coordonnée de client, export compris @lecture", async ({ browser }) => {
     // Les vraies coordonnées des leads de la recette, lues par l'équipe : aucune ne doit atteindre l'agence.
     const equipe = await requeteEn("equipe");
     const r = await equipe.get(INT + "/api/data/leads");
@@ -46,7 +46,7 @@ test.describe("compte marketing : le suivi des leads, et rien d'autre", () => {
     await ctx.close();
   });
 
-  test("toute autre page la ramène au suivi des leads, toute route API la refuse", async ({ browser }) => {
+  test("toute autre page la ramène au suivi des leads, toute route API la refuse @lecture", async ({ browser }) => {
     const ctx = await contexteEn(browser, "marketing");
     const page = await ctx.newPage();
     for (const chemin of ["/parcours", "/demandes?vue=leads", "/clients", "/dashboard/equipe", "/reglages", "/tablette", "/terrain"]) {
@@ -62,7 +62,7 @@ test.describe("compte marketing : le suivi des leads, et rien d'autre", () => {
     await api.dispose();
   });
 
-  test("se connecte par la page de l'équipe, arrive sur ses leads, et se déconnecte", async ({ browser }) => {
+  test("se connecte par la page de l'équipe, arrive sur ses leads, et se déconnecte @lecture", async ({ browser }) => {
     const compte = comptes().marketing;
     const ctx = await browser.newContext({ extraHTTPHeaders: { "X-Real-IP": ipNeuve() } });
     const page = await ctx.newPage();
@@ -83,7 +83,7 @@ test.describe("compte marketing : le suivi des leads, et rien d'autre", () => {
 test.describe("le suivi des leads de l'agence, vu par les autres comptes", () => {
   test.skip(!AVEC_COMPTES, "comptes de test seulement en recette");
 
-  test("un membre de l'équipe l'ouvre en aperçu ; un compte hors de l'équipe ou au rôle inconnu, non", async ({ browser }) => {
+  test("un membre de l'équipe l'ouvre en aperçu ; un compte hors de l'équipe ou au rôle inconnu, non @lecture", async ({ browser }) => {
     const ctx = await contexteEn(browser, "equipe");
     const page = await ctx.newPage();
     await page.goto(INT + "/leads");
@@ -101,7 +101,7 @@ test.describe("le suivi des leads de l'agence, vu par les autres comptes", () =>
   });
 });
 
-test("le suivi des leads de l'agence : sans session, la page mène à la connexion", async ({ browser }) => {
+test("le suivi des leads de l'agence : sans session, la page mène à la connexion @lecture", async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await page.goto(INT + "/leads");

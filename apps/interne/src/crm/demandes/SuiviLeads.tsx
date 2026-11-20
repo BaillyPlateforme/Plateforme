@@ -137,13 +137,14 @@ export default function SuiviLeads({
     <div className="space-y-5">
       {/* ── Les filtres ── */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-full bg-card p-1.5">
+        {/* Au téléphone, les périodes défilent sur une ligne au lieu de se couper en trois (« Ce / mois- / ci »). */}
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-card p-1.5">
           {PERIODES.map((p) => (
             <button
               key={p.key}
               type="button"
               onClick={() => setPeriode(p.key)}
-              className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition ${
+              className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition ${
                 periode === p.key ? "bg-nuit text-white" : "text-ink-mid hover:text-ink"
               }`}
             >
@@ -190,7 +191,7 @@ export default function SuiviLeads({
       {/* ── Le tableau ── */}
       <section className="overflow-hidden rounded-[18px] bg-card">
         <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <h2 className="text-[17px] font-semibold">
+          <h2 className="whitespace-nowrap text-[17px] font-semibold">
             {visibles.length} lead{visibles.length > 1 ? "s" : ""}
           </h2>
           <span className="text-[12px] text-ink-soft">
