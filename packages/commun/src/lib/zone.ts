@@ -4,14 +4,16 @@ import { departementDuCodePostal, enFrance, territoireDuCodePostal } from "./tra
  * La zone d'une demande (Céline, 19/11/2026) : « Le simulateur prend en
  * charge toutes les demandes dont les départements de départ ou d'arrivée
  * sont en Île-de-France. Pour les autres […] Demande envoyée ! Notre service
- * commercial traite votre demande et vous répond sous 48h ouvrées. »
+ * commercial traite votre demande et vous répond sous 48h ouvrées. » —
+ * passé à 24h ouvrées pour tout le monde le même jour (« mets tout le monde
+ * à 24h », sa réponse aux six questions).
  *
  * Module pur, partagé par le formulaire (l'écran) et le serveur (qui ne croit
  * pas l'écran sur parole : le prix ne part jamais au client hors zone).
  *
  * - Estimation en ligne : départ OU arrivée en Île-de-France, et les deux en
- *   France continentale. La Corse (traversée en ferry) n'a pas de prix en
- *   ligne tant que Bailly ne l'a pas décidé (question posée à Céline).
+ *   France continentale. La Corse n'a pas de prix en ligne (Céline,
+ *   19/11/2026 : « idem DOM TOM et inter »).
  * - Une adresse dont on ne connaît pas le code postal : pas de prix — on ne
  *   promet rien qu'on ne sait pas calculer.
  * - L'étiquette (mail à l'équipe, CRM) : la destination la plus lointaine du
@@ -63,7 +65,7 @@ export function estimationEnLigne(depart: AdresseZone | null | undefined, arrive
 /** Le libellé de la destination d'une demande, pour le mail à l'équipe. */
 export const libelleZone = (z: unknown) => (typeof z === "string" && z in LIBELLES_ZONE ? LIBELLES_ZONE[z as Zone] : "Non précisée");
 
-/** La réponse promise quand rien ne s'affiche à l'écran (les mots de Céline, 19/11/2026). */
-export const REPONSE_48H = "Notre service commercial traite votre demande et vous répond sous 48h ouvrées.";
+/** La réponse promise quand rien ne s'affiche à l'écran (les mots de Céline, 19/11/2026, avec ses 24h). */
+export const REPONSE_24H = "Notre service commercial traite votre demande et vous répond sous 24h ouvrées.";
 /** Les horaires, partout où l'on annonce un rappel (Céline, 19/11/2026). */
 export const HORAIRES_BUREAUX = "Pour toute question urgente, nos bureaux sont ouverts du lundi au vendredi, de 8h à 18h.";

@@ -5,7 +5,7 @@ import { varsAlerteDemande } from "@/lib/alerte-demande";
 /*
  * Règles du simulateur (mail de Céline du 19/11/2026) : l'estimation en ligne
  * seulement pour un départ ou une arrivée en Île-de-France ; ailleurs, « Notre
- * service commercial traite votre demande et vous répond sous 48h ouvrées » ;
+ * service commercial traite votre demande et vous répond sous 24h ouvrées » ;
  * et le mail à l'équipe dit de quelle bulle vient la demande et où elle va.
  */
 

@@ -437,11 +437,11 @@ function grandEcran(page: Page) {
 /*
  * Règles du simulateur (mail de Céline du 19/11/2026) : l'estimation en ligne
  * seulement pour un départ ou une arrivée en Île-de-France ; ailleurs, la
- * réponse du service commercial sous 48h ouvrées, annoncée dès les adresses ;
+ * réponse du service commercial sous 24h ouvrées, annoncée dès les adresses ;
  * et, en haut de chaque bulle, « Je souhaite être contacté(e) par un
  * commercial ».
  */
-test("particulier hors Île-de-France : pas de prix, la réponse sous 48h ouvrées, rappel inscrit", async ({ page, visiteur, db }) => {
+test("particulier hors Île-de-France : pas de prix, la réponse sous 24h ouvrées, rappel inscrit", async ({ page, visiteur, db }) => {
   exigerEcritures();
   const email = emailUnique("horszone");
   await ouvrirPorte(page, "express");
@@ -456,7 +456,7 @@ test("particulier hors Île-de-France : pas de prix, la réponse sous 48h ouvré
   await action(page, "Envoyer ma demande").click();
 
   await expect(page.getByRole("heading", { name: /Demande envoyée/ })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText("Notre service commercial traite votre demande et vous répond sous 48h ouvrées.")).toBeVisible();
+  await expect(page.getByText("Notre service commercial traite votre demande et vous répond sous 24h ouvrées.")).toBeVisible();
   await expect(page.getByText(/nos bureaux sont ouverts du lundi au vendredi, de 8h à 18h/)).toBeVisible();
   await expect(page.getByText("Total estimé")).toHaveCount(0);
 

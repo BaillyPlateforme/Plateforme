@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 import { Icone } from "./demande/ui";
-import { HORAIRES_BUREAUX, REPONSE_48H } from "@/lib/zone";
+import { HORAIRES_BUREAUX, REPONSE_24H } from "@/lib/zone";
 import type { Parcours } from "@/lib/parcours";
 
 /*
@@ -45,7 +45,7 @@ export default function ContactRapide({ parcours, d = 0 }: { parcours: Parcours;
           <Icone nom="check" taille={18} trait={2.6} />
         </span>
         <p className="text-[14.5px] leading-snug">
-          <b>Demande envoyée !</b> {REPONSE_48H} {HORAIRES_BUREAUX}
+          <b>Demande envoyée !</b> {REPONSE_24H} {HORAIRES_BUREAUX}
         </p>
       </div>
     );

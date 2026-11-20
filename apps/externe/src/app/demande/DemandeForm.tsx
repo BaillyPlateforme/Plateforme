@@ -26,7 +26,7 @@ import ChoixFormule, {
 import PhotoAnalyzer, { type LibraryPhoto } from "@/components/PhotoAnalyzer";
 import type { AnalyzedPhoto } from "@/components/PhotoAnalysisCard";
 import { InstantResult, Comparateur, Envoi } from "./QuoteTools";
-import { HORAIRES_BUREAUX, REPONSE_48H, estimationEnLigne, zoneAdresse } from "@/lib/zone";
+import { HORAIRES_BUREAUX, REPONSE_24H, estimationEnLigne, zoneAdresse } from "@/lib/zone";
 import { AddressInput, type Place } from "./AddressInput";
 import { BrandPanel, Bouton, Cadre, Enseigne, Erreur, Manque, Titre, delai, halo, type Marque } from "./cadre";
 import { useEtapesDansLHistorique } from "./historique";
@@ -599,7 +599,7 @@ function ExpressForm({
         count={doneCount}
         marque={marque}
         theme={theme}
-        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_48H : undefined}
+        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_24H : undefined}
       />
     );
   }
@@ -980,7 +980,7 @@ function CompleteForm({
         count={doneCount}
         marque={marque}
         theme={theme}
-        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_48H : undefined}
+        message={espace ? messageFinDe(espace) : horsZone ? REPONSE_24H : undefined}
       />
     );
   }
@@ -1985,11 +1985,11 @@ type Cote = "depart" | "arrivee";
 type RechercheVille = { ville: string; r: Recherche };
 
 const TEXTE_ETRANGER =
-  "Hors de France, la distance ne se calcule pas automatiquement : notre service commercial traite votre demande et vous répond sous 48h ouvrées.";
+  "Hors de France, la distance ne se calcule pas automatiquement : notre service commercial traite votre demande et vous répond sous 24h ouvrées.";
 
 /** Hors zone (lib/zone) : dit dès l'adresse d'arrivée, pour ne pas découvrir l'absence de prix au dernier écran. À valider par Céline. */
 const TEXTE_HORS_ZONE =
-  "Pour ce trajet, l'estimation n'est pas calculée en ligne : notre service commercial traite votre demande et vous répond sous 48h ouvrées.";
+  "Pour ce trajet, l'estimation n'est pas calculée en ligne : notre service commercial traite votre demande et vous répond sous 24h ouvrées.";
 
 /**
  * Une ville tapée sans être choisie dans la liste, que la base n'a pas su
@@ -2001,9 +2001,9 @@ function remarqueVille(recherche: RechercheVille | undefined, ville: string, sit
   if (situee || !recherche || recherche.ville !== ville || !ville.trim()) return null;
   const nom = ville.trim();
   if ("introuvable" in recherche.r)
-    return `Ville introuvable dans la liste des communes : « ${nom} ». Choisissez-la parmi les suggestions pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 48h ouvrées.`;
+    return `Ville introuvable dans la liste des communes : « ${nom} ». Choisissez-la parmi les suggestions pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 24h ouvrées.`;
   if ("homonymes" in recherche.r)
-    return `Plusieurs communes s'appellent « ${nom} » : choisissez la vôtre dans la liste pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 48h ouvrées.`;
+    return `Plusieurs communes s'appellent « ${nom} » : choisissez la vôtre dans la liste pour calculer la distance ; sinon, notre service commercial traite votre demande et vous répond sous 24h ouvrées.`;
   return null;
 }
 
@@ -2012,7 +2012,7 @@ function remarqueOutreMer(a: { code_postal?: string; lat?: number; lon?: number 
   const ta = territoire(a), tb = territoire(b);
   const outreMer = estOutreMer(a.code_postal) || estOutreMer(b.code_postal) || ta === "hors-metropole" || tb === "hors-metropole";
   return outreMer && ta !== tb
-    ? "Outre-mer : la distance ne se calcule pas par la route. Notre service commercial traite votre demande et vous répond sous 48h ouvrées."
+    ? "Outre-mer : la distance ne se calcule pas par la route. Notre service commercial traite votre demande et vous répond sous 24h ouvrées."
     : null;
 }
 
