@@ -54,10 +54,12 @@ export const CIBLES = {
     ecritures: false,
     ipForgeable: false,
   },
+  // Les domaines de Bailly depuis le 20/11/2026 (NEXT_PUBLIC_URL_* de la prod) ; les adresses
+  // bailly-plateforme / bailly-crm .up.railway.app répondent toujours, pour les liens déjà envoyés.
   prod: {
     nom: "prod",
-    externe: "https://bailly-plateforme.up.railway.app",
-    interne: "https://bailly-crm.up.railway.app",
+    externe: "https://espace.demenagements-bailly.com",
+    interne: "https://app.demenagements-bailly.com",
     base: "prod",
     ecritures: false,
     ipForgeable: false,
