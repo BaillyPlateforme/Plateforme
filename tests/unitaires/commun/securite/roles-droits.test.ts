@@ -72,14 +72,14 @@ describe("roles-equipe", () => {
 describe("roleDuCompte — un rôle inconnu n'ouvre rien", () => {
   it.each([
     [undefined, "equipe"], [null, "equipe"], [{}, "equipe"], [{ role: null }, "equipe"], [{ role: "" }, "equipe"],
-    [{ role: "rh" }, "rh"], [{ role: "client" }, "client"], [{ role: "terrain" }, "terrain"],
+    [{ role: "rh" }, "rh"], [{ role: "client" }, "client"], [{ role: "terrain" }, "terrain"], [{ role: "marketing" }, "marketing"],
   ])("%j → %s", (m, attendu) => {
     expect(roleDuCompte(m)).toBe(attendu);
   });
 
   it.each([
     { role: "RH" }, { role: " rh" }, { role: "rh " }, { role: "Client" }, { role: "equipe" }, { role: "admin" }, { role: "super_admin" },
-    { role: 0 }, { role: false }, { role: [] }, { role: ["rh"] }, { role: {} }, { role: "rh\u0000" }, { role: "rh​" }, { role: "rһ" },
+    { role: 0 }, { role: false }, { role: [] }, { role: ["rh"] }, { role: {} }, { role: "Marketing" }, { role: "marketing " }, { role: "rh\u0000" }, { role: "rh​" }, { role: "rһ" },
   ])("%j → inconnu", (m) => {
     expect(roleDuCompte(m)).toBe("inconnu");
     expect(estEquipe(m)).toBe(false);
@@ -89,6 +89,7 @@ describe("roleDuCompte — un rôle inconnu n'ouvre rien", () => {
     expect(estEquipe({})).toBe(true);
     expect(estEquipe({ role: "rh" })).toBe(false);
     expect(estEquipe({ role: "client" })).toBe(false);
+    expect(estEquipe({ role: "marketing" })).toBe(false);
   });
 });
 

@@ -5,6 +5,7 @@ import { membreParEmail, type MembreEquipe } from "@/lib/droits";
 import { bouton, echapper, mention, mettreEnPage, paragraphe, salutation } from "@/lib/email-layout";
 import { envoyerEmail, type ResultatEnvoi } from "@/lib/envois";
 import { ecrireJournal } from "@/lib/journal";
+import { compteMarketingParEmail, type CompteMarketing } from "@/lib/marketing";
 import { getSettings } from "@/lib/settings";
 import { createServiceClient } from "@/lib/supabase/server";
 import { roleDuCompte } from "@/lib/supabase/roles";
@@ -28,7 +29,9 @@ import { DUREE_LIEN_MIN, jetonValide, refusMotDePasse } from "./regles-mot-de-pa
  * le cas d'Outlook) brûleraient le lien, comme pour l'espace client.
  *
  * Seul un compte de l'équipe (sans rôle dans app_metadata, actif dans
- * team_members, même identifiant) peut recevoir ou servir ce lien. Le lien
+ * team_members, même identifiant) peut recevoir ou servir ce lien, ou, depuis
+ * le 20/11/2026, un compte « marketing » (une agence qui lit le suivi des
+ * leads, lib/marketing.ts) : jamais un client ni un RH. Le lien
  * part toujours à l'adresse de la fiche, jamais à une adresse fournie par la
  * requête, et il est construit sur NEXT_PUBLIC_URL_INTERNE, jamais sur l'hôte
  * de la requête : un en-tête Host forgé ne peut pas le détourner.
@@ -46,6 +49,17 @@ export async function emettreLienMotDePasse(membre: MembreEquipe): Promise<strin
   // Le lien doit ouvrir exactement le compte de la fiche, et un compte de l'équipe.
   if (data.user.id !== membre.id || roleDuCompte(data.user.app_metadata) !== "equipe") {
     throw new Error("Le lien émis ne correspond pas au compte de l'équipe.");
+  }
+  return versInterne(`/login/mot-de-passe/choisir?jeton=${encodeURIComponent(data.properties.hashed_token)}`);
+}
+
+/** Le lien de choix du mot de passe d'un compte marketing. Lève si le compte ne correspond pas. */
+async function emettreLienMarketing(compte: CompteMarketing): Promise<string> {
+  if (!URL_INTERNE) throw new Error("L'adresse du CRM n'est pas réglée (NEXT_PUBLIC_URL_INTERNE).");
+  const { data, error } = await createServiceClient().auth.admin.generateLink({ type: "recovery", email: compte.email });
+  if (error || !data?.properties?.hashed_token) throw new Error(`Émission du lien impossible : ${error?.message ?? "réponse vide"}`);
+  if (data.user.id !== compte.id || roleDuCompte(data.user.app_metadata) !== "marketing") {
+    throw new Error("Le lien émis ne correspond pas au compte marketing.");
   }
   return versInterne(`/login/mot-de-passe/choisir?jeton=${encodeURIComponent(data.properties.hashed_token)}`);
 }
@@ -82,13 +96,22 @@ export async function composerMail(membre: Pick<MembreEquipe, "nom" | "email">, 
  */
 export async function envoyerLienMotDePasse(email: string): Promise<ResultatEnvoi | null> {
   const membre = await membreParEmail(email);
-  if (!membre?.actif) return null;
-  const lien = await emettreLienMotDePasse(membre);
-  const m = await composerMail(membre, lien);
+  // Un compte de l'équipe d'abord ; sinon, un compte marketing. Le lien n'est émis qu'APRÈS avoir reconnu le
+  // compte : émettre un lien de récupération pour un client invaliderait son lien d'accès à l'espace client.
+  const titulaire = membre?.actif
+    ? { id: membre.id, email: membre.email, nom: membre.nom ?? "", type: "membre_equipe" as const, lien: () => emettreLienMotDePasse(membre) }
+    : await (async () => {
+        if (membre) return null;
+        const compte = await compteMarketingParEmail(email);
+        return compte ? { ...compte, type: "compte_marketing" as const, lien: () => emettreLienMarketing(compte) } : null;
+      })();
+  if (!titulaire) return null;
+  const lien = await titulaire.lien();
+  const m = await composerMail(titulaire, lien);
   const r = await envoyerEmail({
     origine: "crm",
     modele: "Équipe : choisir le mot de passe",
-    a: membre.email,
+    a: titulaire.email,
     sujet: m.sujet,
     html: m.html,
     texte: m.texte,
@@ -97,12 +120,12 @@ export async function envoyerLienMotDePasse(email: string): Promise<ResultatEnvo
   });
   await ecrireJournal(
     {
-      action: "membre_equipe.lien_mot_de_passe",
-      libelle: `Lien pour choisir le mot de passe envoyé à ${membre.nom || membre.email}`,
-      objet: { type: "membre_equipe", id: membre.id },
-      details: { email: membre.email, envoi: r.statut, demande: "page de connexion" },
+      action: `${titulaire.type}.lien_mot_de_passe`,
+      libelle: `Lien pour choisir le mot de passe envoyé à ${titulaire.nom || titulaire.email}`,
+      objet: { type: titulaire.type, id: titulaire.id },
+      details: { email: titulaire.email, envoi: r.statut, demande: "page de connexion" },
     },
-    { type: "staff", email: membre.email },
+    { type: "staff", email: titulaire.email },
   ).catch(() => undefined);
   return r;
 }
@@ -132,25 +155,34 @@ export async function choisirParLien(
 
   const service = createServiceClient();
   const fermer = () => service.auth.admin.signOut(data.session!.access_token, "global").catch(() => undefined);
-  const membre = roleDuCompte(data.user.app_metadata) === "equipe" ? await membreParEmail(data.user.email).catch(() => null) : null;
-  if (!membre?.actif || membre.id !== data.user.id) {
+  // Le compte du lien : un membre actif de l'équipe, ou un compte marketing — même identifiant, sinon rien.
+  const role = roleDuCompte(data.user.app_metadata);
+  const membre = role === "equipe" ? await membreParEmail(data.user.email).catch(() => null) : null;
+  const compte = role === "marketing" ? await compteMarketingParEmail(data.user.email).catch(() => null) : null;
+  const titulaire =
+    membre?.actif && membre.id === data.user.id
+      ? { id: membre.id, email: membre.email, nom: membre.nom ?? "", type: "membre_equipe" }
+      : compte && compte.id === data.user.id
+        ? { ...compte, type: "compte_marketing" }
+        : null;
+  if (!titulaire) {
     await fermer();
     return { ok: false, erreur: LIEN_INVALIDE, lienPerdu: true };
   }
-  const { error: refus } = await service.auth.admin.updateUserById(membre.id, { password: nouveau });
+  const { error: refus } = await service.auth.admin.updateUserById(titulaire.id, { password: nouveau });
   await fermer();
   if (refus) return { ok: false, erreur: `Le mot de passe n'a pas été accepté (${refus.message}). Ce lien a servi : demandez-en un nouveau.`, lienPerdu: true };
 
   await ecrireJournal(
     {
-      action: "membre_equipe.mot_de_passe",
-      libelle: `Mot de passe choisi par ${membre.nom || membre.email}`,
-      objet: { type: "membre_equipe", id: membre.id },
-      details: { email: membre.email, par: "lien à usage unique" },
+      action: `${titulaire.type}.mot_de_passe`,
+      libelle: `Mot de passe choisi par ${titulaire.nom || titulaire.email}`,
+      objet: { type: titulaire.type, id: titulaire.id },
+      details: { email: titulaire.email, par: "lien à usage unique" },
     },
-    { type: "staff", email: membre.email },
+    { type: "staff", email: titulaire.email },
   ).catch(() => undefined);
-  return { ok: true, email: membre.email };
+  return { ok: true, email: titulaire.email };
 }
 
 export { DUREE_LIEN_MIN, LIEN_INVALIDE };

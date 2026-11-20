@@ -20,6 +20,8 @@ import { estMembreEquipe } from "@/lib/supabase/equipe";
  * revérifient le compte et son état (src/terrain/lib/acces.ts).
  */
 const CONNEXION_TERRAIN = "/terrain/connexion";
+/** La seule page d'un compte « marketing » (une agence de Bailly) : le suivi des leads, sans les coordonnées des clients. */
+const LEADS = "/leads";
 const estTerrain = (c: string) => c === "/terrain" || c.startsWith("/terrain/") || c.startsWith("/api/terrain/");
 
 export async function proxy(request: NextRequest) {
@@ -36,6 +38,14 @@ export async function proxy(request: NextRequest) {
     if (estTerrain(s.chemin)) return s.reponse();
     if (s.api) return NextResponse.json({ error: "Accès réservé à l'équipe" }, { status: 403 });
     return s.vers("/terrain");
+  }
+
+  // Une agence de marketing (lib/marketing.ts) : le suivi des leads anonymisé, en lecture seule, et rien d'autre.
+  // Ni route API ni autre page : toute autre adresse la ramène à /leads. La page revérifie le compte elle-même.
+  if (s.role === "marketing") {
+    if (s.chemin === LEADS) return s.reponse();
+    if (s.api) return NextResponse.json({ error: "Accès réservé à l'équipe" }, { status: 403 });
+    return s.vers(LEADS);
   }
 
   if (s.role === "rh" || s.role === "client") {

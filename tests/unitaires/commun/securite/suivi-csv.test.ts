@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SUIVI_VIDE, versCsv, type Lead } from "@/lib/suivi-commun";
+import { anonymiser, libelleDuLead, SUIVI_VIDE, versCsv, type Lead } from "@/lib/suivi-commun";
 
 /*
  * L'export CSV du suivi des leads (suivi-commun.ts, versCsv) : une cellule
@@ -123,5 +123,54 @@ describe("versCsv — l'injection de formules", () => {
       expect(lignes, JSON.stringify(charge)).toHaveLength(2);
       expect(lignes.flat().filter(formule), JSON.stringify(charge)).toEqual([]);
     }
+  });
+});
+
+/*
+ * Le suivi des leads d'une agence de marketing (compte « marketing », page
+ * /leads, 20/11/2026) : rien qui désigne le client, ni dans les données qui
+ * partent au navigateur, ni dans l'export.
+ */
+describe("anonymiser — ce qui part au navigateur d'une agence", () => {
+  const complet = lead({
+    societe: "Société Exemple",
+    espace_nom: "Carrefour",
+    suivi: { ...SUIVI_VIDE, statut: "commande", ca_realise: 3_200, note: "Client difficile, rappeler sa femme", par: "celine@example.com" },
+  });
+
+  it("efface nom, e-mail, téléphone, société, espace pro, note et auteur ; garde le reste", () => {
+    const a = anonymiser(complet);
+    expect([a.client_nom, a.client_email, a.client_tel, a.societe, a.espace_nom, a.suivi.note, a.suivi.par]).toEqual([null, null, null, null, null, null, null]);
+    expect(a).toMatchObject({ id: "r-1", depart_ville: "Paris", arrivee_ville: "Lyon", volume_m3: 30, suivi: { statut: "commande", ca_realise: 3_200 } });
+    const texte = JSON.stringify(a);
+    for (const secret of ["Jean Dupont", "jean@exemple.fr", "06 12 34 56 78", "Société Exemple", "Carrefour", "rappeler", "celine@"]) expect(texte).not.toContain(secret);
+  });
+
+  it("une demande d'avant les trois portes, rattachée à un espace pro, reste une mutation", () => {
+    const ancienne = lead({ parcours: null, espace_nom: "Carrefour" });
+    expect(libelleDuLead(ancienne)).toBe("Mutation");
+    expect(libelleDuLead(anonymiser(ancienne))).toBe("Mutation");
+  });
+
+  it("ne touche pas au lead de l'équipe", () => {
+    anonymiser(complet);
+    expect(complet.client_nom).toBe("Jean Dupont");
+    expect(complet.suivi.note).toContain("rappeler");
+  });
+});
+
+describe("versCsv anonyme — l'export d'une agence", () => {
+  it("sans les colonnes du client : 9 colonnes, aucune coordonnée", () => {
+    const csv = versCsv([lead({ societe: "Société Exemple", suivi: { ...SUIVI_VIDE, statut: "devis", ca_attente: 1_500, note: "secret" } })], { anonyme: true });
+    const [entete, ligne] = relire(csv);
+    expect(entete).toEqual(["Date d'entrée", "Parcours", "Mutation", "Priorité", "Ville de départ", "Ville d'arrivée", "Statut", "CA en attente", "CA réalisé"]);
+    expect(ligne).toHaveLength(9);
+    expect(ligne[7]).toBe("1500");
+    for (const secret of ["Jean Dupont", "jean@exemple.fr", "06 12 34", "Société Exemple", "secret"]) expect(csv).not.toContain(secret);
+  });
+
+  it("l'export de l'équipe garde ses 14 colonnes", () => {
+    expect(relire(versCsv([lead()]))[0]).toHaveLength(14);
+    expect(relire(versCsv([lead()], { anonyme: false }))[0]).toHaveLength(14);
   });
 });

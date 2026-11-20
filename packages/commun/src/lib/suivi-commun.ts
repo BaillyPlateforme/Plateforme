@@ -69,6 +69,28 @@ export type Lead = {
 export const parcoursDuLead = (l: Lead): Parcours => parcoursDeLaDemande(l);
 export const libelleDuLead = (l: Lead) => libelleParcours(l);
 
+/**
+ * Le lead sans rien qui désigne le client, pour une agence de marketing
+ * (compte « marketing », lib/marketing.ts) : ni nom, ni e-mail, ni téléphone,
+ * ni société, ni espace pro, ni la note de l'équipe, ni son auteur. Restent la
+ * date, le parcours, les villes, le volume, le statut et les montants. Le
+ * parcours est figé avant d'effacer l'espace pro, qui en décide pour les
+ * demandes d'avant les trois portes. À faire côté serveur : ce qui part au
+ * navigateur ne doit jamais avoir porté les coordonnées.
+ */
+export function anonymiser(l: Lead): Lead {
+  return {
+    ...l,
+    parcours: parcoursDuLead(l),
+    client_nom: null,
+    client_email: null,
+    client_tel: null,
+    societe: null,
+    espace_nom: null,
+    suivi: { ...l.suivi, note: null, par: null },
+  };
+}
+
 /** Une mutation, au sens du tableau de Margaux : le parcours dédié, ou une demande d'avant qui s'en déclarait une. */
 export const estMutation = (l: Lead) => parcoursDuLead(l) === "mutation";
 
@@ -130,8 +152,11 @@ export function indicateurs(leads: Lead[]): Indicateurs {
   };
 }
 
-/** Le tableau en CSV, pour Excel ou Google Sheets : point-virgule, BOM, montants en virgule. */
-export function versCsv(leads: Lead[]): string {
+/**
+ * Le tableau en CSV, pour Excel ou Google Sheets : point-virgule, BOM, montants en virgule. `anonyme` : sans les
+ * colonnes qui désignent le client (nom, téléphone, e-mail, société, note), pour une agence de marketing.
+ */
+export function versCsv(leads: Lead[], { anonyme = false }: { anonyme?: boolean } = {}): string {
   const cellule = (v: string | number | null | undefined) => {
     const brut = v == null ? "" : typeof v === "number" ? String(v).replace(".", ",") : v;
     // Un texte qui commence par = + - @ serait une formule pour Excel (=HYPERLINK(…) saisi dans le
@@ -142,30 +167,26 @@ export function versCsv(leads: Lead[]): string {
     return /[";\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const statut = (s: StatutLead) => STATUTS.find((x) => x.key === s)?.label ?? s;
-  const entetes = [
-    "Date d'entrée", "Parcours", "Nom", "Téléphone", "E-mail", "Mutation", "Priorité",
-    "Ville de départ", "Ville d'arrivée", "Société", "Statut", "CA en attente", "CA réalisé", "Note",
+  type Valeur = string | number | null | undefined;
+  // [titre, valeur, désigne le client ?]
+  const colonnes: [string, (l: Lead) => Valeur, boolean][] = [
+    // Le jour de Paris : le serveur tourne en temps universel, une demande de 23 h 30 changeait de jour.
+    ["Date d'entrée", (l) => new Date(l.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }), false],
+    ["Parcours", (l) => libelleDuLead(l), false],
+    ["Nom", (l) => l.client_nom, true],
+    ["Téléphone", (l) => l.client_tel, true],
+    ["E-mail", (l) => l.client_email, true],
+    ["Mutation", (l) => (estMutation(l) ? "Oui" : "Non"), false],
+    ["Priorité", (l) => (estPrioritaire(l) ? "Oui" : "Non"), false],
+    ["Ville de départ", (l) => l.depart_ville, false],
+    ["Ville d'arrivée", (l) => l.arrivee_ville, false],
+    ["Société", (l) => l.societe ?? l.espace_nom, true],
+    ["Statut", (l) => statut(l.suivi.statut), false],
+    ["CA en attente", (l) => l.suivi.ca_attente, false],
+    ["CA réalisé", (l) => l.suivi.ca_realise, false],
+    ["Note", (l) => l.suivi.note, true],
   ];
-  const lignes = leads.map((l) =>
-    [
-      // Le jour de Paris : le serveur tourne en temps universel, une demande de 23 h 30 changeait de jour.
-      new Date(l.created_at).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }),
-      libelleDuLead(l),
-      l.client_nom,
-      l.client_tel,
-      l.client_email,
-      estMutation(l) ? "Oui" : "Non",
-      estPrioritaire(l) ? "Oui" : "Non",
-      l.depart_ville,
-      l.arrivee_ville,
-      l.societe ?? l.espace_nom,
-      statut(l.suivi.statut),
-      l.suivi.ca_attente,
-      l.suivi.ca_realise,
-      l.suivi.note,
-    ]
-      .map(cellule)
-      .join(";"),
-  );
-  return "﻿" + [entetes.join(";"), ...lignes].join("\n");
+  const gardees = colonnes.filter(([, , designe]) => !(anonyme && designe));
+  const lignes = leads.map((l) => gardees.map(([, valeur]) => cellule(valeur(l))).join(";"));
+  return "﻿" + [gardees.map(([titre]) => titre).join(";"), ...lignes].join("\n");
 }

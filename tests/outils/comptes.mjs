@@ -14,7 +14,9 @@
  *   motdepasse membre de l'équipe (agent) jetable, pour le lien « choisir son
  *              mot de passe » : son mot de passe change et toutes ses sessions
  *              se ferment pendant le test, ce que les autres comptes ne
- *              supportent pas. Aucune session n'est préparée pour lui.
+ *              supportent pas. Aucune session n'est préparée pour lui ;
+ *   marketing  une agence de marketing (rôle « marketing ») : n'ouvre que le
+ *              suivi des leads anonymisé (/leads).
  *
  * Le nettoyage efface tout ce qui porte ces adresses — comptes, demandes,
  * envois journalisés, fiches du CRM, clients de l'espace client — et ne
@@ -43,6 +45,7 @@ export const SORTES = {
   client: { email: emailDeTest("client"), app_metadata: { role: "client" } },
   terrain: { email: `${IDENTIFIANT_TERRAIN}@${DOMAINE_TERRAIN}`, app_metadata: { role: "terrain" } },
   motdepasse: { email: emailDeTest("mot-de-passe"), app_metadata: {}, nom: "Batterie mot de passe" },
+  marketing: { email: emailDeTest("marketing"), app_metadata: { role: "marketing" } },
 };
 
 const FICHIER = path.join(ETAT, "comptes.json");

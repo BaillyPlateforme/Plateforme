@@ -1,12 +1,15 @@
 /*
- * Les quatre sortes de comptes de la même authentification Supabase :
+ * Les cinq sortes de comptes de la même authentification Supabase :
  *
  *   - l'équipe Bailly : les comptes historiques, sans rôle dans app_metadata ;
  *   - les RH des entreprises clientes : role = "rh", rattachés à un espace pro ;
  *   - les clients de l'espace client : role = "client", sans mot de passe,
  *     créés par le serveur au premier lien d'accès ;
  *   - les déménageurs : role = "terrain", créés par l'équipe depuis la page
- *     Déménageurs du CRM, qui n'ouvrent que l'outil terrain (/terrain).
+ *     Déménageurs du CRM, qui n'ouvrent que l'outil terrain (/terrain) ;
+ *   - les agences de marketing de Bailly (Noiise, le 20/11/2026) : role =
+ *     "marketing", qui n'ouvrent que le suivi des leads en lecture seule, sans
+ *     les coordonnées des clients (/leads, lib/marketing.ts).
  *
  * app_metadata ne s'écrit qu'avec la clé de service : un compte ne peut pas
  * se donner lui-même un autre rôle. Est « équipe » un compte SANS rôle : un
@@ -15,7 +18,7 @@
  * `roleDuCompte(…) === "equipe"`, jamais sur l'exclusion d'un seul rôle.
  */
 
-export type RoleCompte = "equipe" | "rh" | "client" | "terrain" | "inconnu";
+export type RoleCompte = "equipe" | "rh" | "client" | "terrain" | "marketing" | "inconnu";
 
 export function roleDuCompte(appMetadata: unknown): RoleCompte {
   const role = (appMetadata as { role?: unknown } | null | undefined)?.role;
@@ -23,6 +26,7 @@ export function roleDuCompte(appMetadata: unknown): RoleCompte {
   if (role === "rh") return "rh";
   if (role === "client") return "client";
   if (role === "terrain") return "terrain";
+  if (role === "marketing") return "marketing";
   return "inconnu";
 }
 

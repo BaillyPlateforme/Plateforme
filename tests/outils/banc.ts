@@ -8,7 +8,7 @@ import { test as base, expect, request as fabriqueRequetes, type APIRequestConte
 import { ETAT, cible as lireCible, emailDeTest } from "./config.mjs";
 import { secrets } from "./serveurs.mjs";
 
-export type Sorte = "equipe" | "intrus" | "inconnu" | "rh" | "client" | "terrain";
+export type Sorte = "equipe" | "intrus" | "inconnu" | "rh" | "client" | "terrain" | "marketing";
 export const SORTES: Sorte[] = ["equipe", "intrus", "inconnu", "rh", "client", "terrain"];
 
 export const C = lireCible();

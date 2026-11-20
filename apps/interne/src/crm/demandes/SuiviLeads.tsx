@@ -72,8 +72,20 @@ const COULEUR: Record<Parcours, string> = {
   entreprise: "var(--color-nuit)",
 };
 
-/** `aujourdhui` : le jour de Paris (AAAA-MM-JJ), lu par le serveur, le même pour son rendu et celui du navigateur. */
-export default function SuiviLeads({ leads: initiaux, aujourdhui }: { leads: Lead[]; aujourdhui: string }) {
+/**
+ * `aujourdhui` : le jour de Paris (AAAA-MM-JJ), lu par le serveur, le même pour son rendu et celui du navigateur.
+ * `lectureSeule` : la page d'une agence de marketing (/leads) — des leads déjà anonymisés par le serveur, rien à
+ * saisir, pas de fiche à ouvrir, un export sans les colonnes du client.
+ */
+export default function SuiviLeads({
+  leads: initiaux,
+  aujourdhui,
+  lectureSeule = false,
+}: {
+  leads: Lead[];
+  aujourdhui: string;
+  lectureSeule?: boolean;
+}) {
   const [leads, setLeads] = useState(initiaux);
   const [periode, setPeriode] = useState<Periode>("tout");
   const [parcours, setParcours] = useState<Parcours | "tous">("tous");
@@ -113,7 +125,7 @@ export default function SuiviLeads({ leads: initiaux, aujourdhui }: { leads: Lea
   }
 
   function exporter() {
-    const blob = new Blob([versCsv(visibles)], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([versCsv(visibles, { anonyme: lectureSeule })], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `suivi-leads-${jourParis(new Date())}.csv`;
@@ -162,7 +174,7 @@ export default function SuiviLeads({ leads: initiaux, aujourdhui }: { leads: Lea
         <input
           value={recherche}
           onChange={(e) => setRecherche(e.target.value)}
-          placeholder="Nom, ville, société…"
+          placeholder={lectureSeule ? "Ville…" : "Nom, ville, société…"}
           className="h-10 min-w-[200px] flex-1 rounded-full border border-line bg-card px-4 text-[13px] text-ink outline-none focus:border-ink"
         />
         <button
@@ -181,33 +193,39 @@ export default function SuiviLeads({ leads: initiaux, aujourdhui }: { leads: Lea
           <h2 className="text-[17px] font-semibold">
             {visibles.length} lead{visibles.length > 1 ? "s" : ""}
           </h2>
-          <span className="text-[12px] text-ink-soft">Statut et montants s&apos;enregistrent dès la saisie.</span>
+          <span className="text-[12px] text-ink-soft">
+            {lectureSeule ? "Lecture seule : l'équipe Bailly tient à jour le statut et les montants." : "Statut et montants s'enregistrent dès la saisie."}
+          </span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1060px] text-left text-[13px]">
+          <table className={`w-full ${lectureSeule ? "min-w-[860px]" : "min-w-[1060px]"} text-left text-[13px]`}>
             <thead>
               <tr className="border-y border-line bg-subtle/60 text-[11px] uppercase tracking-wider text-ink-soft">
                 <th className="px-5 py-3 font-semibold">Entrée</th>
                 <th className="px-3 py-3 font-semibold">Parcours</th>
-                <th className="px-3 py-3 font-semibold">Contact</th>
+                {!lectureSeule && <th className="px-3 py-3 font-semibold">Contact</th>}
                 <th className="px-3 py-3 font-semibold">Mutation</th>
                 <th className="px-3 py-3 font-semibold">Priorité</th>
                 <th className="px-3 py-3 font-semibold">Trajet</th>
                 <th className="px-3 py-3 font-semibold">Statut</th>
                 <th className="px-3 py-3 text-right font-semibold">CA en attente</th>
-                <th className="px-3 py-3 text-right font-semibold">CA réalisé</th>
-                <th className="px-5 py-3" />
+                <th className={`${lectureSeule ? "pl-3 pr-5" : "px-3"} py-3 text-right font-semibold`}>CA réalisé</th>
+                {!lectureSeule && <th className="px-5 py-3" />}
               </tr>
             </thead>
             <tbody>
               {visibles.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-5 py-12 text-center text-ink-soft">Aucun lead pour ces filtres.</td>
+                  <td colSpan={lectureSeule ? 8 : 10} className="px-5 py-12 text-center text-ink-soft">Aucun lead pour ces filtres.</td>
                 </tr>
               )}
-              {visibles.map((l) => (
-                <LigneLead key={l.id} lead={l} etat={etat[l.id]} onModifier={(m) => enregistrer(l.id, m)} />
-              ))}
+              {visibles.map((l) =>
+                lectureSeule ? (
+                  <LigneLue key={l.id} lead={l} />
+                ) : (
+                  <LigneLead key={l.id} lead={l} etat={etat[l.id]} onModifier={(m) => enregistrer(l.id, m)} />
+                ),
+              )}
             </tbody>
           </table>
         </div>
@@ -334,6 +352,49 @@ function LigneLead({
           Fiche
         </Link>
       </td>
+    </tr>
+  );
+}
+
+/** Une ligne en lecture seule (agence de marketing) : ni contact, ni saisie, ni lien vers la fiche. */
+function LigneLue({ lead: l }: { lead: Lead }) {
+  const p = parcoursDuLead(l);
+  const libelle = STATUTS.find((s) => s.key === l.suivi.statut)?.label ?? l.suivi.statut;
+  const montant = (v: number | null) => (v == null ? <span className="text-ink-soft">—</span> : eur(v));
+  return (
+    <tr className="border-b border-line/70 align-middle">
+      <td className="whitespace-nowrap px-5 py-3 tnum text-ink-mid">{jour.format(new Date(l.created_at))}</td>
+      <td className="px-3 py-3">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-subtle px-2.5 py-1 text-[11.5px] font-medium">
+          <span className="h-2 w-2 rounded-full" style={{ background: COULEUR[p] }} />
+          {libelleDuLead(l)}
+        </span>
+      </td>
+      <td className="px-3 py-3">{estMutation(l) ? <Pastille oui>Oui</Pastille> : <Pastille>Non</Pastille>}</td>
+      <td className="px-3 py-3">{estPrioritaire(l) ? <Pastille oui>Oui</Pastille> : <Pastille>Non</Pastille>}</td>
+      <td className="px-3 py-3">
+        <div className="min-w-[140px] max-w-[220px] text-ink">
+          {l.depart_ville || "—"} <span className="text-ink-soft">→</span> {l.arrivee_ville || "—"}
+        </div>
+        {toucheParis(l) && <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">Paris</div>}
+      </td>
+      <td className="px-3 py-3">
+        <span
+          className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1.5 text-[12.5px] font-medium ${
+            l.suivi.statut === "commande"
+              ? "border-good/40 bg-good-soft text-good"
+              : l.suivi.statut === "devis"
+                ? "border-brand bg-brand-soft text-brand-ink"
+                : l.suivi.statut === "perdu"
+                  ? "border-line bg-subtle text-ink-soft"
+                  : "border-line bg-card text-ink"
+          }`}
+        >
+          {libelle}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-3 text-right tnum">{montant(l.suivi.ca_attente)}</td>
+      <td className="whitespace-nowrap py-3 pl-3 pr-5 text-right tnum">{montant(l.suivi.ca_realise)}</td>
     </tr>
   );
 }

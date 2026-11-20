@@ -19,6 +19,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 const membres = vi.hoisted(() => ({ membreParEmail: vi.fn() }));
 vi.mock("@/lib/droits", () => membres);
+const marketing = vi.hoisted(() => ({ compteMarketingParEmail: vi.fn() }));
+vi.mock("@/lib/marketing", () => marketing);
 const journal = vi.hoisted(() => ({ ecrireJournal: vi.fn(async () => undefined) }));
 vi.mock("@/lib/journal", () => journal);
 const envois = vi.hoisted(() => ({ envoyerEmail: vi.fn(async () => ({ statut: "journalise" })) }));
@@ -30,12 +32,14 @@ import { choisirParLien, emettreLienMotDePasse, envoyerLienMotDePasse, LIEN_INVA
 import { jetonValide, refusMotDePasse } from "@/lib/equipe/regles-mot-de-passe";
 
 const CELINE = { id: "uid-celine", email: "celine@example.com", nom: "Céline Exemple", role: "admin", actif: true };
+const AGENCE = { id: "uid-agence", email: "seo@agence.example.com", nom: "Agence" };
 const JETON = "ab".repeat(28);
 const BON = "Un-Bon-Mot-De-Passe-42";
 
 beforeEach(() => {
   for (const f of Object.values(sb)) f.mockReset();
   membres.membreParEmail.mockReset().mockResolvedValue(CELINE);
+  marketing.compteMarketingParEmail.mockReset().mockResolvedValue(null);
   journal.ecrireJournal.mockClear();
   envois.envoyerEmail.mockClear();
   sb.verifyOtp.mockResolvedValue({ data: { user: { id: CELINE.id, email: CELINE.email, app_metadata: {} }, session: { access_token: "jwt-du-lien" } }, error: null });
@@ -139,5 +143,68 @@ describe("la consommation du lien", () => {
     expect(r).toMatchObject({ ok: false, lienPerdu: true });
     expect(r.ok === false && r.erreur).toMatch(/weak.*nouveau/);
     expect(sb.signOut).toHaveBeenCalled();
+  });
+});
+
+describe("un compte marketing (une agence qui lit le suivi des leads, 20/11/2026)", () => {
+  const lienAgence = () =>
+    sb.generateLink.mockResolvedValueOnce({ data: { user: { id: AGENCE.id, app_metadata: { role: "marketing" } }, properties: { hashed_token: JETON } }, error: null });
+
+  it("reçoit le lien à l'adresse de son compte, et le journal le dit", async () => {
+    membres.membreParEmail.mockResolvedValueOnce(null);
+    marketing.compteMarketingParEmail.mockResolvedValueOnce(AGENCE);
+    lienAgence();
+    await envoyerLienMotDePasse(" SEO@agence.example.com ");
+    expect(sb.generateLink).toHaveBeenCalledWith({ type: "recovery", email: AGENCE.email });
+    const m = (envois.envoyerEmail.mock.calls as unknown as [{ a: string; suivi: boolean; html: string }][])[0][0];
+    expect(m.a).toBe(AGENCE.email);
+    expect(m.suivi).toBe(false);
+    expect(m.html).toContain(`jeton=${JETON}`);
+    expect(journal.ecrireJournal).toHaveBeenCalledWith(expect.objectContaining({ action: "compte_marketing.lien_mot_de_passe" }), expect.anything());
+  });
+
+  it("aucun lien émis sans compte reconnu AVANT : ni pour un client, ni pour un membre désactivé", async () => {
+    // Personne : ni fiche de l'équipe, ni compte marketing (un client, un RH…) — pas même un lien émis puis jeté,
+    // qui invaliderait le lien d'accès d'un client à son espace.
+    membres.membreParEmail.mockResolvedValueOnce(null);
+    expect(await envoyerLienMotDePasse("client@example.com")).toBeNull();
+    // Une fiche de l'équipe désactivée ne retombe pas sur un compte marketing.
+    membres.membreParEmail.mockResolvedValueOnce({ ...CELINE, actif: false });
+    expect(await envoyerLienMotDePasse(CELINE.email)).toBeNull();
+    expect(marketing.compteMarketingParEmail).toHaveBeenCalledTimes(1);
+    expect(sb.generateLink).not.toHaveBeenCalled();
+    expect(envois.envoyerEmail).not.toHaveBeenCalled();
+  });
+
+  it("refuse un lien qui n'ouvrirait pas exactement ce compte marketing", async () => {
+    membres.membreParEmail.mockResolvedValue(null);
+    marketing.compteMarketingParEmail.mockResolvedValue(AGENCE);
+    sb.generateLink.mockResolvedValueOnce({ data: { user: { id: AGENCE.id, app_metadata: { role: "client" } }, properties: { hashed_token: JETON } }, error: null });
+    await expect(envoyerLienMotDePasse(AGENCE.email)).rejects.toThrow(/ne correspond pas/);
+    sb.generateLink.mockResolvedValueOnce({ data: { user: { id: "un-autre", app_metadata: { role: "marketing" } }, properties: { hashed_token: JETON } }, error: null });
+    await expect(envoyerLienMotDePasse(AGENCE.email)).rejects.toThrow(/ne correspond pas/);
+    expect(envois.envoyerEmail).not.toHaveBeenCalled();
+  });
+
+  it("choisit son mot de passe par le lien ; un autre compte du même rôle ne le peut pas", async () => {
+    const lienOuvert = () =>
+      sb.verifyOtp.mockResolvedValueOnce({
+        data: { user: { id: AGENCE.id, email: AGENCE.email, app_metadata: { role: "marketing" } }, session: { access_token: "jwt-du-lien" } },
+        error: null,
+      });
+    lienOuvert();
+    marketing.compteMarketingParEmail.mockResolvedValueOnce(AGENCE);
+    expect(await choisirParLien(JETON, BON, BON)).toEqual({ ok: true, email: AGENCE.email });
+    expect(sb.updateUserById).toHaveBeenCalledWith(AGENCE.id, { password: BON });
+    expect(journal.ecrireJournal).toHaveBeenCalledWith(expect.objectContaining({ action: "compte_marketing.mot_de_passe" }), expect.anything());
+
+    sb.updateUserById.mockClear();
+    lienOuvert();
+    marketing.compteMarketingParEmail.mockResolvedValueOnce({ ...AGENCE, id: "une-autre-agence" });
+    expect(await choisirParLien(JETON, BON, BON)).toEqual({ ok: false, erreur: LIEN_INVALIDE, lienPerdu: true });
+    lienOuvert();
+    // Compte supprimé ou suspendu entre-temps : plus de compte marketing à cette adresse.
+    expect(await choisirParLien(JETON, BON, BON)).toEqual({ ok: false, erreur: LIEN_INVALIDE, lienPerdu: true });
+    expect(sb.updateUserById).not.toHaveBeenCalled();
   });
 });
